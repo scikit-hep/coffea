@@ -18,7 +18,6 @@ class UpDownSystematic(Systematic):
 
         self["__systematics__", f"__{name}__"] = varying_function(
             *(whatarray, *args), **kwargs
-        )
 
     def describe_variations(self):
         """Show the map of variation names to indices."""

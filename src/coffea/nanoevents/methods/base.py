@@ -140,16 +140,19 @@ class Systematic:
         if what == "weight" and "__ones__" not in awkward.fields(
             flat["__systematics__"]
         ):
-            flat["__systematics__", "__ones__"] = numpy.ones(
-                len(flat), dtype=numpy.float32
-            )
+            fields = awkward.fields(flat["__systematics__"])
+            as_dict = {field: flat["__systematics__", field] for field in fields}
+            as_dict["__ones__"] = numpy.ones(len(flat), dtype=numpy.float32)
+            flat["__systematics__"] = awkward.zip(as_dict, depth_limit=1)
 
         rendered_type = flat.layout.parameters["__record__"]
         as_syst_type = awkward.with_parameter(flat, "__record__", kind)
         as_syst_type._build_variations(name, what, varying_function)
         variations = as_syst_type.describe_variations()
 
-        flat["__systematics__", name] = awkward.zip(
+        fields = awkward.fields(flat["__systematics__"])
+        as_dict = {field: flat["__systematics__", field] for field in fields}
+        as_dict[name] = awkward.zip(
             {
                 v: getattr(as_syst_type, v)(name, what, rendered_type)
                 for v in variations
@@ -157,6 +160,7 @@ class Systematic:
             depth_limit=1,
             with_name=f"{name}Systematics",
         )
+        flat["__systematics__"] = awkward.zip(as_dict, depth_limit=1)
 
         self["__systematics__"] = wrap(flat["__systematics__"])
         self.behavior[("__typestr__", f"{name}Systematics")] = f"{kind}"
