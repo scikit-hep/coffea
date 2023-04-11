@@ -102,6 +102,7 @@ class Systematic:
         kind: str,
         what: Union[str, list[str], tuple[str]],
         varying_function: Callable,
+        _dask_array_=None,
     ):
         """
         Add a systematic to the nanoevents object's `systematics` field, with field name `name`, of kind `kind` (must be registered
@@ -118,6 +119,21 @@ class Systematic:
             varying_function: Union[function, bound method]
                 A function that describes how 'what' is varied, it must close over all non-event-data arguments.
         """
+        if _dask_array_ is not None:
+            print("self", repr(self))
+            print("name", name)
+            print("kind", kind)
+            print("what", repr(what))
+            print("vf  ", varying_function)
+            print("da  ", _dask_array_, type(_dask_array_))
+            _dask_array_.map_partitions(
+                _ClassMethodFn("add_systematic"),
+                name,
+                kind,
+                what,
+                varying_function,
+            )
+
         self._ensure_systematics()
 
         if name in awkward.fields(self["__systematics__"]):
