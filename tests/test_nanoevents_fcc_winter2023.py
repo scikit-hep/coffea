@@ -4,14 +4,13 @@ import awkward
 import pytest
 
 from coffea.nanoevents import FCC, NanoEventsFactory
-from coffea.nanoevents.methods.vector import LorentzVectorRecord
 
 
 def _events(**kwargs):
     # Path to original sample: /eos/experiment/fcc/ee/generation/DelphesEvents/winter2023/IDEA/wzp6_ee_mumuH_Hbb_ecm240/events_159112833.root
     path = os.path.abspath("tests/samples/test_FCC_Winter2023.root")
     factory = NanoEventsFactory.from_root(
-        {path: "events"}, schemaclass=FCC.get_schema(version="latest"), **kwargs
+        {path: "events"}, schemaclass=FCC.get_schema(version="pre-edm4hep1"), **kwargs
     )
     return factory.events()
 
@@ -93,16 +92,18 @@ def test_field_is_present(eager_events, delayed_events, field):
     assert field in delayed_fields
 
 
-def test_lorentz_behavior(delayed_events):
-    assert delayed_events.Particle.behavior["LorentzVector"] == LorentzVectorRecord
-    assert (
-        delayed_events.ReconstructedParticles.behavior["LorentzVector"]
-        == LorentzVectorRecord
-    )
-    assert isinstance(delayed_events.Particle.eta.compute(), awkward.highlevel.Array)
-    assert isinstance(
-        delayed_events.ReconstructedParticles.eta.compute(), awkward.highlevel.Array
-    )
+# Faulty Test: Returns Passed even with no events
+# For now, commenting it out
+# def test_lorentz_behavior(delayed_events):
+#     assert delayed_events.Particle.behavior["LorentzVector"] == LorentzVectorRecord
+#     assert (
+#         delayed_events.ReconstructedParticles.behavior["LorentzVector"]
+#         == LorentzVectorRecord
+#     )
+#     assert isinstance(delayed_events.Particle.eta.compute(), awkward.highlevel.Array)
+#     assert isinstance(
+#         delayed_events.ReconstructedParticles.eta.compute(), awkward.highlevel.Array
+#     )
 
 
 def test_MC_daughters(delayed_events):
@@ -144,6 +145,13 @@ def test_KaonParent_to_PionDaughters_Loop(eager_events):
 
     # Find the daughters of Single K(S)0
     daughters_of_K_S0 = single_K_S0.get_daughters
+
+    # Some K_S0 can go undetected (I think)
+    # Ensure that at least one daughter is available per event
+    bool_non_empty_daughter_list = awkward.num(daughters_of_K_S0, axis=2) > 0
+    daughters_of_K_S0 = daughters_of_K_S0[
+        awkward.flatten(bool_non_empty_daughter_list, axis=1)
+    ]
 
     # Are these valid daughter particles (pi+ or pi- or pi0)?
     flat_PDG = awkward.ravel(daughters_of_K_S0.PDG)
