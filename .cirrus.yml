@@ -31,3 +31,4 @@ task:
       pytest_script: |
         . ../venv/bin/activate
         pytest tests
+  
