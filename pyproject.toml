@@ -7,7 +7,7 @@ name = "coffea"
 description = "Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis."
 readme = "README.rst"
 license = {text = "BSD-3-Clause"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
   { name = "Lindsey Gray", email = "lagray@fnal.gov" },
   { name = "Nick Smith", email = "ncsmith@fnal.gov" },
