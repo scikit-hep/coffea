@@ -190,17 +190,14 @@ Issue: {message}."""
 
 # re-nest a record array into a ListArray
 def awkward_rewrap(arr, like_what, gfunc):
-    behavior = awkward._util.behaviorof(like_what)
     func = partial(gfunc, data=arr.layout)
-    layout = awkward.operations.convert.to_layout(like_what)
-    newlayout = awkward._util.recursively_apply(layout, func)
-    return awkward._util.wrap(newlayout, behavior=behavior)
+    return awkward.transform(func, like_what, behavior=like_what.behavior)
 
 
 # we're gonna assume that the first record array we encounter is the flattened data
-def rewrap_recordarray(layout, depth, data):
-    if isinstance(layout, awkward.layout.RecordArray):
-        return lambda: data
+def rewrap_recordarray(layout, depth, data, **kwargs):
+    if isinstance(layout, awkward.contents.RecordArray):
+        return data
     return None
 
 
