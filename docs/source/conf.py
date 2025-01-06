@@ -83,7 +83,7 @@ def linkcode_resolve(domain, info):
     except TypeError:
         # skip property or other type that inspect doesn't like
         return None
-    return "http://github.com/CoffeaTeam/coffea/blob/{}/{}#L{}".format(
+    return "http://github.com/scikit-hep/coffea/blob/{}/{}#L{}".format(
         githash, relpath, lineno
     )
 

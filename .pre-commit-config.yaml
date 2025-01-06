@@ -37,7 +37,7 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.19.0
+  rev: v3.19.1
   hooks:
   - id: pyupgrade
     args: ["--py38-plus"]
@@ -48,7 +48,7 @@ repos:
   - id: setup-cfg-fmt
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.8.1
+  rev: v0.8.4
   hooks:
   - id: ruff
     args: [--fix, --show-fixes]
