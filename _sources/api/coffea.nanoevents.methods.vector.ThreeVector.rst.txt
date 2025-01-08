@@ -1,0 +1,53 @@
+ThreeVector
+===========
+
+.. currentmodule:: coffea.nanoevents.methods.vector
+
+.. autoclass:: ThreeVector
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~ThreeVector.p
+      ~ThreeVector.p2
+      ~ThreeVector.pz
+      ~ThreeVector.rho
+      ~ThreeVector.rho2
+      ~ThreeVector.theta
+      ~ThreeVector.unit
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~ThreeVector.absolute
+      ~ThreeVector.add
+      ~ThreeVector.cross
+      ~ThreeVector.dot
+      ~ThreeVector.multiply
+      ~ThreeVector.negative
+      ~ThreeVector.subtract
+      ~ThreeVector.sum
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: p
+   .. autoattribute:: p2
+   .. autoattribute:: pz
+   .. autoattribute:: rho
+   .. autoattribute:: rho2
+   .. autoattribute:: theta
+   .. autoattribute:: unit
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: absolute
+   .. automethod:: add
+   .. automethod:: cross
+   .. automethod:: dot
+   .. automethod:: multiply
+   .. automethod:: negative
+   .. automethod:: subtract
+   .. automethod:: sum

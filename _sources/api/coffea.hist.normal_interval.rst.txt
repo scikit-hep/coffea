@@ -1,0 +1,6 @@
+normal_interval
+===============
+
+.. currentmodule:: coffea.hist
+
+.. autofunction:: normal_interval

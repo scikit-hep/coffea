@@ -1,0 +1,37 @@
+ParslExecutor
+=============
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: ParslExecutor
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~ParslExecutor.config
+      ~ParslExecutor.jobs_executors
+      ~ParslExecutor.merges_executors
+      ~ParslExecutor.merging
+      ~ParslExecutor.recoverable
+      ~ParslExecutor.tailtimeout
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~ParslExecutor.__call__
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: config
+   .. autoattribute:: jobs_executors
+   .. autoattribute:: merges_executors
+   .. autoattribute:: merging
+   .. autoattribute:: recoverable
+   .. autoattribute:: tailtimeout
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__
