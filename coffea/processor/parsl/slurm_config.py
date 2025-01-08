@@ -4,7 +4,6 @@ import os.path as osp
 
 import parsl
 from parsl.providers import SlurmProvider
-from parsl.channels import LocalChannel
 from parsl.launchers import SrunLauncher
 from parsl.config import Config
 from parsl.executors import HighThroughputExecutor
@@ -56,7 +55,6 @@ def slurm_config(
                 address=address_by_hostname(),
                 prefetch_capacity=0,
                 provider=SlurmProvider(
-                    channel=LocalChannel(),
                     launcher=SrunLauncher(),
                     init_blocks=initial_workers,
                     max_blocks=max_workers,
