@@ -10,6 +10,16 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.12"
+  apt_packages:
+    - graphviz
+  jobs:
+    post_checkout:
+      - 'sed s/docs\\\/source\\\/// -i.bak README.rst'
+      - diff README.rst.bak README.rst || true
+    post_install:
+      - python -m pip install '.[dev]' rucio-clients
+    pre_build:
+      - cd docs && sphinx-autogen source/reference.rst -t source/_templates -o source/modules && cd ../
     # You can also specify other tool versions:
     # nodejs: "19"
     # rust: "1.64"
@@ -17,7 +27,7 @@ build:
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
-  configuration: docs/conf.py
+  configuration: docs/source/conf.py
 
 # Optionally build your docs in additional formats such as PDF and ePub
 # formats:

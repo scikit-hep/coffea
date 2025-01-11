@@ -65,7 +65,7 @@ def test_lumidata():
     "jsonfile",
     [
         "tests/samples/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt",
-        "https://raw.githubusercontent.com/CoffeaTeam/coffea/master/tests/samples/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt",
+        "https://raw.githubusercontent.com/scikit-hep/coffea/master/tests/samples/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt",
     ],
 )
 def test_lumimask(jsonfile):

@@ -2,9 +2,9 @@
 
 #### **Did you find a bug?**
 
-* **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/CoffeaTeam/coffea/issues).
+* **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/scikit-hep/coffea/issues).
 
-* If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/CoffeaTeam/coffea/issues/new). Be sure to include a **title and clear description**, as much relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
+* If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/scikit-hep/coffea/issues/new). Be sure to include a **title and clear description**, as much relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
 
 #### **Do you want to write a patch that fixes a bug?**
 
@@ -22,11 +22,11 @@ Changes that are cosmetic in nature and do not add anything substantial to the s
 
 #### **Do you intend to add a new feature or change an existing one?**
 
-* Suggest your change either in a new GitHub feature request [issue](https://github.com/CoffeaTeam/coffea/issues) or in the [Discussions](https://github.com/CoffeaTeam/coffea/discussions) section!
+* Suggest your change either in a new GitHub feature request [issue](https://github.com/scikit-hep/coffea/issues) or in the [Discussions](https://github.com/scikit-hep/coffea/discussions) section!
 
 #### **Do you have questions about the source code?**
 
-* Ask any question about how to use coffea in the [coffea iris-hep slack channel](https://iris-hep.slack.com) or in the [Discussions](https://github.com/CoffeaTeam/coffea/discussions) section.
+* Ask any question about how to use coffea in the [coffea iris-hep slack channel](https://iris-hep.slack.com) or in the [Discussions](https://github.com/scikit-hep/coffea/discussions) section.
 
 #### **Do you want to contribute to the coffea documentation?**
 

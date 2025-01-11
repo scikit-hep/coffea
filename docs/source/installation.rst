@@ -6,7 +6,7 @@ Installing coffea
 Quick start
 -----------
 To try coffea now, without installing anything, you can experiment with our
-`hosted tutorial notebooks <https://mybinder.org/v2/gh/CoffeaTeam/coffea/master?filepath=binder/>`_.
+`hosted tutorial notebooks <https://mybinder.org/v2/gh/scikit-hep/coffea/master?filepath=binder/>`_.
 
 Platform support
 ----------------
@@ -196,7 +196,7 @@ For Developers
 
   .. code-block:: bash
 
-    git clone https://github.com/CoffeaTeam/coffea
+    git clone https://github.com/scikit-hep/coffea
 
 2. Install with development dependencies:
 

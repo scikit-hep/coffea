@@ -180,7 +180,7 @@ class TreeMakerSchema(BaseSchema):
         Converting a TreeMakerSchema event into something that is uproot
         writeable. Based off the discussion thread here [1], but added specific
         cased to handled the nested structures define for TreeMaker n-tuples.
-        [1] https://github.com/CoffeaTeam/coffea/discussions/735
+        [1] https://github.com/scikit-hep/coffea/discussions/735
 
         Parameters
         ----------

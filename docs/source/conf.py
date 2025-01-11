@@ -32,7 +32,7 @@ version = coffea.__version__.rsplit(".", 1)[0]
 release = coffea.__version__
 githash = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("ascii")
 
-language = None
+language = "en"
 
 # -- General configuration ---------------------------------------------------
 
@@ -45,6 +45,7 @@ extensions = [
     "nbsphinx",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.graphviz",
     "sphinx.ext.intersphinx",
     "sphinx.ext.linkcode",
     "sphinx.ext.napoleon",
@@ -82,7 +83,7 @@ def linkcode_resolve(domain, info):
     except TypeError:
         # skip property or other type that inspect doesn't like
         return None
-    return "http://github.com/CoffeaTeam/coffea/blob/{}/{}#L{}".format(
+    return "http://github.com/scikit-hep/coffea/blob/{}/{}#L{}".format(
         githash, relpath, lineno
     )
 

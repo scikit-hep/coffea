@@ -62,7 +62,7 @@ jobs:
 
     - name: Set python test settings
       run: |
-        echo "INSTALL_EXTRAS='[dev,parsl,dask,servicex]'" >> $GITHUB_ENV
+        echo "INSTALL_EXTRAS='[dev,parsl,dask]'" >> $GITHUB_ENV
 
     - name: Install uv
       run: python -m pip install --upgrade uv
@@ -115,7 +115,7 @@ jobs:
         python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine
     - name: Upload codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.12
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
     - name: Install graphviz
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.12
       uses: ts-graphviz/setup-graphviz@v2
@@ -127,14 +127,14 @@ jobs:
       run: |
         cd docs && make html
         touch build/html/.nojekyll
-    - name: Deploy documentation
-      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.python-version == 3.12
-      uses: crazy-max/ghaction-github-pages@v4
-      with:
-        target_branch: gh-pages
-        build_dir: docs/build/html
-      env:
-        GH_PAT: ${{ secrets.GITHUB_OAUTH }}
+    # - name: Deploy documentation
+    #   if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.python-version == 3.12
+    #   uses: crazy-max/ghaction-github-pages@v4
+    #   with:
+    #     target_branch: gh-pages
+    #     build_dir: docs/build/html
+    #   env:
+    #     GH_PAT: ${{ secrets.GITHUB_OAUTH }}
 
   test-vine:
     runs-on: ubuntu-latest
@@ -158,7 +158,7 @@ jobs:
       run: |
         conda create --yes --prefix ./coffea-conda-test-env -c conda-forge python=${{ matrix.python-version }} ndcctools uv
         conda activate ./coffea-conda-test-env
-        uv pip install --system .
+        uv pip install --system . 'dask<2024.12.0'
         uv pip install --system pytest
     - name: Test with pytest
       run: |
@@ -210,11 +210,11 @@ jobs:
     - name: Verify the distribution
       run: pipx run twine check --strict dist/*
     - name: Generate artifact attestation for sdist and wheel
-      uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
+      uses: actions/attest-build-provenance@7668571508540a607bdfd90a87a560489fe372eb # v2.1.0
       with:
         subject-path: "dist/coffea-*"
     - name: Publish package to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.10.3
+      uses: pypa/gh-action-pypi-publish@v1.12.3
       with:
         user: __token__
         password: ${{ secrets.PYPI_TOKEN }}

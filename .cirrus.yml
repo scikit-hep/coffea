@@ -11,7 +11,7 @@ task:
         cpu: 2
         memory: 7G
         matrix:
-          - image: python:3.8
+          - image: python:3.9
           - image: python:3.12
 
       create_venv_script: |
