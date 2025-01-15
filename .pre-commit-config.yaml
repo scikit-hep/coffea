@@ -58,4 +58,4 @@ repos:
   rev: v2.3.0
   hooks:
   - id: codespell
-    args: ["--skip=*.ipynb,*.svg","-L hist,Hist,nd,SubJet,subjet,Subjet,PTD,ptd,fPt,fpt,Ser,ser,hda"]
+    args: ["--skip=*.ipynb,*.svg,*.yaml","-L hist,Hist,nd,SubJet,subjet,Subjet,PTD,ptd,fPt,fpt,Ser,ser,hda"]
