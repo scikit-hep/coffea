@@ -7,26 +7,21 @@ from coffea.nanoevents import FCC, NanoEventsFactory
 
 
 def _events(**kwargs):
-    # Path to original sample: /eos/experiment/fcc/ee/generation/DelphesEvents/winter2023/IDEA/wzp6_ee_mumuH_Hbb_ecm240/events_159112833.root
-    path = os.path.abspath("tests/samples/test_FCC_Winter2023.root")
+    path = os.path.abspath("tests/samples/p8_ee_WW_ecm240_edm4hep.root")
     factory = NanoEventsFactory.from_root(
-        {path: "events"}, schemaclass=FCC.get_schema(version="pre-edm4hep1"), **kwargs
+        {path: "events"}, schemaclass=FCC.get_schema(version="edm4hep1"), **kwargs
     )
     return factory.events()
 
 
 @pytest.fixture(scope="module")
 def eager_events():
-    return _events(
-        delayed=False, uproot_options={"filter_name": lambda x: "PARAMETERS" not in x}
-    )
+    return _events(delayed=False)
 
 
 @pytest.fixture(scope="module")
 def delayed_events():
-    return _events(
-        delayed=True, uproot_options={"filter_name": lambda x: "PARAMETERS" not in x}
-    )
+    return _events(delayed=True)
 
 
 @pytest.mark.parametrize(
@@ -34,55 +29,32 @@ def delayed_events():
     [
         "CalorimeterHits",
         "EFlowNeutralHadron",
-        "EFlowNeutralHadron_0",
-        "EFlowNeutralHadron_1",
-        "EFlowNeutralHadronidx0",
-        "EFlowNeutralHadronidx1",
-        "EFlowNeutralHadronidx2",
         "EFlowPhoton",
-        "EFlowPhoton_0",
-        "EFlowPhoton_1",
-        "EFlowPhotonidx0",
-        "EFlowPhotonidx1",
-        "EFlowPhotonidx2",
         "EFlowTrack",
-        "EFlowTrack_0",
-        "EFlowTrack_1",
-        "EFlowTrack_2",
-        "EFlowTrackidx0",
-        "EFlowTrackidx1",
-        "Electronidx0",
+        "EFlowTrack_L",
+        "EFlowTrack_dNdx",
+        "Electron_IsolationVar",
+        "Electron_objIdx",
+        "EventHeader",
+        "GPDoubleKeys",
+        "GPDoubleValues",
+        "GPFloatKeys",
+        "GPFloatValues",
+        "GPIntKeys",
+        "GPIntValues",
+        "GPStringKeys",
+        "GPStringValues",
         "Jet",
-        "Jetidx0",
-        "Jetidx1",
-        "Jetidx2",
-        "Jetidx3",
-        "Jetidx4",
-        "Jetidx5",
         "MCRecoAssociations",
-        "MissingET",
-        "MissingETidx0",
-        "MissingETidx1",
-        "MissingETidx2",
-        "MissingETidx3",
-        "MissingETidx4",
-        "MissingETidx5",
-        "Muonidx0",
+        "Muon_IsolationVar",
+        "Muon_objIdx",
         "Particle",
         "ParticleIDs",
-        "ParticleIDs_0",
-        "Particleidx0",
-        "Particleidx1",
-        "Photonidx0",
+        "Photon_IsolationVar",
+        "Photon_objIdx",
         "ReconstructedParticles",
-        "ReconstructedParticlesidx0",
-        "ReconstructedParticlesidx1",
-        "ReconstructedParticlesidx2",
-        "ReconstructedParticlesidx3",
-        "ReconstructedParticlesidx4",
-        "ReconstructedParticlesidx5",
         "TrackerHits",
-        "TrackerHits_0",
+        "magFieldBz",
     ],
 )
 def test_field_is_present(eager_events, delayed_events, field):
@@ -92,40 +64,24 @@ def test_field_is_present(eager_events, delayed_events, field):
     assert field in delayed_fields
 
 
-# Faulty Test: Returns Passed even with no events
-# For now, commenting it out
-# def test_lorentz_behavior(delayed_events):
-#     assert delayed_events.Particle.behavior["LorentzVector"] == LorentzVectorRecord
-#     assert (
-#         delayed_events.ReconstructedParticles.behavior["LorentzVector"]
-#         == LorentzVectorRecord
-#     )
-#     assert isinstance(delayed_events.Particle.eta.compute(), awkward.highlevel.Array)
-#     assert isinstance(
-#         delayed_events.ReconstructedParticles.eta.compute(), awkward.highlevel.Array
-#     )
-
-
 def test_MC_daughters(delayed_events):
-    d = delayed_events.Particle.get_daughters.compute()
+    d = delayed_events.Particle.Map_Relation("daughters", "Particle").compute()
     assert isinstance(d, awkward.highlevel.Array)
     assert d.layout.branch_depth[1] == 3
 
 
 def test_MC_parents(delayed_events):
-    p = delayed_events.Particle.get_parents.compute()
+    p = delayed_events.Particle.Map_Relation("parents", "Particle").compute()
     assert isinstance(p, awkward.highlevel.Array)
     assert p.layout.branch_depth[1] == 3
 
 
-def test_MCRecoAssociations(delayed_events):
-    mr = delayed_events.MCRecoAssociations.reco_mc.compute()
-    assert isinstance(mr, awkward.highlevel.Array)
-    assert mr.layout.branch_depth[1] == 3
+# Todo: Add Link tests
+#
 
 
 def test_KaonParent_to_PionDaughters_Loop(eager_events):
-    """Test to thoroughly check get_parents and get_daughters
+    """Test to thoroughly check parents and daughters
     - We look at the decay of Kaon $K_S^0 \\rightarrow pions $
     - Two decay modes:
         $$ K_S^0 \\rightarrow \\pi^0 + \\pi^0 $$
@@ -144,7 +100,7 @@ def test_KaonParent_to_PionDaughters_Loop(eager_events):
     # The Kaon K(S)0 must have only pions as the daughters
 
     # Find the daughters of Single K(S)0
-    daughters_of_K_S0 = single_K_S0.get_daughters
+    daughters_of_K_S0 = single_K_S0.Map_Relation("daughters", "Particle")
 
     # Some K_S0 can go undetected (I think)
     # Ensure that at least one daughter is available per event
@@ -169,7 +125,7 @@ def test_KaonParent_to_PionDaughters_Loop(eager_events):
     # Parent Test
     # These pion daughters, just generated, must point back to the single parent K(S)0
 
-    p = daughters_of_K_S0.get_parents
+    p = daughters_of_K_S0.Map_Relation("parents", "Particle")
 
     # Do the daughters have a single parent?
     nested_bool_daughter = awkward.num(p, axis=3) == 1
