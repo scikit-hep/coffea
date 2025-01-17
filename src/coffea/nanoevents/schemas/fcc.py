@@ -4,6 +4,7 @@ import re
 from coffea.nanoevents import transforms
 from coffea.nanoevents.methods import vector
 from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
+from coffea.nanoevents.schemas.edm4hep import EDM4HEPSchema
 from coffea.nanoevents.util import concat
 
 # Collection Regex #
@@ -594,17 +595,68 @@ class FCCSchema(BaseSchema):
         return behavior
 
 
+class FCCSchema_edm4hep1(EDM4HEPSchema):
+    """
+    Schema-builder for Future Circular Collider pregenerated samples.
+    https://fcc-physics-events.web.cern.ch/
+
+    This schema supports FCC samples produced with edm4hep version >= 1. It inherits
+    from the EDM4HEPSchema and adds a few more functionality.
+
+    For more info, check EDM4HEPSchema
+    """
+
+    _datatype_mixins = {
+        "CalorimeterHits": "CalorimeterHit",
+        "EFlowNeutralHadron": "Cluster",
+        "EFlowPhoton": "Cluster",
+        "EFlowTrack": "Track",
+        "EFlowTrack_dNdx": "RecDqdx",
+        "Electron_objIdx": "ObjectID",
+        "EventHeader": "EventHeader",
+        "Jet": "ReconstructedParticle",
+        "MCRecoAssociations": "RecoMCParticleLink",
+        "Muon_objIdx": "ObjectID",
+        "Particle": "MCParticle",
+        "ParticleIDs": "ParticleID",
+        "Photon_objIdx": "ObjectID",
+        "ReconstructedParticles": "ReconstructedParticle",
+        "TrackerHits": "TrackerHit3D",
+    }
+
+    copy_links_to_target_datatype = True
+
+    # Which collection to match if there are multiple matching collections for a given datatype
+    _datatype_priority = {"ReconstructedParticle": "ReconstructedParticles"}
+
+    @classmethod
+    def behavior(cls):
+        """Behaviors necessary to implement this schema"""
+        from coffea.nanoevents.methods import base, fcc
+
+        behavior = {}
+        behavior.update(base.behavior)
+        behavior.update(vector.behavior)
+        behavior.update(fcc.behavior_edm4hep1)
+        return behavior
+
+
 class FCC:
     """
     Class to choose the required variant of FCCSchema
     Example: from coffea.nanoevents import FCC
              FCC.get_schema(version='latest')
+             latest --> FCCSchema_edm4hep1
+             pre-edm4hep1 --> FCCSchema
+             edm4hep1 --> FCCSchema_edm4hep1
 
-    Note: For now, only one variant is available, called the latest version, that points
-          to the fcc.FCCSchema class. This schema has been made keeping the Spring2021 pre-generated samples.
+    Note: FCCSchema --> This schema has been made keeping the Spring2021 pre-generated samples (pre-edm4hep1).
           Its also tested with Winter2023 samples with the uproot_options={"filter_name": lambda x : "PARAMETERS" not in x}
           parameter when loading the fileset. This removes the "PARAMETERS" branch that is unreadable in uproot afaik.
           More Schema variants could be added later.
+
+          FCCSchema_edm4hep1 --> This schema supports FCC samples produced with edm4hep version >= 1. It inherits
+          from the EDM4HEPSchema and adds a few more functionality.
     """
 
     def __init__(self, version="latest"):
@@ -613,6 +665,10 @@ class FCC:
     @classmethod
     def get_schema(cls, version="latest"):
         if version == "latest":
+            return FCCSchema_edm4hep1
+        elif version == "pre-edm4hep1":
             return FCCSchema
+        elif version == "edm4hep1":
+            return FCCSchema_edm4hep1
         else:
             pass
