@@ -35,8 +35,10 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
             )
             raise _xgboost_import_error
 
-        nonserializable_attribute.__init__(self, ["xgbooster"])
+        nonserializable_attribute.__init__(self, [])
+
         self.xgboost_file = fname
+        self.xgbooster = self._create_xgbooster()
 
     def _create_xgbooster(self) -> "xgboost.Booster":
         # Automatic detection of compressed model file

@@ -182,10 +182,12 @@ class LumiMask:
         """
 
         def apply(runs, lumis):
+            backend = awkward.backend(runs)
             # fill numba typed dict
             _masks = Dict.empty(key_type=types.uint32, value_type=types.uint32[:])
-            for k, v in self._masks.items():
-                _masks[k] = v
+            if backend != "typetracer":
+                for k, v in self._masks.items():
+                    _masks[k] = v
 
             runs_orig = runs
             if isinstance(runs, awkward.highlevel.Array):
@@ -197,10 +199,11 @@ class LumiMask:
                     awkward.typetracer.length_zero_if_typetracer(lumis)
                 )
             mask_out = numpy.zeros(dtype="bool", shape=runs.shape)
-            LumiMask._apply_run_lumi_mask_kernel(_masks, runs, lumis, mask_out)
+            if backend != "typetracer":
+                LumiMask._apply_run_lumi_mask_kernel(_masks, runs, lumis, mask_out)
             if isinstance(runs_orig, awkward.Array):
                 mask_out = awkward.Array(mask_out)
-            if awkward.backend(runs_orig) == "typetracer":
+            if backend == "typetracer":
                 mask_out = awkward.Array(
                     mask_out.layout.to_typetracer(forget_length=True)
                 )
