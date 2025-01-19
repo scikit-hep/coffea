@@ -12,7 +12,7 @@ task:
         memory: 7G
         matrix:
           - image: python:3.9
-          - image: python:3.12
+          - image: python:3.13
 
       create_venv_script: |
         python -m venv ../venv
@@ -22,7 +22,7 @@ task:
         # mltool installs
         # - torch and triton are not currently on arm, so commented out
         # - when they are available on arm (and we figure out how to run docker in the background on cirrus) we should test them!
-        # python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        # python -m pip install torch --index-url https://download.pytorch.org/whl/cpu # torchvision torchaudio
         python -m pip install xgboost
         # python -m pip install tritonclient[grpc,http]
         # install checked out coffea
