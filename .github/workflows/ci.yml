@@ -77,7 +77,7 @@ jobs:
         uv pip install --system xgboost
         uv pip install --system 'tritonclient[grpc,http]!=2.41.0'
         # install checked out coffea
-        uv pip install --system -q '.[dev,parsl,dask,spark]' --upgrade --pre
+        uv pip install --system -q '.[dev,parsl,dask,spark]' --upgrade
         uv pip list --system
         java -version
     - name: Install dependencies (MacOS)
