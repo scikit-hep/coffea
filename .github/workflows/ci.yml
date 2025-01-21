@@ -158,7 +158,7 @@ jobs:
       run: |
         conda create --yes --prefix ./coffea-conda-test-env -c conda-forge python=${{ matrix.python-version }} ndcctools uv
         conda activate ./coffea-conda-test-env
-        uv pip install --system . 'dask<2024.12.0'
+        uv pip install --system . 'dask<2025.1.0'
         uv pip install --system pytest
     - name: Test with pytest
       run: |

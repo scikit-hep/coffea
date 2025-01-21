@@ -72,15 +72,16 @@ class JetResolution:
                     )
                 )
             info = name.split("_")
-            if len(info) != 5:
+            if len(info) > 6 or len(info) < 5:
                 raise Exception("Corrector name is not properly formatted!")
+            offset = len(info) - 5
 
             campaign = _checkConsistency(campaign, info[0])
             dataera = _checkConsistency(dataera, info[1])
-            datatype = _checkConsistency(datatype, info[2])
-            levels.append(info[3])
+            datatype = _checkConsistency(datatype, info[2 + offset])
+            levels.append(info[3 + offset])
             funcs.append(func)
-            jettype = _checkConsistency(jettype, info[4])
+            jettype = _checkConsistency(jettype, info[4 + offset])
 
         if campaign is None:
             raise Exception("Unable to determine production campaign of JECs!")

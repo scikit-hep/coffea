@@ -22,6 +22,7 @@ file_converters = {
         "jec": convert_jec_txt_file,
         "jersf": convert_jersf_txt_file,
         "jr": convert_jr_txt_file,
+        "jer": convert_jr_txt_file,
         "junc": convert_junc_txt_file,
         "ea": convert_effective_area_file,
         "pileup": convert_pileup_json_file,
