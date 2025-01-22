@@ -42,7 +42,7 @@ dependencies = [
   "dask[array]>=2024.3.0,<2025.1.0",
   "dask-awkward>=2024.9.0",
   "dask-histogram>=2024.9.1",
-  "vector@git+https://github.com/scikit-hep/vector.git#egg=pfackeldey/fix_lib_for_typetracers", # "vector>=1.4.1,!=1.6.0",
+  "vector@git+https://github.com/scikit-hep/vector.git@pfackeldey/fix_lib_for_typetracers", # "vector>=1.4.1,!=1.6.0",
   "correctionlib>=2.6.0",
   "pyarrow>=6.0.0",
   "fsspec-xrootd>=0.2.3",
