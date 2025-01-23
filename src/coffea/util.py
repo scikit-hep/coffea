@@ -36,21 +36,20 @@ import cloudpickle
 import lz4.frame
 
 
-def load(filename):
+def load(filename, mode="rb"):
     """Load a coffea file from disk"""
-    with lz4.frame.open(filename) as fin:
+    with lz4.frame.open(filename, mode) as fin:
         output = cloudpickle.load(fin)
     return output
 
 
-def save(output, filename):
+def save(output, filename, mode="wb"):
     """Save a coffea object or collection thereof to disk
 
     This function can accept any picklable object.  Suggested suffix: ``.coffea``
     """
-    with lz4.frame.open(filename, "wb") as fout:
-        thepickle = cloudpickle.dumps(output)
-        fout.write(thepickle)
+    with lz4.frame.open(filename, mode) as fout:
+        cloudpickle.dump(output, fout)
 
 
 def _hex(string):

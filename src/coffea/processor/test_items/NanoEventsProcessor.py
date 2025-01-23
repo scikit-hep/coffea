@@ -69,6 +69,9 @@ class NanoEventsProcessor(processor.ProcessorABC):
         # print(dimuon["0"].behavior)
         dimuon = dimuon["0"] + dimuon["1"]
 
+        if "GenPart" in events.fields:
+            _ = events.GenPart.parent.pt
+
         output["pt"].fill(dataset=dataset, pt=dak.flatten(muon_pt))
         output["mass"].fill(dataset=dataset, mass=dak.flatten(dimuon.mass))
         output["cutflow"]["%s_pt" % dataset] = dak.sum(dak.num(events.Muon, axis=1))

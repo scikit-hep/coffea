@@ -1,4 +1,9 @@
-from coffea.dataset_tools.apply_processor import apply_to_dataset, apply_to_fileset
+from coffea.dataset_tools.apply_processor import (
+    apply_to_dataset,
+    apply_to_fileset,
+    load_taskgraph,
+    save_taskgraph,
+)
 from coffea.dataset_tools.manipulations import (
     filter_files,
     get_failed_steps_for_dataset,
@@ -14,6 +19,8 @@ __all__ = [
     "preprocess",
     "apply_to_dataset",
     "apply_to_fileset",
+    "save_taskgraph",
+    "load_taskgraph",
     "max_chunks",
     "slice_chunks",
     "filter_files",

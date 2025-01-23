@@ -8,9 +8,11 @@ from coffea.dataset_tools import (
     apply_to_fileset,
     filter_files,
     get_failed_steps_for_fileset,
+    load_taskgraph,
     max_chunks,
     max_files,
     preprocess,
+    save_taskgraph,
     slice_chunks,
     slice_files,
 )
@@ -215,12 +217,13 @@ def test_tuple_data_manipulation_output(allow_read_errors_with_report):
         _my_analysis_output_2,
         _runnable_result,
         uproot_options={"allow_read_errors_with_report": allow_read_errors_with_report},
+        return_events=True,
     )
 
     if allow_read_errors_with_report:
         assert isinstance(out, tuple)
-        assert len(out) == 2
-        out, report = out
+        assert len(out) == 3
+        _, out, report = out
         assert isinstance(out, dict)
         assert isinstance(report, dict)
         assert out.keys() == {"ZJets", "Data"}
@@ -235,8 +238,10 @@ def test_tuple_data_manipulation_output(allow_read_errors_with_report):
         assert isinstance(report["ZJets"], dask_awkward.Array)
         assert isinstance(report["Data"], dask_awkward.Array)
     else:
-        assert isinstance(out, dict)
+        assert isinstance(out, tuple)
         assert len(out) == 2
+        _, out = out
+        assert isinstance(out, dict)
         assert out.keys() == {"ZJets", "Data"}
         assert isinstance(out["ZJets"], tuple)
         assert isinstance(out["Data"], tuple)
@@ -250,12 +255,13 @@ def test_tuple_data_manipulation_output(allow_read_errors_with_report):
         _my_analysis_output_3,
         _runnable_result,
         uproot_options={"allow_read_errors_with_report": allow_read_errors_with_report},
+        return_events=True,
     )
 
     if allow_read_errors_with_report:
         assert isinstance(out, tuple)
-        assert len(out) == 2
-        out, report = out
+        assert len(out) == 3
+        _, out, report = out
         assert isinstance(out, dict)
         assert isinstance(report, dict)
         assert out.keys() == {"ZJets", "Data"}
@@ -270,8 +276,10 @@ def test_tuple_data_manipulation_output(allow_read_errors_with_report):
         assert isinstance(report["ZJets"], dask_awkward.Array)
         assert isinstance(report["Data"], dask_awkward.Array)
     else:
-        assert isinstance(out, dict)
+        assert isinstance(out, tuple)
         assert len(out) == 2
+        _, out = out
+        assert isinstance(out, dict)
         assert out.keys() == {"ZJets", "Data"}
         assert isinstance(out["ZJets"], tuple)
         assert isinstance(out["Data"], tuple)
@@ -286,14 +294,17 @@ def test_tuple_data_manipulation_output(allow_read_errors_with_report):
     "proc_and_schema",
     [(NanoTestProcessor, BaseSchema), (NanoEventsProcessor, NanoAODSchema)],
 )
-def test_apply_to_fileset(proc_and_schema):
+@pytest.mark.parametrize("delayed_taskgraph_calc", [True, False])
+def test_apply_to_fileset(proc_and_schema, delayed_taskgraph_calc):
     proc, schemaclass = proc_and_schema
 
     with Client() as _:
-        to_compute = apply_to_fileset(
+        _, to_compute = apply_to_fileset(
             proc(),
             _runnable_result,
             schemaclass=schemaclass,
+            parallelize_with_dask=delayed_taskgraph_calc,
+            return_events=True,
         )
         out = dask.compute(to_compute)[0]
 
@@ -302,10 +313,12 @@ def test_apply_to_fileset(proc_and_schema):
         assert out["Data"]["cutflow"]["Data_pt"] == 84
         assert out["Data"]["cutflow"]["Data_mass"] == 66
 
-        to_compute = apply_to_fileset(
+        _, to_compute = apply_to_fileset(
             proc(),
             max_chunks(_runnable_result, 1),
             schemaclass=schemaclass,
+            parallelize_with_dask=delayed_taskgraph_calc,
+            return_events=True,
         )
         out = dask.compute(to_compute)[0]
 
@@ -326,10 +339,11 @@ def test_apply_to_fileset_hinted_form():
             save_form=True,
         )
 
-        to_compute = apply_to_fileset(
+        _, to_compute = apply_to_fileset(
             NanoEventsProcessor(),
             dataset_runnable,
             schemaclass=NanoAODSchema,
+            return_events=True,
         )
         out = dask.compute(to_compute)[0]
 
@@ -582,15 +596,18 @@ def test_slice_chunks():
     }
 
 
-def test_recover_failed_chunks():
+@pytest.mark.parametrize("delayed_taskgraph_calc", [True, False])
+def test_recover_failed_chunks(delayed_taskgraph_calc):
     with Client() as _:
-        to_compute = apply_to_fileset(
+        _, to_compute, reports = apply_to_fileset(
             NanoEventsProcessor(),
             _starting_fileset_with_steps,
             schemaclass=NanoAODSchema,
             uproot_options={"allow_read_errors_with_report": True},
+            parallelize_with_dask=delayed_taskgraph_calc,
+            return_events=True,
         )
-        out, reports = dask.compute(*to_compute)
+        out, reports = dask.compute(to_compute, reports)
 
     failed_fset = get_failed_steps_for_fileset(_starting_fileset_with_steps, reports)
     assert failed_fset == {
@@ -612,3 +629,51 @@ def test_recover_failed_chunks():
             }
         }
     }
+
+
+@pytest.mark.parametrize(
+    "proc_and_schema",
+    [(NanoTestProcessor, BaseSchema), (NanoEventsProcessor, NanoAODSchema)],
+)
+@pytest.mark.parametrize(
+    "with_report",
+    [True, False],
+)
+def test_task_graph_serialization(proc_and_schema, with_report):
+    proc, schemaclass = proc_and_schema
+
+    with Client() as _:
+        output = apply_to_fileset(
+            proc(),
+            _runnable_result,
+            schemaclass=schemaclass,
+            parallelize_with_dask=False,
+            uproot_options={"allow_read_errors_with_report": with_report},
+            return_events=True,
+        )
+
+        events = output[0]
+        to_compute = output[1:]
+
+        save_taskgraph(
+            "./test_task_graph_serialization.hlg",
+            events,
+            to_compute,
+            optimize_graph=False,
+        )
+
+        _, to_compute_serdes, is_optimized = load_taskgraph(
+            "./test_task_graph_serialization.hlg"
+        )
+
+        print(to_compute_serdes)
+
+        if len(to_compute_serdes) > 1:
+            (out, _) = dask.compute(*to_compute_serdes)
+        else:
+            (out,) = dask.compute(*to_compute_serdes)
+
+        assert out["ZJets"]["cutflow"]["ZJets_pt"] == 18
+        assert out["ZJets"]["cutflow"]["ZJets_mass"] == 6
+        assert out["Data"]["cutflow"]["Data_pt"] == 84
+        assert out["Data"]["cutflow"]["Data_mass"] == 66
