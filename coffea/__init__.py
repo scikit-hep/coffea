@@ -34,4 +34,8 @@ __version__ = _version.__version__
 version = __version__
 version_info = tuple(re.split(r"[-\.]", __version__))
 
+
+# control severity for utils.deprecate
+deprecations_as_errors = False
+
 __all__ = ["deprecations_as_errors"]
