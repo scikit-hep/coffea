@@ -29,7 +29,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
       with:
-        python-version: "3.13"
+        python-version: "3.12"
     - uses: pre-commit/action@v3.0.1
       with:
         extra_args: --hook-stage manual --all-files
@@ -42,7 +42,7 @@ jobs:
         os: [ubuntu-latest, macOS-latest, windows-latest]
         java-version: [17]
         java-distribution: ["corretto"]
-        python-version: ["3.9", "3.13"]
+        python-version: ["3.9", "3.12"]
 
     name: test coffea (${{ matrix.os }}) - python ${{ matrix.python-version }}, JDK${{ matrix.java-version }}
 
