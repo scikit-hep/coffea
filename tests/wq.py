@@ -58,7 +58,7 @@ def work_queue_example(environment_file):
 
 if __name__ == "__main__":
     try:
-        # see https://coffeateam.github.io/coffea/wq.html for constructing an
+        # see https://coffea-hep.readthedocs.io/en/backports-v0.7.x/wq.html for constructing an
         # environment that can be shipped with a task.
         environment_file = sys.argv[1]
     except IndexError:
