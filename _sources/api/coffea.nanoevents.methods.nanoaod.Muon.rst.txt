@@ -1,0 +1,21 @@
+Muon
+====
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: Muon
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~Muon.matched_fsrPhoton
+      ~Muon.matched_gen
+      ~Muon.matched_jet
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: matched_fsrPhoton
+   .. autoattribute:: matched_gen
+   .. autoattribute:: matched_jet

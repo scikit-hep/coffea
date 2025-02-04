@@ -1,0 +1,679 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Applying corrections to columnar data\n",
+    "\n",
+    "Here we will show how to apply corrections to columnar data using:\n",
+    "\n",
+    "- the `coffea.lookup_tools` package, which is designed to read in ROOT histograms and a variety of data file formats popular within CMS into a standardized lookup table format;\n",
+    "- CMS-specific extensions to the above, for jet corrections (`coffea.jetmet_tools`) and b-tagging efficiencies/uncertainties (`coffea.btag_tools`);\n",
+    "- the [correctionlib](https://cms-nanoaod.github.io/correctionlib/) package, which provides a experiment-agnostic serializable data format for common correction functions."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Test data**:\n",
+    "We'll use NanoEvents to construct some test data."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import awkward as ak\n",
+    "from coffea.nanoevents import NanoEventsFactory, NanoAODSchema\n",
+    "\n",
+    "fname = \"https://raw.githubusercontent.com/CoffeaTeam/coffea/master/tests/samples/nano_dy.root\"\n",
+    "events = NanoEventsFactory.from_root(\n",
+    "    fname,\n",
+    "    schemaclass=NanoAODSchema.v6,\n",
+    "    metadata={\"dataset\": \"DYJets\"},\n",
+    ").events()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Coffea lookup_tools\n",
+    "\n",
+    "The entrypoint for `coffea.lookup_tools` is the [extractor class](https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.lookup_tools.extractor.html#coffea.lookup_tools.extractor)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from coffea.lookup_tools import extractor"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "~/src/coffea/binder/data ~/src/coffea/binder\n",
+      "~/src/coffea/binder\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%bash\n",
+    "# download some sample correction sources\n",
+    "mkdir -p data\n",
+    "pushd data\n",
+    "PREFIX=https://raw.githubusercontent.com/CoffeaTeam/coffea/master/tests/samples\n",
+    "curl -Os $PREFIX/testSF2d.histo.root\n",
+    "curl -Os $PREFIX/Fall17_17Nov2017_V32_MC_L2Relative_AK4PFPuppi.jec.txt\n",
+    "curl -Os $PREFIX/Fall17_17Nov2017_V32_MC_Uncertainty_AK4PFPuppi.junc.txt\n",
+    "curl -Os $PREFIX/DeepCSV_102XSF_V1.btag.csv.gz\n",
+    "popd"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Opening a root file and using it as a lookup table\n",
+    "\n",
+    "In [tests/samples](https://github.com/CoffeaTeam/coffea/tree/master/tests/samples), there is an example file with a `TH2F` histogram named `scalefactors_Tight_Electron`. The following code reads that histogram into an [evaluator](https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.lookup_tools.evaluator.html#coffea.lookup_tools.evaluator) instance, under the key `testSF2d` and applies it to some electrons."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "available evaluator keys:\n",
+      "\t testSF2d\n",
+      "testSF2d: 2 dimensional histogram with axes:\n",
+      "\t1: [-2.5   -2.    -1.566 -1.444 -0.8    0.     0.8    1.444  1.566  2.\n",
+      "  2.5  ]\n",
+      "\t2: [ 10.  20.  35.  50.  90. 150. 500.]\n",
+      "\n",
+      "type of testSF2d: <class 'coffea.lookup_tools.dense_lookup.dense_lookup'>\n"
+     ]
+    }
+   ],
+   "source": [
+    "ext = extractor()\n",
+    "# several histograms can be imported at once using wildcards (*)\n",
+    "ext.add_weight_sets([\"testSF2d scalefactors_Tight_Electron data/testSF2d.histo.root\"])\n",
+    "ext.finalize()\n",
+    "\n",
+    "evaluator = ext.make_evaluator()\n",
+    "\n",
+    "print(\"available evaluator keys:\")\n",
+    "for key in evaluator.keys():\n",
+    "    print(\"\\t\", key)\n",
+    "print(\"testSF2d:\", evaluator['testSF2d'])\n",
+    "print(\"type of testSF2d:\", type(evaluator['testSF2d']))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Electron eta: [[], [1.83], [-0.293, -0.904], [-2.19, 1.65], ... [-0.0595], [], [0.381], [], []]\n",
+      "Electron pt: [[], [29.6], [60.1, 51.7], [10.7, 8.6], [], ... [], [15.6], [], [7.68], [], []]\n",
+      "Scale factor: [[], [0.909], [0.953, 0.972], [0.807, 0.827], ... [0.941], [], [0.946], [], []]\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(\"Electron eta:\", events.Electron.eta)\n",
+    "print(\"Electron pt:\", events.Electron.pt)\n",
+    "print(\"Scale factor:\", evaluator[\"testSF2d\"](events.Electron.eta, events.Electron.pt))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Building and using your own correction from a histogram\n",
+    "\n",
+    "To use a histogram or ratio of histograms to build your own correction, you can use `lookup_tools` to simplify the implementation. Here we create some mock data for two slightly different pt and eta spectra (say, from two different generators) and derive a correction to reweight one sample to the other."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<matplotlib.legend.Legend at 0x134ceb190>"
+      ]
+     },
+     "execution_count": 6,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "import numpy as np\n",
+    "import hist\n",
+    "import matplotlib.pyplot as plt\n",
+    "\n",
+    "dists = (\n",
+    "    hist.Hist.new\n",
+    "    .StrCat([\"gen1\", \"gen2\", \"gen2rwt\"], name=\"dataset\")\n",
+    "    .Reg(20, 0, 100, name=\"pt\")\n",
+    "    .Reg(4, -3, 3, name=\"eta\")\n",
+    "    .Weight()\n",
+    "    .fill(\n",
+    "        dataset=\"gen1\",\n",
+    "        pt=np.random.exponential(scale=10.0, size=10000) + np.random.exponential(scale=10.0, size=10000),\n",
+    "        eta=np.random.normal(scale=1, size=10000)\n",
+    "    )\n",
+    "    .fill(\n",
+    "        dataset=\"gen2\",\n",
+    "        pt=np.random.exponential(scale=10.0, size=10000) + np.random.exponential(scale=15.0, size=10000),\n",
+    "        eta=np.random.normal(scale=1.1, size=10000)\n",
+    "    )\n",
+    ")\n",
+    "\n",
+    "fig, ax = plt.subplots()\n",
+    "dists[:, :, sum].plot1d(ax=ax)\n",
+    "ax.legend(title=\"dataset\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now we derive a correction as a function of $p_T$ and $\\eta$ to `gen2` such that it agrees with `gen1`. We'll set it to 1 anywhere we run out of statistics for the correction, to avoid divide by zero issues"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "2 dimensional histogram with axes:\n",
+      "\t1: [  0.   5.  10.  15.  20.  25.  30.  35.  40.  45.  50.  55.  60.  65.\n",
+      "  70.  75.  80.  85.  90.  95. 100.]\n",
+      "\t2: [-3.  -1.5  0.   1.5  3. ]\n",
+      "\n"
+     ]
+    },
+    {
+     "data": {
+      "text/plain": [
+       "ColormeshArtists(pcolormesh=<matplotlib.collections.QuadMesh object at 0x134eac6a0>, cbar=<matplotlib.colorbar.Colorbar object at 0x134eb87c0>, text=[])"
+      ]
+     },
+     "execution_count": 7,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 2 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "from coffea.lookup_tools.dense_lookup import dense_lookup\n",
+    "\n",
+    "num = dists[\"gen1\", :, :].values()\n",
+    "den = dists[\"gen2\", :, :].values()\n",
+    "sf = np.where(\n",
+    "    (num > 0) & (den > 0),\n",
+    "    num / np.maximum(den, 1) * den.sum() / num.sum(),\n",
+    "    1.0,\n",
+    ")\n",
+    "\n",
+    "corr = dense_lookup(sf, [ax.edges for ax in dists.axes[1:]])\n",
+    "print(corr)\n",
+    "\n",
+    "# a quick way to plot the scale factor is to steal the axis definitions from the input histograms:\n",
+    "sfhist = hist.Hist(*dists.axes[1:], data=sf)\n",
+    "sfhist.plot2d()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now we generate some new mock data as if it was drawn from `gen2` and reweight it with our `corr` to match `gen1`"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<matplotlib.legend.Legend at 0x134f44f40>"
+      ]
+     },
+     "execution_count": 8,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "ptvals = np.random.exponential(scale=10.0, size=10000) + np.random.exponential(scale=15.0, size=10000)\n",
+    "etavals = np.random.normal(scale=1.1, size=10000)\n",
+    "\n",
+    "dists.fill(\n",
+    "    dataset=\"gen2rwt\",\n",
+    "    pt=ptvals,\n",
+    "    eta=etavals,\n",
+    "    weight=corr(ptvals, etavals)\n",
+    ")\n",
+    "\n",
+    "fig, ax = plt.subplots()\n",
+    "dists[:, :, sum].plot1d(ax=ax)\n",
+    "ax.legend(title=\"dataset\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Note that `corr()` can accept also jagged arrays if need be."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## CMS high-level tools\n",
+    "\n",
+    "### Applying energy scale transformations with jetmet_tools\n",
+    "\n",
+    "The `coffea.jetmet_tools` package provides a convenience class [JetTransformer](https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.jetmet_tools.JetTransformer.html#coffea.jetmet_tools.JetTransformer) which applies specified corrections and computes uncertainties in one call. First we build the desired jet correction stack to apply. This will usually be some set of the various JEC and JER correction text files that depends on the jet cone size (AK4, AK8) and the pileup mitigation algorithm, as well as the data-taking year they are associated with."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "['Fall17_17Nov2017_V32_MC_L2Relative_AK4PFPuppi', 'Fall17_17Nov2017_V32_MC_Uncertainty_AK4PFPuppi']\n"
+     ]
+    }
+   ],
+   "source": [
+    "from coffea.jetmet_tools import FactorizedJetCorrector, JetCorrectionUncertainty\n",
+    "from coffea.jetmet_tools import JECStack, CorrectedJetsFactory\n",
+    "import awkward as ak\n",
+    "import numpy as np\n",
+    "\n",
+    "ext = extractor()\n",
+    "ext.add_weight_sets([\n",
+    "    \"* * data/Fall17_17Nov2017_V32_MC_L2Relative_AK4PFPuppi.jec.txt\",\n",
+    "    \"* * data/Fall17_17Nov2017_V32_MC_Uncertainty_AK4PFPuppi.junc.txt\",\n",
+    "])\n",
+    "ext.finalize()\n",
+    "\n",
+    "jec_stack_names = [\n",
+    "    \"Fall17_17Nov2017_V32_MC_L2Relative_AK4PFPuppi\",\n",
+    "    \"Fall17_17Nov2017_V32_MC_Uncertainty_AK4PFPuppi\"\n",
+    "]\n",
+    "\n",
+    "evaluator = ext.make_evaluator()\n",
+    "\n",
+    "jec_inputs = {name: evaluator[name] for name in jec_stack_names}\n",
+    "jec_stack = JECStack(jec_inputs)\n",
+    "### more possibilities are available if you send in more pieces of the JEC stack\n",
+    "# mc2016_ak8_jxform = JECStack([\"more\", \"names\", \"of\", \"JEC parts\"])\n",
+    "\n",
+    "print(dir(evaluator))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now we prepare some auxilary variables that are used to parameterize the jet energy corrections, such as jet area, mass, and event $\\rho$ (mean pileup energy density), and pass all of these into the `CorrectedJetsFactory`:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "starting columns: {'btagCSVV2', 'electronIdx1', 'electronIdx2', 'eta', 'muonSubtrFactor', 'btagCMVA', 'bRegCorr', 'btagDeepFlavB', 'jercCHPUF', 'chEmEF', 'pt_raw', 'muonIdx2', 'nMuons', 'cleanmask', 'muonIdx1G', 'genJetIdxG', 'puId', 'muEF', 'mass', 'genJetIdx', 'muonIdx1', 'area', 'hadronFlavour', 'btagDeepC', 'qgl', 'rawFactor', 'mass_raw', 'partonFlavour', 'phi', 'btagDeepFlavC', 'nElectrons', 'electronIdx2G', 'rho', 'btagDeepB', 'neHEF', 'pt_gen', 'muonIdx2G', 'neEmEF', 'electronIdx1G', 'jercCHF', 'muonIdxG', 'jetId', 'nConstituents', 'electronIdxG', 'bRegRes', 'pt', 'chHEF'}\n",
+      "new columns: {'jet_energy_correction', 'mass_orig', 'pt_orig', 'pt_jec', 'JES_jes', 'mass_jec', 'jet_energy_uncertainty_jes'}\n"
+     ]
+    }
+   ],
+   "source": [
+    "name_map = jec_stack.blank_name_map\n",
+    "name_map['JetPt'] = 'pt'\n",
+    "name_map['JetMass'] = 'mass'\n",
+    "name_map['JetEta'] = 'eta'\n",
+    "name_map['JetA'] = 'area'\n",
+    "\n",
+    "jets = events.Jet\n",
+    "    \n",
+    "jets['pt_raw'] = (1 - jets['rawFactor']) * jets['pt']\n",
+    "jets['mass_raw'] = (1 - jets['rawFactor']) * jets['mass']\n",
+    "jets['pt_gen'] = ak.values_astype(ak.fill_none(jets.matched_gen.pt, 0), np.float32)\n",
+    "jets['rho'] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, jets.pt)[0]\n",
+    "name_map['ptGenJet'] = 'pt_gen'\n",
+    "name_map['ptRaw'] = 'pt_raw'\n",
+    "name_map['massRaw'] = 'mass_raw'\n",
+    "name_map['Rho'] = 'rho'\n",
+    "    \n",
+    "events_cache = events.caches[0]\n",
+    "corrector = FactorizedJetCorrector(\n",
+    "    Fall17_17Nov2017_V32_MC_L2Relative_AK4PFPuppi=evaluator['Fall17_17Nov2017_V32_MC_L2Relative_AK4PFPuppi'],\n",
+    ")\n",
+    "uncertainties = JetCorrectionUncertainty(\n",
+    "    Fall17_17Nov2017_V32_MC_Uncertainty_AK4PFPuppi=evaluator['Fall17_17Nov2017_V32_MC_Uncertainty_AK4PFPuppi']\n",
+    ")\n",
+    "\n",
+    "jet_factory = CorrectedJetsFactory(name_map, jec_stack)\n",
+    "corrected_jets = jet_factory.build(jets, lazy_cache=events_cache)\n",
+    "\n",
+    "print('starting columns:', set(ak.fields(jets)))\n",
+    "print('new columns:', set(ak.fields(corrected_jets)) - set(ak.fields(jets)))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Below we show that the corrected jets indeed have a different $p_T$ and mass than we started with"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "untransformed pt ratios [[1.12, 1.09, 1.2, 1.35, 1.27], [1.03, ... 1.28, 1.1, 1.13, 0.989], [1.13, 0.978]]\n",
+      "untransformed mass ratios [[1.12, 1.09, 1.2, 1.35, 1.27], [1.03, ... 1.28, 1.1, 1.13, 0.989], [1.13, 0.978]]\n",
+      "transformed pt ratios [[1.2, 1.3, 1.46, 2.09, 2.1], [1.09, 1.29, ... 1.84, 1.47, 1.36, 1.16], [1.37, 1.15]]\n",
+      "transformed mass ratios [[1.2, 1.3, 1.46, 2.09, 2.1], [1.09, 1.29, ... 1.84, 1.47, 1.36, 1.16], [1.37, 1.15]]\n",
+      "JES UP pt ratio [[1.22, 1.35, 1.56, 2.34, 2.37], [1.1, ... 2.07, 1.52, 1.41, 1.2], [1.41, 1.17]]\n",
+      "JES DOWN pt ratio [[1.19, 1.25, 1.35, 1.83, 1.83], [1.08, ... 1.6, 1.41, 1.32, 1.13], [1.33, 1.12]]\n"
+     ]
+    }
+   ],
+   "source": [
+    "print('untransformed pt ratios', jets.pt/jets.pt_raw)\n",
+    "print('untransformed mass ratios', jets.mass/jets.mass_raw)\n",
+    "\n",
+    "print('transformed pt ratios', corrected_jets.pt/corrected_jets.pt_raw)\n",
+    "print('transformed mass ratios', corrected_jets.mass/corrected_jets.mass_raw)\n",
+    "\n",
+    "print('JES UP pt ratio', corrected_jets.JES_jes.up.pt/corrected_jets.pt_raw)\n",
+    "print('JES DOWN pt ratio', corrected_jets.JES_jes.down.pt/corrected_jets.pt_raw)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Applying CMS b-tagging corrections with btag_tools\n",
+    "The `coffea.btag_tools` module provides the high-level utility [BTagScaleFactor](https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.btag_tools.BTagScaleFactor.html#coffea.btag_tools.BTagScaleFactor) which calculates per-jet weights for b-tagging as well as light flavor mis-tagging efficiencies. Uncertainties can be calculated as well."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "SF: [[1.52, 1.56, 1.59, 1.6, 1.6], [0.969, 1.57, ... 1.59, 1.6, 1.6, 1.6], [1.6, 1.6]]\n",
+      "systematic +: [[1.72, 1.77, 1.79, 1.8, 1.8], [1.01, 1.78, ... 1.8, 1.8, 1.8, 1.8], [1.8, 1.8]]\n",
+      "systematic -: [[1.31, 1.36, 1.38, 1.4, 1.4], [0.925, 1.37, ... 1.39, 1.4, 1.4, 1.4], [1.4, 1.4]]\n"
+     ]
+    }
+   ],
+   "source": [
+    "from coffea.btag_tools import BTagScaleFactor\n",
+    "\n",
+    "btag_sf = BTagScaleFactor(\"data/DeepCSV_102XSF_V1.btag.csv.gz\", \"medium\")\n",
+    "\n",
+    "print(\"SF:\", btag_sf.eval(\"central\", events.Jet.hadronFlavour, abs(events.Jet.eta), events.Jet.pt))\n",
+    "print(\"systematic +:\", btag_sf.eval(\"up\", events.Jet.hadronFlavour, abs(events.Jet.eta), events.Jet.pt))\n",
+    "print(\"systematic -:\", btag_sf.eval(\"down\", events.Jet.hadronFlavour, abs(events.Jet.eta), events.Jet.pt))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Using correctionlib\n",
+    "\n",
+    "For the most part, using correctionlib is straightforward. We'll show here how to convert the custom correction we derived earlier (`corr`) into a correctionlib object, and save it in the json format:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {
+    "scrolled": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\">CorrectionSet</span> (<span style=\"font-style: italic\">schema v2</span>)                                                                    \n",
+       "my custom corrections                                                                        \n",
+       "📂                                                                                           \n",
+       "└── 📈 <span style=\"font-weight: bold\">gen2_to_gen1</span> (v0)                                                                     \n",
+       "    Reweights gen2 to agree with gen1                                                        \n",
+       "    Node counts: <span style=\"font-weight: bold\">MultiBinning</span>: 1                                                             \n",
+       "    ╭──────────── ▶ input ─────────────╮ ╭──────────── ▶ input ────────────╮                 \n",
+       "    │ <span style=\"font-weight: bold\">pt</span> (real)                        │ │ <span style=\"font-weight: bold\">eta</span> (real)                      │                 \n",
+       "    │ pt                               │ │ eta                             │                 \n",
+       "    │ Range: [0.0, 100.0), overflow ok │ │ Range: [-3.0, 3.0), overflow ok │                 \n",
+       "    ╰──────────────────────────────────╯ ╰─────────────────────────────────╯                 \n",
+       "    ╭─── ◀ output ───╮                                                                       \n",
+       "    │ <span style=\"font-weight: bold\">out</span> (real)     │                                                                       \n",
+       "    │ <span style=\"font-style: italic\">No description</span> │                                                                       \n",
+       "    ╰────────────────╯                                                                       \n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1mCorrectionSet\u001b[0m (\u001b[3mschema v2\u001b[0m)                                                                    \n",
+       "my custom corrections                                                                        \n",
+       "📂                                                                                           \n",
+       "└── 📈 \u001b[1mgen2_to_gen1\u001b[0m (v0)                                                                     \n",
+       "    Reweights gen2 to agree with gen1                                                        \n",
+       "    Node counts: \u001b[1mMultiBinning\u001b[0m: 1                                                             \n",
+       "    ╭──────────── ▶ input ─────────────╮ ╭──────────── ▶ input ────────────╮                 \n",
+       "    │ \u001b[1mpt\u001b[0m (real)                        │ │ \u001b[1meta\u001b[0m (real)                      │                 \n",
+       "    │ pt                               │ │ eta                             │                 \n",
+       "    │ Range: [0.0, 100.0), overflow ok │ │ Range: [-3.0, 3.0), overflow ok │                 \n",
+       "    ╰──────────────────────────────────╯ ╰─────────────────────────────────╯                 \n",
+       "    ╭─── ◀ output ───╮                                                                       \n",
+       "    │ \u001b[1mout\u001b[0m (real)     │                                                                       \n",
+       "    │ \u001b[3mNo description\u001b[0m │                                                                       \n",
+       "    ╰────────────────╯                                                                       \n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "import correctionlib, rich\n",
+    "import correctionlib.convert\n",
+    "\n",
+    "# without a name, the resulting object will fail validation\n",
+    "sfhist.name = \"gen2_to_gen1\"\n",
+    "sfhist.label = \"out\"\n",
+    "clibcorr = correctionlib.convert.from_histogram(sfhist)\n",
+    "clibcorr.description = \"Reweights gen2 to agree with gen1\"\n",
+    "# set overflow bins behavior (default is to raise an error when out of bounds)\n",
+    "clibcorr.data.flow = \"clamp\"\n",
+    "\n",
+    "cset = correctionlib.schemav2.CorrectionSet(\n",
+    "    schema_version=2,\n",
+    "    description=\"my custom corrections\",\n",
+    "    corrections=[clibcorr],\n",
+    ")\n",
+    "rich.print(cset)\n",
+    "\n",
+    "with open(\"data/mycorrections.json\", \"w\") as fout:\n",
+    "    fout.write(cset.json(exclude_unset=True))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "We can now use this new correction in a similar way to the original `corr()` object:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "array([1.55691586, 1.36319225, 1.36319225, ..., 1.55691586, 0.64304079,\n",
+       "       1.02863368])"
+      ]
+     },
+     "execution_count": 14,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "ceval = cset.to_evaluator()\n",
+    "\n",
+    "ceval[\"gen2_to_gen1\"].evaluate(ptvals, etavals)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "At the time of writing, correctionlib does not support jagged arrays. But we can work around this using awkward utilities `flatten` and `unflatten`, as shown below"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<Array [[0.498, 0.211, 0.86, ... [1.15, 1.17]] type='40 * var * float64'>"
+      ]
+     },
+     "execution_count": 15,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "def myJetSF(jets):\n",
+    "    j, nj = ak.flatten(jets), ak.num(jets)\n",
+    "    sf = ceval[\"gen2_to_gen1\"].evaluate(np.array(j.pt), np.array(j.eta))\n",
+    "    return ak.unflatten(sf, nj)\n",
+    "\n",
+    "myJetSF(events.Jet)"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.13"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}

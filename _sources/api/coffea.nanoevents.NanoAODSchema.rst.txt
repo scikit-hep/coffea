@@ -1,0 +1,43 @@
+NanoAODSchema
+=============
+
+.. currentmodule:: coffea.nanoevents
+
+.. autoclass:: NanoAODSchema
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~NanoAODSchema.all_cross_references
+      ~NanoAODSchema.behavior
+      ~NanoAODSchema.mixins
+      ~NanoAODSchema.nested_index_items
+      ~NanoAODSchema.nested_items
+      ~NanoAODSchema.special_items
+      ~NanoAODSchema.warn_missing_crossrefs
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~NanoAODSchema.v5
+      ~NanoAODSchema.v6
+      ~NanoAODSchema.v7
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: all_cross_references
+   .. autoattribute:: behavior
+   .. autoattribute:: mixins
+   .. autoattribute:: nested_index_items
+   .. autoattribute:: nested_items
+   .. autoattribute:: special_items
+   .. autoattribute:: warn_missing_crossrefs
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: v5
+   .. automethod:: v6
+   .. automethod:: v7
