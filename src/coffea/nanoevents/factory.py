@@ -471,6 +471,12 @@ class NanoEventsFactory:
             io.IOBase,
         )
 
+        if isinstance(file, dict):
+            file, filespec_treepath = next(iter(file.items()))
+            if filespec_treepath is not None:
+                warnings.warn(
+                f'For parquet file="{file}", treepath="{filespec_treepath}" is ignored when opening files'
+                )
         if (
             delayed
             and not isinstance(schemaclass, FunctionType)
