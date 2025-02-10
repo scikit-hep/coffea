@@ -63,7 +63,7 @@ def crossref(events):
 
 suffixes = [
     "root",
-    #    "parquet",
+    "parquet",
 ]
 
 
