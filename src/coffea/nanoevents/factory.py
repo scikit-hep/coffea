@@ -475,7 +475,7 @@ class NanoEventsFactory:
             file, filespec_treepath = next(iter(file.items()))
             if filespec_treepath is not None:
                 warnings.warn(
-                f'For parquet file="{file}", treepath="{filespec_treepath}" is ignored when opening files'
+                    f'For parquet file="{file}", treepath="{filespec_treepath}" is ignored when opening files'
                 )
         if (
             delayed

@@ -197,7 +197,11 @@ class ParquetSourceMapping(BaseSourceMapping):
 
     def get_column_handle(self, columnsource, name, allow_missing):
         if allow_missing:
-            return ParquetSourceMapping.UprootLikeShim(columnsource, name) if name in columnsource.file.schema_arrow.names else None
+            return (
+                ParquetSourceMapping.UprootLikeShim(columnsource, name)
+                if name in columnsource.file.schema_arrow.names
+                else None
+            )
         return ParquetSourceMapping.UprootLikeShim(columnsource, name)
 
     def extract_column(self, columnhandle, start, stop, allow_missing, **kwargs):
