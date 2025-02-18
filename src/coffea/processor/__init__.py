@@ -1,7 +1,4 @@
-"""A framework for analysis scale-out
-
-
-"""
+"""A framework for analysis scale-out"""
 
 from .processor import ProcessorABC
 

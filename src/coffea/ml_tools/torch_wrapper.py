@@ -1,4 +1,5 @@
 import warnings
+from typing import Optional, Tuple
 
 import numpy
 
@@ -43,9 +44,19 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
     ----------
         torch_jit: str
             Path to the TorchScript file to load
+        expected_output_shape: tuple(int)
+            A tuple representing the expected shape of the torch model return.
+            In case a length-0 inputs is detected and this value is not None,
+            the wrapper will return the length-0 numpy array of the same shape,
+            as there are methods in torch that is incompatible with length-0
+            inputs. Note that the leading entry in shape should be None to
+            indicate that the outer-most dimension is arbitrary. It will always
+            be ignored in the operation.
     """
 
-    def __init__(self, torch_jit: str):
+    def __init__(
+        self, torch_jit: str, expected_output_shape: Optional[Tuple[int]] = None
+    ):
         if _torch_import_error is not None:
             warnings.warn(
                 "Users should make sure the torch package is installed before proceeding!\n"
@@ -58,6 +69,14 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
 
         nonserializable_attribute.__init__(self, ["model", "device"])
         self.torch_jit = torch_jit
+        self.expected_output_shape = expected_output_shape
+        if (
+            self.expected_output_shape is not None
+            and self.expected_output_shape[0] is not None
+        ):
+            warnings.warn(
+                "The outermost dimension will ignored for fallback situations, set leading dimension to None to avoid seeing this."
+            )
 
     def _create_device(self):
         """
@@ -90,6 +109,10 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
         Evaluating the numpy inputs via the model. Returning the results also as
         as numpy array.
         """
+        first_arg = args[0] if len(args) else next(iter(kwargs.values()))
+        if len(first_arg) == 0 and self.expected_output_shape is not None:
+            return numpy.zeros(shape=(0, *self.expected_output_shape[1:]))
+
         args = [
             (
                 torch.from_numpy(arr)

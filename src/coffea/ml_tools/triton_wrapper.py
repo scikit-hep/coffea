@@ -133,9 +133,14 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
             for x in self.model_metadata["inputs"]
         }
 
-    def _create_model_outputs(self) -> List[int]:
-        """Getting a list of names of possible outputs"""
-        return [x["name"] for x in self.model_metadata["outputs"]]
+    def _create_model_outputs(self) -> Dict[str, Dict]:
+        """
+        Extracting the model output data format.
+        """
+        return {
+            x["name"]: {"shape": tuple(int(i) for i in x["shape"])}
+            for x in self.model_metadata["outputs"]
+        }
 
     @property
     def batch_size(self) -> int:
@@ -156,8 +161,7 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
                 self._batch_size = model_config["max_batch_size"]
             else:
                 warnings.warn(
-                    f"Batch size not set by model! Setting to default value {self.batch_size_fallback}. "
-                    "Contact model maintainer to check if this is expected",
+                    f"Batch size not set by model! Setting to default value {self.batch_size_fallback}. Contact model maintainer to check if this is expected",
                     UserWarning,
                 )
                 self._batch_size = self.batch_size_fallback
@@ -322,4 +326,13 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
                     output[o] = numpy.concatenate(
                         (output[o], request.as_numpy(o)), axis=0
                     )
+
+        if (
+            output is None
+        ):  # Input was a length-0, so we should generate the length-0 outputs with correct dimension
+            return {
+                o: numpy.zeros(shape=(0, *self.model_outputs[o]["shape"][1:]))
+                for o in output_list
+            }
+
         return {k: v[:orig_len] for k, v in output.items()}

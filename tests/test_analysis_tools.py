@@ -42,6 +42,9 @@ def test_weights():
         shift=True,
     )
 
+    with pytest.raises(ValueError, match="Weight 'test' already exists"):
+        weight.add("test", scale_central, weightUp=scale_up, weightDown=scale_down)
+
     var_names = weight.variations
     expected_names = ["testShiftUp", "testShiftDown", "testUp", "testDown"]
     for name in expected_names:
@@ -105,6 +108,9 @@ def test_weights_dak(optimization_enabled):
             shift=True,
         )
 
+        with pytest.raises(ValueError, match="Weight 'test' already exists"):
+            weight.add("test", scale_central, weightUp=scale_up, weightDown=scale_down)
+
         var_names = weight.variations
         expected_names = ["testShiftUp", "testShiftDown", "testUp", "testDown"]
         for name in expected_names:
@@ -152,6 +158,15 @@ def test_weights_multivariation():
         weightsUp=[scale_up, scale_up_2],
         weightsDown=[scale_down, scale_down_2],
     )
+
+    with pytest.raises(ValueError, match="Weight 'test' already exists"):
+        weight.add_multivariation(
+            "test",
+            scale_central,
+            modifierNames=["A", "B"],
+            weightsUp=[scale_up, scale_up_2],
+            weightsDown=[scale_down, scale_down_2],
+        )
 
     var_names = weight.variations
     expected_names = ["test_AUp", "test_ADown", "test_BUp", "test_BDown"]
@@ -211,6 +226,15 @@ def test_weights_multivariation_dak(optimization_enabled):
             weightsDown=[scale_down, scale_down_2],
         )
 
+        with pytest.raises(ValueError, match="Weight 'test' already exists"):
+            weight.add_multivariation(
+                "test",
+                scale_central,
+                modifierNames=["A", "B"],
+                weightsUp=[scale_up, scale_up_2],
+                weightsDown=[scale_down, scale_down_2],
+            )
+
         var_names = weight.variations
         expected_names = ["test_AUp", "test_ADown", "test_BUp", "test_BDown"]
         for name in expected_names:
@@ -252,6 +276,11 @@ def test_weights_partial():
     weights = Weights(counts.size, storeIndividual=True)
     weights.add("w1", w1)
     weights.add("w2", w2)
+
+    with pytest.raises(ValueError, match="Weight 'w1' already exists"):
+        weights.add("w1", w1)
+    with pytest.raises(ValueError, match="Weight 'w2' already exists"):
+        weights.add("w2", w2)
 
     test_exclude_none = weights.weight()
     assert np.all(np.abs(test_exclude_none - w1 * w2) < 1e-6)
@@ -320,6 +349,11 @@ def test_weights_partial_dak(optimization_enabled):
         weights = Weights(None, storeIndividual=True)
         weights.add("w1", w1)
         weights.add("w2", w2)
+
+        with pytest.raises(ValueError, match="Weight 'w1' already exists"):
+            weights.add("w1", w1)
+        with pytest.raises(ValueError, match="Weight 'w2' already exists"):
+            weights.add("w2", w2)
 
         test_exclude_none = weights.weight()
         assert np.all(np.abs(test_exclude_none - w1 * w2).compute() < 1e-6)
@@ -397,6 +431,11 @@ def test_packed_selection_basic(dtype):
     sel.add("fizz", fizz)
     sel.add("buzz", buzz)
 
+    with pytest.raises(ValueError, match="Selection 'fizz' already exists"):
+        sel.add("fizz", fizz)
+    with pytest.raises(ValueError, match="Selection 'buzz' already exists"):
+        sel.add("buzz", buzz)
+
     assert np.all(
         sel.all()
         == np.array(
@@ -449,7 +488,7 @@ def test_packed_selection_basic(dtype):
     with pytest.raises(RuntimeError):
         overpack = PackedSelection(dtype=dtype)
         for i in range(65):
-            overpack.add("sel_%d", all_true)
+            overpack.add(f"sel_{i}", all_true)
 
     with pytest.raises(
         ValueError,
@@ -787,7 +826,7 @@ def test_packed_selection_basic_dak(optimization_enabled, dtype):
         with pytest.raises(RuntimeError):
             overpack = PackedSelection(dtype=dtype)
             for i in range(65):
-                overpack.add("sel_%d", all_true)
+                overpack.add(f"sel_{i}", all_true)
 
         with pytest.raises(
             ValueError,

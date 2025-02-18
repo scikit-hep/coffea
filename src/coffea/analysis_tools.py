@@ -102,6 +102,7 @@ class Weights:
         self._modifiers = {}
         self._weightStats = {}
         self._storeIndividual = storeIndividual
+        self._names = []
 
     @property
     def weightStatistics(self):
@@ -127,6 +128,7 @@ class Weights:
             weight.max(),
             weight.size,
         )
+        self._names.append(name)
 
     def __add_delayed(self, name, weight, weightUp, weightDown, shift):
         """Add a new weight with delayed calculation"""
@@ -148,6 +150,7 @@ class Weights:
             "minw": dask_awkward.min(weight),
             "maxw": dask_awkward.max(weight),
         }
+        self._names.append(name)
 
     def add(self, name, weight, weightUp=None, weightDown=None, shift=False):
         """Add a new weight
@@ -173,6 +176,8 @@ class Weights:
 
         .. note:: ``weightUp`` and ``weightDown`` are assumed to be rvalue-like and may be modified in-place by this function
         """
+        if name in self._names:
+            raise ValueError(f"Weight '{name}' already exists")
         if name.endswith("Up") or name.endswith("Down"):
             raise ValueError(
                 "Avoid using 'Up' and 'Down' in weight names, instead pass appropriate shifts to add() call"
@@ -223,6 +228,7 @@ class Weights:
             weight.max(),
             weight.size,
         )
+        self._names.append(name)
 
     def __add_multivariation_delayed(
         self, name, weight, modifierNames, weightsUp, weightsDown, shift=False
@@ -258,6 +264,7 @@ class Weights:
             "minw": dask_awkward.min(weight),
             "maxw": dask_awkward.max(weight),
         }
+        self._names.append(name)
 
     def add_multivariation(
         self, name, weight, modifierNames, weightsUp, weightsDown, shift=False
@@ -287,6 +294,8 @@ class Weights:
 
         .. note:: ``weightUp`` and ``weightDown`` are assumed to be rvalue-like and may be modified in-place by this function
         """
+        if name in self._names:
+            raise ValueError(f"Weight '{name}' already exists")
         if name.endswith("Up") or name.endswith("Down"):
             raise ValueError(
                 "Avoid using 'Up' and 'Down' in weight names, instead pass appropriate shifts to add() call"
@@ -1234,6 +1243,8 @@ class PackedSelection:
             fill_value : bool, optional
                 All masked entries will be filled as specified (default: ``False``)
         """
+        if name in self._names:
+            raise ValueError(f"Selection '{name}' already exists")
         if isinstance(selection, dask.array.Array):
             raise ValueError(
                 "Dask arrays are not supported, please convert them to dask_awkward.Array by using dask_awkward.from_dask_array()"

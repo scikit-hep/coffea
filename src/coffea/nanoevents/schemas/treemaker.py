@@ -104,12 +104,16 @@ class TreeMakerSchema(BaseSchema):
 
         # Generating collection from branch name
         collections = [k for k in branch_forms if "_" in k and not k.startswith("n")]
-        collections = {
-            "_".join(k.split("_")[:-1])
-            for k in collections
-            if k.split("_")[-1] != "AK8"
-            # Excluding per-event variables with AK8 variants like Mjj and MT
-        }
+        collections = sorted(
+            {
+                "_".join(k.split("_")[:-1])
+                for k in collections
+                if k.split("_")[-1] != "AK8"
+                # Excluding per-event variables with AK8 variants like Mjj and MT
+            },
+            key=lambda colname: colname.count("_"),
+            reverse=True,
+        )
 
         subcollections = []
 

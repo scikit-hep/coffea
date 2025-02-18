@@ -39,9 +39,9 @@ classifiers = [
 dependencies = [
   "awkward>=2.6.7",
   "uproot>=5.3.11",
-  "dask[array]>=2024.3.0,<2025.1.0",
-  "dask-awkward>=2024.9.0",
-  "dask-histogram>=2024.9.1",
+  "dask[array]>=2024.3.0",
+  "dask-awkward>=2025.2.0",
+  "dask-histogram>=2025.2.0",
   "vector>=1.4.1,!=1.6.0",
   "correctionlib>=2.6.0",
   "pyarrow>=6.0.0",
@@ -82,8 +82,7 @@ parsl = [
   "parsl>=2022.12.1"
 ]
 rucio = [
-  "rucio-clients>=32;python_version>'3.8'",
-  "rucio-clients<32;python_version<'3.9'",
+  "rucio-clients>=32",
 ]
 dev = [
   "pre-commit",
