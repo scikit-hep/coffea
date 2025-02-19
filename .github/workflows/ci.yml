@@ -43,6 +43,7 @@ jobs:
         java-version: [17]
         java-distribution: ["corretto"]
         python-version: ["3.9", "3.13"]
+        dask-client: ["with", "without"]
 
     name: test coffea (${{ matrix.os }}) - python ${{ matrix.python-version }}, JDK${{ matrix.java-version }}
 
@@ -110,9 +111,14 @@ jobs:
       run: |
         docker run -d --rm -p 8000:8000 -p 8001:8001 -p 8002:8002 -v ${{ github.workspace }}/tests/samples/triton_models_test:/models nvcr.io/nvidia/tritonserver:23.04-pyt-python-py3 tritonserver --model-repository=/models
 
-    - name: Test with pytest
+    - name: Test with pytest (${{ matrix.dask-client }} dask Client - run in parallel)
+      if: matrix.dask-client == 'without'
       run: |
-        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -n 4
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "not dask_client" -n 4
+    - name: Test with pytest (${{ matrix.dask-client }} dask Client)
+      if: matrix.dask-client == 'with'
+      run: |
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "dask_client"
     - name: Upload codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
       uses: codecov/codecov-action@v5

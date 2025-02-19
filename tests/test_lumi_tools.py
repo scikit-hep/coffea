@@ -61,6 +61,7 @@ def test_lumidata():
     assert len(results["index"][lumidata]) == len(results["index"][lumidata_pickle])
 
 
+@pytest.mark.dask_client
 @pytest.mark.parametrize(
     "jsonfile",
     [
@@ -164,6 +165,7 @@ def test_lumilist_dask():
     assert abs(lumi3 - (lumi1 + lumi2)) < 1e-4
 
 
+@pytest.mark.dask_client
 def test_lumilist_client_fromfile():
     with Client() as _:
         events = NanoEventsFactory.from_root(
@@ -177,6 +179,7 @@ def test_lumilist_client_fromfile():
         assert result.to_list() == [[1, 13889]]
 
 
+@pytest.mark.dask_client
 def test_1259_avoid_pickle_numba_dict():
 
     runs_eager = ak.Array([368229, 368229, 368229, 368229])
