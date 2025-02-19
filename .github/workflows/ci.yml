@@ -45,7 +45,7 @@ jobs:
         python-version: ["3.9", "3.13"]
         dask-client: ["with", "without"]
 
-    name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}, JDK${{ matrix.java-version }}, dask${{ matrix.dask-client }}
+    name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}, JDK${{ matrix.java-version }}, ${{ matrix.dask-client }} dask
 
     steps:
     - uses: actions/checkout@v4
