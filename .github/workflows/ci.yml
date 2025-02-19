@@ -74,7 +74,7 @@ jobs:
         uv pip install --system --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
-        python -m pip install --pre --no-cache-dir torch --index-url https://download.pytorch.org/whl/nightly/cpu # torchvision torchaudio
+        # python -m pip install --pre --no-cache-dir torch --index-url https://download.pytorch.org/whl/nightly/cpu # torchvision torchaudio
         uv pip install --system xgboost
         uv pip install --system 'tritonclient[grpc,http]!=2.41.0'
         # install checked out coffea
@@ -87,7 +87,7 @@ jobs:
         uv pip install --system --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
-        python -m pip install --pre --no-cache-dir torch --index-url https://download.pytorch.org/whl/nightly/cpu # torchvision torchaudio
+        # python -m pip install --pre --no-cache-dir torch --index-url https://download.pytorch.org/whl/nightly/cpu # torchvision torchaudio
         uv pip install --system xgboost
         # install checked out coffea
         uv pip install --system -q '.[dev,dask,spark]' --upgrade
@@ -99,7 +99,7 @@ jobs:
         uv pip install --system --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
-        python -m pip install --pre --no-cache-dir torch --index-url https://download.pytorch.org/whl/nightly/cpu # torchvision torchaudio
+        # python -m pip install --pre --no-cache-dir torch --index-url https://download.pytorch.org/whl/nightly/cpu # torchvision torchaudio
         uv pip install --system xgboost
         # install checked out coffea
         uv pip install --system -q '.[dev,dask]' --upgrade
