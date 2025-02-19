@@ -70,7 +70,7 @@ jobs:
     - name: Install dependencies (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel
+        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
         python -m pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cpu # torchvision torchaudio
@@ -112,7 +112,7 @@ jobs:
 
     - name: Test with pytest
       run: |
-        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -n 4
     - name: Upload codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
       uses: codecov/codecov-action@v5
