@@ -83,7 +83,7 @@ jobs:
     - name: Install dependencies (MacOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel
+        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
         python -m pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cpu # torchvision torchaudio
@@ -95,7 +95,7 @@ jobs:
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel
+        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
         python -m pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cpu # torchvision torchaudio
