@@ -715,6 +715,7 @@ def test_jet_resolution_sf_2d(optimization_enabled):
         )
 
 
+@pytest.mark.dask_client
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_corrected_jets_factory(optimization_enabled):
     import os

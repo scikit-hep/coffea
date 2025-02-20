@@ -76,6 +76,7 @@ def common_prepare_awkward(jets):
     }
 
 
+@pytest.mark.dask_client
 def test_triton():
     _ = pytest.importorskip("tritonclient")
 
@@ -128,6 +129,7 @@ def test_triton():
     client.close()
 
 
+@pytest.mark.dask_client
 def test_torch():
     _ = pytest.importorskip("torch")
 
@@ -173,6 +175,7 @@ def test_torch():
     client.close()
 
 
+@pytest.mark.dask_client
 def test_tensorflow():
     _ = pytest.importorskip("tensorflow")
 
@@ -248,6 +251,7 @@ def test_tensorflow():
     client.close()
 
 
+@pytest.mark.dask_client
 def test_xgboost():
     _ = pytest.importorskip("xgboost")
 

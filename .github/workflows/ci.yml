@@ -43,8 +43,9 @@ jobs:
         java-version: [17]
         java-distribution: ["corretto"]
         python-version: ["3.9", "3.13"]
+        dask-client: ["with", "without"]
 
-    name: test coffea (${{ matrix.os }}) - python ${{ matrix.python-version }}, JDK${{ matrix.java-version }}
+    name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}, JDK${{ matrix.java-version }}, ${{ matrix.dask-client }} dask
 
     steps:
     - uses: actions/checkout@v4
@@ -70,10 +71,10 @@ jobs:
     - name: Install dependencies (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel
+        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
-        python -m pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cpu # torchvision torchaudio
+        python -m pip install torch
         uv pip install --system xgboost
         uv pip install --system 'tritonclient[grpc,http]!=2.41.0'
         # install checked out coffea
@@ -83,10 +84,10 @@ jobs:
     - name: Install dependencies (MacOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel
+        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
-        python -m pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cpu # torchvision torchaudio
+        python -m pip install torch
         uv pip install --system xgboost
         # install checked out coffea
         uv pip install --system -q '.[dev,dask,spark]' --upgrade
@@ -95,10 +96,10 @@ jobs:
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel
+        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
-        python -m pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cpu # torchvision torchaudio
+        python -m pip install torch
         uv pip install --system xgboost
         # install checked out coffea
         uv pip install --system -q '.[dev,dask]' --upgrade
@@ -110,9 +111,14 @@ jobs:
       run: |
         docker run -d --rm -p 8000:8000 -p 8001:8001 -p 8002:8002 -v ${{ github.workspace }}/tests/samples/triton_models_test:/models nvcr.io/nvidia/tritonserver:23.04-pyt-python-py3 tritonserver --model-repository=/models
 
-    - name: Test with pytest
+    - name: Test with pytest (${{ matrix.dask-client }} dask Client - run in parallel)
+      if: matrix.dask-client == 'without'
       run: |
-        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "not dask_client" -n 4
+    - name: Test with pytest (${{ matrix.dask-client }} dask Client)
+      if: matrix.dask-client == 'with'
+      run: |
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "dask_client"
     - name: Upload codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
       uses: codecov/codecov-action@v5
