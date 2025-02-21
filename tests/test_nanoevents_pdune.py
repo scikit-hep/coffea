@@ -26,7 +26,7 @@ from coffea.nanoevents import NanoEventsFactory, PDUNESchema
 def events():
     path = os.path.abspath("tests/samples/pduneana.root")
     factory = NanoEventsFactory.from_root(
-        {path: "pduneana/beamana"}, schemaclass=PDUNESchema
+        {path: "pduneana/beamana"}, schemaclass=PDUNESchema, mode="dask"
     )
     return factory.events()
 
