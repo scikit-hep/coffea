@@ -18,12 +18,12 @@ def _events(**kwargs):
 
 @pytest.fixture(scope="module")
 def eager_events():
-    return _events(delayed=False)
+    return _events(mode="eager")
 
 
 @pytest.fixture(scope="module")
 def delayed_events():
-    return _events(delayed=True)
+    return _events(mode="dask")
 
 
 @pytest.mark.parametrize(
