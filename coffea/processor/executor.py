@@ -622,6 +622,7 @@ class TaskVineExecutor(ExecutorBase):
         accumulator: Accumulatable,
     ):
         from .taskvine_executor import run
+
         return (
             run(
                 self,
@@ -1994,7 +1995,9 @@ class Runner:
                 processor_instance=pi_to_send,
             )
 
-        if self.format == "root" and isinstance(self.executor, (TaskVineExecutor, WorkQueueExecutor)):
+        if self.format == "root" and isinstance(
+            self.executor, (TaskVineExecutor, WorkQueueExecutor)
+        ):
             # keep chunks in generator, use a copy to count number of events
             # this is cheap, as we are reading from the cache
             chunks_to_count = self.preprocess(fileset, treename)
