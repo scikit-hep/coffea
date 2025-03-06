@@ -13,6 +13,7 @@ from .executor import (
     DaskExecutor,
     ParslExecutor,
     WorkQueueExecutor,
+    TaskVineExecutor,
     Runner,
     run_spark_job,
 )
@@ -128,6 +129,7 @@ __all__ = [
     "DaskExecutor",
     "ParslExecutor",
     "WorkQueueExecutor",
+    "TaskVineExecutor",
     "Runner",
     "run_spark_job",
     "accumulate",

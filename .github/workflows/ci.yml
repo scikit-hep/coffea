@@ -161,6 +161,30 @@ jobs:
         conda-pack --output coffea-env.tar.gz
         python wq.py coffea-env.tar.gz
 
+  testtaskvine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: pre-commit
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    name: test coffea-taskvine
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Conda
+      uses: conda-incubator/setup-miniconda@v2.2.0
+      with:
+        auto-update-conda: true
+        python-version: ${{ matrix.python-version }}
+    - name: Test TaskVine Executor
+      shell: bash -l {0}
+      run: |
+        conda create --yes --name coffea-env -c conda-forge python=${{ matrix.python-version }} ndcctools pytest 'setuptools<71'
+        conda activate coffea-env
+        python -m pip install --ignore-installed .
+        python -m pytest tests/test_taskvine_executor.py
+
 
 #  testskyhookjob:
 #    runs-on: ubuntu-latest
