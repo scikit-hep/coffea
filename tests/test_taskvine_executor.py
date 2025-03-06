@@ -2,7 +2,12 @@ import sys
 import os.path as osp
 import pytest
 from coffea import processor
-import ndcctools.taskvine as vine
+
+
+try:
+    import ndcctools.taskvine as vine
+except ModuleNotFoundError:
+    pytest.skip("could not import taskvine!")
 
 if sys.platform.startswith("win"):
     pytest.skip("skipping tests that only function in linux", allow_module_level=True)
