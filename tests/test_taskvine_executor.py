@@ -40,7 +40,11 @@ def test_taskvine_executor_nanoevents_analysis():
         chunksize=1000,
     )
 
-    workers = vine.Factory(batch_type="local", manager_host_port=f"localhost:{port}", log_file="factory.log")
+    workers = vine.Factory(
+        batch_type="local",
+        manager_host_port=f"localhost:{port}",
+        log_file="factory.log",
+    )
     workers.max_workers = 1
     workers.min_workers = 1
     workers.timeout = 120
