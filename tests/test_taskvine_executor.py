@@ -32,22 +32,27 @@ def test_taskvine_executor_nanoevents_analysis():
     port = 9123
     executor = processor.TaskVineExecutor(port=port)
 
-    workers = vine.Factory(manager_host_port="localhost:9123")
+    run = processor.Runner(
+        executor=executor,
+        skipbadfiles=True,
+        schema=processor.NanoAODSchema,
+        maxchunks=10000,
+        chunksize=1000,
+    )
+
+    workers = vine.Factory(batch_type="local", manager_host_port=f"localhost:{port}", log_file="factory.log")
     workers.max_workers = 1
     workers.min_workers = 1
+    workers.timeout = 120
     workers.cores = 1
-    workers.disk = 2000
+    workers.memory = 250
+    workers.disk = 1000
+    workers.debug = "all"
+    workers.debug_file = "factory.log"
 
     with workers:
-        run = processor.Runner(
-            executor=executor,
-            skipbadfiles=True,
-            schema=processor.NanoAODSchema,
-            maxchunks=10000,
-            chunksize=1000,
-        )
+        hists = run(filelist, "Events", processor_instance=NanoEventsProcessor())
 
-    hists = run(filelist, "Events", processor_instance=NanoEventsProcessor())
     assert hists["cutflow"]["ZJets_pt"] == 18
     assert hists["cutflow"]["ZJets_mass"] == 6
     assert hists["cutflow"]["Data_pt"] == 84
