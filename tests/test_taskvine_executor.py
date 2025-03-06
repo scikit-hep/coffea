@@ -7,7 +7,7 @@ from coffea import processor
 try:
     import ndcctools.taskvine as vine
 except ModuleNotFoundError:
-    pytest.skip("could not import taskvine!")
+    pytest.skip("could not import taskvine!", allow_module_level=True)
 
 if sys.platform.startswith("win"):
     pytest.skip("skipping tests that only function in linux", allow_module_level=True)
