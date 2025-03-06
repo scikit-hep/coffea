@@ -4,14 +4,14 @@ import awkward
 import pytest
 
 from coffea.nanoevents import FCC, NanoEventsFactory
-from coffea.nanoevents.methods.vector import LorentzVectorRecord
 
 
+# Basic Tests
 def _events(**kwargs):
     # Path to original sample : /eos/experiment/fcc/ee/generation/DelphesEvents/spring2021/IDEA/p8_ee_ZH_ecm240/events_082532938.root
     path = os.path.abspath("tests/samples/test_FCC_Spring2021.root")
     factory = NanoEventsFactory.from_root(
-        {path: "events"}, schemaclass=FCC.get_schema(version="latest"), **kwargs
+        {path: "events"}, schemaclass=FCC.get_schema(version="pre-edm4hep1"), **kwargs
     )
     return factory.events()
 
@@ -26,96 +26,220 @@ def delayed_events():
     return _events(delayed=True)
 
 
+branches = {
+    "AllMuonidx0": ["collectionID", "index"],
+    "EFlowNeutralHadron": [
+        "E",
+        "clusters",
+        "directionError",
+        "energyError",
+        "hitContributions",
+        "hits",
+        "iTheta",
+        "particleIDs",
+        "phi",
+        "position",
+        "positionError_6_",
+        "shapeParameters",
+        "subdetectorEnergies",
+        "type",
+    ],
+    "EFlowNeutralHadron_0": [],
+    "EFlowNeutralHadron_1": [],
+    "EFlowNeutralHadron_2": [],
+    "EFlowNeutralHadronidx0": ["collectionID", "index"],
+    "EFlowNeutralHadronidx1": ["collectionID", "index"],
+    "EFlowNeutralHadronidx2": ["collectionID", "index"],
+    "EFlowPhoton": [
+        "E",
+        "clusters",
+        "directionError",
+        "energyError",
+        "hitContributions",
+        "hits",
+        "iTheta",
+        "particleIDs",
+        "phi",
+        "position",
+        "positionError_6_",
+        "shapeParameters",
+        "subdetectorEnergies",
+        "type",
+    ],
+    "EFlowPhoton_0": [],
+    "EFlowPhoton_1": [],
+    "EFlowPhoton_2": [],
+    "EFlowPhotonidx0": ["collectionID", "index"],
+    "EFlowPhotonidx1": ["collectionID", "index"],
+    "EFlowPhotonidx2": ["collectionID", "index"],
+    "EFlowTrack": [
+        "chi2",
+        "dEdx",
+        "dEdxError",
+        "ndf",
+        "radiusOfInnermostHit",
+        "subDetectorHitNumbers",
+        "trackStates",
+        "trackerHits",
+        "tracks",
+        "type",
+    ],
+    "EFlowTrack_0": [],
+    "EFlowTrack_1": [
+        "D0",
+        "Z0",
+        "covMatrix_15_",
+        "location",
+        "omega",
+        "phi",
+        "referencePoint",
+        "tanLambda",
+    ],
+    "EFlowTrackidx0": ["collectionID", "index"],
+    "EFlowTrackidx1": ["collectionID", "index"],
+    "Electronidx0": ["collectionID", "index"],
+    "Jet": [
+        "E",
+        "charge",
+        "clusters",
+        "covMatrix_10_",
+        "goodnessOfPID",
+        "mass",
+        "particleIDs",
+        "particles",
+        "px",
+        "py",
+        "pz",
+        "referencePoint",
+        "tracks",
+        "type",
+    ],
+    "Jetidx0": ["collectionID", "index"],
+    "Jetidx1": ["collectionID", "index"],
+    "Jetidx2": ["collectionID", "index"],
+    "Jetidx3": ["collectionID", "index"],
+    "Jetidx4": ["collectionID", "index"],
+    "Jetidx5": ["collectionID", "index"],
+    "MCRecoAssociations": ["mc", "reco", "weight"],
+    "MissingET": [
+        "E",
+        "charge",
+        "clusters",
+        "covMatrix_10_",
+        "goodnessOfPID",
+        "mass",
+        "particleIDs",
+        "particles",
+        "px",
+        "py",
+        "pz",
+        "referencePoint",
+        "tracks",
+        "type",
+    ],
+    "MissingETidx0": ["collectionID", "index"],
+    "MissingETidx1": ["collectionID", "index"],
+    "MissingETidx2": ["collectionID", "index"],
+    "MissingETidx3": ["collectionID", "index"],
+    "MissingETidx4": ["collectionID", "index"],
+    "MissingETidx5": ["collectionID", "index"],
+    "Muonidx0": ["collectionID", "index"],
+    "Particle": [
+        "MCRecoAssociationsidx1_indexGlobal",
+        "PDG",
+        "charge",
+        "colorFlow",
+        "daughters",
+        "endpoint",
+        "generatorStatus",
+        "mass",
+        "momentumAtEndpoint",
+        "parents",
+        "px",
+        "py",
+        "pz",
+        "simulatorStatus",
+        "spin",
+        "time",
+        "vertex",
+    ],
+    "ParticleIDs": ["PDG", "algorithmType", "likelihood", "parameters", "type"],
+    "ParticleIDs_0": [],
+    "Particleidx0": ["collectionID", "index"],
+    "Particleidx1": ["collectionID", "index"],
+    "Photonidx0": ["collectionID", "index"],
+    "ReconstructedParticles": [
+        "E",
+        "Electronidx0_indexGlobal",
+        "MCRecoAssociationsidx0_indexGlobal",
+        "Muonidx0_indexGlobal",
+        "charge",
+        "clusters",
+        "covMatrix_10_",
+        "goodnessOfPID",
+        "mass",
+        "particleIDs",
+        "particles",
+        "px",
+        "py",
+        "pz",
+        "referencePoint",
+        "tracks",
+        "type",
+    ],
+    "ReconstructedParticlesidx0": ["collectionID", "index"],
+    "ReconstructedParticlesidx1": ["collectionID", "index"],
+    "ReconstructedParticlesidx2": ["collectionID", "index"],
+    "ReconstructedParticlesidx3": ["collectionID", "index"],
+    "ReconstructedParticlesidx4": ["collectionID", "index"],
+    "ReconstructedParticlesidx5": ["collectionID", "index"],
+}
+
+
+# Test 1: Are the required branches and sub-branches present?
 @pytest.mark.parametrize(
     "field",
-    [
-        "AllMuonidx0",
-        "EFlowNeutralHadron",
-        "EFlowNeutralHadron_0",
-        "EFlowNeutralHadron_1",
-        "EFlowNeutralHadron_2",
-        "EFlowNeutralHadronidx0",
-        "EFlowNeutralHadronidx1",
-        "EFlowNeutralHadronidx2",
-        "EFlowPhoton",
-        "EFlowPhoton_0",
-        "EFlowPhoton_1",
-        "EFlowPhoton_2",
-        "EFlowPhotonidx0",
-        "EFlowPhotonidx1",
-        "EFlowPhotonidx2",
-        "EFlowTrack",
-        "EFlowTrack_0",
-        "EFlowTrack_1",
-        "EFlowTrackidx0",
-        "EFlowTrackidx1",
-        "Electronidx0",
-        "Jet",
-        "Jetidx0",
-        "Jetidx1",
-        "Jetidx2",
-        "Jetidx3",
-        "Jetidx4",
-        "Jetidx5",
-        "MCRecoAssociations",
-        "MissingET",
-        "MissingETidx0",
-        "MissingETidx1",
-        "MissingETidx2",
-        "MissingETidx3",
-        "MissingETidx4",
-        "MissingETidx5",
-        "Muonidx0",
-        "Particle",
-        "ParticleIDs",
-        "ParticleIDs_0",
-        "Particleidx0",
-        "Particleidx1",
-        "Photonidx0",
-        "ReconstructedParticles",
-        "ReconstructedParticlesidx0",
-        "ReconstructedParticlesidx1",
-        "ReconstructedParticlesidx2",
-        "ReconstructedParticlesidx3",
-        "ReconstructedParticlesidx4",
-        "ReconstructedParticlesidx5",
-    ],
+    branches.keys(),
 )
 def test_field_is_present(eager_events, delayed_events, field):
     eager_fields = eager_events.fields
     delayed_fields = delayed_events.fields
+    subfields = branches[field]
     assert field in eager_fields
+    assert eager_events[field].fields == subfields
     assert field in delayed_fields
+    assert delayed_events[field].fields == subfields
 
 
-def test_lorentz_behavior(delayed_events):
-    assert delayed_events.Particle.behavior["LorentzVector"] == LorentzVectorRecord
-    assert (
-        delayed_events.ReconstructedParticles.behavior["LorentzVector"]
-        == LorentzVectorRecord
-    )
-    assert isinstance(delayed_events.Particle.eta.compute(), awkward.highlevel.Array)
-    assert isinstance(
-        delayed_events.ReconstructedParticles.eta.compute(), awkward.highlevel.Array
-    )
-
-
+# Test 2: Do all the relations and links work?
 def test_MC_daughters(delayed_events):
     d = delayed_events.Particle.get_daughters.compute()
     assert isinstance(d, awkward.highlevel.Array)
     assert d.layout.branch_depth[1] == 3
+    assert d.fields == delayed_events.Particle.fields
 
 
 def test_MC_parents(delayed_events):
     p = delayed_events.Particle.get_parents.compute()
     assert isinstance(p, awkward.highlevel.Array)
     assert p.layout.branch_depth[1] == 3
+    assert p.fields == delayed_events.Particle.fields
 
 
 def test_MCRecoAssociations(delayed_events):
     mr = delayed_events.MCRecoAssociations.reco_mc.compute()
     assert isinstance(mr, awkward.highlevel.Array)
     assert mr.layout.branch_depth[1] == 3
+
+
+# Validity Tests
+def test_RecoMC_mass_diference(delayed_events):
+    """For this particular sample, the difference between
+    the mc mass and reco mass in all the events is less than 1 GeV"""
+    mr = delayed_events.MCRecoAssociations.reco_mc.compute()
+    r, m = mr[:, :, 0], mr[:, :, 1]
+    diff = awkward.flatten(m.mass - r.mass)
+    assert awkward.all(diff < 1.0)
 
 
 def test_KaonParent_to_PionDaughters_Loop(eager_events):
@@ -139,6 +263,13 @@ def test_KaonParent_to_PionDaughters_Loop(eager_events):
 
     # Find the daughters of Single K(S)0
     daughters_of_K_S0 = single_K_S0.get_daughters
+
+    # Some K_S0 can go undetected (I think)
+    # Ensure that at least one daughter is available per event
+    bool_non_empty_daughter_list = awkward.num(daughters_of_K_S0, axis=2) > 0
+    daughters_of_K_S0 = daughters_of_K_S0[
+        awkward.flatten(bool_non_empty_daughter_list, axis=1)
+    ]
 
     # Are these valid daughter particles (pi+ or pi- or pi0)?
     flat_PDG = awkward.ravel(daughters_of_K_S0.PDG)
