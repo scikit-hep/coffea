@@ -1,0 +1,19 @@
+WeightStatistics
+================
+
+.. currentmodule:: coffea.analysis_tools
+
+.. autoclass:: WeightStatistics
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~WeightStatistics.add
+      ~WeightStatistics.identity
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: add
+   .. automethod:: identity
