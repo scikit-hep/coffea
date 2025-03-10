@@ -82,7 +82,10 @@ def test_electron_forms():
                             "class": "NumpyArray",
                             "primitive": "float32",
                             "inner_shape": [],
-                            "parameters": {"__doc__": "AnalysisElectronsAuxDyn.pt"},
+                            "parameters": {
+                                "__doc__": "AnalysisElectronsAuxDyn.pt",
+                                "typename": "std::vector<float>",
+                            },
                             "form_key": "node3",
                         },
                         {
@@ -96,21 +99,30 @@ def test_electron_forms():
                             "class": "NumpyArray",
                             "primitive": "float32",
                             "inner_shape": [],
-                            "parameters": {"__doc__": "AnalysisElectronsAuxDyn.eta"},
+                            "parameters": {
+                                "__doc__": "AnalysisElectronsAuxDyn.eta",
+                                "typename": "std::vector<float>",
+                            },
                             "form_key": "node5",
                         },
                         {
                             "class": "NumpyArray",
                             "primitive": "float32",
                             "inner_shape": [],
-                            "parameters": {"__doc__": "AnalysisElectronsAuxDyn.phi"},
+                            "parameters": {
+                                "__doc__": "AnalysisElectronsAuxDyn.phi",
+                                "typename": "std::vector<float>",
+                            },
                             "form_key": "node6",
                         },
                         {
                             "class": "NumpyArray",
                             "primitive": "float32",
                             "inner_shape": [],
-                            "parameters": {"__doc__": "AnalysisElectronsAuxDyn.m"},
+                            "parameters": {
+                                "__doc__": "AnalysisElectronsAuxDyn.m",
+                                "typename": "std::vector<float>",
+                            },
                             "form_key": "node7",
                         },
                     ],
@@ -131,5 +143,4 @@ def test_electron_forms():
         },
         "form_key": "node0",
     }
-
     assert json.dumps(expected_json) == mocked.to_json()

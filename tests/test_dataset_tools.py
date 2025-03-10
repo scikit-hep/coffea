@@ -374,10 +374,14 @@ def test_preprocess_calculate_form():
         )
 
         raw_form_dy = uproot.dask(
-            "tests/samples/nano_dy.root:Events", open_files=False, ak_add_doc=True
+            "tests/samples/nano_dy.root:Events",
+            open_files=False,
+            ak_add_doc={"__doc__": "title", "typename": "typename"},
         ).layout.form.to_json()
         raw_form_data = uproot.dask(
-            "tests/samples/nano_dimuon.root:Events", open_files=False, ak_add_doc=True
+            "tests/samples/nano_dimuon.root:Events",
+            open_files=False,
+            ak_add_doc={"__doc__": "title", "typename": "typename"},
         ).layout.form.to_json()
 
         assert decompress_form(dataset_runnable["ZJets"]["form"]) == raw_form_dy
