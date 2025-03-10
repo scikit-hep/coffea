@@ -4,7 +4,6 @@ import json
 import os
 import random
 from collections import defaultdict
-from typing import Dict, List
 
 import yaml
 from dask.distributed import Client
@@ -20,7 +19,7 @@ from .preprocess import preprocess
 
 def print_dataset_query(
     query: str,
-    dataset_list: Dict[str, Dict[str, list[str]]],
+    dataset_list: dict[str, dict[str, list[str]]],
     console: Console,
     selected: list[str] = [],
 ) -> None:
@@ -70,7 +69,7 @@ def print_dataset_query(
     console.print(table)
 
 
-def get_indices_query(input_str: str, maxN: int) -> List[int]:
+def get_indices_query(input_str: str, maxN: int) -> list[int]:
     tokens = input_str.strip().split(" ")
     final_tokens = []
     for t in tokens:

@@ -1,5 +1,5 @@
 import warnings
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy
 
@@ -55,7 +55,7 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
     """
 
     def __init__(
-        self, torch_jit: str, expected_output_shape: Optional[Tuple[int]] = None
+        self, torch_jit: str, expected_output_shape: Optional[tuple[int]] = None
     ):
         if _torch_import_error is not None:
             warnings.warn(
