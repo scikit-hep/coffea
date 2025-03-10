@@ -47,9 +47,9 @@ def test_taskvine_executor_nanoevents_analysis():
     )
     workers.max_workers = 1
     workers.min_workers = 1
-    workers.timeout = 120
+    workers.timeout = 600
     workers.cores = 1
-    workers.memory = 250
+    workers.memory = 500
     workers.disk = 1000
     workers.debug = "all"
     workers.debug_file = "factory.log"
