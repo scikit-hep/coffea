@@ -6,9 +6,11 @@ from coffea.jetmet_tools.JetResolutionScaleFactor import JetResolutionScaleFacto
 from coffea.jetmet_tools.JetCorrectionUncertainty import JetCorrectionUncertainty
 import correctionlib as clib
 
+
 @dataclass
 class JECStack:
     """Handles both JEC and clib cases with conditional attributes."""
+
     # Common fields for both scenarios
     corrections: Dict[str, any] = field(default_factory=dict)
     use_clib: bool = False  # Set to True if useclib is needed
@@ -28,7 +30,6 @@ class JECStack:
     jer: Optional[JetResolution] = None
     jersf: Optional[JetResolutionScaleFactor] = None
 
-
     def __post_init__(self):
         """Handle initialization based on use_clib flag."""
         if self.use_clib:
@@ -45,23 +46,32 @@ class JECStack:
         self.cset = clib.CorrectionSet.from_file(self.json_path)
 
         # Construct lists for jec, jer, and uncertainties
-        self.jec_names_clib = [f"{self.jec_tag}_{level}_{self.jet_algo}" for level in self.jec_levels]
+        self.jec_names_clib = [
+            f"{self.jec_tag}_{level}_{self.jet_algo}" for level in self.jec_levels
+        ]
         self.jer_names_clib = []
         self.jec_uncsources_clib = []
 
         if self.jer_tag is not None:
             self.jer_names_clib = [
                 f"{self.jer_tag}_ScaleFactor_{self.jet_algo}",
-                f"{self.jer_tag}_PtResolution_{self.jet_algo}"
+                f"{self.jer_tag}_PtResolution_{self.jet_algo}",
             ]
 
         if self.junc_types:
-            self.jec_uncsources_clib = [f"{self.jec_tag}_{junc_type}_{self.jet_algo}" for junc_type in self.junc_types]
+            self.jec_uncsources_clib = [
+                f"{self.jec_tag}_{junc_type}_{self.jet_algo}"
+                for junc_type in self.junc_types
+            ]
 
         # Combine requested corrections
-        requested_corrections = self.jec_names_clib + self.jer_names_clib + self.jec_uncsources_clib
+        requested_corrections = (
+            self.jec_names_clib + self.jer_names_clib + self.jec_uncsources_clib
+        )
         available_corrections = list(self.cset.keys())
-        missing_corrections = [name for name in requested_corrections if name not in available_corrections]
+        missing_corrections = [
+            name for name in requested_corrections if name not in available_corrections
+        ]
 
         if missing_corrections:
             raise ValueError(
@@ -87,11 +97,18 @@ class JECStack:
             self.jersf = JetResolutionScaleFactor(**assembled["jersf"])
 
         if (self.jer is None) != (self.jersf is None):
-            raise ValueError("Cannot apply JER-SF without an input JER, and vice-versa!")
+            raise ValueError(
+                "Cannot apply JER-SF without an input JER, and vice-versa!"
+            )
 
     def to_list(self):
         """Convert to list for clib case."""
-        return self.jec_names_clib + self.jer_names_clib + self.jec_uncsources_clib + [self.json_path, self.savecorr]
+        return (
+            self.jec_names_clib
+            + self.jer_names_clib
+            + self.jec_uncsources_clib
+            + [self.json_path, self.savecorr]
+        )
 
     def assemble_corrections(self):
         """Assemble corrections for both scenarios."""
@@ -100,7 +117,7 @@ class JECStack:
         for key in self.corrections.keys():
             if "Uncertainty" in key:
                 assembled["junc"][key] = self.corrections[key]
-            elif ("ScaleFactor" in key or "SF" in key):
+            elif "ScaleFactor" in key or "SF" in key:
                 assembled["jersf"][key] = self.corrections[key]
             elif "Resolution" in key and not ("ScaleFactor" in key or "SF" in key):
                 assembled["jer"][key] = self.corrections[key]
