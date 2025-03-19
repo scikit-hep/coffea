@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from collections.abc import Mapping
+from functools import partial
 
 import numpy
 from cachetools import LRUCache
@@ -21,7 +22,14 @@ class BaseSourceMapping(Mapping):
     _debug = False
 
     def __init__(
-        self, fileopener, start, stop, cache=None, access_log=None, use_ak_forth=False
+        self,
+        fileopener,
+        start,
+        stop,
+        cache=None,
+        access_log=None,
+        use_ak_forth=False,
+        virtual=False,
     ):
         self._fileopener = fileopener
         self._cache = cache
@@ -29,6 +37,7 @@ class BaseSourceMapping(Mapping):
         self._start = start
         self._stop = stop
         self._use_ak_forth = use_ak_forth
+        self._virtual = virtual
         self.setup()
 
     def setup(self):
@@ -75,61 +84,66 @@ class BaseSourceMapping(Mapping):
         return uuid, treepath, start, stop, nodes
 
     def __getitem__(self, key):
-        uuid, treepath, start, stop, nodes = self.interpret_key(key)
-        if self._debug:
-            print("Getting (", key, ") :", uuid, treepath, start, stop, nodes)
-        stack = []
-        skip = False
-        for node in nodes:
-            if skip:
-                skip = False
-                continue
-            elif node == "!skip":
-                skip = True
-                continue
-            elif node.startswith("!load"):
-                handle_name = stack.pop()
-                if self._access_log is not None:
-                    self._access_log.append(handle_name)
-                allow_missing = node == "!loadallowmissing"
-                handle = self.get_column_handle(
-                    self._column_source(uuid, treepath), handle_name, allow_missing
-                )
-                stack.append(
-                    self.extract_column(
-                        handle,
-                        start,
-                        stop,
-                        allow_missing,
-                        use_ak_forth=self._use_ak_forth,
+        def _getitem(key):
+            uuid, treepath, start, stop, nodes = self.interpret_key(key)
+            if self._debug:
+                print("Getting (", key, ") :", uuid, treepath, start, stop, nodes)
+            stack = []
+            skip = False
+            for node in nodes:
+                if skip:
+                    skip = False
+                    continue
+                elif node == "!skip":
+                    skip = True
+                    continue
+                elif node.startswith("!load"):
+                    handle_name = stack.pop()
+                    if self._access_log is not None:
+                        self._access_log.append(handle_name)
+                    allow_missing = node == "!loadallowmissing"
+                    handle = self.get_column_handle(
+                        self._column_source(uuid, treepath), handle_name, allow_missing
                     )
-                )
-            elif node.startswith("!"):
-                tname = node[1:]
-                if not hasattr(transforms, tname):
-                    raise RuntimeError(
-                        f"Syntax error in form_key: no transform named {tname}"
+                    stack.append(
+                        self.extract_column(
+                            handle,
+                            start,
+                            stop,
+                            allow_missing,
+                            use_ak_forth=self._use_ak_forth,
+                        )
                     )
-                getattr(transforms, tname)(stack)
-            else:
-                stack.append(node)
-        if len(stack) != 1:
-            raise RuntimeError(f"Syntax error in form key {nodes}")
-        out = stack.pop()
-        import awkward
+                elif node.startswith("!"):
+                    tname = node[1:]
+                    if not hasattr(transforms, tname):
+                        raise RuntimeError(
+                            f"Syntax error in form_key: no transform named {tname}"
+                        )
+                    getattr(transforms, tname)(stack)
+                else:
+                    stack.append(node)
+            if len(stack) != 1:
+                raise RuntimeError(f"Syntax error in form key {nodes}")
+            out = stack.pop()
+            import awkward
 
-        if isinstance(out, awkward.contents.Content):
-            out = awkward.to_numpy(out)
-        else:
-            try:
-                out = numpy.array(out)
-            except ValueError:
-                if self._debug:
-                    print(out)
-                raise RuntimeError(
-                    f"Left with non-bare array after evaluating form key {nodes}"
-                )
-        return out
+            if isinstance(out, awkward.contents.Content):
+                out = awkward.to_numpy(out)
+            else:
+                try:
+                    out = numpy.array(out)
+                except ValueError:
+                    if self._debug:
+                        print(out)
+                    raise RuntimeError(
+                        f"Left with non-bare array after evaluating form key {nodes}"
+                    )
+            return out
+
+        if self._virtual:
+            return partial(_getitem, key)
+        return _getitem(key)
 
     @abstractmethod
     def __len__(self):
