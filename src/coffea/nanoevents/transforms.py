@@ -142,164 +142,6 @@ def local2global(stack):
     stack.append(out)
 
 
-@numba.njit
-def _grow_local_index_to_target_shape_kernel(index, all_index, builder):
-    for i in range(len(all_index)):
-        builder.begin_list()
-        event_all_index = all_index[i]
-        event_index = index[i]
-        for all_index_value in event_all_index:
-            if all_index_value in event_index:
-                builder.integer(all_index_value)
-            else:
-                builder.integer(-1)
-        builder.end_list()
-
-    return builder
-
-
-def grow_local_index_to_target_shape_form(index, target):
-    if not index["class"].startswith("ListOffset"):
-        raise RuntimeError
-    if not target["class"].startswith("ListOffset"):
-        raise RuntimeError
-    form = copy.deepcopy(index)
-    form["content"]["form_key"] = concat(
-        index["content"]["form_key"],
-        target["content"][
-            "form_key"
-        ],  # , "!grow_local_index_to_target_shape", "!content"
-    )
-    form["form_key"] = concat(
-        index["form_key"], target["form_key"], "!grow_local_index_to_target_shape"
-    )
-    form["content"]["itemsize"] = 8
-    form["content"]["primitive"] = "int64"
-    return form
-
-
-def grow_local_index_to_target_shape(stack):
-    """Grow the local index to the size of target size by replacing unreferenced indices as -1
-
-    Signature: index,target,!grow_local_index_to_target_shape
-    Outputs a content array with same shape as target content
-    """
-    target = stack.pop()
-    index = stack.pop()
-    all_index = awkward.local_index(target, axis=1)
-
-    useable_index = awkward.Array(
-        _grow_local_index_to_target_shape_kernel(
-            awkward.Array(index), awkward.Array(all_index), awkward.ArrayBuilder()
-        ).snapshot()
-    )
-
-    stack.append(useable_index)
-
-
-def begin_and_end_to_counts_form(begin, end):
-    if not begin["class"].startswith("ListOffset"):
-        raise RuntimeError
-    if not end["class"].startswith("ListOffset"):
-        raise RuntimeError
-
-    form = copy.deepcopy(begin)
-
-    key = concat(begin["form_key"], end["form_key"], "!begin_and_end_to_counts")
-    form["content"]["form_key"] = concat(key, "!content")
-    return form
-
-
-def begin_and_end_to_counts(stack):
-    "Calculate the number of entries from begin to end (end - begin)"
-    end = stack.pop()
-    begin = stack.pop()
-
-    stack.append(end - begin)
-
-
-@numba.njit
-def _index_range_kernel(begin_end, target, builder):
-    for ev in range(len(begin_end)):
-        builder.begin_list()
-        for j in range(len(begin_end[ev])):
-            builder.begin_list()
-            for k in range(begin_end[ev][j][0], begin_end[ev][j][1]):
-                # builder.integer(k)
-                builder.integer(target[ev][k])
-            builder.end_list()
-        builder.end_list()
-    return builder
-
-
-def index_range_form(begin, end, target):
-    if not begin["class"].startswith("ListOffset"):
-        raise RuntimeError
-    if not end["class"].startswith("ListOffset"):
-        raise RuntimeError
-    if not target["class"].startswith("ListOffset"):
-        raise RuntimeError
-    form = {
-        "class": "ListOffsetArray",
-        "offsets": "i64",
-        "content": {
-            "class": "ListOffsetArray",
-            "offsets": "i64",
-            "content": {
-                "class": "NumpyArray",
-                "itemsize": 8,
-                "format": "i",
-                "primitive": "int64",
-                "form_key": concat(
-                    begin["form_key"],
-                    end["form_key"],
-                    target["form_key"],
-                    "!index_range",
-                    "!content",
-                ),
-            },
-            "form_key": concat(
-                begin["form_key"], end["form_key"], target["form_key"], "!index_range"
-            ),
-        },
-        "form_key": concat(begin["form_key"], end["form_key"], target["form_key"]),
-    }
-    return form
-
-
-def index_range(stack):
-    """
-    Takes in begin and end arrays and a target array.
-    This is the process:
-        Get ranges (double nesting) of begin to end
-        Corresponding to those index ranges, pick up elements from the target array(which are also indices)
-        Convert the resulting doubly nested indices into doubly nested global indices (actually flattened across axis=1
-        , because unflattening would be done in zip_forms)
-    """
-    target = stack.pop()
-    end = stack.pop()
-    begin = stack.pop()
-    begin_end = awkward.concatenate(
-        (begin[:, :, numpy.newaxis], end[:, :, numpy.newaxis]), axis=2
-    )
-
-    out = awkward.Array(
-        _index_range_kernel(begin_end, target, awkward.ArrayBuilder()).snapshot()
-    )
-
-    # Convert to global index
-    counts2 = awkward.flatten(awkward.num(out, axis=2), axis=1)
-
-    out = awkward.flatten(out, axis=2)
-    stack2 = [out, begin.layout.offsets.data]
-    local2global(stack2)
-    out = stack2.pop()
-
-    out = awkward.unflatten(out, counts2, axis=0)
-
-    stack.append(out)
-
-
 def counts2nestedindex_form(local_counts, target_offsets):
     if not local_counts["class"].startswith("ListOffset"):
         raise RuntimeError
@@ -643,3 +485,361 @@ def eventindex(stack):
     out = stack.pop()
     out, _ = awkward.broadcast_arrays(numpy.arange(len(out), dtype=numpy.int64), out)
     stack.append(out)
+
+
+# For EDM4HEPSchema and FCCSChema:
+
+
+# grow_local_index_to_target_shape
+@numba.njit
+def _grow_local_index_to_target_shape_kernel(index, all_index, builder):
+    for i in range(len(all_index)):
+        builder.begin_list()
+        event_all_index = all_index[i]
+        event_index = index[i]
+        for all_index_value in event_all_index:
+            if all_index_value in event_index:
+                builder.integer(all_index_value)
+            else:
+                builder.integer(-1)
+        builder.end_list()
+
+    return builder
+
+
+def grow_local_index_to_target_shape_form(index, target):
+    if not index["class"].startswith("ListOffset"):
+        raise RuntimeError
+    if not target["class"].startswith("ListOffset"):
+        raise RuntimeError
+    form = copy.deepcopy(index)
+    form["content"]["form_key"] = concat(
+        index["content"]["form_key"],
+        target["content"]["form_key"],
+    )
+    form["form_key"] = concat(
+        index["form_key"], target["form_key"], "!grow_local_index_to_target_shape"
+    )
+    form["content"]["itemsize"] = 8
+    form["content"]["primitive"] = "int64"
+    return form
+
+
+def grow_local_index_to_target_shape(stack):
+    """Grow the local index to the size of target size by replacing unreferenced indices as -1
+
+    Signature: index,target,!grow_local_index_to_target_shape
+    Outputs a content array with same shape as target content
+    """
+    target = stack.pop()
+    index = stack.pop()
+    all_index = awkward.local_index(target, axis=1)
+
+    useable_index = awkward.Array(
+        _grow_local_index_to_target_shape_kernel(
+            awkward.Array(index), awkward.Array(all_index), awkward.ArrayBuilder()
+        ).snapshot()
+    )
+
+    stack.append(useable_index)
+
+
+# nested_local2global
+def nested_local2global(array, target_offsets_raw):
+    counts2 = awkward.flatten(awkward.num(array, axis=2), axis=1)
+    flat_index = awkward.values_astype(awkward.flatten(array, axis=2), "int64")
+
+    target_offsets = awkward.values_astype(target_offsets_raw, "int64")
+
+    flat_index = flat_index.mask[flat_index >= 0] + target_offsets[:-1]
+    flat_index = flat_index.mask[flat_index < target_offsets[1:]]
+    out = ensure_array(awkward.flatten(awkward.fill_none(flat_index, -1), axis=None))
+    if out.dtype != numpy.int64:
+        raise RuntimeError
+
+    nested_global = awkward.unflatten(out, counts2, axis=0)
+    return nested_global
+
+
+def nested_local2global_stack(stack):
+    target_offsets_raw = stack.pop()
+    array = stack.pop()
+    counts1 = awkward.num(array, axis=1)
+    counts2 = awkward.flatten(awkward.num(array, axis=2), axis=1)
+
+    if awkward.sum(counts2) == 0:  # Empty indices
+        nested_global = array
+    else:
+        flat_index = awkward.values_astype(awkward.flatten(array, axis=2), "int64")
+
+        target_offsets = awkward.values_astype(target_offsets_raw, "int64")
+
+        flat_index = flat_index.mask[flat_index >= 0] + target_offsets[:-1]
+        flat_index = flat_index.mask[flat_index < target_offsets[1:]]
+        out = ensure_array(
+            awkward.flatten(awkward.fill_none(flat_index, -1), axis=None)
+        )
+
+        # if out.dtype != numpy.int64:
+        #     raise RuntimeError
+
+        nested_global_flat = awkward.unflatten(out, counts2, axis=0)
+        nested_global = awkward.unflatten(nested_global_flat, counts1, axis=0)
+    stack.append(nested_global)
+
+
+def nested_local2global_form(array_form, target_offsets_form):
+    if not array_form["class"].startswith("ListOffset"):
+        raise RuntimeError
+    if not target_offsets_form["class"].startswith("NumpyArray"):
+        raise RuntimeError
+    form = copy.deepcopy(array_form)
+    form["content"]["content"]["primitive"] = "int64"
+    form["content"]["content"]["form_key"] = concat(
+        array_form["form_key"],
+        target_offsets_form["form_key"],
+        "!nested_local2global_stack",
+        "!content",
+        "!content",
+    )
+    return form
+
+
+# begin_end_mapping
+@numba.njit
+def get_index_ranges_kernel(begin_end, builder):
+    for ev in range(len(begin_end)):
+        builder.begin_list()
+        for j in range(len(begin_end[ev])):
+            builder.begin_list()
+            for k in range(begin_end[ev][j][0], begin_end[ev][j][1]):
+                builder.integer(k)
+            builder.end_list()
+        builder.end_list()
+    return builder
+
+
+def get_index_ranges(begin, end):
+    begin_end = awkward.concatenate(
+        (begin[:, :, numpy.newaxis], end[:, :, numpy.newaxis]), axis=2
+    )
+    ranges = get_index_ranges_kernel(begin_end, awkward.ArrayBuilder()).snapshot()
+
+    if awkward.sum(ranges) == 0:  # empty ranges, return a twice nested empty array
+        ranges = begin_end[begin_end < 0]
+    return ranges
+
+
+@numba.jit
+def get_array_from_indices_kernel(indices, target, builder):
+    for ev in range(len(indices)):
+        builder.begin_list()
+        for j in range(len(indices[ev])):
+            builder.begin_list()
+            for k in indices[ev][j]:
+                builder.real(target[ev][k])
+            builder.end_list()
+        builder.end_list()
+    return builder
+
+
+@numba.jit
+def get_array_from_indices_nested_target_kernel(indices, target, builder):
+    for ev in range(len(indices)):
+        builder.begin_list()
+        for j in range(len(indices[ev])):
+            builder.begin_list()
+            for k in indices[ev][j]:
+                builder.begin_list()
+                for num in target[ev][k]:
+                    builder.real(num)
+                builder.end_list()
+            builder.end_list()
+        builder.end_list()
+    return builder
+
+
+def get_array_from_indices(indices, target):
+    if target.ndim == 2:
+        return get_array_from_indices_kernel(
+            indices, target, awkward.ArrayBuilder()
+        ).snapshot()
+    elif target.ndim == 3:
+        return get_array_from_indices_nested_target_kernel(
+            indices, target, awkward.ArrayBuilder()
+        ).snapshot()
+    else:
+        raise RuntimeError(f"Target array \n\t{target}\n is highly nested.")
+
+
+def begin_end_mapping(stack):
+    target = stack.pop()
+    end = stack.pop()
+    begin = stack.pop()
+    indices = get_index_ranges(begin, end)
+
+    if awkward.sum(awkward.num(target, axis=1)) == 0:  # Empty Target
+        out = indices[indices < 0]  # return an empty array
+    else:
+        if awkward.sum(awkward.num(indices, axis=1)) == 0:  # Empty Indices
+            out = indices[indices < 0]  # return an empty array
+        else:  # The usual case when both of the indices and target are non-empty
+            out = get_array_from_indices(awkward.fill_none(indices, -1), target)
+    stack.append(out)
+
+
+def begin_end_mapping_form(begin_form, end_form, target_form):
+    if not begin_form["class"].startswith("ListOffset"):
+        raise RuntimeError
+    if not end_form["class"].startswith("ListOffset"):
+        raise RuntimeError
+    if not target_form["class"].startswith("ListOffset"):
+        raise RuntimeError
+    form = {
+        "class": "ListOffsetArray",
+        "offsets": "i64",
+        "content": {
+            "class": "ListOffsetArray",
+            "offsets": "i64",
+            "content": {
+                "class": "NumpyArray",
+                "itemsize": 8,
+                "format": "i",
+                "primitive": "float64",
+            },
+        },
+    }
+    key = concat(
+        begin_form["form_key"],
+        end_form["form_key"],
+        target_form["form_key"],
+        "!begin_end_mapping",
+    )
+
+    form["form_key"] = key  # Axis 1 offsets
+    form["content"]["form_key"] = concat(key, "!content")  # Axis 2 offsets
+    form["content"]["content"]["form_key"] = concat(
+        key, "!content", "!content"
+    )  # Content
+
+    return form
+
+
+# begin_end_mapping_nested_target
+def begin_end_mapping_nested_target_form(begin_form, end_form, target_form):
+    if not begin_form["class"].startswith("ListOffset"):
+        raise RuntimeError
+    if not end_form["class"].startswith("ListOffset"):
+        raise RuntimeError
+    if not target_form["class"].startswith("ListOffset"):
+        raise RuntimeError
+    form = {
+        "class": "ListOffsetArray",
+        "offsets": "i64",
+        "content": {
+            "class": "ListOffsetArray",
+            "offsets": "i64",
+            "content": {
+                "class": "ListOffsetArray",
+                "offsets": "i64",
+                "content": {
+                    "class": "NumpyArray",
+                    "itemsize": 8,
+                    "format": "i",
+                    "primitive": "float64",
+                },
+            },
+        },
+    }
+    key = concat(
+        begin_form["form_key"],
+        end_form["form_key"],
+        target_form["form_key"],
+        "!begin_end_mapping",
+    )
+
+    form["form_key"] = key  # Axis 1 offsets
+    form["content"]["form_key"] = concat(key, "!content")  # Axis 2 offsets
+    form["content"]["content"]["form_key"] = concat(
+        key, "!content", "!content"
+    )  # Axis 3 offsets
+    form["content"]["content"]["content"]["form_key"] = concat(
+        key, "!content", "!content", "!content"
+    )  # Content
+    return form
+
+
+# begin_end_mapping_with_xyzrecord
+@numba.jit
+def get_array_from_indices_xyzrecord_target_kernel(indices, target, builder):
+    for ev in range(len(indices)):
+        builder.begin_list()
+        for j in range(len(indices[ev])):
+            builder.begin_list()
+            for k in indices[ev][j]:
+                builder.begin_record()
+                builder.field("x").real(target[ev][k]["x"])
+                builder.field("y").real(target[ev][k]["y"])
+                builder.field("z").real(target[ev][k]["z"])
+                builder.end_record()
+            builder.end_list()
+        builder.end_list()
+    return builder
+
+
+def get_array_from_indices_xyzrecord_target(indices, target):
+    return get_array_from_indices_xyzrecord_target_kernel(
+        indices, target, awkward.ArrayBuilder()
+    ).snapshot()
+
+
+def begin_end_mapping_with_xyzrecord(stack):
+    target = stack.pop()
+    end = stack.pop()
+    begin = stack.pop()
+    indices, o1, o2 = get_index_ranges(begin, end)
+
+    if len(target.fields) == 0:  # Target is a ListOffset type
+        raise RuntimeError("Target is a ListOffset.")
+    else:  # Target is a Record type
+        if awkward.sum(awkward.num(target, axis=1)) == 0:  # Empty Target
+            out = indices[indices < 0]  # return an empty array
+        else:
+            if awkward.sum(awkward.num(indices, axis=1)) == 0:  # Empty Indices
+                out = indices[indices < 0]  # return an empty array
+            else:  # The usual case when both of the indices and target are non-empty
+                out = get_array_from_indices_xyzrecord_target(indices, target)
+    stack.append(out)
+
+
+def begin_end_mapping_with_xyzrecord_form(begin_form, end_form, target_form):
+    if not begin_form["class"].startswith("ListOffset"):
+        raise RuntimeError
+    if not end_form["class"].startswith("ListOffset"):
+        raise RuntimeError
+    if not target_form["class"].startswith("ListOffset"):
+        if not target_form["content"]["class"].startswith("RecordArray"):
+            raise RuntimeError
+    form = {
+        "class": "ListOffsetArray",
+        "offsets": "i64",
+        "content": {
+            "class": "ListOffsetArray",
+            "offsets": "i64",
+            "content": target_form["content"],
+        },
+    }
+    key = concat(
+        begin_form["form_key"],
+        end_form["form_key"],
+        target_form["form_key"],
+        "!begin_end_mapping",
+    )
+
+    form["form_key"] = key  # Axis 1 offsets
+    form["content"]["form_key"] = concat(key, "!content")  # Axis 2 offsets
+    form["content"]["content"]["form_key"] = concat(
+        key, "!content", "!content"
+    )  # Content
+
+    return form

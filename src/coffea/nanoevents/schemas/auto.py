@@ -1,12 +1,12 @@
 import urllib.parse
-from typing import Any, Dict
+from typing import Any
 
 from . import BaseSchema
 
 
 def _build_record_array(
-    name: str, name_mapping: Dict[str, str], contents: Dict[str, Any], record_name: str
-) -> Dict[str, Any]:
+    name: str, name_mapping: dict[str, str], contents: dict[str, Any], record_name: str
+) -> dict[str, Any]:
     """Build a record array using the mapping we've got from the contents.
 
     Args:
@@ -39,7 +39,7 @@ class auto_schema(BaseSchema):
 
     __dask_capable__ = False
 
-    def __init__(self, base_form: Dict[str, Any]):
+    def __init__(self, base_form: dict[str, Any]):
         """Create an auto schema by parsing the names of the incoming columns
 
         Notes:

@@ -2,9 +2,9 @@ import io
 import pathlib
 import warnings
 import weakref
+from collections.abc import Mapping
 from functools import partial
 from types import FunctionType
-from typing import Mapping
 
 import awkward
 import dask_awkward
@@ -117,7 +117,10 @@ class _map_schema_uproot(_map_schema_base):
         for ifield, field in enumerate(form.fields):
             iform = form.contents[ifield].to_dict()
             branch_forms[field] = _lazify_form(
-                iform, f"{field},!load", docstr=iform["parameters"]["__doc__"]
+                iform,
+                f"{field},!load",
+                docstr=iform["parameters"]["__doc__"],
+                typestr=iform["parameters"]["typename"],
             )
         lform = {
             "class": "RecordArray",
@@ -129,6 +132,7 @@ class _map_schema_uproot(_map_schema_base):
             },
             "form_key": None,
         }
+
         return (
             awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form),
             self,
@@ -340,13 +344,12 @@ class NanoEventsFactory:
             to_open = file
             if isinstance(file, uproot.reading.ReadOnlyDirectory):
                 to_open = file[treepath]
-
             opener = partial(
                 uproot.dask,
                 to_open,
                 full_paths=True,
                 open_files=False,
-                ak_add_doc=True,
+                ak_add_doc={"__doc__": "title", "typename": "typename"},
                 filter_branch=_remove_not_interpretable,
                 steps_per_file=steps_per_file,
                 known_base_form=known_base_form,
@@ -372,6 +375,9 @@ class NanoEventsFactory:
         else:
             tree = uproot.open(file, **uproot_options)
 
+        # Get the typenames
+        typenames = tree.typenames()
+
         if entry_start is None or entry_start < 0:
             entry_start = 0
         if entry_stop is None or entry_stop > tree.num_entries:
@@ -396,6 +402,7 @@ class NanoEventsFactory:
         base_form = mapping._extract_base_form(
             tree, iteritems_options=iteritems_options
         )
+        base_form["typenames"] = typenames
 
         return cls._from_mapping(
             mapping,

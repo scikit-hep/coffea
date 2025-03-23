@@ -4,9 +4,10 @@ import copy
 import hashlib
 import math
 import warnings
+from collections.abc import Hashable
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable, Dict, Hashable
+from typing import Any, Callable
 
 import awkward
 import dask
@@ -82,7 +83,7 @@ def get_steps(
         if save_form:
             form_str = uproot.dask(
                 tree,
-                ak_add_doc=True,
+                ak_add_doc={"__doc__": "title", "typename": "typename"},
                 filter_name=no_filter,
                 filter_typename=no_filter,
                 filter_branch=partial(_remove_not_interpretable, emit_warning=False),
@@ -217,8 +218,8 @@ class DatasetSpecOptional(DatasetSpec):
     )
 
 
-FilesetSpecOptional = Dict[str, DatasetSpecOptional]
-FilesetSpec = Dict[str, DatasetSpec]
+FilesetSpecOptional = dict[str, DatasetSpecOptional]
+FilesetSpec = dict[str, DatasetSpec]
 
 
 def _normalize_file_info(file_info):

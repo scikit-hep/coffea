@@ -842,6 +842,10 @@ class PFCand(candidate.PtEtaPhiMCandidate, base.NanoCollection):
 
 _set_repr_name("PFCand")
 
+PFCandArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+PFCandArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+PFCandArray.ProjectionClass4D = PFCandArray  # noqa: F821
+PFCandArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
 __all__ = [
     "PtEtaPhiMCollection",

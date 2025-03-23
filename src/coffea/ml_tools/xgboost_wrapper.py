@@ -1,5 +1,5 @@
 import warnings
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy
 
@@ -45,8 +45,8 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
     def validate_numpy_input(
         self,
         data: numpy.ndarray,
-        dmat_args: Optional[Dict] = None,
-        predict_args: Optional[Dict] = None,
+        dmat_args: Optional[dict] = None,
+        predict_args: Optional[dict] = None,
     ):
         """
         Check that the arguments to be passed into the actual xgboost inference
@@ -84,8 +84,8 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
     def numpy_call(
         self,
         data: numpy.ndarray,
-        dmat_args: Optional[Dict] = None,
-        predict_args: Optional[Dict] = None,
+        dmat_args: Optional[dict] = None,
+        predict_args: Optional[dict] = None,
     ):
         """
         Pass the numpy array data as-is to the construction of an

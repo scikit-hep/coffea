@@ -2,13 +2,15 @@ import awkward
 import numpy
 from dask_awkward.lib.core import dask_property
 
-from coffea.nanoevents.methods import base, vector
+from coffea.nanoevents.methods import base, edm4hep, vector
 
 behavior = {}
 behavior.update(base.behavior)
 
 
 class _FCCEvents(behavior["NanoEvents"]):
+    """FCCEvents"""
+
     def __repr__(self):
         return "FCC Events"
 
@@ -27,7 +29,7 @@ def _set_repr_name(classname):
 class MomentumCandidate(vector.LorentzVector):
     """A Lorentz vector with charge
 
-    This mixin class requires the parent class to provide items `px`, `py`, `pz`, `E`, and `charge`.
+    This mixin class requires the parent class to provide the items `px`, `py`, `pz`, `E`, and `charge`.
     """
 
     @awkward.mixin_class_method(numpy.add, {"MomentumCandidate"})
@@ -243,7 +245,7 @@ ReconstructedParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F8
 
 
 @awkward.mixin_class(behavior)
-class RecoMCParticleLink(base.NanoCollection):
+class MCRecoParticleAssociation(base.NanoCollection):
     """MCRecoParticleAssociation objects."""
 
     @property
@@ -285,12 +287,14 @@ class RecoMCParticleLink(base.NanoCollection):
         return awkward.concatenate((r, m), axis=2)
 
 
-_set_repr_name("RecoMCParticleLink")
+_set_repr_name("MCRecoParticleAssociation")
 
-RecoMCParticleLinkArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
-RecoMCParticleLinkArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
-RecoMCParticleLinkArray.ProjectionClass4D = RecoMCParticleLinkArray  # noqa: F821
-RecoMCParticleLinkArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+MCRecoParticleAssociationArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+MCRecoParticleAssociationArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+MCRecoParticleAssociationArray.ProjectionClass4D = (  # noqa: F821
+    MCRecoParticleAssociationArray  # noqa: F821  # noqa: F821
+)
+MCRecoParticleAssociationArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
 
 @awkward.mixin_class(behavior)
@@ -356,3 +360,174 @@ TrackArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 TrackArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 TrackArray.ProjectionClass4D = TrackArray  # noqa: F821
 TrackArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+
+###########################################
+# Overloads for FCC_edm4hep1
+###########################################
+
+behavior_edm4hep1 = {}
+behavior_edm4hep1.update(base.behavior)
+behavior_edm4hep1.update(edm4hep.behavior)
+
+
+def _set_repr_name_edm4hep1(classname):
+    def namefcn(self):
+        return classname
+
+    behavior_edm4hep1[classname].__repr__ = namefcn
+
+
+@awkward.mixin_class(behavior_edm4hep1)
+class MCParticle(edm4hep.MCParticle):  # noqa: F811
+    """EDM4HEP Datatype: MCParticle; Modified for FCC"""
+
+    # Get MC Daughters
+    @dask_property
+    def get_daughters(self):
+        return self.Map_Relation("daughters", "Particle")
+
+    @get_daughters.dask
+    def get_daughters(self, dask_array):
+        return dask_array.Map_Relation("daughters", "Particle")
+
+    # Get MC Parents
+    @dask_property
+    def get_parents(self):
+        return self.Map_Relation("parents", "Particle")
+
+    @get_parents.dask
+    def get_parents(self, dask_array):
+        return dask_array.Map_Relation("parents", "Particle")
+
+
+_set_repr_name_edm4hep1("MCParticle")
+behavior_edm4hep1.update(
+    awkward._util.copy_behaviors(MomentumCandidate, MCParticle, behavior)
+)
+MCParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+MCParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+MCParticleArray.ProjectionClass4D = MCParticleArray  # noqa: F821
+MCParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+
+@awkward.mixin_class(behavior_edm4hep1)
+class ReconstructedParticle(edm4hep.ReconstructedParticle):  # noqa: F811
+    """EDM4HEP Datatype: Reconstructed particle; Modified for FCC"""
+
+    # Get MC counterpart
+    @dask_property
+    def match_gen(self):
+        return self.Map_Link("to", "Particle")
+
+    @match_gen.dask
+    def match_gen(self, dask_array):
+        return dask_array.Map_Link("to", "Particle")
+
+    # Get cluster EFlowPhoton
+    @dask_property
+    def get_cluster_photons(self):
+        return self.Map_Relation("clusters", "EFlowPhoton")
+
+    @get_cluster_photons.dask
+    def get_cluster_photons(self, dask_array):
+        return dask_array.Map_Relation("clusters", "EFlowPhoton")
+
+    # Get ReconstructedParticle
+    @dask_property
+    def get_reconstructedparticles(self):
+        return self.Map_Relation("particles", "ReconstructedParticles")
+
+    @get_reconstructedparticles.dask
+    def get_reconstructedparticles(self, dask_array):
+        return dask_array.Map_Relation("particles", "ReconstructedParticles")
+
+    # Get Tracks
+    @dask_property
+    def get_tracks(self):
+        return self.Map_Relation("tracks", "EFlowTrack")
+
+    @get_tracks.dask
+    def get_tracks(self, dask_array):
+        return dask_array.Map_Relation("tracks", "EFlowTrack")
+
+
+_set_repr_name_edm4hep1("ReconstructedParticle")
+behavior_edm4hep1.update(
+    awkward._util.copy_behaviors(
+        MomentumCandidate, ReconstructedParticle, behavior_edm4hep1
+    )
+)
+ReconstructedParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+ReconstructedParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+ReconstructedParticleArray.ProjectionClass4D = ReconstructedParticleArray  # noqa: F821
+ReconstructedParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+
+@awkward.mixin_class(behavior_edm4hep1)
+class ParticleID(edm4hep.ParticleID):  # noqa: F811
+    """EDM4HEP Datatype: ParticleID; Modified for FCC"""
+
+    # Get ReconstructedParticle
+    @dask_property
+    def get_reconstructedparticles(self):
+        return self.Map_Relation("particle", "ReconstructedParticles")
+
+    @get_reconstructedparticles.dask
+    def get_reconstructedparticles(self, dask_array):
+        return dask_array.Map_Relation("particle", "ReconstructedParticles")
+
+
+_set_repr_name_edm4hep1("ParticleID")
+
+
+@awkward.mixin_class(behavior_edm4hep1)
+class Cluster(edm4hep.Cluster):  # noqa: F811
+    """EDM4HEP Datatype: Cluster; Modified for FCC"""
+
+    # Get cluster EFlowPhoton
+    @dask_property
+    def get_cluster_photons(self):
+        return self.Map_Relation("clusters", "EFlowPhoton")
+
+    @get_cluster_photons.dask
+    def get_cluster_photons(self, dask_array):
+        return dask_array.Map_Relation("clusters", "EFlowPhoton")
+
+    # Get calorimeter hits
+    @dask_property
+    def get_hits(self):
+        return self.Map_Relation("hits", "CalorimeterHits")
+
+    @get_hits.dask
+    def get_hits(self, dask_array):
+        return dask_array.Map_Relation("hits", "CalorimeterHits")
+
+
+_set_repr_name_edm4hep1("Cluster")
+
+
+@awkward.mixin_class(behavior_edm4hep1)
+class Track(edm4hep.Track):  # noqa: F811
+    """EDM4HEP Datatype: Track; Modified for FCC"""
+
+    # Get Tracks
+    @dask_property
+    def get_tracks(self):
+        return self.Map_Relation("tracks", "EFlowTrack")
+
+    @get_tracks.dask
+    def get_tracks(self, dask_array):
+        return dask_array.Map_Relation("tracks", "EFlowTrack")
+
+    # Get tracker hits
+    @dask_property
+    def get_trackerhits(self):
+        return self.Map_Relation("trackerHits", "TrackerHits")
+
+    @get_trackerhits.dask
+    def get_trackerhits(self, dask_array):
+        return dask_array.Map_Relation("trackerHits", "TrackerHits")
+
+
+_set_repr_name_edm4hep1("Track")

@@ -1,6 +1,5 @@
 import abc
 import warnings
-from typing import Dict, List, Set, Tuple
 
 import awkward
 import dask
@@ -27,7 +26,7 @@ class nonserializable_attribute:
             A list of string for the names of the unserializable objects.
     """
 
-    def __init__(self, nonserial_list: List[str]):
+    def __init__(self, nonserial_list: list[str]):
         self._nonserial_list = nonserial_list
 
         for name in nonserial_list:
@@ -96,11 +95,11 @@ class container_converter:
             self.default_conv = self.unrecognized
 
     def _convert(self, arg, maybe_backends):
-        if isinstance(arg, Dict):
+        if isinstance(arg, dict):
             return dict(
                 {key: self.convert(val, maybe_backends) for key, val in arg.items()}
             )
-        elif isinstance(arg, (List, Set, Tuple)):
+        elif isinstance(arg, (list, set, tuple)):
             return arg.__class__(self.convert(val, maybe_backends) for val in arg)
         else:
             for itype, call in self.method_map.items():
@@ -115,7 +114,7 @@ class container_converter:
         out = self._convert(arg, maybe_backends)
         return out
 
-    def __call__(self, *args, **kwargs) -> Tuple:
+    def __call__(self, *args, **kwargs) -> tuple:
         backends = set()
         out_args = self.convert(args, backends)
         out_kwargs = self.convert(kwargs, backends)
@@ -191,7 +190,7 @@ class numpy_call_wrapper(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def prepare_awkward(self, *args, **kwargs) -> Tuple:
+    def prepare_awkward(self, *args, **kwargs) -> tuple:
         r"""
         Converting awkward-array like inputs into be numpy-compatible awkward-arrays
         compatible with the `numpy_call` method. The actual conversion to numpy is
@@ -262,7 +261,7 @@ class numpy_call_wrapper(abc.ABC):
             """
             if isinstance(ret, awkward.Array):
                 return ret
-            elif isinstance(ret, Dict):
+            elif isinstance(ret, dict):
                 return awkward.zip(ret)
             else:
                 # TODO: implement more potential containers?
@@ -289,7 +288,7 @@ class numpy_call_wrapper(abc.ABC):
                 self.kwargs_keys = list(inputs[1].keys())
                 # self.wrapper = wrapper
 
-            def args_to_pair(self, *args) -> Tuple:
+            def args_to_pair(self, *args) -> tuple:
                 """Converting *args to a (*args,**kwargs) pair"""
                 ret_args = tuple(x for x in args[0 : self.args_len])
                 ret_kwargs = {
@@ -297,7 +296,7 @@ class numpy_call_wrapper(abc.ABC):
                 }
                 return ret_args, ret_kwargs
 
-            def pair_to_args(self, *args, **kwargs) -> Tuple:
+            def pair_to_args(self, *args, **kwargs) -> tuple:
                 """Converting (*args,**kwargs) pair to *args-like"""
                 return [*args, *kwargs.values()]
 
