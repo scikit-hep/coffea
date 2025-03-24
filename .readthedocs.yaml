@@ -17,7 +17,8 @@ build:
       - 'sed s/docs\\\/source\\\/// -i.bak README.rst'
       - diff README.rst.bak README.rst || true
     post_install:
-      - python -m pip install '.[dev]' rucio-clients
+      - echo "setuptools<78" >> ruciospark_constraints.txt
+      - PIP_CONSTRAINT="$(pwd)/ruciospark_constraints.txt" python -m pip install '.[dev]' rucio-clients
     pre_build:
       - cd docs && sphinx-autogen source/reference.rst -t source/_templates -o source/modules && cd ../
     # You can also specify other tool versions:

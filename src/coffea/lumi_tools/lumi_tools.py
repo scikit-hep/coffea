@@ -14,6 +14,12 @@ from dask_awkward.lib.core import new_array_object
 from numba import types
 from numba.typed import Dict
 
+_numba_bool = None
+if hasattr(types, "bool"):
+    _numba_bool = types.bool
+else:
+    _numba_bool = types.bool_
+
 
 def _make_lumi_mask_dict():
     return Dict.empty(key_type=types.uint32, value_type=types.uint32[:])
@@ -256,7 +262,7 @@ class LumiMask:
     @staticmethod
     @numba.njit(
         types.void(
-            _lumi_mask_dict_type, types.uint32[:], types.uint32[:], types.bool[:]
+            _lumi_mask_dict_type, types.uint32[:], types.uint32[:], _numba_bool[:]
         ),
         parallel=False,
         fastmath=True,
