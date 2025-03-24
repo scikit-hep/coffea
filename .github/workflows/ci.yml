@@ -73,7 +73,7 @@ jobs:
       run: |
         echo "setuptools<58" >> ruciospark_constraints.txt
         export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
-        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
+        uv pip install --system --upgrade pip setuptools wheel distutils pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
         uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
@@ -88,7 +88,7 @@ jobs:
       run: |
         echo "setuptools<58" >> ruciospark_constraints.txt
         export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
-        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
+        uv pip install --system --upgrade pip setuptools wheel distutils pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
         uv pip install --system torch
@@ -100,7 +100,7 @@ jobs:
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
+        uv pip install --system --upgrade pip setuptools wheel distutils pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
         uv pip install --system torch
