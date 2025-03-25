@@ -13,7 +13,7 @@ def _events(filter=None):
     factory = NanoEventsFactory.from_root(
         {path: "CollectionTree"},
         schemaclass=PHYSLITESchema,
-        delayed=True,
+        mode="dask",
         uproot_options=dict(filter_name=filter),
     )
     return factory.events()

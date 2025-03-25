@@ -131,8 +131,17 @@ class ParquetSourceMapping(BaseSourceMapping):
                 raise Exception("array is not flat array or jagged list")
             return awkward.Array(out)
 
-    def __init__(self, fileopener, start, stop, cache=None, access_log=None):
-        super().__init__(fileopener, start, stop, cache, access_log)
+    def __init__(
+        self, fileopener, start, stop, cache=None, access_log=None, virtual=False
+    ):
+        super().__init__(
+            fileopener=fileopener,
+            start=start,
+            stop=stop,
+            cache=cache,
+            access_log=access_log,
+            virtual=virtual,
+        )
 
     @classmethod
     def _extract_base_form(cls, arrow_schema):
