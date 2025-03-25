@@ -52,7 +52,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: astral-sh/setup-uv@v5
       with:
         python-version: ${{ matrix.python-version }}
     - name: Set up JDK ${{ matrix.java-distribution }}/${{ matrix.java-version }}
@@ -65,49 +65,46 @@ jobs:
       run: |
         echo "INSTALL_EXTRAS='[dev,parsl,dask]'" >> $GITHUB_ENV
 
-    - name: Install uv
-      run: python -m pip install --upgrade uv
-
     - name: Install dependencies (Linux)
       if: startsWith( matrix.os, 'ubuntu' )
       run: |
         echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
         export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
-        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
+        uv pip install --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
-        uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
-        uv pip install --system xgboost
-        uv pip install --system 'tritonclient[grpc,http]!=2.41.0'
+        uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+        uv pip install xgboost
+        uv pip install 'tritonclient[grpc,http]!=2.41.0'
         # install checked out coffea
-        uv pip install --system -q '.[dev,parsl,dask,spark]' --upgrade
-        uv pip list --system
+        uv pip install -q '.[dev,parsl,dask,spark]' --upgrade
+        uv pip list
         java -version
     - name: Install dependencies (MacOS)
       if: matrix.os == 'macOS-latest'
       run: |
         echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
         export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
-        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
+        uv pip install --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
-        uv pip install --system torch
-        uv pip install --system xgboost
+        uv pip install torch
+        uv pip install xgboost
         # install checked out coffea
-        uv pip install --system -q '.[dev,dask,spark]' --upgrade
-        uv pip list --system
+        uv pip install -q '.[dev,dask,spark]' --upgrade
+        uv pip list
         java -version
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
+        uv pip install --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
-        uv pip install --system torch
-        uv pip install --system xgboost
+        uv pip install torch
+        uv pip install xgboost
         # install checked out coffea
-        uv pip install --system -q '.[dev,dask]' --upgrade
-        uv pip list --system
+        uv pip install -q '.[dev,dask]' --upgrade
+        uv pip list
         java -version
 
     - name: Start triton server with example model
@@ -168,8 +165,8 @@ jobs:
       run: |
         conda create --yes --prefix ./coffea-conda-test-env -c conda-forge python=${{ matrix.python-version }} ndcctools uv
         conda activate ./coffea-conda-test-env
-        uv pip install --system . 'dask<2025.1.0'
-        uv pip install --system pytest
+        uv pip install . 'dask<2025.1.0'
+        uv pip install pytest
     - name: Test with pytest
       run: |
         conda run --prefix ./coffea-conda-test-env pytest tests/test_taskvine.py
