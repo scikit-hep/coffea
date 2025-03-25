@@ -71,7 +71,7 @@ jobs:
     - name: Install dependencies (Linux)
       if: startsWith( matrix.os, 'ubuntu' )
       run: |
-        echo "setuptools<78" >> ruciospark_constraints.txt
+        echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
         export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
         uv pip install --system --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
@@ -86,7 +86,7 @@ jobs:
     - name: Install dependencies (MacOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        echo "setuptools<78" >> ruciospark_constraints.txt
+        echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
         export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
         uv pip install --system --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
