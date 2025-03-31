@@ -418,7 +418,7 @@ class NanoEventsFactory:
     def from_parquet(
         cls,
         file,
-        treepath=uproot._util.unset,
+        object_path=uproot._util.unset,
         entry_start=None,
         entry_stop=None,
         runtime_cache=None,
@@ -436,7 +436,7 @@ class NanoEventsFactory:
         ----------
             file : str, pathlib.Path, pyarrow.NativeFile, or python file-like
                 The filename or already opened file using e.g. ``uproot.open()``
-            treepath : str, optional
+            object_path : str, optional
                 Name of the tree to read in the file
             entry_start : int, optional
                 Start at this entry offset in the tree (default 0)
@@ -478,17 +478,33 @@ class NanoEventsFactory:
             io.IOBase,
         )
 
-        if isinstance(file, dict):
-            file, filespec_treepath = next(iter(file.items()))
-            if filespec_treepath is not None:
-                warnings.warn(
-                    f'For parquet file="{file}", treepath="{filespec_treepath}" is ignored when opening files'
-                )
         if (
             delayed
             and not isinstance(schemaclass, FunctionType)
             and schemaclass.__dask_capable__
         ):
+            found_form = None # not used here, but needed for tracing without opening files (again)
+            found_object_path = None
+            if isinstance(file, dict):
+                from coffea.dataset_tools.preprocess import _normalize_parquet_file_info
+                normed_info, found_form, pre_metadata = _normalize_parquet_file_info(file, return_form_or_metadata=True)
+                files = []
+                for filename, obj_path, steps, num_entries, uuid in normed_info:
+                    files.append(filename)
+                    if found_object_path is None and obj_path is not None:
+                        found_object_path = obj_path
+                file = files
+                if metadata is None:
+                    metadata = pre_metadata
+                elif pre_metadata:
+                    raise ValueError(
+                        "Cannot pass metadata and when metadata is stored in the filespec"
+                    )
+            if found_object_path is not None:
+                warnings.warn(
+                    f'For parquet file="{file}", object_path="{found_object_path}" from the filespec is ignored when opening files'
+                )
+
             map_schema = _map_schema_parquet(
                 schemaclass=schemaclass,
                 behavior=dict(schemaclass.behavior()),
@@ -496,13 +512,18 @@ class NanoEventsFactory:
                 version="latest",
             )
 
-            if isinstance(file, ftypes + (str,)):
+            if isinstance(file, ftypes + (str,)) or (isinstance(file, list) and all(isinstance(f, ftypes + (str,)) for f in file)):
                 opener = partial(
                     dask_awkward.from_parquet,
                     file,
                 )
             else:
+                print(file)
                 raise TypeError("Invalid file type (%s)" % (str(type(file))))
+            # Form should be applied appropriately, but this requires a hook into dask-awkward or new schema-builder
+            raise NotImplementedError(
+                "Dask-awkward does not yet support lazy loading of parquet files with a schema"
+            )
             return cls(map_schema, opener, None, cache=None, is_dask=True)
         elif delayed and not schemaclass.__dask_capable__:
             warnings.warn(
@@ -518,13 +539,49 @@ class NanoEventsFactory:
             table_file = pyarrow.parquet.ParquetFile(fs_file, **parquet_options)
         elif isinstance(file, pyarrow.parquet.ParquetFile):
             table_file = file
+        elif isinstance(file, dict):
+            found_form = None
+            found_object_path = None
+            found_entry_start, found_entry_stop = None, None
+            onefile, filespec_treepath = next(iter(file.items()))
+            if filespec_treepath is not None:
+                if isinstance(filespec_treepath, str):
+                    found_object_path = filespec_treepath
+                if isinstance(filespec_treepath, dict):
+                    if "object_path" in filespec_treepath:
+                        object_path = filespec_treepath["object_path"]
+                    if "steps" in filespec_treepath:
+                        steps = filespec_treepath["steps"]
+                        if len(steps[0]) != 2:
+                            raise ValueError(
+                                f"Invalid step specification in the file spec, got {steps}"
+                            )
+                        found_entry_start, found_entry_stop = steps[0][0], steps[-1][1]
+                    if "files" in filespec_treepath or "metadata" in filespec_treepath or "form" in filespec_treepath:
+                        raise ValueError(
+                            "Cannot pass dictionary of files for eager parquet reading, only a single file or string path, possibly with glob pattern, is permitted"
+                        )
+            if found_object_path is not None:
+                warnings.warn(
+                    f'For parquet file="{file}", object_path="{found_object_path} (part of filespec: {filespec_treepath})" is ignored when opening files'
+                )
+            fs_file = fsspec.open(
+                onefile, "rb"
+            ).open()  # Call open to materialize the file
+            table_file = pyarrow.parquet.ParquetFile(
+                fs_file, **parquet_options
+            )
         else:
             raise TypeError("Invalid file type (%s)" % (str(type(file))))
 
         if entry_start is None or entry_start < 0:
             entry_start = 0
+        if found_entry_start > entry_start:
+            entry_start = found_entry_start
         if entry_stop is None or entry_stop > table_file.metadata.num_rows:
             entry_stop = table_file.metadata.num_rows
+        if found_entry_stop is not None and found_entry_stop < entry_stop:
+            entry_stop = found_entry_stop
 
         pqmeta = table_file.schema_arrow.metadata
         pquuid = None if pqmeta is None else pqmeta.get(b"uuid", None)
@@ -725,7 +782,10 @@ class NanoEventsFactory:
                 array of the events.
         """
         if self._is_dask:
-            events = self._mapping(form_mapping=self._schema)
+            try:
+                events = self._mapping(form_mapping=self._schema)
+            except TypeError:
+                events = self._mapping()
             report = None
             if isinstance(events, tuple):
                 events, report = events
