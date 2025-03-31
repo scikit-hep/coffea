@@ -508,6 +508,7 @@ def preprocess(
 
     return out_available, out_updated
 
+
 def _normalize_parquet_file_info(file_info, return_form_or_metadata=False):
     """
     Structure file info akin to _normalize_file_info for uproot files, which returns a list of (filename, object_path, steps, num_entries, uuid) tuples.
@@ -517,8 +518,11 @@ def _normalize_parquet_file_info(file_info, return_form_or_metadata=False):
     metadata = None
     if isinstance(file_info, list):
         normed_files = [(file, None, None, None, None) for file in file_info]
-    elif(isinstance(file_info, dict) and "files" not in file_info):
-        normed_files = [(file, object_path, None, None, None) for file, object_path in file_info.items()]
+    elif isinstance(file_info, dict) and "files" not in file_info:
+        normed_files = [
+            (file, object_path, None, None, None)
+            for file, object_path in file_info.items()
+        ]
     elif isinstance(file_info, dict) and "files" in file_info:
         form = file_info.get("form", None)
         metadata = file_info.get("metadata", None)
@@ -539,6 +543,7 @@ def _normalize_parquet_file_info(file_info, return_form_or_metadata=False):
     if return_form_or_metadata:
         return normed_files, form, metadata
     return normed_files
+
 
 def get_parquet_form_uuid_steps(
     normed_files: awkward.Array | dask_awkward.Array,
@@ -594,12 +599,12 @@ def get_parquet_form_uuid_steps(
             else:
                 raise e
 
-        num_entries = the_file['num_rows']
+        num_entries = the_file["num_rows"]
 
         form_json = None
         form_hash = None
         if save_form:
-            form = the_file['form']
+            form = the_file["form"]
             form_str = form.to_json()
             # the function cache needs to be popped if present to prevent memory growth
             if hasattr(dask.base, "function_cache"):
@@ -610,14 +615,14 @@ def get_parquet_form_uuid_steps(
 
         target_step_size = num_entries if step_size is None else step_size
 
-        file_uuid = the_file.get('uuid', None)
+        file_uuid = the_file.get("uuid", None)
 
         out_uuid = arg.uuid
         out_steps = arg.steps
 
         if out_uuid != file_uuid or recalculate_steps:
             if use_row_groups:
-                row_group_entries = the_file['col_counts']
+                row_group_entries = the_file["col_counts"]
                 out = [0]
                 this_offset = 0
                 for c in row_group_entries:
@@ -696,6 +701,7 @@ def get_parquet_form_uuid_steps(
         )
 
     return array
+
 
 def _preprocess_parquet(
     fileset: FilesetSpecOptional,

@@ -483,11 +483,14 @@ class NanoEventsFactory:
             and not isinstance(schemaclass, FunctionType)
             and schemaclass.__dask_capable__
         ):
-            found_form = None # not used here, but needed for tracing without opening files (again)
+            found_form = None  # not used here, but needed for tracing without opening files (again)
             found_object_path = None
             if isinstance(file, dict):
                 from coffea.dataset_tools.preprocess import _normalize_parquet_file_info
-                normed_info, found_form, pre_metadata = _normalize_parquet_file_info(file, return_form_or_metadata=True)
+
+                normed_info, found_form, pre_metadata = _normalize_parquet_file_info(
+                    file, return_form_or_metadata=True
+                )
                 files = []
                 for filename, obj_path, steps, num_entries, uuid in normed_info:
                     files.append(filename)
@@ -512,7 +515,10 @@ class NanoEventsFactory:
                 version="latest",
             )
 
-            if isinstance(file, ftypes + (str,)) or (isinstance(file, list) and all(isinstance(f, ftypes + (str,)) for f in file)):
+            if isinstance(file, ftypes + (str,)) or (
+                isinstance(file, list)
+                and all(isinstance(f, ftypes + (str,)) for f in file)
+            ):
                 opener = partial(
                     dask_awkward.from_parquet,
                     file,
@@ -557,7 +563,11 @@ class NanoEventsFactory:
                                 f"Invalid step specification in the file spec, got {steps}"
                             )
                         found_entry_start, found_entry_stop = steps[0][0], steps[-1][1]
-                    if "files" in filespec_treepath or "metadata" in filespec_treepath or "form" in filespec_treepath:
+                    if (
+                        "files" in filespec_treepath
+                        or "metadata" in filespec_treepath
+                        or "form" in filespec_treepath
+                    ):
                         raise ValueError(
                             "Cannot pass dictionary of files for eager parquet reading, only a single file or string path, possibly with glob pattern, is permitted"
                         )
@@ -568,9 +578,7 @@ class NanoEventsFactory:
             fs_file = fsspec.open(
                 onefile, "rb"
             ).open()  # Call open to materialize the file
-            table_file = pyarrow.parquet.ParquetFile(
-                fs_file, **parquet_options
-            )
+            table_file = pyarrow.parquet.ParquetFile(fs_file, **parquet_options)
         else:
             raise TypeError("Invalid file type (%s)" % (str(type(file))))
 
