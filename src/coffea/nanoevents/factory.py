@@ -546,7 +546,6 @@ class NanoEventsFactory:
         elif isinstance(file, pyarrow.parquet.ParquetFile):
             table_file = file
         elif isinstance(file, dict):
-            found_form = None
             found_object_path = None
             found_entry_start, found_entry_stop = None, None
             onefile, filespec_treepath = next(iter(file.items()))
@@ -555,7 +554,7 @@ class NanoEventsFactory:
                     found_object_path = filespec_treepath
                 if isinstance(filespec_treepath, dict):
                     if "object_path" in filespec_treepath:
-                        object_path = filespec_treepath["object_path"]
+                        found_object_path = filespec_treepath["object_path"]
                     if "steps" in filespec_treepath:
                         steps = filespec_treepath["steps"]
                         if len(steps[0]) != 2:
