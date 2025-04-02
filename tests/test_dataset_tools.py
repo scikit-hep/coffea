@@ -1,4 +1,5 @@
 import dask
+import numpy
 import pytest
 import uproot
 from distributed import Client
@@ -15,7 +16,11 @@ from coffea.dataset_tools import (
     slice_files,
 )
 from coffea.nanoevents import BaseSchema, NanoAODSchema
-from coffea.processor.test_items import NanoEventsProcessor, NanoTestProcessor
+from coffea.processor.test_items import (
+    NanoEventsGenModelProcessor,
+    NanoEventsProcessor,
+    NanoTestProcessor,
+)
 from coffea.util import decompress_form
 
 _starting_fileset_list = {
@@ -196,6 +201,25 @@ _updated_result = {
         "metadata": None,
         "form": None,
     },
+}
+
+_starting_unionform_list = {
+    "OptionType": [
+        "tests/samples/nano_genmodel_with0_700_1_with20_1100_200_with0_950_400.root",
+        "tests/samples/nano_genmodel_with20_700_1_with0_1100_200_with0_950_400.root",
+        "tests/samples/nano_genmodel_without_700_1_with0_1100_200_with20_950_400.root",
+    ],
+}
+
+_starting_unionform_dict = {
+    "OptionType": {
+        "files": {
+            "tests/samples/nano_genmodel_with0_700_1_with20_1100_200_with0_950_400.root": "Events",
+            "tests/samples/nano_genmodel_with20_700_1_with0_1100_200_with0_950_400.root": "Events",
+            "tests/samples/nano_genmodel_without_700_1_with0_1100_200_with20_950_400.root": "Events",
+        },
+        "metadata": {"dataset": "OptionType", "xsec": 1},
+    }
 }
 
 
@@ -386,6 +410,54 @@ def test_preprocess_calculate_form():
 
         assert decompress_form(dataset_runnable["ZJets"]["form"]) == raw_form_dy
         assert decompress_form(dataset_runnable["Data"]["form"]) == raw_form_data
+
+
+@pytest.mark.dask_client
+@pytest.mark.parametrize(
+    "starting_fileset",
+    [_starting_unionform_list, _starting_unionform_dict],
+)
+@pytest.mark.parametrize(
+    "proc_and_schema",
+    [(NanoEventsGenModelProcessor, NanoAODSchema)],
+)
+def test_preprocess_unionform(starting_fileset, proc_and_schema):
+    proc, schemaclass = proc_and_schema
+    print(proc)
+    print(proc())
+    with Client() as _:
+
+        dataset_runnable, dataset_updated = preprocess(
+            _starting_unionform_dict,
+            step_size=10,
+            align_clusters=True,
+            files_per_batch=10,
+            skip_bad_files=True,
+            save_form=True,
+        )
+
+        to_compute = apply_to_fileset(
+            proc(),
+            dataset_runnable,
+            schemaclass=schemaclass,
+        )
+
+        out = dask.compute(to_compute)[0]
+        test = out["OptionType"]["honecut"].values(flow=True)
+        checkarray = numpy.array(
+            [
+                [0.0, 0.0, 0.0],
+                [20.0, 20.0, 20.0],
+                [0.0, 20.0, 20.0],
+                [9.0, 14.0, 17.0],
+                [20.0, 20.0, 20.0],
+                [0.0, 0.0, 0.0],
+            ]
+        )
+        assert numpy.all(
+            numpy.isclose(test, checkarray)
+        ), "output array does not match expected values"
+        # the_form = awkward.from_json(decompress_form(dataset_runnable["OptionType"]["form"]))
 
 
 @pytest.mark.dask_client
