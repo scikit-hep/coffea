@@ -26,14 +26,14 @@ def poisson_interval(sumw, sumw2, coverage=_coverage1sd):
             Central coverage interval, defaults to 68%
 
     Calculates the so-called 'Garwood' interval,
-    c.f. https://www.ine.pt/revstat/pdf/rs120203.pdf or
+    c.f. https://www.ine.pt/revstat/pdf/rs120203.pdf or  # codespell:ignore ine
     http://ms.mcmaster.ca/peter/s743/poissonalpha.html
     For weighted data, this approximates the observed count by ``sumw**2/sumw2``, which
     effectively scales the unweighted poisson interval by the average weight.
     This may not be the optimal solution: see https://arxiv.org/pdf/1309.1287.pdf for a proper treatment.
     When a bin is zero, the scale of the nearest nonzero bin is substituted to scale the nominal upper bound.
     If all bins zero, a warning is generated and interval is set to ``sumw``.
-    """  # codespell:ignore ine
+    """
     scale = numpy.empty_like(sumw)
     scale[sumw != 0] = sumw2[sumw != 0] / sumw[sumw != 0]
     if numpy.sum(sumw == 0) > 0:
