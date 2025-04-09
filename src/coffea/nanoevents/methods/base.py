@@ -3,7 +3,7 @@
 import re
 from abc import abstractmethod
 from functools import partial
-from typing import Any, Callable, List, Tuple, Union
+from typing import Any, Callable, Union
 
 import awkward
 import dask_awkward
@@ -26,14 +26,22 @@ class _ClassMethodFn:
 
 @awkward.mixin_class(behavior)
 class Systematic:
-    """A base mixin class to describe and build variations on a feature of an nanoevents object."""
+    """A base mixin class to describe and build variations on a feature of a nanoevents object."""
 
     _systematic_kinds = set()
 
     @classmethod
     def add_kind(cls, kind: str):
         """
-        Register a type of systematic variation, it must fulfill the base class interface.
+        Register a type of systematic variation, which must fulfill the base class interface. Types of
+        systematic variations must be registered here before an actual systematic of that type can be
+        added. For example, by default an up/down systematic is registered, as described in
+        `coffea.nanoevents.methods.systematics.UpDownSystematic`.
+
+        Parameters
+        ----------
+            kind: str
+                The name of the type of systematic described by this class
         """
         cls._systematic_kinds.add(kind)
 
@@ -60,7 +68,7 @@ class Systematic:
     def _build_variations(
         self,
         name: str,
-        what: Union[str, List[str], Tuple[str]],
+        what: Union[str, list[str], tuple[str]],
         varying_function: Callable,
     ):
         """
@@ -92,14 +100,23 @@ class Systematic:
         self,
         name: str,
         kind: str,
-        what: Union[str, List[str], Tuple[str]],
+        what: Union[str, list[str], tuple[str]],
         varying_function: Callable,
     ):
         """
-        name: str, name of the systematic variation / uncertainty source
-        kind: str, the name of the kind of systematic variation
-        what: Union[str, List[str], Tuple[str]], name what gets varied, this could be a list or tuple of column names
-        varying_function: Union[function, bound method], a function that describes how 'what' is varied, it must close over all non-event-data arguments.
+        Add a systematic to the nanoevents object's `systematics` field, with field name `name`, of kind `kind` (must be registered
+        with `add_kind` already), and varying the objects under field(s) `what` with a function `varying_function`.
+
+        Parameters
+        ----------
+            name: str
+                Name of the systematic variation / uncertainty source
+            kind: str
+                The name of the kind of systematic variation
+            what: Union[str, List[str], Tuple[str]]
+                Name what gets varied, this could be a list or tuple of column names
+            varying_function: Union[function, bound method]
+                A function that describes how 'what' is varied, it must close over all non-event-data arguments.
         """
         self._ensure_systematics()
 

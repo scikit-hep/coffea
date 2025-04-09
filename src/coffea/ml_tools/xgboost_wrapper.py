@@ -1,5 +1,5 @@
 import warnings
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy
 
@@ -16,6 +16,12 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
     """
     Very simple wrapper for xgbooster inference. The xgboost.Booster object is
     nonserializable, so the users should pass in the xgboost model file.
+
+    Parameters
+    ----------
+        fname: str
+            Path to the xgboost model file, such that an `xgbooster` can be created
+            via `xgboost.Booster(model_file=fname)`.
     """
 
     def __init__(self, fname):
@@ -39,15 +45,29 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
     def validate_numpy_input(
         self,
         data: numpy.ndarray,
-        dmat_args: Optional[Dict] = None,
-        predict_args: Optional[Dict] = None,
+        dmat_args: Optional[dict] = None,
+        predict_args: Optional[dict] = None,
     ):
         """
+        Check that the arguments to be passed into the actual xgboost inference
+        request are valid.
+
         The inner most dimension of the data array should be smaller than the
         number of features of the xgboost model. (Will raise a warning if
         mismatched). We will not attempt to parse the kwargs passed to the
         construction of a DMatrix, or the predict call, as those advanced
         features are expected to be properly handled by the user.
+
+        Parameters
+        ----------
+            data: np.ndarray
+                The data to pass into the `xgboost.DMatrix` construction.
+            dmat_args: dict[str,str], optional
+                Keyword arguments to pass into the `xgboost.DMatrix` construction.
+            predict_args: dict[str,str], optional
+                Keyword arguments to pass to the actual prediction step of `xgboost`,
+                ie: the `predict` method of `xgbooster.Booster.predict`. Note that the
+                first argument of that method is handled by this method.
         """
         ndims = data.shape[-1]
         nfeat = self.xgbooster.num_features()
@@ -64,14 +84,25 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
     def numpy_call(
         self,
         data: numpy.ndarray,
-        dmat_args: Optional[Dict] = None,
-        predict_args: Optional[Dict] = None,
+        dmat_args: Optional[dict] = None,
+        predict_args: Optional[dict] = None,
     ):
         """
-        Passing the numpy array data as-is to the construction of an
+        Pass the numpy array data as-is to the construction of an
         xgboost.DMatrix constructor (with additional keyword arguments should
-        they be specified), the run the xgboost.Booster.predict method (with
+        they be specified), then run the xgboost.Booster.predict method (with
         additional keyword arguments).
+
+        Parameters
+        ----------
+            data: np.ndarray
+                The data to pass into the `xgboost.DMatrix` construction.
+            dmat_args: dict[str,str], optional
+                Keyword arguments to pass into the `xgboost.DMatrix` construction.
+            predict_args: dict[str,str], optional
+                Keyword arguments to pass to the actual prediction step of `xgboost`,
+                ie: the `predict` method of `xgbooster.Booster.predict`. Note that the
+                first argument of that method is handled by this method.
         """
         if dmat_args is None:
             dmat_args = {}

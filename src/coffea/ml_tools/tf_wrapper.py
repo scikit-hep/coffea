@@ -16,7 +16,7 @@ class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):
     Wrapper for running tensorflow inference with awkward/dask-awkward inputs.
     """
 
-    def __init__(self, tf_model: str):
+    def __init__(self, tf_model: str, skip_length_zero: bool = False):
         """
         As models are not guaranteed to be directly serializable, the use will
         need to pass the model as files saved using the `tf.keras.save` method
@@ -27,9 +27,17 @@ class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):
         [1]
         https://www.tensorflow.org/guide/keras/serialization_and_saving#saving
 
-        Parameters ----------
+        Parameters
+        ----------
 
-        - tf_model: Path to the tensorflow model file to load
+        tf_model:
+            Path to the tensorflow model file for computation
+        skip_length_zero:
+            Generating a default length 0 numpy array if the input array is
+            detected to be length-0 instead of passing it into the tensorflow
+            model. This option should only be used if the model uses tensorflow
+            functions that does not properly implement behaviors for length 0
+            inputs.
         """
         if _tf_import_error is not None:
             warnings.warn(
@@ -43,6 +51,7 @@ class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):
 
         nonserializable_attribute.__init__(self, ["model"])
         self.tf_model = tf_model
+        self.skip_length_zero = skip_length_zero
 
     def _create_model(self):
         """
@@ -94,6 +103,9 @@ class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):
         [1]
         https://keras.io/getting_started/faq/#whats-the-difference-between-model-methods-predict-and-call
         """
+        first_arg = args[0] if len(args) else next(iter(kwargs.values()))
+        if len(first_arg) == 0 and self.skip_length_zero:
+            return numpy.zeros(shape=(0, *self.model.output_shape[1:]))
         args = [
             (
                 tensorflow.convert_to_tensor(arr)

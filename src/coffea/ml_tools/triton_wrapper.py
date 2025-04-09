@@ -1,6 +1,6 @@
 # For python niceties
 import warnings
-from typing import Dict, List, Optional
+from typing import Optional
 
 import numpy
 
@@ -21,30 +21,45 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
     Wrapper for running triton inference.
 
     The target of this class is such that all triton specific operations are
-    wrapped and abstracted-away from the users. The users should then only needs
+    wrapped and abstracted-away from the users. The user should then only need
     to handle awkward-level operations to mangle the arrays into the expected
-    input format required by the the model of interest.
+    input format required by the the model of interest. This must be done by
+    overriding the `prepare_awkward` method.
+
+    Once an instance `wrapper` of this class is created, it can be called on inputs
+    like `wrapper(*args)`, where `args` are the inputs to `prepare_awkward` (see
+    next paragraph).
+
+    In order to actually use the class, the user must override the method
+    `prepare_awkward`. The input to this method is an arbitrary number of awkward
+    arrays or dask awkward arrays (but never a mix of dask/non-dask array). The
+    output is two objects: a tuple `a` and a dictionary `b` such that the underlying
+    `tritonclient` instance calls like `client(*a,**b)`. The contents of a and b
+    should be numpy-compatible awkward-like arrays: if the inputs are non-dask awkward
+    arrays, the return should also be non-dask awkward arrays that can be trivially
+    converted to numpy arrays via a ak.to_numpy call; if the inputs are dask awkward
+    arrays, the return should be still be dask awkward arrays that can be trivially
+    converted via a to_awkward().to_numpy() call.
+
+    Parameters
+    ----------
+        model_url: str
+            A string in the format of: `triton+<protocol>://<address>/<model>/<version>`
+
+        client_args: dict[str,str], optional
+            Optional keyword arguments to pass to the underlying `InferenceServerClient` objects.
+
+        batch_size: int, default -1
+            How the input arrays should be split up for analysis processing. Leave negative to
+            have this automatically resolved.
     """
 
     batch_size_fallback = 10  # Fall back should batch size not be determined.
     http_client_concurrency = 12  # TODO: check whether this value is optimum
 
     def __init__(
-        self, model_url: str, client_args: Optional[Dict] = None, batch_size=-1
+        self, model_url: str, client_args: Optional[dict] = None, batch_size=-1
     ):
-        """
-        Parameters
-        ----------
-
-        - model_url: A string in the format of:
-          triton+<protocol>://<address>/<model>/<version>
-
-        - client_args: optional keyword arguments to pass to the underlying
-          `InferenceServerClient` objects.
-
-        - batch_size: How the input arrays should be split up for analysis
-          processing. Leave negative to have this automatically resolved.
-        """
         if _triton_import_error is not None:
             warnings.warn(
                 "Users should make sure the tritonclient package is installed before proceeding!\n"
@@ -89,7 +104,7 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
         return self.pmod.InferenceServerClient(url=self.address, **self.client_args)
 
     @property
-    def client_args(self) -> Dict:
+    def client_args(self) -> dict:
         """
         Function for adding default arguments to the client constructor kwargs.
         """
@@ -101,10 +116,10 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
             kwargs.update(self._client_args)
         return kwargs
 
-    def _create_model_metadata(self) -> Dict:
+    def _create_model_metadata(self) -> dict:
         return self.client.get_model_metadata(self.model, self.version, as_json=True)
 
-    def _create_model_inputs(self) -> Dict[str, Dict]:
+    def _create_model_inputs(self) -> dict[str, dict]:
         """
         Extracting the model input data formats from the model_metatdata. Here
         we slightly change the input formats the objects in a format that is
@@ -118,9 +133,14 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
             for x in self.model_metadata["inputs"]
         }
 
-    def _create_model_outputs(self) -> List[int]:
-        """Getting a list of names of possible outputs"""
-        return [x["name"] for x in self.model_metadata["outputs"]]
+    def _create_model_outputs(self) -> dict[str, dict]:
+        """
+        Extracting the model output data format.
+        """
+        return {
+            x["name"]: {"shape": tuple(int(i) for i in x["shape"])}
+            for x in self.model_metadata["outputs"]
+        }
 
     @property
     def batch_size(self) -> int:
@@ -141,8 +161,7 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
                 self._batch_size = model_config["max_batch_size"]
             else:
                 warnings.warn(
-                    f"Batch size not set by model! Setting to default value {self.batch_size_fallback}. "
-                    "Contact model maintainer to check if this is expected",
+                    f"Batch size not set by model! Setting to default value {self.batch_size_fallback}. Contact model maintainer to check if this is expected",
                     UserWarning,
                 )
                 self._batch_size = self.batch_size_fallback
@@ -154,11 +173,31 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
     """
 
     def validate_numpy_input(
-        self, output_list: List[str], input_dict: Dict[str, numpy.array]
+        self, output_list: list[str], input_dict: dict[str, numpy.array]
     ) -> None:
         """
-        tritonclient can return the expected input array dimensions and
-        available output values.
+        Check that tritonclient can return the expected input array dimensions and
+        available output values. Can be useful when ensuring that data is being properly
+        mangled for Triton. This method is called just before passing to the Triton client
+        when an inference request is made.
+
+        If no errors are raised, it is understood that the input is validated by this function.
+
+        Parameters
+        ----------
+            output_list: list[str]
+                List of string corresponding to the name of the outputs
+                of interest. These strings will be automatically translated into the
+                required `tritonclient.InferRequestedOutput` objects. This is identical
+                to the first argument the user passes in when calling the `triton_wrapper`
+                instance.
+
+            input_dict: dict[str,np.array]
+                Dictionary with the model's input-names as the key and the
+                appropriate numpy array as the dictionary value. This dictionary is
+                automatically translated into a list of `tritonclient.InferInput`
+                objects. This is identical to the second argument the user passes in when
+                calling the `triton_wrapper` instance.
         """
         # Input value checking
         for iname, iarr in input_dict.items():
@@ -208,27 +247,28 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
                 )
 
     def numpy_call(
-        self, output_list: List[str], input_dict: Dict[str, numpy.array]
-    ) -> Dict[str, numpy.array]:
+        self, output_list: list[str], input_dict: dict[str, numpy.array]
+    ) -> dict[str, numpy.array]:
         """
         Parameters
         ----------
+            output_list: list[str]
+                List of string corresponding to the name of the outputs
+                of interest. These strings will be automatically translated into the
+                required `tritonclient.InferRequestedOutput` objects.
 
-        - output_list: List of string corresponding to the name of the outputs
-          of interest. These strings will be automatically translated into the
-          required `tritonclient.InferRequestedOutput` objects.
-
-        - input_dict: Dictionary with the model's input-names as the key and the
-          appropriate numpy array as the dictionary value. This dictionary is
-          automatically translated into a list of `tritonclient.InferInput`
-          objects.
+            input_dict: dict[str,np.array]
+                Dictionary with the model's input-names as the key and the
+                appropriate numpy array as the dictionary value. This dictionary is
+                automatically translated into a list of `tritonclient.InferInput`
+                objects.
 
 
-        Return
-        ------
-
-        The return will be the dictionary of numpy arrays that have the
-        output_list arguments as keys.
+        Returns
+        -------
+            dict[str,np.array]
+                The return will be the dictionary of numpy arrays that have the
+                output_list arguments as keys.
         """
 
         # Setting up the inference input containers
@@ -286,4 +326,13 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
                     output[o] = numpy.concatenate(
                         (output[o], request.as_numpy(o)), axis=0
                     )
+
+        if (
+            output is None
+        ):  # Input was a length-0, so we should generate the length-0 outputs with correct dimension
+            return {
+                o: numpy.zeros(shape=(0, *self.model_outputs[o]["shape"][1:]))
+                for o in output_list
+            }
+
         return {k: v[:orig_len] for k, v in output.items()}

@@ -7,7 +7,7 @@ name = "coffea"
 description = "Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis."
 readme = "README.rst"
 license = {text = "BSD-3-Clause"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
   { name = "Lindsey Gray", email = "lagray@fnal.gov" },
   { name = "Nick Smith", email = "ncsmith@fnal.gov" },
@@ -38,12 +38,11 @@ classifiers = [
 ]
 dependencies = [
   "awkward>=2.6.7",
-  "uproot>=5.3.11",
-  "dask[array]>=2024.3.0;python_version>'3.8'",
-  "dask[array]>=2023.4.0;python_version<'3.9'",
-  "dask-awkward>=2024.3.0",
-  "dask-histogram>=2024.3.0",
-  "vector>=1.4.1",
+  "uproot>=5.6.0",
+  "dask[array]>=2024.3.0",
+  "dask-awkward>=2025.2.0",
+  "dask-histogram>=2025.2.0",
+  "vector>=1.4.1,!=1.6.0",
   "correctionlib>=2.6.0",
   "pyarrow>=6.0.0",
   "fsspec-xrootd>=0.2.3",
@@ -71,8 +70,7 @@ Homepage = "https://github.com/coffeateam/coffea"
 
 [project.optional-dependencies]
 dask = [
-  "distributed>=2024.3.0;python_version>'3.8'",
-  "distributed>=2023.4.0;python_version<'3.9'",
+  "distributed>=2024.3.0",
   "bokeh!=3.0.*,>=2.4.2",
 ]
 spark = [
@@ -83,15 +81,8 @@ spark = [
 parsl = [
   "parsl>=2022.12.1"
 ]
-servicex = [
-  "aiostream",
-  "tenacity",
-  "servicex>=2.5.3",
-  "func-adl_servicex",
-]
 rucio = [
-  "rucio-clients>=32;python_version>'3.8'",
-  "rucio-clients<32;python_version<'3.9'",
+  "rucio-clients>=32",
 ]
 gpu = [
   "cupy-cuda12x>=13.1.0",

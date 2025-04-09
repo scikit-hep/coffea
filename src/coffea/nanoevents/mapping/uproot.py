@@ -28,16 +28,18 @@ class CannotBeNanoEvents(Exception):
     pass
 
 
-def _lazify_form(form, prefix, docstr=None):
+def _lazify_form(form, prefix, docstr=None, typestr=None):
     if not isinstance(form, dict) or "class" not in form:
         raise RuntimeError("form should have been normalized by now")
 
-    parameters = _lazify_parameters(form.get("parameters", {}), docstr=docstr)
+    parameters = _lazify_parameters(
+        form.get("parameters", {}), docstr=docstr, typestr=typestr
+    )
     if form["class"].startswith("ListOffset"):
         # awkward will add !offsets
         form["form_key"] = quote(prefix)
         form["content"] = _lazify_form(
-            form["content"], prefix + ",!content", docstr=docstr
+            form["content"], prefix + ",!content", docstr=docstr, typestr=typestr
         )
     elif form["class"] == "NumpyArray":
         form["form_key"] = quote(prefix)
@@ -45,7 +47,7 @@ def _lazify_form(form, prefix, docstr=None):
             form["parameters"] = parameters
     elif form["class"] == "RegularArray":
         form["content"] = _lazify_form(
-            form["content"], prefix + ",!content", docstr=docstr
+            form["content"], prefix + ",!content", docstr=docstr, typestr=typestr
         )
         if parameters:
             form["parameters"] = parameters
@@ -61,7 +63,10 @@ def _lazify_form(form, prefix, docstr=None):
         assert prefix.endswith("!load")
         form["form_key"] = quote(prefix + "allowmissing,!index")
         form["content"] = _lazify_form(
-            form["content"], prefix + "allowmissing,!content", docstr=docstr
+            form["content"],
+            prefix + "allowmissing,!content",
+            docstr=docstr,
+            typestr=typestr,
         )
         if parameters:
             form["parameters"] = parameters
@@ -88,12 +93,16 @@ def _lazify_form(form, prefix, docstr=None):
     return form
 
 
-def _lazify_parameters(form_parameters, docstr=None):
+def _lazify_parameters(form_parameters, docstr=None, typestr=None):
     parameters = {}
     if "__array__" in form_parameters:
         parameters["__array__"] = form_parameters["__array__"]
     if docstr is not None:
         parameters["__doc__"] = docstr
+    if typestr is not None:
+        parameters["typename"] = typestr
+    if "typename" in form_parameters:  # eager mode
+        parameters["typename"] = form_parameters["typename"]
     return parameters
 
 
@@ -109,10 +118,19 @@ class UprootSourceMapping(BaseSourceMapping):
         cache=None,
         access_log=None,
         use_ak_forth=False,
+        virtual=False,
         decompression_executor=None,
         interpretation_executor=None,
     ):
-        super().__init__(fileopener, start, stop, cache, access_log, use_ak_forth)
+        super().__init__(
+            fileopener=fileopener,
+            start=start,
+            stop=stop,
+            cache=cache,
+            access_log=access_log,
+            use_ak_forth=use_ak_forth,
+            virtual=virtual,
+        )
         self.decompression_executor = (
             decompression_executor or uproot.source.futures.TrivialExecutor()
         )
@@ -159,13 +177,16 @@ class UprootSourceMapping(BaseSourceMapping):
                 form.to_json()
             )  # normalizes form (expand NumpyArray classes)
             try:
-                form = _lazify_form(form, f"{key},!load", docstr=branch.title)
+                form = _lazify_form(
+                    form, f"{key},!load", docstr=branch.title, typestr=branch.typename
+                )
             except CannotBeNanoEvents as ex:
                 warnings.warn(
                     f"Skipping {key} as it is not interpretable by NanoEvents\nDetails: {ex}"
                 )
                 continue
             branch_forms[key] = form
+
         return {
             "class": "RecordArray",
             "contents": [item for item in branch_forms.values()],

@@ -282,6 +282,7 @@ def test_tuple_data_manipulation_output(allow_read_errors_with_report):
             assert isinstance(j, dask_awkward.Array)
 
 
+@pytest.mark.dask_client
 @pytest.mark.parametrize(
     "proc_and_schema",
     [(NanoTestProcessor, BaseSchema), (NanoEventsProcessor, NanoAODSchema)],
@@ -315,6 +316,7 @@ def test_apply_to_fileset(proc_and_schema):
         assert out["Data"]["cutflow"]["Data_mass"] == 14
 
 
+@pytest.mark.dask_client
 def test_apply_to_fileset_hinted_form():
     with Client() as _:
         dataset_runnable, dataset_updated = preprocess(
@@ -339,6 +341,7 @@ def test_apply_to_fileset_hinted_form():
         assert out["Data"]["cutflow"]["Data_mass"] == 66
 
 
+@pytest.mark.dask_client
 @pytest.mark.parametrize(
     "the_fileset", [_starting_fileset_list, _starting_fileset_dict, _starting_fileset]
 )
@@ -356,6 +359,7 @@ def test_preprocess(the_fileset):
         assert dataset_updated == _updated_result
 
 
+@pytest.mark.dask_client
 def test_preprocess_calculate_form():
     with Client() as _:
         starting_fileset = _starting_fileset
@@ -370,16 +374,21 @@ def test_preprocess_calculate_form():
         )
 
         raw_form_dy = uproot.dask(
-            "tests/samples/nano_dy.root:Events", open_files=False, ak_add_doc=True
+            "tests/samples/nano_dy.root:Events",
+            open_files=False,
+            ak_add_doc={"__doc__": "title", "typename": "typename"},
         ).layout.form.to_json()
         raw_form_data = uproot.dask(
-            "tests/samples/nano_dimuon.root:Events", open_files=False, ak_add_doc=True
+            "tests/samples/nano_dimuon.root:Events",
+            open_files=False,
+            ak_add_doc={"__doc__": "title", "typename": "typename"},
         ).layout.form.to_json()
 
         assert decompress_form(dataset_runnable["ZJets"]["form"]) == raw_form_dy
         assert decompress_form(dataset_runnable["Data"]["form"]) == raw_form_data
 
 
+@pytest.mark.dask_client
 def test_preprocess_failed_file():
     with Client() as _, pytest.raises(FileNotFoundError):
         starting_fileset = _starting_fileset
@@ -393,6 +402,7 @@ def test_preprocess_failed_file():
         )
 
 
+@pytest.mark.dask_client
 def test_preprocess_with_file_exceptions():
     fileset = {
         "Data": {
@@ -582,6 +592,7 @@ def test_slice_chunks():
     }
 
 
+@pytest.mark.dask_client
 def test_recover_failed_chunks():
     with Client() as _:
         to_compute = apply_to_fileset(

@@ -1,12 +1,15 @@
 import os
 
 import awkward as ak
+import pytest
 import toml
 import uproot
 
 from coffea import processor
 from coffea.nanoevents import schemas
 from coffea.processor.test_items import NanoEventsProcessor
+
+pytestmark = pytest.mark.dask_client
 
 if __name__ == "__main__":
     config_dict = {

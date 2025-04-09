@@ -1,0 +1,4 @@
+#Data tag : 24v2 , Norm tag: None
+#run:fill,ls,time,beamstatus,E(GeV),delivered(/pb),recorded(/pb),avgpu,source
+370790:9073,54:54,07/16/23 22:51:10,STABLE BEAMS,6800,0.265372231,0.005674056,33.0,AVG
+368229:8853,74:74,05/31/23 00:23:51,STABLE BEAMS,6800,0.106034314,0.101855712,27.4,AVG

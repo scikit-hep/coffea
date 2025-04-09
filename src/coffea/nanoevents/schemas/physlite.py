@@ -159,7 +159,7 @@ class PHYSLITESchema(BaseSchema):
 
     @classmethod
     def behavior(cls):
-        """Behaviors necessary to implement this schema"""
+        """Behaviors necessary to implement this schema (dict)"""
         from coffea.nanoevents.methods import physlite
 
         return physlite.behavior

@@ -41,7 +41,7 @@ def _element_link(target_collection, eventindex, index, key):
         eventindex, dask_awkward.Array
     ):
         raise ValueError(
-            "element linking must be done on two dask_awkward arrays or two akward arrays not a mix of the two"
+            "element linking must be done on two dask_awkward arrays or two awkward arrays not a mix of the two"
         )
 
     global_index = _get_global_index(target_collection, eventindex, index)

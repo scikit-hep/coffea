@@ -19,6 +19,23 @@ class BTagScaleFactor:
             Defaults to 'comb,comb,incl'
         keep_df : bool, optional
             If set true, keep the parsed dataframe as an attribute (.df) for later inspection
+
+    Attributes
+    ----------
+        LOOSE: int
+            Value is 0. This is the integer for the loose WP
+        MEDIUM: int
+            Value is 1. This is the integer for the medium WP
+        TIGHT: int
+            Value is 2. This is the integer for the tight WP
+        RESHAPE: int
+            Value is 3. This is the integer for the reshape WP
+        FLAV_B: int
+            Value is 0. This is the integer to represent the b flavor. Input choice to some methods.
+        FLAV_C: int
+            Value is 1. This is the integer to represent the c flavor. Input choice to some methods.
+        FLAV_UDSG: int
+            Value is 2. This is the integer to represent u, d, and s flavors, as well as gluons. Input choice to some methods.
     """
 
     LOOSE, MEDIUM, TIGHT, RESHAPE = range(4)

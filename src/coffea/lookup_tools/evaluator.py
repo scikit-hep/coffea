@@ -33,9 +33,23 @@ class evaluator:
         evaluator = extractor.make_evaluator()
         out = evaluator["testSF2d"](eta, pt)
 
-    The returned value has the same shape as the input arguments.
+    The returned value has the same shape as the input arguments. `lookup_types` is a map of possible
+    constructors for extracted data. The arguments used when calling the evaluator depend on which named
+    weight is being used (eg. in the above example, the "testSF2d" weight requires `eta` and `pt` be
+    passed when calling the evaluator).
 
-    lookup_types is a map of possible constructors for extracted data
+    It is recommended to construct an evaluator from an extractor, so ensure that inputs to the
+    constructor are properly ordered and formatted.
+
+    Parameters
+    ----------
+    names: dict[str, int]
+        A dictionary mapping the names of weights to the index of that weight in `primitives`.
+    types: list[str]
+        A list of the types of weights, ordered in the same way as `primitives`.
+    primitives: list[Varies]
+        A list of primitives, whose type and structure depend on types. Should be order in the
+        same way as `primitives`.
     """
 
     def __init__(self, names, types, primitives):

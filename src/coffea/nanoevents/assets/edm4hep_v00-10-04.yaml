@@ -1,0 +1,596 @@
+---
+schema_version: 1
+options:
+  getSyntax: True
+  exposePODMembers: False
+  includeSubfolder: True
+
+components:
+    edm4hep::Vector4f:
+      Description: "Generic vector for storing classical 4D coordinates in memory. Four momentum helper functions are in edm4hep::utils"
+      Members:
+        - float x
+        - float y
+        - float z
+        - float t
+      ExtraCode:
+        declaration: "
+        constexpr Vector4f() : x(0),y(0),z(0),t(0) {}\n
+        constexpr Vector4f(float xx, float yy, float zz, float tt) : x(xx),y(yy),z(zz),t(tt) {}\n
+        constexpr Vector4f(const float* v) : x(v[0]),y(v[1]),z(v[2]),t(v[3]) {}\n
+        constexpr bool operator==(const Vector4f& v) const { return (x==v.x&&y==v.y&&z==v.z&&t==v.t) ; }\n
+        constexpr float operator[](unsigned i) const { return *( &x + i ) ; }\n
+      "
+
+    # Vector3D with floats
+    edm4hep::Vector3f:
+      Members:
+        - float x
+        - float y
+        - float z
+      ExtraCode:
+        declaration: "
+        constexpr Vector3f() : x(0),y(0),z(0) {}\n
+        constexpr Vector3f(float xx, float yy, float zz) : x(xx),y(yy),z(zz) {}\n
+        constexpr Vector3f(const float* v) : x(v[0]),y(v[1]),z(v[2]) {}\n
+        constexpr bool operator==(const Vector3f& v) const { return (x==v.x&&y==v.y&&z==v.z) ; }\n
+        constexpr float operator[](unsigned i) const { return *( &x + i ) ; }\n
+        "
+
+    # Vector3D with doubles
+    edm4hep::Vector3d:
+      Members:
+        - double x
+        - double y
+        - double z
+      ExtraCode:
+        includes: "#include <edm4hep/Vector3f.h>"
+        declaration: "
+        constexpr Vector3d() : x(0),y(0),z(0) {}\n
+        constexpr Vector3d(double xx, double yy, double zz) : x(xx),y(yy),z(zz) {}\n
+        constexpr Vector3d(const double* v) : x(v[0]),y(v[1]),z(v[2]) {}\n
+        constexpr Vector3d(const float* v) : x(v[0]),y(v[1]),z(v[2]) {}\n
+        [[ deprecated(\"This constructor will be removed again it is mainly here for an easier transition\") ]]\n
+        constexpr Vector3d(const Vector3f& v) : x(v.x), y(v.y), z(v.z) {}\n
+        constexpr bool operator==(const Vector3d& v) const { return (x==v.x&&y==v.y&&z==v.z) ; }\n
+        constexpr double operator[](unsigned i) const { return *( &x + i ) ; }\n
+        "
+
+    # Vector2D with ints
+    edm4hep::Vector2i:
+      Members:
+        - int32_t a
+        - int32_t b
+      ExtraCode:
+        declaration: "
+        constexpr Vector2i() : a(0),b(0) {}\n
+        constexpr Vector2i(int32_t aa, int32_t bb) : a(aa),b(bb) {}\n
+        constexpr Vector2i( const int32_t* v) : a(v[0]), b(v[1]) {}\n
+        constexpr bool operator==(const Vector2i& v) const { return (a==v.a&&b==v.b) ; }\n
+        constexpr int operator[](unsigned i) const { return *( &a + i ) ; }\n
+        "
+
+    # Vector2D with floats
+    edm4hep::Vector2f:
+      Members:
+        - float a
+        - float b
+      ExtraCode:
+        declaration: "
+        constexpr Vector2f() : a(0),b(0) {}\n
+        constexpr Vector2f(float aa,float bb) : a(aa),b(bb) {}\n
+        constexpr Vector2f(const float* v) : a(v[0]), b(v[1]) {}\n
+        constexpr bool operator==(const Vector2f& v) const { return (a==v.a&&b==v.b) ; }\n
+        constexpr float operator[](unsigned i) const { return *( &a + i ) ; }\n
+        "
+
+      # Parametrized description of a particle track
+    edm4hep::TrackState:
+      Members:
+        - int32_t location // for use with At{Other|IP|FirstHit|LastHit|Calorimeter|Vertex}|LastLocation
+        - float D0 // transverse impact parameter
+        - float phi // azimuthal angle
+        - float omega // is the signed curvature of the track in [1/mm].
+        - float Z0 // longitudinal impact parameter
+        - float tanLambda // lambda is the dip angle of the track in r-z
+        - float time // time of the track at this trackstate
+        - edm4hep::Vector3f referencePoint // Reference point of the track parameters, e.g. the origin at the IP, or the position  of the first/last hits or the entry point into the calorimeter. [mm]
+        - std::array<float, 21> covMatrix // lower triangular covariance matrix of the track parameters.  the order of parameters is  d0, phi, omega, z0, tan(lambda), time. the array is a row-major flattening of the matrix.
+      ExtraCode:
+        declaration: "
+        static const int AtOther = 0 ; // any location other than the ones defined below\n
+        static const int AtIP = 1 ;\n
+        static const int AtFirstHit = 2 ;\n
+        static const int AtLastHit = 3 ;\n
+        static const int AtCalorimeter = 4 ;\n
+        static const int AtVertex = 5 ;\n
+        static const int LastLocation = AtVertex  ;\n
+        "
+
+    #------ ObjectID helper struct for references/relations
+    edm4hep::ObjectID:
+      Members:
+        - int32_t index
+        - int32_t collectionID
+      ExtraCode:
+        includes: "#include <podio/ObjectID.h>\n"
+        declaration: "
+        ObjectID() = default;\n
+        ObjectID(const podio::ObjectID& id ): index(id.index), collectionID(id.collectionID) {}\n
+      "
+
+    # quantity with an identifier, a value and an error
+    edm4hep::Quantity:
+      Members:
+        - int16_t type // flag identifying how to interpret the quantity
+        - float value  // value of the quantity
+        - float error  // error on the value of the quantity
+
+
+    # Hypothesis for 5 particle types
+    edm4hep::Hypothesis:
+      Members:
+        - float chi2       // chi2
+        - float expected   // expected value
+        - float sigma      // sigma value
+
+    # Reconstructed hit information
+    edm4hep::HitLevelData:
+      Members:
+        - uint64_t cellID  // cell id
+        - uint32_t N       // number of reconstructed ionization cluster.
+        - float eDep        // reconstructed energy deposit [GeV].
+        - float pathLength  // track path length [mm].
+
+datatypes:
+
+
+  edm4hep::EventHeader:
+    Description: "Event Header. Additional parameters are assumed to go into the metadata tree."
+    Author: "F.Gaede"
+    Members:
+      - int32_t eventNumber    //event number
+      - int32_t runNumber      //run number
+      - uint64_t timeStamp     //time stamp
+      - float weight       // event weight
+
+
+  edm4hep::MCParticle:
+    Description: "The Monte Carlo particle - based on the lcio::MCParticle."
+    Author: "F.Gaede, DESY"
+    Members:
+      - int32_t PDG                         //PDG code of the particle
+      - int32_t generatorStatus             //status of the particle as defined by the generator
+      - int32_t simulatorStatus             //status of the particle from the simulation program - use BIT constants below
+      - float charge                    //particle charge
+      - float time                      //creation time of the particle in [ns] wrt. the event, e.g. for preassigned decays or decays in flight from the simulator.
+      - double mass                     //mass of the particle in [GeV]
+      - edm4hep::Vector3d vertex              //production vertex of the particle in [mm].
+      - edm4hep::Vector3d endpoint            //endpoint of the particle in [mm]
+      - edm4hep::Vector3d momentum             //particle 3-momentum at the production vertex in [GeV]
+      - edm4hep::Vector3d momentumAtEndpoint   //particle 3-momentum at the endpoint in [GeV]
+      - edm4hep::Vector3f spin                 //spin (helicity) vector of the particle.
+      - edm4hep::Vector2i colorFlow                //color flow as defined by the generator
+    OneToManyRelations:
+      - edm4hep::MCParticle parents // The parents of this particle.
+      - edm4hep::MCParticle daughters // The daughters this particle.
+    MutableExtraCode:
+      includes: "#include <cmath>"
+      declaration: "
+      int32_t  set_bit(int32_t val, int num, bool bitval){ return (val & ~(1<<num)) | (bitval << num); }                               \n
+      void setCreatedInSimulation(bool bitval) { setSimulatorStatus( set_bit( getSimulatorStatus() , BITCreatedInSimulation , bitval ) ) ;  }  		     \n
+      void setBackscatter(bool bitval) { setSimulatorStatus( set_bit( getSimulatorStatus() , BITBackscatter , bitval ) ) ;   }  			     \n
+      void setVertexIsNotEndpointOfParent(bool bitval) { setSimulatorStatus( set_bit( getSimulatorStatus() , BITVertexIsNotEndpointOfParent , bitval ) ) ; } \n
+      void setDecayedInTracker(bool bitval) { setSimulatorStatus( set_bit( getSimulatorStatus() , BITDecayedInTracker , bitval ) ) ;   }  		     \n
+      void setDecayedInCalorimeter(bool bitval) { setSimulatorStatus( set_bit( getSimulatorStatus() , BITDecayedInCalorimeter , bitval ) ) ;   }  		     \n
+      void setHasLeftDetector(bool bitval) { setSimulatorStatus( set_bit( getSimulatorStatus() , BITLeftDetector , bitval ) ) ;   }  			     \n
+      void setStopped(bool bitval) { setSimulatorStatus( set_bit( getSimulatorStatus() , BITStopped , bitval ) ) ;   }  				     \n
+      void setOverlay(bool bitval) { setSimulatorStatus( set_bit( getSimulatorStatus() , BITOverlay , bitval ) ) ;   }         \n
+      "
+
+    ExtraCode:
+      declaration: "
+      // define the bit positions for the simulation flag\n
+      static const int BITEndpoint = 31;\n
+      static const int BITCreatedInSimulation = 30;\n
+      static const int BITBackscatter = 29 ;\n
+      static const int BITVertexIsNotEndpointOfParent = 28 ;  \n
+      static const int BITDecayedInTracker = 27 ; \n
+      static const int BITDecayedInCalorimeter = 26 ;   \n
+      static const int BITLeftDetector = 25 ;     \n
+      static const int BITStopped = 24 ;    \n
+      static const int BITOverlay = 23 ;    \n
+      /// return energy computed from momentum and mass \n
+      double getEnergy() const { return sqrt( getMomentum()[0]*getMomentum()[0]+getMomentum()[1]*getMomentum()[1]+\n
+                                        getMomentum()[2]*getMomentum()[2] + getMass()*getMass()  )  ;} \n
+
+      /// True if the particle has been created by the simulation program (rather than the generator).     \n
+      bool isCreatedInSimulation() const { return ( getSimulatorStatus() & ( 0x1 << BITCreatedInSimulation ))  ; }    \n
+      /// True if the particle is the result of a backscatter from a calorimeter shower. \n
+      bool isBackscatter() const { return ( getSimulatorStatus() & ( 0x1 << BITBackscatter )) ; }   \n
+      /// True if the particle's vertex is not the endpoint of the  parent particle.     \n
+      bool vertexIsNotEndpointOfParent() const { return ( getSimulatorStatus() & ( 0x1 << BITVertexIsNotEndpointOfParent )) ; } \n
+      /// True if the particle has interacted in a tracking region.                \n
+      bool isDecayedInTracker() const { return ( getSimulatorStatus() & ( 0x1 << BITDecayedInTracker )) ; }     \n
+      /// True if the particle has interacted in a calorimeter region.             \n
+      bool isDecayedInCalorimeter() const { return ( getSimulatorStatus() & ( 0x1 << BITDecayedInCalorimeter )) ; }   \n
+      /// True if the particle has left the world volume undecayed.                \n
+      bool hasLeftDetector() const { return ( getSimulatorStatus() & ( 0x1 << BITLeftDetector )) ; }\n
+      /// True if the particle has been stopped by the simulation program.         \n
+      bool isStopped() const { return ( getSimulatorStatus() & ( 0x1 << BITStopped )) ; }     \n
+      /// True if the particle has been overlaid by the simulation (or digitization)  program.\n
+      bool isOverlay() const { return ( getSimulatorStatus() & ( 0x1 << BITOverlay )) ; }     \n
+      "
+
+
+  #----------- SimTrackerHit
+  edm4hep::SimTrackerHit:
+    Description: "Simulated tracker hit"
+    Author: "F.Gaede, DESY"
+    Members:
+      - uint64_t cellID      //ID of the sensor that created this hit
+      - float EDep                     //energy deposited in the hit [GeV].
+      - float time                     //proper time of the hit in the lab frame in [ns].
+      - float pathLength               //path length of the particle in the sensitive material that resulted in this hit.
+      - int32_t   quality                  //quality bit flag.
+      - edm4hep::Vector3d position     //the hit position in [mm].
+      - edm4hep::Vector3f momentum     //the 3-momentum of the particle at the hits position in [GeV]
+    OneToOneRelations:
+      - edm4hep::MCParticle MCParticle //MCParticle that caused the hit.
+    MutableExtraCode:
+      includes: "#include <cmath>"
+      declaration: "
+      int32_t  set_bit(int32_t val, int num, bool bitval){ return (val & ~(1<<num)) | (bitval << num); }\n
+      void setOverlay(bool val) { setQuality( set_bit( getQuality() , BITOverlay , val ) ) ;   }\n
+      void setProducedBySecondary(bool val) { setQuality( set_bit( getQuality() , BITProducedBySecondary , val ) ) ;   }\n
+      "
+    ExtraCode:
+      declaration: "
+      static const int  BITOverlay = 31;\n
+      static const int  BITProducedBySecondary = 30;\n
+      bool isOverlay() const { return getQuality() & (1 << BITOverlay) ; }\n
+      bool isProducedBySecondary() const { return getQuality() & (1 << BITProducedBySecondary) ; }\n
+      double x() const {return getPosition()[0];}\n
+      double y() const {return getPosition()[1];}\n
+      double z() const {return getPosition()[2];}\n
+      double rho() const {return sqrt(x()*x() + y()*y());}\n
+      "
+
+
+  #------------- CaloHitContribution
+  edm4hep::CaloHitContribution:
+    Description: "Monte Carlo contribution to SimCalorimeterHit"
+    Author: "F.Gaede, DESY"
+    Members:
+      - int32_t   PDG                        //PDG code of the shower particle that caused this contribution.
+      - float energy                     //energy in [GeV] of the this contribution
+      - float time                       //time in [ns] of this contribution
+      - edm4hep::Vector3f stepPosition   //position of this energy deposition (step) [mm]
+    OneToOneRelations:
+      - edm4hep::MCParticle particle     //primary MCParticle that caused the shower responsible for this contribution to the hit.
+
+  #------------- SimCalorimeterHit
+  edm4hep::SimCalorimeterHit:
+    Description: "Simulated calorimeter hit"
+    Author: "F.Gaede, DESY"
+    Members:
+      - uint64_t cellID       //ID of the sensor that created this hit
+      - float energy                    //energy of the hit in [GeV].
+      - edm4hep::Vector3f position      //position of the hit in world coordinates in [mm].
+    OneToManyRelations:
+      - edm4hep::CaloHitContribution contributions  //Monte Carlo step contribution - parallel to particle
+
+
+  #-------------  RawCalorimeterHit
+  edm4hep::RawCalorimeterHit:
+    Description: "Raw calorimeter hit"
+    Author: "F.Gaede, DESY"
+    Members:
+      - uint64_t cellID   //detector specific (geometrical) cell id.
+      - int32_t amplitude               //amplitude of the hit in ADC counts.
+      - int32_t timeStamp               //time stamp for the hit.
+
+  #-------------  CalorimeterHit
+  edm4hep::CalorimeterHit:
+    Description: "Calorimeter hit"
+    Author: "F.Gaede, DESY"
+    Members:
+      - uint64_t cellID  //detector specific (geometrical) cell id.
+      - float energy               //energy of the hit in [GeV].
+      - float energyError          //error of the hit energy in [GeV].
+      - float time                 //time of the hit in [ns].
+      - edm4hep::Vector3f position //position of the hit in world coordinates in [mm].
+      - int32_t type                   //type of hit. Mapping of integer types to names via collection parameters "CalorimeterHitTypeNames" and "CalorimeterHitTypeValues".
+
+ #---------- ParticleID
+  edm4hep::ParticleID:
+    Description:  "ParticleID"
+    Author: "F.Gaede, DESY"
+    Members:
+      - int32_t   type           //userdefined type
+      - int32_t   PDG            //PDG code of this id - ( 999999 ) if unknown.
+      - int32_t   algorithmType  //type of the algorithm/module that created this hypothesis
+      - float likelihood     //likelihood of this hypothesis - in a user defined normalization.
+    VectorMembers:
+      - float parameters     //parameters associated with this hypothesis. Check/set collection parameters ParameterNames_PIDAlgorithmTypeName for decoding the indices.
+
+
+ #------ Cluster
+  edm4hep::Cluster:
+    Description: "Calorimeter Hit Cluster"
+    Author: "F.Gaede, DESY"
+    Members:
+      - int32_t                  type            //flagword that defines the type of cluster. Bits 16-31 are used internally.
+      - float                energy          //energy of the cluster [GeV]
+      - float                energyError     //error on the energy
+      - edm4hep::Vector3f    position        //position of the cluster [mm]
+      - std::array<float,6>  positionError   //covariance matrix of the position (6 Parameters)
+      - float                iTheta          //intrinsic direction of cluster at position  Theta. Not to be confused with direction cluster is seen from IP.
+      - float                phi             //intrinsic direction of cluster at position - Phi. Not to be confused with direction cluster is seen from IP.
+      - edm4hep::Vector3f    directionError  //covariance matrix of the direction (3 Parameters) [mm^2]
+    VectorMembers:
+      - float   shapeParameters      //shape parameters - check/set collection parameter ClusterShapeParameters for size and names of parameters.
+      - float   subdetectorEnergies  //energy observed in a particular subdetector. Check/set collection parameter ClusterSubdetectorNames for decoding the indices of the array.
+    OneToManyRelations:
+      - edm4hep::Cluster        clusters     //clusters that have been combined to this cluster.
+      - edm4hep::CalorimeterHit hits         //hits that have been combined to this cluster.
+      - edm4hep::ParticleID     particleIDs  //particle IDs (sorted by their likelihood)
+
+  #-------------  TrackerHit
+  edm4hep::TrackerHit:
+    Description: "Tracker hit"
+    Author: "F.Gaede, DESY"
+    Members:
+      - uint64_t cellID      //ID of the sensor that created this hit
+      - int32_t type                       //type of raw data hit, either one of edm4hep::RawTimeSeries, edm4hep::SIMTRACKERHIT - see collection parameters "TrackerHitTypeNames" and "TrackerHitTypeValues".
+      - int32_t quality                    //quality bit flag of the hit.
+      - float time                     //time of the hit [ns].
+      - float eDep                     //energy deposited on the hit [GeV].
+      - float eDepError                //error measured on EDep [GeV].
+      - edm4hep::Vector3d position     //hit position in [mm].
+      - std::array<float,6> covMatrix  //covariance of the position (x,y,z), stored as lower triangle matrix. i.e. cov(x,x) , cov(y,x) , cov(y,y) , cov(z,x) , cov(z,y) , cov(z,z)
+    VectorMembers:
+      - edm4hep::ObjectID  rawHits     //raw data hits. Check getType to get actual data type.
+
+
+  #-------------  TrackerHitPlane
+  edm4hep::TrackerHitPlane:
+    Description: "Tracker hit plane"
+    Author: "Placido Fernandez Declara, CERN"
+    Members:
+      - uint64_t cellID      //ID of the sensor that created this hit
+      - int32_t type                       //type of raw data hit, either one of edm4hep::RawTimeSeries, edm4hep::SIMTRACKERHIT - see collection parameters "TrackerHitTypeNames" and "TrackerHitTypeValues".
+      - int32_t quality                    //quality bit flag of the hit.
+      - float time                     //time of the hit [ns].
+      - float eDep                     //energy deposited on the hit [GeV].
+      - float eDepError                //error measured on EDep [GeV].
+      - edm4hep::Vector2f u            //measurement direction vector, u lies in the x-y plane
+      - edm4hep::Vector2f v            //measurement direction vector, v is along z
+      - float du                       //measurement error along the direction
+      - float dv                       //measurement error along the direction
+      - edm4hep::Vector3d position     //hit position in [mm].
+      - std::array<float,6> covMatrix  //covariance of the position (x,y,z), stored as lower triangle matrix. i.e. cov(x,x) , cov(y,x) , cov(y,y) , cov(z,x) , cov(z,y) , cov(z,z)
+    VectorMembers:
+      - edm4hep::ObjectID  rawHits     //raw data hits. Check getType to get actual data type.
+
+
+ #---------- RawTimeSeries
+  edm4hep::RawTimeSeries:
+    Description: "Raw data of a detector readout"
+    Author: "F.Gaede, DESY"
+    Members:
+       - uint64_t cellID  //detector specific cell id.
+       - int32_t quality                //quality flag for the hit.
+       - float time                 //time of the hit [ns].
+       - float charge               //integrated charge of the hit [fC].
+       - float interval             //interval of each sampling [ns].
+    VectorMembers:
+       - int32_t adcCounts          //raw data (32-bit) word at i.
+
+ #-------- Track
+  edm4hep::Track:
+    Description: "Reconstructed track"
+    Author: "F.Gaede, DESY"
+    Members:
+      - int32_t type                         //flagword that defines the type of track.Bits 16-31 are used internally
+      - float chi2                       //Chi^2 of the track fit
+      - int32_t ndf                          //number of degrees of freedom of the track fit
+      - float dEdx                       //dEdx of the track.
+      - float dEdxError                  //error of dEdx.
+      - float radiusOfInnermostHit       //radius of the innermost hit that has been used in the track fit
+    VectorMembers:
+      - int32_t subdetectorHitNumbers        //number of hits in particular subdetectors.Check/set collection variable TrackSubdetectorNames for decoding the indices
+      - edm4hep::TrackState trackStates  //track states
+      - edm4hep::Quantity dxQuantities // different measurements of dx quantities
+    OneToManyRelations:
+      - edm4hep::TrackerHit trackerHits  //hits that have been used to create this track
+      - edm4hep::Track tracks            //tracks (segments) that have been combined to create this track
+
+ #---------- Vertex
+  edm4hep::Vertex:
+    Description: "Vertex"
+    Author: "F.Gaede, DESY"
+    Members:
+      - int32_t                 primary       //boolean flag, if vertex is the primary vertex of the event
+      - float               chi2          //chi-squared of the vertex fit
+      - float               probability   //probability of the vertex fit
+      - edm4hep::Vector3f   position      // [mm] position of the vertex.
+      - std::array<float,6> covMatrix     //covariance matrix of the position (stored as lower triangle matrix, i.e. cov(xx),cov(y,x),cov(z,x),cov(y,y),... )
+      - int32_t                 algorithmType //type code for the algorithm that has been used to create the vertex - check/set the collection parameters AlgorithmName and AlgorithmType.
+    VectorMembers:
+      - float               parameters    //additional parameters related to this vertex - check/set the collection parameter "VertexParameterNames" for the parameters meaning.
+    OneToOneRelations:
+      - edm4hep::ReconstructedParticle associatedParticle //reconstructed particle associated to this vertex.
+
+
+  #------- ReconstructedParticle
+  edm4hep::ReconstructedParticle:
+    Description: "Reconstructed Particle"
+    Author: "F.Gaede, DESY"
+    Members:
+      - int32_t                    type           //type of reconstructed particle. Check/set collection parameters ReconstructedParticleTypeNames and ReconstructedParticleTypeValues.
+      - float                  energy         // [GeV] energy of the reconstructed particle. Four momentum state is not kept consistent internally.
+      - edm4hep::Vector3f      momentum       // [GeV] particle momentum. Four momentum state is not kept consistent internally.
+      - edm4hep::Vector3f      referencePoint // [mm] reference, i.e. where the particle has been measured
+      - float                  charge         //charge of the reconstructed particle.
+      - float                  mass           // [GeV] mass of the reconstructed particle, set independently from four vector. Four momentum state is not kept consistent internally.
+      - float                  goodnessOfPID  //overall goodness of the PID on a scale of [0;1]
+      - std::array<float,10>   covMatrix      //cvariance matrix of the reconstructed particle 4vector (10 parameters). Stored as lower triangle matrix of the four momentum (px,py,pz,E), i.e. cov(px,px), cov(py,##
+    OneToOneRelations:
+      - edm4hep::Vertex          startVertex    //start vertex associated to this particle
+      - edm4hep::ParticleID      particleIDUsed //particle Id used for the kinematics of this particle
+    OneToManyRelations:
+      - edm4hep::Cluster               clusters     //clusters that have been used for this particle.
+      - edm4hep::Track                 tracks       //tracks that have been used for this particle.
+      - edm4hep::ReconstructedParticle particles    //reconstructed particles that have been combined to this particle.
+      - edm4hep::ParticleID            particleIDs  //particle Ids (not sorted by their likelihood)
+    ExtraCode:
+      declaration: "
+      bool isCompound() const { return particles_size() > 0 ;}\n
+      "
+    MutableExtraCode:
+      declaration: "
+      //vertex where the particle decays This method actually returns the start vertex from the first daughter particle found.\n
+      //TODO: edm4hep::Vertex  getEndVertex() { return  edm4hep::Vertex(  (getParticles(0).isAvailable() ? getParticles(0).getStartVertex() :  edm4hep::Vertex(0,0) ) ) ; }\n
+      "
+
+  edm4hep::MCRecoParticleAssociation:
+    Description: "Used to keep track of the correspondence between MC and reconstructed particles"
+    Author: "C. Bernet, B. Hegner"
+    Members:
+      - float weight                        // weight of this association
+    OneToOneRelations:
+     - edm4hep::ReconstructedParticle  rec  // reference to the reconstructed particle
+     - edm4hep::MCParticle sim              // reference to the Monte-Carlo particle
+
+  edm4hep::MCRecoCaloAssociation:
+    Description: "Association between a CaloHit and the corresponding simulated CaloHit"
+    Author: "C. Bernet, B. Hegner"
+    Members:
+      - float weight                    // weight of this association
+    OneToOneRelations:
+     - edm4hep::CalorimeterHit rec     // reference to the reconstructed hit
+     - edm4hep::SimCalorimeterHit sim  // reference to the simulated hit
+
+  edm4hep::MCRecoTrackerAssociation:
+    Description: "Association between a TrackerHit and the corresponding simulated TrackerHit"
+    Author: "C. Bernet, B. Hegner"
+    Members:
+      - float weight              // weight of this association
+    OneToOneRelations:
+     - edm4hep::TrackerHit rec    // reference to the reconstructed hit
+     - edm4hep::SimTrackerHit sim // reference to the simulated hit
+
+  edm4hep::MCRecoTrackerHitPlaneAssociation:
+    Description: "Association between a TrackerHitPlane and the corresponding simulated TrackerHit"
+    Author: "Placido Fernandez Declara"
+    Members:
+      - float weight                // weight of this association
+    OneToOneRelations:
+     - edm4hep::TrackerHitPlane rec // reference to the reconstructed hit
+     - edm4hep::SimTrackerHit sim   // reference to the simulated hit
+
+  edm4hep::MCRecoCaloParticleAssociation:
+    Description: "Association between a CalorimeterHit and a MCParticle"
+    Author: "Placido Fernandez Declara"
+    Members:
+      - float weight                // weight of this association
+    OneToOneRelations:
+     - edm4hep::CalorimeterHit rec  // reference to the reconstructed hit
+     - edm4hep::MCParticle sim      // reference to the Monte-Carlo particle
+
+  edm4hep::MCRecoClusterParticleAssociation:
+    Description: "Association between a Cluster and a MCParticle"
+    Author: "Placido Fernandez Declara"
+    Members:
+      - float weight                // weight of this association
+    OneToOneRelations:
+     - edm4hep::Cluster rec         // reference to the cluster
+     - edm4hep::MCParticle sim      // reference to the Monte-Carlo particle
+
+  edm4hep::MCRecoTrackParticleAssociation:
+    Description: "Association between a Track and a MCParticle"
+    Author: "Placido Fernandez Declara"
+    Members:
+      - float weight                // weight of this association
+    OneToOneRelations:
+     - edm4hep::Track   rec         // reference to the track
+     - edm4hep::MCParticle sim      // reference to the Monte-Carlo particle
+
+  edm4hep::RecoParticleVertexAssociation:
+    Description: "Association between a Reconstructed Particle and a Vertex"
+    Author: "Placido Fernandez Declara"
+    Members:
+      - float weight                      // weight of this association
+    OneToOneRelations:
+     - edm4hep::ReconstructedParticle rec // reference to the reconstructed particle
+     - edm4hep::Vertex vertex             // reference to the vertex
+
+
+  #----------- SimPrimaryIonizationCluster
+  edm4hep::SimPrimaryIonizationCluster:
+    Description: "Simulated Primary Ionization"
+    Author: "Wenxing Fang, IHEP"
+    Members:
+      - uint64_t cellID                      //cell id.
+      - float time                           //the primary ionization's time in the lab frame [ns].
+      - edm4hep::Vector3d position           //the primary ionization's position [mm].
+      - int16_t type                         //type.
+    VectorMembers:
+       - uint64_t electronCellID             //cell id.
+       - float electronTime                  //the time in the lab frame [ns].
+       - edm4hep::Vector3d electronPosition  //the position in the lab frame [mm].
+       - float pulseTime                     //the pulse's time in the lab frame [ns].
+       - float pulseAmplitude                //the pulse's amplitude [fC].
+    OneToOneRelations:
+      - edm4hep::MCParticle MCParticle       //the particle that caused the ionizing collisions.
+
+ #----------  TrackerPulse
+  edm4hep::TrackerPulse:
+    Description: "Reconstructed Tracker Pulse"
+    Author: "Wenxing Fang, IHEP"
+    Members:
+       - uint64_t cellID                 //cell id.
+       - float time                      //time [ns].
+       - float charge                    //charge [fC].
+       - int16_t quality                 //quality.
+       - std::array<float,3> covMatrix   //lower triangle covariance matrix of the charge(c) and time(t) measurements.
+    OneToOneRelations:
+      - edm4hep::TimeSeries timeSeries   //Optionally, the timeSeries that has been used to create the pulse can be stored with the pulse.
+
+ #----------  RecIonizationCluster
+  edm4hep::RecIonizationCluster:
+    Description: "Reconstructed Ionization Cluster"
+    Author: "Wenxing Fang, IHEP"
+    Members:
+       - uint64_t cellID            //cell id.
+       - float significance         //significance.
+       - int16_t type               //type.
+    OneToManyRelations:
+       - edm4hep::TrackerPulse trackerPulse //the TrackerPulse used to create the ionization cluster.
+
+ #----------  TimeSeries
+  edm4hep::TimeSeries:
+    Description: "Calibrated Detector Data"
+    Author: "Wenxing Fang, IHEP"
+    Members:
+       - uint64_t cellID            //cell id.
+       - float time                 //begin time [ns].
+       - float interval             //interval of each sampling [ns].
+    VectorMembers:
+       - float amplitude            //calibrated detector data.
+
+
+  #-------------  RecDqdx
+  edm4hep::RecDqdx:
+    Description: "dN/dx or dE/dx info of Track."
+    Author: "Wenxing Fang, IHEP"
+    Members:
+      - edm4hep::Quantity dQdx         //the reconstructed dEdx or dNdx and its error
+      - int16_t particleType           //particle type, e(0),mu(1),pi(2),K(3),p(4).
+      - int16_t type                   //type.
+      - std::array<edm4hep::Hypothesis, 5> hypotheses //5 particle hypothesis
+    VectorMembers:
+      - edm4hep::HitLevelData hitData   //hit level data
+    OneToOneRelations:
+      - edm4hep::Track track           //the corresponding track.

@@ -22,6 +22,7 @@ file_converters = {
         "jec": convert_jec_txt_file,
         "jersf": convert_jersf_txt_file,
         "jr": convert_jr_txt_file,
+        "jer": convert_jr_txt_file,
         "junc": convert_junc_txt_file,
         "ea": convert_effective_area_file,
         "pileup": convert_pileup_json_file,
@@ -65,7 +66,18 @@ class extractor:
         self._finalized = False
 
     def add_weight_set(self, local_name, thetype, weights):
-        """adds one extracted weight to the extractor"""
+        """
+        Adds one extracted weight to the extractor.
+
+        Parameters
+        ----------
+        local_name: str
+            The name of the weight.
+        thetype: str
+            The type of weight (eg: jme_standard_function).
+        weights: Varies
+            The weights themselves. Type and structure depends on thetype.
+        """
         if self._finalized:
             raise Exception("extractor is finalized cannot add new weights!")
         if local_name in self._names.keys():
@@ -76,8 +88,13 @@ class extractor:
 
     def add_weight_sets(self, weightsdescs):
         """
-        expects a list of text lines to be formatted as '<local name> <name> <weights file>'
-        allows * * <file> and <prefix> * <file> to do easy imports of whole file
+        Add multiple weight sets at once, coming from one or more files.
+
+        Parameters
+        ----------
+        weightsdescs: Iterable[str]
+            Expects a list of text lines to be formatted as '<local name> <name> <weights file>'.
+            Allows * * <file> and <prefix> * <file> to do easy imports of whole file.
         """
         for weightdesc in weightsdescs:
             if weightdesc[0] == "#":
@@ -110,7 +127,14 @@ class extractor:
                     self._names[local_name] = 0
 
     def import_file(self, thefile):
-        """cache the whole contents of a file for later processing"""
+        """
+        Cache the whole contents of a file for later processing
+
+        Parameters
+        ----------
+        thefile: str
+            The path to the file to be imported
+        """
         if thefile not in self._filecache.keys():
             drop_gz = thefile.replace(".gz", "")
             file_dots = os.path.basename(drop_gz).split(".")
@@ -127,7 +151,16 @@ class extractor:
             self._filecache[thefile] = file_converters[theformat][thetype](thefile)
 
     def extract_from_file(self, thefile, name):
-        """import a file and then extract a lookup set"""
+        """
+        Import a file and then extract a lookup set
+
+        Parameters
+        ----------
+        thefile: str
+            The path to the file to import
+        name: str
+            The name of the weights to extract, as named in the file
+        """
         self.import_file(thefile)
         weights = self._filecache[thefile]
         names = {key[0]: key[1] for key in weights.keys()}
@@ -137,8 +170,14 @@ class extractor:
 
     def finalize(self, reduce_list=None):
         """
-        stop any further imports and if provided pare down
-        the stored histograms to those specified in reduce_list
+        Stop any further imports and, if requested, pare down
+        the stored histograms to those specified in reduce_list.
+
+        Parameters
+        ----------
+        reduce_list: list[str], optional
+            Reduce the weights contained in this extractor to only those with names
+            in reduce_list. If not provided, no such reduction takes place.
         """
         if self._finalized:
             raise Exception("extractor is already finalized!")
@@ -159,7 +198,13 @@ class extractor:
         self._finalized = True
 
     def make_evaluator(self):
-        """produce an evaluator based on the finalized extractor"""
+        """
+        Produce an evaluator based on the finalized extractor
+
+        Returns
+        -------
+        An evaluator based on the names, weight types, and weights of the finalized extractor.
+        """
         if self._finalized:
             return evaluator(self._names, self._types, self._weights)
         else:

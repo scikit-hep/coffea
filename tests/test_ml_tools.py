@@ -76,6 +76,7 @@ def common_prepare_awkward(jets):
     }
 
 
+@pytest.mark.dask_client
 def test_triton():
     _ = pytest.importorskip("tritonclient")
 
@@ -119,9 +120,16 @@ def test_triton():
     columns = set(list(dak.necessary_columns(dak_res).values())[0])
     assert columns == expected_columns
 
+    # Length 0 tests
+    ak_res = tw(["output"], ak_jets[ak_jets.eta < 0])
+    dak_res = tw(["output"], dak_jets[dak_jets.eta < 0])
+    for k in ak_res.keys():
+        assert len(ak_res[k]) == 0 and len(dak_res[k].compute()) == 0
+
     client.close()
 
 
+@pytest.mark.dask_client
 def test_torch():
     _ = pytest.importorskip("torch")
 
@@ -140,7 +148,6 @@ def test_torch():
 
     tw = torch_wrapper_test("tests/samples/pn_demo.pt")
     ak_jets, dak_jets = prepare_jets_array(njets=256)
-
     ak_res = tw(ak_jets)
     dak_res = tw(dak_jets)
 
@@ -156,9 +163,19 @@ def test_torch():
     }
     columns = set(list(dak.necessary_columns(dak_res).values())[0])
     assert columns == expected_columns
+
+    # Length-0 testing
+    tw = torch_wrapper_test("tests/samples/pn_demo.pt", expected_output_shape=(None,))
+    ak_jets, dak_jets = prepare_jets_array(njets=256)
+    ak_jets = ak_jets[ak_jets.eta < -100]  # Mimicking a low efficiency selection
+    dak_jets = dak_jets[dak_jets.eta < -100]
+    ak_res, dak_res = tw(ak_jets), tw(dak_jets)
+    assert len(ak_jets) == 0 and len(dak_res.compute()) == 0
+
     client.close()
 
 
+@pytest.mark.dask_client
 def test_tensorflow():
     _ = pytest.importorskip("tensorflow")
 
@@ -207,9 +224,34 @@ def test_tensorflow():
     expected_columns = {"ncands"} | {f"pfcands.feat{i}" for i in range(1, 19)}
     columns = set(list(dak.necessary_columns(dak_res).values())[0])
     assert columns == expected_columns
+
+    # Length 0 testing. we cannot use the unflatten module in this case
+    class tf_wrapper_lenght0_test(tf_wrapper):
+        def prepare_awkward(self, arr):
+            return [arr], {}
+
+    tfw_length0_tester = tf_wrapper_lenght0_test(
+        "tests/samples/tf_model.keras", skip_length_zero=True
+    )
+
+    # Making an explicit shape
+    arr = ak.from_numpy(np.random.random(size=(10, 64, 18)))
+    ak.to_parquet(arr, "tf_length10.parquet")
+    darr = dak.from_parquet("tf_length10.parquet")
+    ak_res = tfw_length0_tester(arr)
+    dak_res = tfw_length0_tester(darr)
+    assert np.all(np.isclose(ak_res, dak_res.compute()))
+    # Reducing the length 0
+    arr = ak.from_numpy(np.zeros(shape=(0, 64, 18)))
+    ak.to_parquet(arr, "tf_length0.parquet")
+    darr = dak.from_parquet("tf_length0.parquet")
+    ak_res = tfw_length0_tester(arr)
+    dak_res = tfw_length0_tester(darr)
+
     client.close()
 
 
+@pytest.mark.dask_client
 def test_xgboost():
     _ = pytest.importorskip("xgboost")
 
@@ -244,4 +286,10 @@ def test_xgboost():
     # Should only load required columns
     columns = set(list(dak.necessary_columns(dak_res).values())[0])
     assert columns == set(feature_list)
+
+    # Length 0 testing, xgboost always handles 0-length arrays elegantly
+    ak_res = xgb_wrap(ak_events[ak_events.feat0 < 0])
+    dak_res = xgb_wrap(dak_events[dak_events.feat0 < 0])
+    assert len(ak_res) == 0 and len(dak_res.compute()) == 0
+
     client.close()

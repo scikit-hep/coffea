@@ -67,8 +67,16 @@ class JetCorrectionUncertainty:
     You can use this class as follows::
 
         jcu = JetCorrectionUncertainty(name1=corrL1,...)
-        jetUncs = jcu(JetParameter1=jet.parameter1,...)
+        jetUncs = jcu.getUncertainty(JetParameter1=jet.parameter1,...)
 
+    in which `jetUncs` are the uncertainties, with the same shape as the input parameters.
+    In order to see which parameters must be passed to `getUncertainty`, one can do
+    `jcu.signature`.
+
+    You construct a JetCorrectionUncertainty by passing in a dict of names and functions.
+    Names must be formatted as '<campaign>_<dataera>_<datatype>_<level>_<jettype>'. You
+    can use coffea.lookup_tools' `extractor` and `evaluator` to get the functions from
+    some input files.
     """
 
     def __init__(self, **kwargs):

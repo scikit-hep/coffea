@@ -1,11 +1,9 @@
-"""Utility functions
-
-"""
+"""Utility functions"""
 
 import base64
 import gzip
 import hashlib
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import awkward
 import dask_awkward
@@ -120,7 +118,7 @@ def _gethistogramaxis(name, var, bins, start, stop, edges, transform, delayed_mo
     )
 
 
-def _exception_chain(exc: BaseException) -> List[BaseException]:
+def _exception_chain(exc: BaseException) -> list[BaseException]:
     """Retrieves the entire exception chain as a list."""
     ret = []
     while isinstance(exc, BaseException):

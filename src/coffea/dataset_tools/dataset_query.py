@@ -4,7 +4,6 @@ import json
 import os
 import random
 from collections import defaultdict
-from typing import List
 
 import yaml
 from dask.distributed import Client
@@ -18,7 +17,26 @@ from . import rucio_utils
 from .preprocess import preprocess
 
 
-def print_dataset_query(query, dataset_list, console, selected=[]):
+def print_dataset_query(
+    query: str,
+    dataset_list: dict[str, dict[str, list[str]]],
+    console: Console,
+    selected: list[str] = [],
+) -> None:
+    """
+    Pretty-print the results of a rucio query in a table.
+
+    Parameters
+    ----------
+        query: str
+            The query given to rucio
+        dataset_list: dict[str, dict[str,list[str]]]
+            The second output of a call to query_dataset with tree=True
+        console: Console
+            A Console object to print to
+        selected: list[str], default []
+            A list of selected datasets
+    """
     table = Table(title=f"Query: [bold red]{query}")
     table.add_column("Name", justify="left", style="cyan", no_wrap=True)
     table.add_column("Tag", style="magenta", no_wrap=True)
@@ -51,7 +69,7 @@ def print_dataset_query(query, dataset_list, console, selected=[]):
     console.print(table)
 
 
-def get_indices_query(input_str: str, maxN: int) -> List[int]:
+def get_indices_query(input_str: str, maxN: int) -> list[int]:
     tokens = input_str.strip().split(" ")
     final_tokens = []
     for t in tokens:
@@ -88,6 +106,12 @@ def get_indices_query(input_str: str, maxN: int) -> List[int]:
 
 
 class DataDiscoveryCLI:
+    """
+    Simplifies dataset query, replicas, filters, and uproot preprocessing with Dask.
+    It can be accessed in a Python script or interpreter via this class, or from the
+    command line (as in `python -m coffea.dataset_tools.dataset_query --help`).
+    """
+
     def __init__(self):
         self.console = Console()
         self.rucio_client = None
@@ -140,7 +164,7 @@ Some basic commands:
   - [bold cyan]query-results[/]: List the results of the last dataset query
   - [bold cyan]list-selected[/]: Print a list of the selected datasets
   - [bold cyan]list-replicas[/]: Print the selected files replicas for the selected dataset
-  - [bold cyan]sites-filters[/]: show the active sites filters and ask to clear them
+  - [bold cyan]sites-filters[/]: Show the active sites filters and ask to clear them
   - [bold cyan]allow-sites[/]: Restrict the grid sites available for replicas query only to the requested list
   - [bold cyan]block-sites[/]: Exclude grid sites from the available sites for replicas query
   - [bold cyan]regex-sites[/]: Select sites with a regex for replica queries: e.g.  "T[123]_(FR|IT|BE|CH|DE)_\w+"
@@ -198,7 +222,14 @@ Some basic commands:
         print(self.rucio_client.whoami())
 
     def do_query(self, query=None):
-        # Your code here
+        """
+        Look for datasets with * wildcards (like in DAS)
+
+        Parameters
+        ----------
+            query: str | None, default None
+                The query to pass to rucio. If None, will prompt the user for an input.
+        """
         if query is None:
             query = Prompt.ask(
                 "[yellow bold]Query for[/]",
@@ -218,6 +249,7 @@ Some basic commands:
         print("Use the command [bold red]select[/] to selected the datasets")
 
     def do_query_results(self):
+        """List the results of the last dataset query"""
         if self.last_query_list:
             print_dataset_query(
                 self.last_query,
@@ -229,8 +261,19 @@ Some basic commands:
             print("First [bold red]query (Q)[/] for a dataset")
 
     def do_select(self, selection=None, metadata=None):
-        """Selected the datasets from the list of query results. Input a list of indices
-        also with range 4-6 or "all"."""
+        """
+        Selected the datasets from the list of query results. Input a list of indices
+        also with range 4-6 or "all".
+
+        Parameters
+        ----------
+            selection: list[str] | None, default None
+                A list of indices corresponding to selected datasets. Should be a
+                string, with indices separated by spaces. Can include ranges (like "4-6")
+                or "all".
+            metadata: dict[Hashable,Any], default None
+                Metadata to store in associated with selected datasets.
+        """
         if not self.last_query_list:
             print("First [bold red]query (Q)[/] for a dataset")
             return
@@ -260,6 +303,7 @@ Some basic commands:
                 )
 
     def do_list_selected(self):
+        """Print a list of the selected datasets"""
         print("[cyan]Selected datasets:")
         table = Table(title="Selected datasets")
         table.add_column("Index", justify="left", style="cyan", no_wrap=True)
@@ -280,12 +324,20 @@ Some basic commands:
         self.console.print(table)
 
     def do_replicas(self, mode=None, selection=None):
-        """Query Rucio for replicas.
-        mode: - None:  ask the user about the mode
-              - round-robin (take files randomly from available sites),
-              - choose: ask the user to choose from a list of sites
-              - first: take the first site from the rucio query
-        selection: list of indices or 'all' to select all the selected datasets for replicas query
+        """
+        Query Rucio for replicas.
+
+        Parameters
+        ----------
+            mode: str, default None
+                One of the following
+                    - None:  ask the user about the mode
+                    - round-robin (take files randomly from available sites),
+                    - choose: ask the user to choose from a list of sites
+                    - first: take the first site from the rucio query
+            selection: str, default None
+                list of indices or 'all' to select all the selected datasets for
+                replicas query
         """
         if selection is None:
             selection = Prompt.ask(
@@ -433,6 +485,16 @@ Some basic commands:
         return self.final_output
 
     def do_allowlist_sites(self, sites=None):
+        """
+        Restrict the grid sites available for replicas query only to the requested list
+
+        Parameters
+        ----------
+            sites: list[str] | None, default None
+                The sites to allow the replicas query to look at. If passing in a list,
+                elements of the list are sites. If passing in None, the prompt requires
+                a single string containing a comma-separated listing.
+        """
         if sites is None:
             sites = Prompt.ask(
                 "[yellow]Restrict the available sites to (comma-separated list)"
@@ -446,6 +508,16 @@ Some basic commands:
             print(f"- {s}")
 
     def do_blocklist_sites(self, sites=None):
+        """
+        Exclude grid sites from the available sites for replicas query
+
+        Parameters
+        ----------
+            sites: list[str] | None, default None
+                The sites to prevent the replicas query from looking at. If passing in a
+                list elements of the list are sites. If passing in None, the prompt
+                requires a single string containing a comma-separated listing.
+        """
         if sites is None:
             sites = Prompt.ask(
                 "[yellow]Exclude the sites (comma-separated list)"
@@ -459,6 +531,14 @@ Some basic commands:
             print(f"- {s}")
 
     def do_regex_sites(self, regex=None):
+        r"""
+        Select sites with a regex for replica queries: e.g.  "T[123]_(FR|IT|BE|CH|DE)_\w+"
+
+        Parameters
+        ----------
+            regex: str | None, default None
+                Sites to use for replica queries, described with a regex string.
+        """
         if regex is None:
             regex = Prompt.ask("[yellow]Regex to restrict the available sites")
         if len(regex):
@@ -466,6 +546,16 @@ Some basic commands:
             print(f"New sites regex: [cyan]{self.sites_regex}")
 
     def do_sites_filters(self, ask_clear=True):
+        """
+        Show the active sites filters (allowed, disallowed, and regex) and ask to clear
+        them
+
+        Parameters
+        ----------
+            ask_clear: bool, default True
+                If True, ask the user via prompt if allow, disallow, and regex filters
+                should be cleared.
+        """
         print("[green bold]Allow-listed sites:")
         if self.sites_allowlist:
             for s in self.sites_allowlist:
@@ -479,13 +569,14 @@ Some basic commands:
         print(f"[bold cyan]Sites regex: [italics]{self.sites_regex}")
 
         if ask_clear:
-            if Confirm.ask("Clear sites restrinction?", default=False):
+            if Confirm.ask("Clear sites restriction?", default=False):
                 self.sites_allowlist = None
                 self.sites_blocklist = None
                 self.sites_regex = None
                 print("[bold green]Sites filters cleared")
 
     def do_list_replicas(self):
+        """Print the selected files replicas for the selected dataset"""
         selection = Prompt.ask(
             "[yellow bold]Select datasets indices[/] (e.g 1 4 6-10)", default="all"
         )
@@ -507,7 +598,13 @@ Some basic commands:
             self.console.print(tree)
 
     def do_save(self, filename=None):
-        """Save the replica information in yaml format"""
+        """
+        Save the replica information in yaml format
+
+        Parameters:
+            filename: str | None, default None
+                The name of the file to save the information into
+        """
         if not filename:
             filename = Prompt.ask(
                 "[yellow bold]Output file name (.yaml or .json)", default="output.json"
@@ -536,8 +633,21 @@ Some basic commands:
         step_size_safety_factor=0.5,
         allow_empty_datasets=False,
     ):
-        """Perform preprocessing for concrete fileset extraction.
-        Args:  output_file [step_size] [align to file cluster boundaries] [dask scheduler url]
+        """
+        Perform preprocessing for concrete fileset extraction into a file, compressed
+        with gzip.
+
+        Parameters
+        ----------
+            output_file: str | None, default None
+                The name of the file to write the preprocessed file into
+            step_size: int | None, default None
+                The chunk size for file splitting
+            align_to_clusters: bool | None, default None
+                Whether or not round to the cluster size in a root file. See
+                align_clusters parameter in coffea.dataset_tools.preprocess.
+            scheduler_url: str | None, default None
+                Dask scheduler URL where the preprocessing should take place
         """
         if not output_file:
             output_file = Prompt.ask(
@@ -600,12 +710,25 @@ Some basic commands:
         Initialize the DataDiscoverCLI by querying a set of datasets defined in `dataset_definitions`
         and selected results and replicas following the options.
 
-        - query_results_strategy:  "all" or "manual" to be prompt for selection
-        - replicas_strategy:
-            - "round-robin": select randomly from the available sites for each file
-            - "choose": filter the sites with a list of indices for all the files
-            - "first": take the first result returned by rucio
-            - "manual": to be prompt for manual decision dataset by dataset
+        Parameters
+        ----------
+            dataset_definition: Dict[str,Dict[Hashable,Any]]
+                Keys are dataset queries (ie: something that can be passed to do_query())
+            query_results_strategy: str, default "all"
+                How to decide which datasets to select. If "manual", user will be prompted
+                for selection
+            replicas_strategy: str, default "round-robin"
+                Options are:
+                    - "round-robin": select randomly from the available sites for each file
+                    - "choose": filter the sites with a list of indices for all the files
+                    - "first": take the first result returned by rucio
+                    - "manual": to be prompt for manual decision dataset by dataset
+
+        Returns
+        -------
+            out_replicas: FilesetSpecOptional
+                An uproot-readable fileset. At this point, the fileset is not fully
+                preprocessed, but this can be done with do_preprocess().
         """
         for dataset_query, dataset_meta in dataset_definition.items():
             print(f"\nProcessing query: {dataset_query}")

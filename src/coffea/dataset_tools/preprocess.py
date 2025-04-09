@@ -4,9 +4,10 @@ import copy
 import hashlib
 import math
 import warnings
+from collections.abc import Hashable
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable, Dict, Hashable
+from typing import Any, Callable
 
 import awkward
 import dask
@@ -32,6 +33,7 @@ def get_steps(
 ) -> awkward.Array | dask_awkward.Array:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
+
     Parameters
     ----------
         normed_files: awkward.Array | dask_awkward.Array
@@ -81,7 +83,7 @@ def get_steps(
         if save_form:
             form_str = uproot.dask(
                 tree,
-                ak_add_doc=True,
+                ak_add_doc={"__doc__": "title", "typename": "typename"},
                 filter_name=no_filter,
                 filter_typename=no_filter,
                 filter_branch=partial(_remove_not_interpretable, emit_warning=False),
@@ -118,7 +120,7 @@ def get_steps(
                 )
                 if numpy.any(step_mask):
                     warnings.warn(
-                        f"In file {arg.file}, steps: {out[step_mask]} with align_cluster=True are "
+                        f"In file {arg.file}, steps: {out[step_mask]} with align_clusters=True are "
                         f"{step_size_safety_factor*100:.0f}% larger than target "
                         f"step size: {target_step_size}!"
                     )
@@ -216,8 +218,8 @@ class DatasetSpecOptional(DatasetSpec):
     )
 
 
-FilesetSpecOptional = Dict[str, DatasetSpecOptional]
-FilesetSpec = Dict[str, DatasetSpec]
+FilesetSpecOptional = dict[str, DatasetSpecOptional]
+FilesetSpec = dict[str, DatasetSpec]
 
 
 def _normalize_file_info(file_info):

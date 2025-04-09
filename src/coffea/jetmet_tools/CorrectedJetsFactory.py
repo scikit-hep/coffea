@@ -129,6 +129,27 @@ def jer_smear(
 
 
 class CorrectedJetsFactory:
+    """
+    Factory class for applying corrections to jets, including organizing variations
+    (eg: JES up and down). It is constructed from a name map, which translates between
+    field names for corrections and field names in inputs, and a JECStack, which
+    contains the actual correction functions.
+
+    Once a CorrectedJetsFactory is constructed, the `build` method can produce corrected
+    jets from an input array of jets.
+
+    Parameters
+    ----------
+        name_map: dict[str,str]
+            Keys are argument names in the various corrections' signatures (eg: the `signature`
+            attribute of a `FactorizedJJetCorrector` object). Values are the names of the
+            corresponding fields as they would appear in the jet array passed to the `build`
+            method.
+        jec_stack: JECStack
+            Contains the corrections that will be applied to the input jet array when calling
+            `build`.
+    """
+
     def __init__(self, name_map, jec_stack):
         # from PhysicsTools/PatUtils/interface/SmearedJetProducerT.h#L283
         self.forceStochastic = False
@@ -173,12 +194,34 @@ class CorrectedJetsFactory:
         self.jec_stack = jec_stack
 
     def uncertainties(self):
+        """
+        Returns a list of the sources of uncertainty included in the stack.
+
+        Returns
+        -------
+            list[str]
+                A list of the sources of uncertainty.
+        """
         out = ["JER"] if self.jec_stack.jer is not None else []
         if self.jec_stack.junc is not None:
             out.extend([f"JES_{unc}" for unc in self.jec_stack.junc.levels])
         return out
 
     def build(self, injets):
+        """
+        Apply the corrections to the array of jets, returning an array of corrected
+        jets.
+
+        Parameters
+        ----------
+            injets: (Awkward array[jets])
+                An array of uncorrected jets, to which we want to apply corrections.
+
+        Returns
+        -------
+            Awkward array of jets, representing the corrected jets, with shape matching
+            `injets`.
+        """
         if not isinstance(injets, (awkward.highlevel.Array, dask_awkward.Array)):
             raise Exception("input jets must be an (dask_)awkward array of some kind!")
 

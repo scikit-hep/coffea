@@ -19,6 +19,30 @@ def corrected_polar_met(
 
 
 class CorrectedMETFactory:
+    """
+    Factory class for propagating corrections made to jets into a corrected value
+    of MET. This includes organizing different variations associated with uncertainties
+    in MET from unclustered energy.
+
+    Once the `CorrectedMETFactory` is constructed, an array of corrected MET values and
+    variations can be produced with the `build` method, which requires an array of
+    uncorrected MET and an array of corrected jets.
+
+    Parameters
+    ----------
+        name_map: dict[str,str]
+            Keys must include at least the following:
+                - METpt
+                - METphi
+                - JetPt
+                - JetPhi
+                - ptRaw
+                - UnClusteredEnergyDeltaX
+                - UnClusteredEnergyDeltaY
+            and each of those must be mapped to the corresponding field name of the input
+            arrays `in_MET` and `in_corrected_jets` for the `build` method.
+    """
+
     def __init__(self, name_map):
         for name in [
             "METpt",
@@ -37,6 +61,21 @@ class CorrectedMETFactory:
         self.name_map = name_map
 
     def build(self, in_MET, in_corrected_jets):
+        """
+        Produce an array of corrected MET values from an array of uncorrected MET
+        values and an array of corrected jets.
+
+        Parameters
+        ----------
+            in_MET: (Awkward array[float])
+                An array of raw (uncorrected) MET values.
+            in_corrected_jets: (Awkward array[jets])
+                An array of corrected jets, as produced by `CorrectedJetsFactory`.
+
+        Returns
+        -------
+            Awkward array of corrected MET values, with shape matching `in_MET`.
+        """
         if not isinstance(
             in_MET, (awkward.highlevel.Array, dask_awkward.Array)
         ) or not isinstance(
@@ -171,4 +210,12 @@ class CorrectedMETFactory:
         return out
 
     def uncertainties(self):
+        """
+        Returns a list of the sources of uncertainty included in the stack.
+
+        Returns
+        -------
+            list[str]
+                A list of the sources of uncertainty.
+        """
         return ["MET_UnclusteredEnergy"]

@@ -576,12 +576,12 @@ def test_dask_metric_table_and_nearest(optimization_enabled):
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
         eagerevents = NanoEventsFactory.from_root(
             {"tests/samples/nano_dy.root": "Events"},
-            delayed=False,
+            mode="eager",
         ).events()
 
         daskevents = NanoEventsFactory.from_root(
             {"tests/samples/nano_dy.root": "Events"},
-            delayed=True,
+            mode="dask",
         ).events()
 
         mval_eager, (a_eager, b_eager) = eagerevents.Electron.metric_table(
@@ -627,12 +627,12 @@ def test_photon_zero_mass_charge(optimization_enabled):
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
         eagerevents = NanoEventsFactory.from_root(
             {"tests/samples/nano_dy.root": "Events"},
-            delayed=False,
+            mode="eager",
         ).events()
 
         daskevents = NanoEventsFactory.from_root(
             {"tests/samples/nano_dy.root": "Events"},
-            delayed=True,
+            mode="dask",
         ).events()
 
         np.testing.assert_allclose(ak.flatten(eagerevents.Photon.mass), 0.0, atol=1e-5)

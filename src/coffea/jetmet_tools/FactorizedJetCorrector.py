@@ -62,15 +62,19 @@ class FactorizedJetCorrector:
     You can use this class as follows::
 
         fjc = FactorizedJetCorrector(name1=corrL1,...)
-        jetCorrs = fjc(JetParameter1=jet.parameter1,...)
+        jetCorrs = fjc.getCorrection(JetParameter1=jet.parameter1,...)
 
+    in which `jetCorrs` are the corrected jet scaled factors, with the same shape as
+    the input parameters. In order to see what parameters must be passed to
+    `getCorrection()`, one can do `fjc.signature`.
+
+    You construct a FactorizedJetCorrector by passing in a dict of names and functions.
+    Names must be formatted as '<campaign>_<dataera>_<datatype>_<level>_<jettype>'. You
+    can use coffea.lookup_tools' `extractor` and `evaluator` to get the functions from
+    some input files.
     """
 
     def __init__(self, **kwargs):
-        """
-        You construct a FactorizedJetCorrector by passing in a dict of names and functions.
-        Names must be formatted as '<campaign>_<dataera>_<datatype>_<level>_<jettype>'.
-        """
         jettype = None
         levels = []
         funcs = []

@@ -1,14 +1,20 @@
+.. image:: docs/source/logo/coffea_logo.svg
+    :align: center
+    :width: 250px
+    :alt: logo
+
+
 coffea - Columnar Object Framework For Effective Analysis
 =========================================================
 
 .. image:: https://zenodo.org/badge/159673139.svg
    :target: https://zenodo.org/badge/latestdoi/159673139
 
-.. image:: https://github.com/CoffeaTeam/coffea/actions/workflows/ci.yml/badge.svg
-    :target: https://github.com/CoffeaTeam/coffea/actions?query=workflow%3ACI%2FCD+event%3Aschedule+branch%3Amaster
+.. image:: https://github.com/scikit-hep/coffea/actions/workflows/ci.yml/badge.svg
+    :target: https://github.com/scikit-hep/coffea/actions?query=workflow%3ACI%2FCD+event%3Aschedule+branch%3Amaster
 
-.. image:: https://codecov.io/gh/CoffeaTeam/coffea/branch/master/graph/badge.svg?event=schedule
-    :target: https://codecov.io/gh/CoffeaTeam/coffea
+.. image:: https://codecov.io/gh/scikit-hep/coffea/branch/master/graph/badge.svg?event=schedule
+    :target: https://codecov.io/gh/scikit-hep/coffea
 
 .. image:: https://badge.fury.io/py/coffea.svg
     :target: https://badge.fury.io/py/coffea
@@ -19,11 +25,11 @@ coffea - Columnar Object Framework For Effective Analysis
 .. image:: https://img.shields.io/conda/vn/conda-forge/coffea.svg
     :target: https://anaconda.org/conda-forge/coffea
 
-.. image:: https://badges.gitter.im/CoffeaTeam/coffea.svg
+.. image:: https://badges.gitter.im/scikit-hep/coffea.svg
     :target: https://matrix.to/#/#coffea-hep_community:gitter.im
 
 .. image:: https://mybinder.org/badge_logo.svg
-   :target: https://mybinder.org/v2/gh/CoffeaTeam/coffea/master?filepath=binder/
+   :target: https://mybinder.org/v2/gh/scikit-hep/coffea/master?filepath=binder/
 
 .. inclusion-marker-1-do-not-remove
 
@@ -52,7 +58,7 @@ the need to alter or otherwise adapt the analysis code itself.
 coffea is a HEP community project collaborating with `iris-hep <http://iris-hep.org/>`_
 and is currently a prototype. We welcome input to improve its quality as we progress towards
 a sensible refactorization into the scientific python ecosystem and a first release. Please
-feel free to contribute at our `github repo <https://github.com/CoffeaTeam/coffea>`_!
+feel free to contribute at our `github repo <https://github.com/scikit-hep/coffea>`_!
 
 .. inclusion-marker-2-do-not-remove
 
@@ -66,12 +72,12 @@ Install coffea like any other Python package:
     pip install coffea
 
 or similar (use ``sudo``, ``--user``, ``virtualenv``, or pip-in-conda if you wish).
-For more details, see the `Installing coffea <https://coffeateam.github.io/coffea/installation.html>`_ section of the documentation.
+For more details, see the `Installing coffea <https://coffea-hep.readthedocs.io/en/latest/installation.html>`_ section of the documentation.
 
 Strict dependencies
 ===================
 
-- `Python <http://docs.python-guide.org/en/latest/starting/installation/>`__ (3.8+)
+- `Python <http://docs.python-guide.org/en/latest/starting/installation/>`__ (3.9+)
 
 The following are installed automatically when you install coffea with pip:
 
@@ -87,7 +93,7 @@ The following are installed automatically when you install coffea with pip:
 
 Documentation
 =============
-All documentation is hosted at https://coffeateam.github.io/coffea/
+All documentation is hosted at https://coffea-hep.readthedocs.io/
 
 Citation
 ========

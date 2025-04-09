@@ -9,6 +9,11 @@ When executing
 a subset of the full coffea package is imported into the python environment.
 Some packages must be imported explicitly, so as to avoid importing unnecessary
 and/or heavy dependencies.  Below lists the packages available in the ``coffea`` namespace.
+Under that, we list documentation for some of the coffea packages that need to be
+imported explicitly.
+
+In coffea Namespace
+-----------------------
 
 .. autosummary::
     :toctree: modules
@@ -28,3 +33,10 @@ and/or heavy dependencies.  Below lists the packages available in the ``coffea``
     coffea.nanoevents.methods.vector
     coffea.processor
     coffea.util
+
+Not in coffea Namespace
+---------------------------
+Here is documentation for some of the packages that are not automatically
+imported on a call to ``import coffea``.
+
+* :ref:`dataset-tools`.

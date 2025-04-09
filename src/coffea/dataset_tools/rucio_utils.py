@@ -157,13 +157,22 @@ def get_dataset_files_replicas(
     ----------
 
         dataset: str
+            The dataset to search for.
         allowlist_sites: list
+            List of sites to select from. If the file is not found there, raise an Exception.
         blocklist_sites: list
+            List of sites to avoid. If the file has no left site, raise an Exception.
         regex_sites: list
+            Regex expression to restrict the list of sites.
         mode:  str, default "full"
+            One of "full", "first", "best", or "roundrobin". Behavior of each described above.
         client: rucio Client, optional
+            The rucio client to use. If not provided, one will be generated for you.
         partial_allowed: bool, default False
+            If False, throws an exception if any file in the dataset cannot be found. If True,
+            will find as many files from the dataset as it can.
         scope:  rucio scope, "cms"
+            The scope for rucio to search through.
 
     Returns
     -------
@@ -292,18 +301,21 @@ def query_dataset(
 
     Parameters
     ---------
-        query: str = query to filter datasets / containers with the rucio list_dids functions
-        client: rucio client
-        tree: bool = if True return the results splitting the dataset name in parts parts
-        datatype: "container/dataset":  rucio terminology. "Container"==CMS dataset. "Dataset" == CMS block.
-        scope: "cms". Rucio instance
+        query: str
+            Query to filter datasets / containers with the rucio list_dids functions
+        client: rucio Client
+            The rucio client to use. If not provided, one will be generated for you
+        tree: bool, default False
+            If True, return the results splitting the dataset name in parts
+        datatype: str, default "container"
+            Options are "container", "dataset".  rucio terminology. "Container"==CMS dataset. "Dataset" == CMS block.
+        scope: str, default "cms"
+            Rucio instance
 
     Returns
     -------
-       list of containers/datasets
-
-       if tree==True, returns the list of dataset and also a dictionary decomposing the datasets
-       names in the 1st command part and a list of available 2nd parts.
+       List of containers/datasets. If tree==True, returns the list of dataset and also a dictionary decomposing
+       the datasets names in the 1st command part and a list of available 2nd parts.
 
     """
     client = client if client else get_rucio_client()

@@ -12,7 +12,7 @@ def _events():
     factory = NanoEventsFactory.from_root(
         {path: "Delphes"},
         schemaclass=DelphesSchema,
-        delayed=True,
+        mode="dask",
     )
     return factory.events()
 

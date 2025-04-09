@@ -28,6 +28,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
     - uses: pre-commit/action@v3.0.1
       with:
         extra_args: --hook-stage manual --all-files
@@ -37,19 +39,20 @@ jobs:
     needs: pre-commit
     strategy:
       matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macOS-latest, windows-latest]
         java-version: [17]
         java-distribution: ["corretto"]
-        python-version: ["3.9", "3.12"]
+        python-version: ["3.9", "3.13"]
+        dask-client: ["with", "without"]
 
-    name: test coffea (${{ matrix.os }}) - python ${{ matrix.python-version }}, JDK${{ matrix.java-version }}
+    name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}, JDK${{ matrix.java-version }}, ${{ matrix.dask-client }} dask
 
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: astral-sh/setup-uv@v5
       with:
         python-version: ${{ matrix.python-version }}
     - name: Set up JDK ${{ matrix.java-distribution }}/${{ matrix.java-version }}
@@ -60,86 +63,92 @@ jobs:
 
     - name: Set python test settings
       run: |
-        echo "INSTALL_EXTRAS='[dev,parsl,dask,servicex]'" >> $GITHUB_ENV
-
-    - name: Install uv
-      run: python -m pip install --upgrade uv
+        echo "INSTALL_EXTRAS='[dev,parsl,dask]'" >> $GITHUB_ENV
 
     - name: Install dependencies (Linux)
-      if: matrix.os == 'ubuntu-latest'
+      if: startsWith( matrix.os, 'ubuntu' )
       run: |
-        uv pip install --system --upgrade pip setuptools wheel
+        echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
+        export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
+        uv pip install --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
-        python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-        uv pip install --system xgboost
-        uv pip install --system 'tritonclient[grpc,http]!=2.41.0'
+        uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+        uv pip install xgboost
+        uv pip install 'tritonclient[grpc,http]!=2.41.0'
         # install checked out coffea
-        uv pip install --system -q '.[dev,parsl,dask,spark]' --upgrade
-        uv pip list --system
+        uv pip install -q '.[dev,parsl,dask,spark]' --upgrade
+        uv pip list
         java -version
     - name: Install dependencies (MacOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel
+        echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
+        export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
+        uv pip install --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
-        python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-        uv pip install --system xgboost
+        uv pip install torch
+        uv pip install xgboost
         # install checked out coffea
-        uv pip install --system -q '.[dev,dask,spark]' --upgrade
-        uv pip list --system
+        uv pip install -q '.[dev,dask,spark]' --upgrade
+        uv pip list
         java -version
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel
+        uv pip install --upgrade pip setuptools wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
-        python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-        uv pip install --system xgboost
+        uv pip install torch
+        uv pip install xgboost
         # install checked out coffea
-        uv pip install --system -q '.[dev,dask]' 'numpy<2' --upgrade
-        uv pip list --system
+        uv pip install -q '.[dev,dask]' --upgrade
+        uv pip list
         java -version
 
     - name: Start triton server with example model
-      if: matrix.os == 'ubuntu-latest'
+      if: startsWith( matrix.os, 'ubuntu' )
       run: |
-        docker run -d --rm -p 8000:8000 -p 8001:8001 -p 8002:8002 -v ${{ github.workspace }}/tests/samples/triton_models_test:/models nvcr.io/nvidia/tritonserver:23.04-pyt-python-py3 tritonserver --model-repository=/models
+        docker run -d --rm -p 8000:8000 -p 8001:8001 -p 8002:8002 -v ${{ github.workspace }}/tests/samples/triton_models_test:/models nvcr.io/nvidia/tritonserver:25.02-pyt-python-py3 tritonserver --model-repository=/models
 
-    - name: Test with pytest
+    - name: Test with pytest (${{ matrix.dask-client }} dask Client - run in parallel)
+      if: matrix.dask-client == 'without'
       run: |
-        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "not dask_client" -n 4
+    - name: Test with pytest (${{ matrix.dask-client }} dask Client)
+      if: matrix.dask-client == 'with'
+      run: |
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "dask_client"
     - name: Upload codecov
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.12
-      uses: codecov/codecov-action@v4
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
+      uses: codecov/codecov-action@v5
     - name: Install graphviz
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.12
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
       uses: ts-graphviz/setup-graphviz@v2
     - name: Install pandoc
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.12
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
       uses: r-lib/actions/setup-pandoc@v2
     - name: Build documentation
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.12
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
       run: |
         cd docs && make html
         touch build/html/.nojekyll
-    - name: Deploy documentation
-      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.python-version == 3.12
-      uses: crazy-max/ghaction-github-pages@v4
-      with:
-        target_branch: gh-pages
-        build_dir: docs/build/html
-      env:
-        GH_PAT: ${{ secrets.GITHUB_OAUTH }}
+    # - name: Deploy documentation
+    #   if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
+    #   uses: crazy-max/ghaction-github-pages@v4
+    #   with:
+    #     target_branch: gh-pages
+    #     build_dir: docs/build/html
+    #   env:
+    #     GH_PAT: ${{ secrets.GITHUB_OAUTH }}
 
   test-vine:
     runs-on: ubuntu-latest
     needs: pre-commit
     strategy:
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.13"]
     name: test coffea-taskvine
     steps:
     - uses: actions/checkout@v4
@@ -156,8 +165,8 @@ jobs:
       run: |
         conda create --yes --prefix ./coffea-conda-test-env -c conda-forge python=${{ matrix.python-version }} ndcctools uv
         conda activate ./coffea-conda-test-env
-        uv pip install --system .
-        uv pip install --system pytest
+        uv pip install . 'dask<2025.1.0'
+        uv pip install pytest
     - name: Test with pytest
       run: |
         conda run --prefix ./coffea-conda-test-env pytest tests/test_taskvine.py
@@ -193,7 +202,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        python-version: ["3.12"]
+        python-version: ["3.13"]
     name: deploy release
 
     steps:
@@ -208,11 +217,11 @@ jobs:
     - name: Verify the distribution
       run: pipx run twine check --strict dist/*
     - name: Generate artifact attestation for sdist and wheel
-      uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
+      uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
       with:
         subject-path: "dist/coffea-*"
     - name: Publish package to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.10.1
+      uses: pypa/gh-action-pypi-publish@v1.12.4
       with:
         user: __token__
         password: ${{ secrets.PYPI_TOKEN }}

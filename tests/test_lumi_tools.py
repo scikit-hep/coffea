@@ -40,7 +40,7 @@ def test_lumidata():
         pyruns = ld._lumidata[:, 0].astype("u4")
         pylumis = ld._lumidata[:, 1].astype("u4")
         LumiData._build_lumi_table_kernel.py_func(
-            pyruns, pylumis, ld._lumidata, py_index
+            pyruns, pylumis, ld._lumidata[:, 2], py_index
         )
 
         assert len(py_index) == len(ld.index)
@@ -61,11 +61,12 @@ def test_lumidata():
     assert len(results["index"][lumidata]) == len(results["index"][lumidata_pickle])
 
 
+@pytest.mark.dask_client
 @pytest.mark.parametrize(
     "jsonfile",
     [
         "tests/samples/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt",
-        "https://raw.githubusercontent.com/CoffeaTeam/coffea/master/tests/samples/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt",
+        "https://raw.githubusercontent.com/scikit-hep/coffea/master/tests/samples/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt",
     ],
 )
 def test_lumimask(jsonfile):
@@ -164,6 +165,7 @@ def test_lumilist_dask():
     assert abs(lumi3 - (lumi1 + lumi2)) < 1e-4
 
 
+@pytest.mark.dask_client
 def test_lumilist_client_fromfile():
     with Client() as _:
         events = NanoEventsFactory.from_root(
@@ -175,3 +177,27 @@ def test_lumilist_client_fromfile():
         (result,) = dask.compute(lumilist.array)
 
         assert result.to_list() == [[1, 13889]]
+
+
+@pytest.mark.dask_client
+def test_1259_avoid_pickle_numba_dict():
+
+    runs_eager = ak.Array([368229, 368229, 368229, 368229])
+    runs = dak.from_awkward(runs_eager, 2)
+    lumis_eager = ak.Array([74, 74, 74, 74])
+    lumis = dak.from_awkward(lumis_eager, 2)
+
+    def count_lumi(runs, lumis):
+        total_lumi = 0
+        my_lumilist = LumiList(runs, lumis)
+        my_lumidata = LumiData("tests/samples/small_lumi.csv")
+        total_lumi += my_lumidata.get_lumi(my_lumilist)
+        return total_lumi
+
+    noclient_output = dask.compute(count_lumi(runs, lumis))[0]
+
+    with Client() as _:
+        output = count_lumi(runs, lumis)
+        client_output = dask.compute(output)[0]
+
+    assert noclient_output == client_output
