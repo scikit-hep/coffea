@@ -536,6 +536,8 @@ class NanoEventsFactory:
                 f"{schemaclass} is not dask capable despite allowing dask, generating non-dask nanoevents"
             )
 
+        found_object_path = None
+        found_entry_start, found_entry_stop = None, None
         if isinstance(file, ftypes):
             table_file = pyarrow.parquet.ParquetFile(file, **parquet_options)
         elif isinstance(file, str):
@@ -546,8 +548,6 @@ class NanoEventsFactory:
         elif isinstance(file, pyarrow.parquet.ParquetFile):
             table_file = file
         elif isinstance(file, dict):
-            found_object_path = None
-            found_entry_start, found_entry_stop = None, None
             onefile, filespec_treepath = next(iter(file.items()))
             if filespec_treepath is not None:
                 if isinstance(filespec_treepath, str):
