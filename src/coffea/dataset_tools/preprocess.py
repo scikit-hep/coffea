@@ -284,6 +284,23 @@ class IOFactory:
         return format in cls._formats
 
     @classmethod
+    def promote_datasetspec(cls, input: DatasetSpec | DatasetSpecOptional | DatasetJoinSpec):
+        if type(input) is DatasetJoinSpec:
+            return input
+        elif isinstance(input, dict):
+            return cls.dict_to_datasetspec(input)
+        else:
+            try:
+                return DatasetJoinSpec(
+                    files=input.files,
+                    format=input.format,
+                    metadata=input.metadata,
+                    form=input.form,
+                )
+            except Exception as e:
+                return input
+
+    @classmethod
     def identify_format(cls, input: Any):
         if type(input) is DatasetSpec or type(input) is DatasetSpecOptional:
             return input.format
