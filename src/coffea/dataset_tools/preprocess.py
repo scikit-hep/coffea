@@ -191,6 +191,12 @@ class UprootFileSpec:
 
 
 @dataclass
+class ParquetFileSpec:
+    object_path: None
+    steps: list[list[int]] | list[int] | None
+
+
+@dataclass
 class CoffeaFileSpec(UprootFileSpec):
     steps: list[list[int]]
     num_entries: int
@@ -205,16 +211,48 @@ class CoffeaFileSpecOptional(CoffeaFileSpec):
 
 
 @dataclass
+class CoffeaParquetFileSpec(ParquetFileSpec):
+    steps: list[list[int]]
+    num_entries: int
+    uuid: str
+
+@dataclass
+class CoffeaParquetFileSpecOptional(CoffeaParquetFileSpec):
+    steps: list[list[int]] | None
+    num_entries: int | None
+    uuid: str | None
+
+@dataclass
 class DatasetSpec:
-    files: dict[str, CoffeaFileSpec]
+    files: dict[str, CoffeaFileSpec | CoffeaParquetFileSpec]
+    format: str | None
     metadata: dict[Hashable, Any] | None
     form: str | None
 
 
 @dataclass
+class DatasetJoinSpec(DatasetSpec):
+    form: str            # form is required
+    format: str
+
+    def __post_init__(self):
+        if not isinstance(self.form, str):
+            raise TypeError("form: form must be a string")
+        try:
+            import awkward
+            from coffea.util import decompress_form
+            test_form = awkward.forms.from_json(decompress_form(self.form))
+        except Exception as e:
+            raise ValueError("form: was not able to decompress_form into an awkward form") from e
+        from servicex_join.dataset_interface import IOFactory
+        if not isinstance(self.format, str) or not IOFactory.valid_format(self.format): # self.format not in IOFactory.formats:
+            raise ValueError(f"format: format must be one of {IOFactory._formats}")
+
+
+@dataclass
 class DatasetSpecOptional(DatasetSpec):
     files: (
-        dict[str, str] | list[str] | dict[str, UprootFileSpec | CoffeaFileSpecOptional]
+        dict[str, str] | list[str] | dict[str, UprootFileSpec | ParquetFileSpec | CoffeaFileSpecOptional | CoffeaParquetFileSpecOptional]
     )
 
 
