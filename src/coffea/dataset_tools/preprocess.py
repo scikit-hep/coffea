@@ -200,7 +200,7 @@ class CoffeaFileSpec(UprootFileSpec):
 @dataclass
 class CoffeaFileSpecOptional(CoffeaFileSpec):
     steps: list[list[int]] | None
-    num_entriees: int | None
+    num_entries: int | None
     uuid: str | None
 
 
@@ -224,7 +224,17 @@ FilesetSpec = dict[str, DatasetSpec]
 
 def _normalize_file_info(file_info):
     normed_files = None
-    if isinstance(file_info, list) or (
+    if "DatasetSpec" in str(type(file_info)) or "DatasetJoinSpec" in str(type(file_info)):
+        try:
+            from servicex_join.dataset_interface import IOFactory
+            normed_files = uproot._util.regularize_files(
+                IOFactory.datasetspec_to_dict(file_info, coerce_filespec_to_dict=True)["files"], steps_allowed=True
+            )
+        except ImportError as e:
+            raise ImportError(
+                "The servicex_join IOFactory module is not available."
+            ) from e
+    elif isinstance(file_info, list) or (
         isinstance(file_info, dict) and "files" not in file_info
     ):
         normed_files = uproot._util.regularize_files(file_info, steps_allowed=True)
@@ -309,6 +319,7 @@ def preprocess(
     all_ak_norm_files = {}
     files_to_preprocess = {}
     for name, info in fileset.items():
+        is_datasetspec = "DatasetSpec" in str(type(info)) or "DatasetJoinSpec" in str(type(info)) # DatasetSpec also covers DatasetSpecOptional
         norm_files = _normalize_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
         ak_norm_files = awkward.from_iter(norm_files)
@@ -482,7 +493,11 @@ def preprocess(
                 "uuid": item["uuid"],
             }
 
-        if "files" in out_updated[name]:
+        if is_datasetspec:
+            from servicex_join.dataset_interface import IOFactory
+            out_updated[name].files = {k: IOFactory.dict_to_uprootfilespec(v) for k, v in files_out.items()}
+            out_available[name].files = {k: IOFactory.dict_to_uprootfilespec(v) for k, v in files_available.items()}
+        elif "files" in out_updated[name]:
             out_updated[name]["files"] = files_out
             out_available[name]["files"] = files_available
         else:
@@ -496,17 +511,67 @@ def preprocess(
         compressed_union_form = None
         if union_form_jsonstr is not None:
             compressed_union_form = compress_form(union_form_jsonstr)
-            out_updated[name]["form"] = compressed_union_form
-            out_available[name]["form"] = compressed_union_form
+            if is_datasetspec:
+                out_updated[name].form = compressed_union_form
+                out_available[name].form = compressed_union_form
+            else:
+                out_updated[name]["form"] = compressed_union_form
+                out_available[name]["form"] = compressed_union_form
         else:
-            out_updated[name]["form"] = None
-            out_available[name]["form"] = None
+            if is_datasetspec:
+                out_updated[name].form = None
+                out_available[name].form = None
+            else:
+                out_updated[name]["form"] = None
+                out_available[name]["form"] = None
 
-        if "metadata" not in out_updated[name]:
+        if is_datasetspec:
+            pass
+        elif "metadata" not in out_updated[name]:
             out_updated[name]["metadata"] = None
             out_available[name]["metadata"] = None
 
     return out_available, out_updated
+
+def _regularize_files_parquet(files, steps_allowed, **options):
+    """
+    This is an adapter function to mimic the uproot._util `regularize_files`
+    """
+    # uproot._util.regularize_files makes calls to uproot._util._regularize_files_inner, which is capable of handling open file objects
+    # this placeholder function should eventually be replaced with something that more appropriately mimics that behavior, to handle non-string 
+    # explicit file names, such as open parquet files and fsspec glob-ables (https://github.com/scikit-hep/fsspec-xrootd/issues/83)
+    # https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_util.py#L821C5-L821C28
+
+    out = []
+    seen = set()
+    counter = [0]
+    for file_path, parquet_spec in files.items():
+        if isinstance(file_path, str):
+            object_path = None
+            steps = None
+            num_entries = None
+            uuid = None
+            if isinstance(parquet_spec, dict):
+                object_path = parquet_spec.get("object_path", None)
+                steps = parquet_spec.get("steps", None)
+                num_entries = parquet_spec.get("num_entries", None)
+                uuid = parquet_spec.get("uuid", None)
+            elif "CoffeaParquetFileSpec" in str(type(parquet_spec)):
+                object_path = parquet_spec.object_path
+                steps = parquet_spec.steps
+                num_entries = parquet_spec.num_entries
+                uuid = parquet_spec.uuid
+            else:
+                raise NotImplementedError(f"_regularize_files_parquet does not support non-dict or non-CoffeaFileSpec specifications yet, got {parquet_spec}")
+
+            key = (counter[0], file_path, object_path, uuid)
+            if key not in seen:
+                out.append((file_path, object_path, steps, num_entries, uuid))
+                seen.add(key)
+        else:
+            raise NotImplementedError(f"_regularize_files_parquet does not support non-string file paths yet, got {file_path}")
+
+    return out
 
 
 def _normalize_parquet_file_info(file_info, return_form_or_metadata=False):
@@ -516,30 +581,21 @@ def _normalize_parquet_file_info(file_info, return_form_or_metadata=False):
     normed_files = None
     form = None
     metadata = None
-    if isinstance(file_info, list):
-        normed_files = [(file, None, None, None, None) for file in file_info]
-    elif isinstance(file_info, dict) and "files" not in file_info:
-        normed_files = [
-            (file, object_path, None, None, None)
-            for file, object_path in file_info.items()
-        ]
+    is_datasetspec = "DatasetSpec" in str(type(file_info)) or "DatasetJoinSpec" in str(type(file_info)) # DatasetSpec also covers DatasetSpecOptional
+    if is_datasetspec:
+        normed_files = _regularize_files_parquet(
+            file_info.files, steps_allowed=True
+        )
+        form = file_info.form
+        metadata = file_info.metadata
     elif isinstance(file_info, dict) and "files" in file_info:
+        normed_files = _regularize_files_parquet(
+            file_info["files"], steps_allowed=True
+        )
         form = file_info.get("form", None)
         metadata = file_info.get("metadata", None)
-        normed_files = []
-        for filename, maybe_nested in file_info["files"].items():
-            if isinstance(maybe_nested, dict):
-                object_path = maybe_nested.get("object_path", None)
-                steps = maybe_nested.get("steps", None)
-                num_entries = maybe_nested.get("num_entries", None)
-                uuid = maybe_nested.get("uuid", None)
-                normed_files.append((filename, object_path, steps, num_entries, uuid))
-            elif isinstance(maybe_nested, str) or maybe_nested is None:
-                normed_files.append((filename, maybe_nested, None, None, None))
-            else:
-                raise ValueError(
-                    f"The file_info dictionary must contain either a string, dictionary, or None as the value. _normalize_parquet_file_info got {file_info}"
-                )
+    else:
+        raise NotImplementedError(f"The file_info must either be a dictionary, or preferably a DatasetSpec | DatasetSpecOptional | DatasetJoinSpec. _normalize_parquet_file_info got {type(file_info)}")
     if return_form_or_metadata:
         return normed_files, form, metadata
     return normed_files
@@ -703,7 +759,7 @@ def get_parquet_form_uuid_steps(
     return array
 
 
-def _preprocess_parquet(
+def preprocess_parquet(
     fileset: FilesetSpecOptional,
     step_size: None | int = None,
     use_row_groups: bool = False,
@@ -760,6 +816,7 @@ def _preprocess_parquet(
     all_ak_norm_files = {}
     files_to_preprocess = {}
     for name, info in fileset.items():
+        is_datasetspec = "DatasetSpec" in str(type(info)) or "DatasetJoinSpec" in str(type(info)) # DatasetSpec also covers DatasetSpecOptional
         norm_files = _normalize_parquet_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
         ak_norm_files = awkward.from_iter(norm_files)
@@ -933,7 +990,11 @@ def _preprocess_parquet(
                 "uuid": item["uuid"],
             }
 
-        if "files" in out_updated[name]:
+        if is_datasetspec:
+            from servicex_join.dataset_interface import IOFactory
+            out_updated[name].files = {k: IOFactory.dict_to_parquetfilespec(v) for k, v in files_out.items()}
+            out_available[name].files = {k: IOFactory.dict_to_parquetfilespec(v) for k, v in files_available.items()}
+        elif "files" in out_updated[name]:
             out_updated[name]["files"] = files_out
             out_available[name]["files"] = files_available
         else:
@@ -947,13 +1008,23 @@ def _preprocess_parquet(
         compressed_union_form = None
         if union_form_jsonstr is not None:
             compressed_union_form = compress_form(union_form_jsonstr)
-            out_updated[name]["form"] = compressed_union_form
-            out_available[name]["form"] = compressed_union_form
+            if is_datasetspec:
+                out_updated[name].form = compressed_union_form
+                out_available[name].form = compressed_union_form
+            else:
+                out_updated[name]["form"] = compressed_union_form
+                out_available[name]["form"] = compressed_union_form
         else:
-            out_updated[name]["form"] = None
-            out_available[name]["form"] = None
+            if is_datasetspec:
+                out_updated[name].form = None
+                out_available[name].form = None
+            else:
+                out_updated[name]["form"] = None
+                out_available[name]["form"] = None
 
-        if "metadata" not in out_updated[name]:
+        if is_datasetspec:
+            pass
+        elif "metadata" not in out_updated[name]:
             out_updated[name]["metadata"] = None
             out_available[name]["metadata"] = None
 
