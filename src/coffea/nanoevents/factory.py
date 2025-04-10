@@ -524,8 +524,7 @@ class NanoEventsFactory:
                     file,
                 )
             else:
-                print(file)
-                raise TypeError("Invalid file type (%s)" % (str(type(file))))
+                raise TypeError(f"Invalid file type ({str(type(file))}) for file {file}")
             # Form should be applied appropriately, but this requires a hook into dask-awkward or new schema-builder
             raise NotImplementedError(
                 "Dask-awkward does not yet support lazy loading of parquet files with a schema"
