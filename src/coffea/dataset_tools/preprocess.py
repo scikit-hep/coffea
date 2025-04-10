@@ -250,8 +250,6 @@ class DatasetJoinSpec(DatasetSpec):
             raise ValueError(
                 "form: was not able to decompress_form into an awkward form"
             ) from e
-        from servicex_join.dataset_interface import IOFactory
-
         if not isinstance(self.format, str) or not IOFactory.valid_format(self.format):
             raise ValueError(f"format: format must be one of {IOFactory._formats}")
 
@@ -411,19 +409,12 @@ class IOFactory:
 def _normalize_file_info(file_info):
     normed_files = None
     if type(file_info) in [DatasetSpec, DatasetSpecOptional, DatasetJoinSpec]:
-        try:
-            from servicex_join.dataset_interface import IOFactory
-
-            normed_files = uproot._util.regularize_files(
-                IOFactory.datasetspec_to_dict(file_info, coerce_filespec_to_dict=True)[
-                    "files"
-                ],
-                steps_allowed=True,
-            )
-        except ImportError as e:
-            raise ImportError(
-                "The servicex_join IOFactory module is not available."
-            ) from e
+        normed_files = uproot._util.regularize_files(
+            IOFactory.datasetspec_to_dict(file_info, coerce_filespec_to_dict=True)[
+                "files"
+            ],
+            steps_allowed=True,
+        )
     elif isinstance(file_info, list) or (
         isinstance(file_info, dict) and "files" not in file_info
     ):
@@ -688,8 +679,6 @@ def preprocess(
             }
 
         if is_datasetspec:
-            from servicex_join.dataset_interface import IOFactory
-
             out_updated[name].files = {
                 k: IOFactory.dict_to_uprootfilespec(v) for k, v in files_out.items()
             }
@@ -1202,8 +1191,6 @@ def preprocess_parquet(
             }
 
         if is_datasetspec:
-            from servicex_join.dataset_interface import IOFactory
-
             out_updated[name].files = {
                 k: IOFactory.dict_to_parquetfilespec(v) for k, v in files_out.items()
             }
