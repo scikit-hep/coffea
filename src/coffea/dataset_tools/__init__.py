@@ -8,7 +8,24 @@ from coffea.dataset_tools.manipulations import (
     slice_chunks,
     slice_files,
 )
-from coffea.dataset_tools.preprocess import preprocess, preprocess_parquet
+from coffea.dataset_tools.preprocess import (
+    preprocess,
+    preprocess_parquet,
+    UprootFileSpec,
+    ParquetFileSpec,
+    CoffeaFileSpec,
+    CoffeaFileSpecOptional,
+    CoffeaParquetFileSpec,
+    CoffeaParquetFileSpecOptional,
+    DatasetSpec,
+    DatasetJoinSpec,
+    DatasetSpecOptional,
+    FilesetSpecOptional,
+    FilesetSpec,
+    FilesetSpecOptional,
+    FilesetSpec,
+    IOFactory,
+)
 
 __all__ = [
     "preprocess",
@@ -22,4 +39,18 @@ __all__ = [
     "slice_files",
     "get_failed_steps_for_dataset",
     "get_failed_steps_for_fileset",
+    "UprootFileSpec",
+    "ParquetFileSpec",
+    "CoffeaFileSpec",
+    "CoffeaFileSpecOptional",
+    "CoffeaParquetFileSpec",
+    "CoffeaParquetFileSpecOptional",
+    "DatasetSpec",
+    "DatasetJoinSpec",
+    "DatasetSpecOptional",
+    "FilesetSpecOptional",
+    "FilesetSpec",
+    "FilesetSpecOptional",
+    "FilesetSpec",
+    "IOFactory",
 ]
