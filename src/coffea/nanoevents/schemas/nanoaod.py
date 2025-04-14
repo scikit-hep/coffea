@@ -340,7 +340,7 @@ class NanoAODSchema(BaseSchema):
                 output[name].setdefault("parameters", {})
                 output[name]["parameters"].update({"collection_name": name})
 
-        return output.keys(), output.values()
+        return list(output.keys()), list(output.values())
 
     @classmethod
     def behavior(cls):
