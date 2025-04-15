@@ -1,6 +1,8 @@
 from coffea.nanoevents import transforms
 from coffea.nanoevents.util import concat, quote
 
+import numpy
+import awkward
 
 def listarray_form(content, offsets):
     if offsets["class"] != "NumpyArray":
@@ -95,6 +97,68 @@ def nest_jagged_forms(parent, child, counts_name, name):
     parent["content"]["fields"].append(name)
     parent["content"]["contents"].append(inner)
 
+#move to transforms?
+def counts2offsets(counts):
+    #Cumulative sum of counts
+    offsets = numpy.empty(len(counts) + 1, dtype=numpy.int64)
+    offsets[0] = 0
+    numpy.cumsum(counts, out=offsets[1:])
+    return offsets
+
+#move to transforms?
+def check_equal_lengths(
+        contents: list[awkward.contents.Content],
+) -> int | awkward._nplikes.shape.UnknownLength:
+    length = contents[0].length
+    for layout in contents:
+        if layout.length != length:
+            raise ValueError("all arrays must have the same length")
+    return length
+
+def zip_depth2(content, offsets, with_name, behavior, parameters=None):
+    # if with_name is not None:
+    #     if parameters is None:
+    #         parameters = {}
+    #     else:
+    #         parameters = dict(parameters)
+    #     parameters["__record__"] = with_name
+
+    fields = list(content.keys())
+    contents = [
+        # take contents 2 layers deep
+        v.layout.content
+        for v in content.values()
+    ]
+    length = check_equal_lengths(contents)
+    out = awkward.contents.ListOffsetArray(
+        offsets=offsets,
+        content=awkward.contents.RecordArray(
+            contents, fields, length=length
+        ),
+    )
+    out = awkward.Array(out, behavior=behavior, with_name=with_name)
+    return out
+
+def zip_depth1(content, with_name, behavior, parameters=None):
+    # if with_name is not None:
+    #     if parameters is None:
+    #         parameters = {}
+    #     else:
+    #         parameters = dict(parameters)
+    #     parameters["__record__"] = with_name
+
+    fields = list(content.keys())
+    contents = [
+        # take contents 1 layer deep
+        v.layout
+        for v in content.values()
+    ]
+    length = check_equal_lengths(contents)
+    out = awkward.contents.RecordArray(
+        contents, fields, length
+    )
+    out = awkward.Array(out, behavior=behavior, with_name=with_name)
+    return out
 
 class BaseSchema:
     """Base schema builder

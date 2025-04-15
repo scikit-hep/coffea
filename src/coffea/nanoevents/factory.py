@@ -101,7 +101,7 @@ class _OnlySliceableAs:
 
 class _map_schema_uproot(_map_schema_base):
     def __init__(
-        self, schemaclass=BaseSchema, metadata=None, behavior=None, version=None
+        self, schemaclass=BaseSchema, metadata=None, behavior=None, version=None, file=None
     ):
         super().__init__(
             schemaclass=schemaclass,
@@ -109,6 +109,7 @@ class _map_schema_uproot(_map_schema_base):
             behavior=behavior,
             version=version,
         )
+        self.file = file
 
     def __call__(self, form):
         from coffea.nanoevents.mapping.uproot import _lazify_form
@@ -134,7 +135,7 @@ class _map_schema_uproot(_map_schema_base):
         }
 
         return (
-            awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form),
+            awkward.forms.form.from_dict(self.schemaclass(lform, uproot.dask({self.file: "Events"}, ak_add_doc=True), self.version).form),
             self,
         )
 
@@ -360,6 +361,7 @@ class NanoEventsFactory:
                 behavior=dict(schemaclass.behavior()),
                 metadata=metadata,
                 version="latest",
+                file=file,
             )
 
             to_open = file
@@ -436,6 +438,7 @@ class NanoEventsFactory:
             persistent_cache,
             schemaclass,
             metadata,
+            tree,
             mode=mode,
         )
 
@@ -703,6 +706,7 @@ class NanoEventsFactory:
         persistent_cache,
         schemaclass,
         metadata,
+        tree,
         mode,
     ):
         """Quickly build NanoEvents from a root file
@@ -736,7 +740,12 @@ class NanoEventsFactory:
             base_form["parameters"]["metadata"] = metadata
         if not callable(schemaclass):
             raise ValueError("Invalid schemaclass type")
-        schema = schemaclass(base_form)
+        print(schemaclass.__name__)
+        if schemaclass.__name__ == 'NanoAODSchema':
+            print('Success!')
+            schema = schemaclass(base_form, tree)
+        else:
+            schema = schemaclass(base_form)
         if not isinstance(schema, BaseSchema):
             raise RuntimeError("Invalid schema type")
         return cls(
