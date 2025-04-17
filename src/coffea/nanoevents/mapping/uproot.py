@@ -149,9 +149,7 @@ class UprootSourceMapping(BaseSourceMapping):
                 continue
             if isinstance(branch, uproot.behaviors.RNTuple.HasFields):
                 form = branch.to_akform()
-                form = json.loads(
-                    form.to_json()
-                )
+                form = json.loads(form.to_json())
                 branch_forms[key] = form
                 continue
             if "," in key or "!" in key:
