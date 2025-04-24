@@ -1,8 +1,18 @@
 import warnings
+
 import awkward
 
 from coffea.nanoevents import transforms
-from coffea.nanoevents.schemas.base import BaseSchema, zip_forms, zip_depth1, zip_depth2, counts2offsets, local2globalindex, nestedindex_form, counts2nestedindex_form
+from coffea.nanoevents.schemas.base import (
+    BaseSchema,
+    counts2nestedindex_form,
+    counts2offsets,
+    local2globalindex,
+    nestedindex_form,
+    zip_depth1,
+    zip_depth2,
+)
+
 
 def _key_formatter(prefix, form_key, form, attribute):
     if attribute == "offsets":
@@ -281,9 +291,7 @@ class NanoAODSchema(BaseSchema):
         # Create nested indexer from Idx1, Idx2, ... arrays
         for name, indexers in self.nested_items.items():
             if all(idx in branches for idx in indexers):
-                branches[name] = nestedindex_form(
-                    [branches[idx] for idx in indexers]
-                )
+                branches[name] = nestedindex_form([branches[idx] for idx in indexers])
 
         # Create nested indexer from n* counts arrays
         for name, (local_counts, target) in self.nested_index_items.items():
@@ -306,14 +314,16 @@ class NanoAODSchema(BaseSchema):
                 offsets = awkward.index.Index(offsets)
 
                 content = {
-                    k[len(name) + 1:]: v
+                    k[len(name) + 1 :]: v
                     for k, v in branches.items()
                     if k.startswith(name + "_")
                 }
-                output[name] = zip_depth2(content,
-                                           offsets,
-                                           with_name=self.mixins.get(name, "NanoCollection"),
-                                           behavior=self.behavior())
+                output[name] = zip_depth2(
+                    content,
+                    offsets,
+                    with_name=self.mixins.get(name, "NanoCollection"),
+                    behavior=self.behavior(),
+                )
 
             elif "n" + name in branches:
                 # list singleton, can use branch's own offsets
@@ -324,18 +334,20 @@ class NanoAODSchema(BaseSchema):
             else:
                 # simple collection
                 content = {
-                    k[len(name) + 1:]: v
+                    k[len(name) + 1 :]: v
                     for k, v in branches.items()
                     if k.startswith(name + "_")
                 }
-                output[name] = zip_depth1(content,
-                                           with_name=NanoAODSchema.mixins.get(name, "NanoCollection"),
-                                           behavior=NanoAODSchema.behavior())
+                output[name] = zip_depth1(
+                    content,
+                    with_name=NanoAODSchema.mixins.get(name, "NanoCollection"),
+                    behavior=NanoAODSchema.behavior(),
+                )
 
         # zipping once again
-        final_output = zip_depth1(output,
-                                   with_name="NanoEvents",
-                                   behavior=NanoAODSchema.behavior())
+        final_output = zip_depth1(
+            output, with_name="NanoEvents", behavior=NanoAODSchema.behavior()
+        )
 
         # return output.keys(), output.values()
         return final_output

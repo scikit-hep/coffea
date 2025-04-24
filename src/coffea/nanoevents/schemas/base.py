@@ -1,8 +1,9 @@
+import awkward
+import numpy
+
 from coffea.nanoevents import transforms
 from coffea.nanoevents.util import concat, quote
 
-import numpy
-import awkward
 
 def listarray_form(content, offsets):
     if offsets["class"] != "NumpyArray":
@@ -97,7 +98,8 @@ def nest_jagged_forms(parent, child, counts_name, name):
     parent["content"]["fields"].append(name)
     parent["content"]["contents"].append(inner)
 
-#move to transforms?
+
+# move to transforms?
 def local2globalindex(index, counts):
     """
     Convert a local index to a global index
@@ -119,15 +121,19 @@ def local2globalindex(index, counts):
     index = awkward.fill_none(index, -1)
     return index
 
-#move to transforms?
+
+# move to transforms?
 def nestedindex_form(indices):
-    '''
+    """
     Concatenate a list of indices along a new axis
     Outputs a jagged array with same outer shape as index arrays
     Add examples to documentation?
 
-    '''
-    if not all(isinstance(index.layout, awkward.contents.listoffsetarray.ListOffsetArray) for index in indices):
+    """
+    if not all(
+        isinstance(index.layout, awkward.contents.listoffsetarray.ListOffsetArray)
+        for index in indices
+    ):
         raise RuntimeError
     # return awkward.concatenate([idx[:, None] for idx in indexers], axis=1)
 
@@ -136,12 +142,12 @@ def nestedindex_form(indices):
     # also store parameters
     parameters = {}
     for i, idx in enumerate(indices):
-        if '__doc__' in parameters:
-            parameters['__doc__'] += ' and '
-            parameters['__doc__'] += awkward.parameters(idx)['__doc__']
+        if "__doc__" in parameters:
+            parameters["__doc__"] += " and "
+            parameters["__doc__"] += awkward.parameters(idx)["__doc__"]
         else:
-            parameters['__doc__'] = 'nested from '
-            parameters['__doc__'] += awkward.parameters(idx)['__doc__']
+            parameters["__doc__"] = "nested from "
+            parameters["__doc__"] += awkward.parameters(idx)["__doc__"]
         # flatten the index
         indices[i] = awkward.Array(idx.layout.content)
 
@@ -157,22 +163,25 @@ def nestedindex_form(indices):
             awkward.contents.NumpyArray(out),
         )
     )
-    #reapply the offsets
+    # reapply the offsets
     out = awkward.Array(
         awkward.contents.ListOffsetArray(
             offsets_stored,
             out.layout,
-            parameters = parameters,
+            parameters=parameters,
         )
     )
     return out
 
-#move to transforms?
+
+# move to transforms?
 def counts2nestedindex_form(local_counts, target_offsets):
     """Turn jagged local counts into doubly-jagged global index into a target
     Outputs a jagged array with same axis-0 shape as counts axis-1
     """
-    if not isinstance(local_counts.layout, awkward.contents.listoffsetarray.ListOffsetArray):
+    if not isinstance(
+        local_counts.layout, awkward.contents.listoffsetarray.ListOffsetArray
+    ):
         raise RuntimeError
     if not isinstance(target_offsets.layout, awkward.contents.numpyarray.NumpyArray):
         raise RuntimeError
@@ -189,7 +198,7 @@ def counts2nestedindex_form(local_counts, target_offsets):
         numpy.arange(offsets[-1], dtype=numpy.int64),
         awkward.flatten(local_counts),
     )
-    #reapply the offsets
+    # reapply the offsets
     out = awkward.Array(
         awkward.contents.ListOffsetArray(
             offsets_stored,
@@ -198,23 +207,26 @@ def counts2nestedindex_form(local_counts, target_offsets):
     )
     return out
 
-#move to transforms?
+
+# move to transforms?
 def counts2offsets(counts):
-    #Cumulative sum of counts
+    # Cumulative sum of counts
     offsets = numpy.empty(len(counts) + 1, dtype=numpy.int64)
     offsets[0] = 0
     numpy.cumsum(counts, out=offsets[1:])
     return offsets
 
-#move to transforms?
+
+# move to transforms?
 def check_equal_lengths(
-        contents: list[awkward.contents.Content],
+    contents: list[awkward.contents.Content],
 ) -> int | awkward._nplikes.shape.UnknownLength:
     length = contents[0].length
     for layout in contents:
         if layout.length != length:
             raise ValueError("all arrays must have the same length")
     return length
+
 
 def zip_depth2(content, offsets, with_name, behavior, parameters=None):
     # if with_name is not None:
@@ -233,12 +245,11 @@ def zip_depth2(content, offsets, with_name, behavior, parameters=None):
     length = check_equal_lengths(contents)
     out = awkward.contents.ListOffsetArray(
         offsets=offsets,
-        content=awkward.contents.RecordArray(
-            contents, fields, length=length
-        ),
+        content=awkward.contents.RecordArray(contents, fields, length=length),
     )
     out = awkward.Array(out, behavior=behavior, with_name=with_name)
     return out
+
 
 def zip_depth1(content, with_name, behavior, parameters=None):
     # if with_name is not None:
@@ -255,11 +266,10 @@ def zip_depth1(content, with_name, behavior, parameters=None):
         for v in content.values()
     ]
     length = check_equal_lengths(contents)
-    out = awkward.contents.RecordArray(
-        contents, fields, length
-    )
+    out = awkward.contents.RecordArray(contents, fields, length)
     out = awkward.Array(out, behavior=behavior, with_name=with_name)
     return out
+
 
 class BaseSchema:
     """Base schema builder

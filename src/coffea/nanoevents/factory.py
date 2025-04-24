@@ -740,7 +740,7 @@ class NanoEventsFactory:
             base_form["parameters"]["metadata"] = metadata
         if not callable(schemaclass):
             raise ValueError("Invalid schemaclass type")
-        if schemaclass.__name__ == 'NanoAODSchema':
+        if schemaclass.__name__ == "NanoAODSchema":
             schema = schemaclass(base_form, tree)
         else:
             schema = schemaclass(base_form)
