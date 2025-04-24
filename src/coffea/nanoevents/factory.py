@@ -101,7 +101,7 @@ class _OnlySliceableAs:
 
 class _map_schema_uproot(_map_schema_base):
     def __init__(
-        self, schemaclass=BaseSchema, metadata=None, behavior=None, version=None, file=None
+        self, schemaclass=BaseSchema, metadata=None, behavior=None, version=None
     ):
         super().__init__(
             schemaclass=schemaclass,
@@ -109,7 +109,6 @@ class _map_schema_uproot(_map_schema_base):
             behavior=behavior,
             version=version,
         )
-        self.file = file
 
     def __call__(self, form):
         from coffea.nanoevents.mapping.uproot import _lazify_form
@@ -135,7 +134,7 @@ class _map_schema_uproot(_map_schema_base):
         }
 
         return (
-            awkward.forms.form.from_dict(self.schemaclass(lform, uproot.dask({self.file: "Events"}, ak_add_doc=True), self.version).form),
+            awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form),
             self,
         )
 
@@ -361,7 +360,6 @@ class NanoEventsFactory:
                 behavior=dict(schemaclass.behavior()),
                 metadata=metadata,
                 version="latest",
-                file=file,
             )
 
             to_open = file
@@ -730,6 +728,8 @@ class NanoEventsFactory:
                 A schema class deriving from `BaseSchema` and implementing the desired view of the file
             metadata : dict
                 Arbitrary metadata to add to the `base.NanoEvents` object
+            tree : TTree
+                Pass TTree directly to schema
             mode:
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
@@ -740,9 +740,7 @@ class NanoEventsFactory:
             base_form["parameters"]["metadata"] = metadata
         if not callable(schemaclass):
             raise ValueError("Invalid schemaclass type")
-        print(schemaclass.__name__)
         if schemaclass.__name__ == 'NanoAODSchema':
-            print('Success!')
             schema = schemaclass(base_form, tree)
         else:
             schema = schemaclass(base_form)

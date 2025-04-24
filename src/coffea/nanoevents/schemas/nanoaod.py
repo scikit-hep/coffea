@@ -2,7 +2,7 @@ import warnings
 import awkward
 
 from coffea.nanoevents import transforms
-from coffea.nanoevents.schemas.base import BaseSchema, zip_forms, zip_depth1, zip_depth2, counts2offsets
+from coffea.nanoevents.schemas.base import BaseSchema, zip_forms, zip_depth1, zip_depth2, counts2offsets, local2globalindex, nestedindex_form, counts2nestedindex_form
 
 def _key_formatter(prefix, form_key, form, attribute):
     if attribute == "offsets":
@@ -179,12 +179,6 @@ class NanoAODSchema(BaseSchema):
                 del self.cross_references["FsrPhoton_muonIdx"]
                 del self.cross_references["Muon_fsrPhotonIdx"]
 
-        # self._form["fields"], self._form["contents"] = self._build_collections(
-        #     self._form["fields"], self._form["contents"]
-        # )
-        # self._form["parameters"]["metadata"]["version"] = self._version
-
-        print(tree)
         # TTree -> dict[str, ak.Array]
         preconstructed_array = tree.arrays(library="ak", how=dict, ak_add_doc=True)
         self._array = self._build_collections(
@@ -228,10 +222,11 @@ class NanoAODSchema(BaseSchema):
         return cls(base_form, version="5")
 
     def _build_collections(self, field_names, input_contents):
-        branch_forms = {k: v for k, v in zip(field_names, input_contents)}
+
+        branches = {k: v for k, v in zip(field_names, input_contents)}
 
         # parse into high-level records (collections, list collections, and singletons)
-        collections = {k.split("_")[0] for k in branch_forms}
+        collections = {k.split("_")[0] for k in branches}
 
         # unique keys that start with "n" are short for number, we don't need them in the final schema
         collections -= {
@@ -241,7 +236,7 @@ class NanoAODSchema(BaseSchema):
 
         # Check the presence of the event_ids
         missing_event_ids = [
-            event_id for event_id in self.event_ids if event_id not in branch_forms
+            event_id for event_id in self.event_ids if event_id not in branches
         ]
         if len(missing_event_ids) > 0:
             if self.error_missing_event_ids:
@@ -259,87 +254,90 @@ class NanoAODSchema(BaseSchema):
                     RuntimeWarning,
                 )
 
-        # # Create global index virtual arrays for indirection
-        # for indexer, target in self.cross_references.items():
-        #     if target.startswith("Gen") and isData:
-        #         continue
-        #     if indexer not in branch_forms:
-        #         if self.warn_missing_crossrefs:
-        #             warnings.warn(
-        #                 f"Missing cross-reference index for {indexer} => {target}",
-        #                 RuntimeWarning,
-        #             )
-        #         continue
-        #     if "o" + target not in branch_forms:
-        #         if self.warn_missing_crossrefs:
-        #             warnings.warn(
-        #                 f"Missing cross-reference target for {indexer} => {target}",
-        #                 RuntimeWarning,
-        #             )
-        #         continue
-        #     branch_forms[indexer + "G"] = transforms.local2global_form(
-        #         branch_forms[indexer], branch_forms["o" + target]
-        #     )
+        # Create global index virtual arrays for indirection
+        for indexer, target in self.all_cross_references.items():
+            if target.startswith("Gen") and isData:
+                continue
+            if indexer not in branches:
+                if self.warn_missing_crossrefs:
+                    warnings.warn(
+                        f"Missing cross-reference index for {indexer} => {target}",
+                        RuntimeWarning,
+                    )
+                continue
+            if "n" + target not in branches:
+                if self.warn_missing_crossrefs:
+                    warnings.warn(
+                        f"Missing cross-reference target for {indexer} => {target}",
+                        RuntimeWarning,
+                    )
+                continue
+            # convert nWhatever to a global index
+            # this used to be transforms.counts2offsets_form + transforms.local2global_form
+            branches[indexer + "G"] = local2globalindex(
+                branches[indexer], branches["n" + target]
+            )
 
-        # # Create nested indexer from Idx1, Idx2, ... arrays
-        # for name, indexers in self.nested_items.items():
-        #     if all(idx in branch_forms for idx in indexers):
-        #         branch_forms[name] = transforms.nestedindex_form(
-        #             [branch_forms[idx] for idx in indexers]
-        #         )
+        # Create nested indexer from Idx1, Idx2, ... arrays
+        for name, indexers in self.nested_items.items():
+            if all(idx in branches for idx in indexers):
+                branches[name] = nestedindex_form(
+                    [branches[idx] for idx in indexers]
+                )
 
-        # # Create nested indexer from n* counts arrays
-        # for name, (local_counts, target) in self.nested_index_items.items():
-        #     if local_counts in branch_forms and "o" + target in branch_forms:
-        #         branch_forms[name] = transforms.counts2nestedindex_form(
-        #             branch_forms[local_counts], branch_forms["o" + target]
-        #         )
+        # Create nested indexer from n* counts arrays
+        for name, (local_counts, target) in self.nested_index_items.items():
+            if local_counts in branches and "n" + target in branches:
+                branches[name] = counts2nestedindex_form(
+                    branches[local_counts], branches["n" + target]
+                )
 
         # # Create any special arrays
         # for name, (fcn, args) in self.special_items.items():
-        #     if all(k in branch_forms for k in args):
-        #         branch_forms[name] = fcn(*(branch_forms[k] for k in args))
+        #     if all(k in branches for k in args):
+        #         raise NotImplementedError
+        #         # branches[name] = fcn(*(branches[k] for k in args))
 
         output = {}
         for name in collections:
-            if "n" + name in branch_forms and name not in branch_forms:
+            if "n" + name in branches and name not in branches:
                 # list collection
-                offsets = counts2offsets(branch_forms["n" + name])
+                offsets = counts2offsets(branches["n" + name])
                 offsets = awkward.index.Index(offsets)
 
                 content = {
                     k[len(name) + 1:]: v
-                    for k, v in branch_forms.items()
+                    for k, v in branches.items()
                     if k.startswith(name + "_")
                 }
-
                 output[name] = zip_depth2(content,
-                                                 offsets,
-                                                 with_name=self.mixins.get(name, "NanoCollection"),
-                                                 behavior=self.behavior())
+                                           offsets,
+                                           with_name=self.mixins.get(name, "NanoCollection"),
+                                           behavior=self.behavior())
 
-            elif "n" + name in branch_forms:
+            elif "n" + name in branches:
                 # list singleton, can use branch's own offsets
-                output[name] = branch_forms[name]
-            elif name in branch_forms:
+                output[name] = branches[name]
+            elif name in branches:
                 # singleton
-                output[name] = branch_forms[name]
+                output[name] = branches[name]
             else:
                 # simple collection
                 content = {
                     k[len(name) + 1:]: v
-                    for k, v in branch_forms.items()
+                    for k, v in branches.items()
                     if k.startswith(name + "_")
                 }
                 output[name] = zip_depth1(content,
-                                                  with_name=NanoAODSchema.mixins.get(name, "NanoCollection"),
-                                                  behavior=NanoAODSchema.behavior())
+                                           with_name=NanoAODSchema.mixins.get(name, "NanoCollection"),
+                                           behavior=NanoAODSchema.behavior())
 
-        #zipping once again
+        # zipping once again
         final_output = zip_depth1(output,
-                                          with_name="NanoEvents",
-                                          behavior=NanoAODSchema.behavior())
+                                   with_name="NanoEvents",
+                                   behavior=NanoAODSchema.behavior())
 
+        # return output.keys(), output.values()
         return final_output
 
     @classmethod
