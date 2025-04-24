@@ -52,9 +52,10 @@ jobs:
       with:
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
-      uses: astral-sh/setup-uv@v5
+      uses: astral-sh/setup-uv@v6
       with:
         python-version: ${{ matrix.python-version }}
+        activate-environment: true
     - name: Set up JDK ${{ matrix.java-distribution }}/${{ matrix.java-version }}
       uses: actions/setup-java@v4
       with:
