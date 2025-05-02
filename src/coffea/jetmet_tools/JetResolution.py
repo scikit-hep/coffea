@@ -45,15 +45,19 @@ class JetResolution:
     You can use this class as follows::
 
         jr = JetResolution(name1=corrL1,...)
-        jetRes = jr(JetParameter1=jet.parameter1,...)
+        jetRes = jr.getResolution(JetParameter1=jet.parameter1,...)
 
+    in which `jetRes` are the resolutions, with the same shape as the input parameters.
+    In order to see what parameters must be passed to `getResolution`, one can do
+    `jr.signature`.
+
+    You construct a JetResolution object by passing in a dict of names and functions.
+    Names must be formatted as '<campaign>_<dataera>_<datatype>_<level>_<jettype>'. You
+    can use coffea.lookup_tools' `extractor` and `evaluator` to get the functions from
+    some input files.
     """
 
     def __init__(self, **kwargs):
-        """
-        You construct a JetResolution by passing in a dict of names and functions.
-        Names must be formatted as '<campaign>_<dataera>_<datatype>_<level>_<jettype>'.
-        """
         jettype = None
         levels = []
         funcs = []
@@ -68,15 +72,16 @@ class JetResolution:
                     )
                 )
             info = name.split("_")
-            if len(info) != 5:
+            if len(info) > 6 or len(info) < 5:
                 raise Exception("Corrector name is not properly formatted!")
+            offset = len(info) - 5
 
             campaign = _checkConsistency(campaign, info[0])
             dataera = _checkConsistency(dataera, info[1])
-            datatype = _checkConsistency(datatype, info[2])
-            levels.append(info[3])
+            datatype = _checkConsistency(datatype, info[2 + offset])
+            levels.append(info[3 + offset])
             funcs.append(func)
-            jettype = _checkConsistency(jettype, info[4])
+            jettype = _checkConsistency(jettype, info[4 + offset])
 
         if campaign is None:
             raise Exception("Unable to determine production campaign of JECs!")
@@ -159,7 +164,7 @@ class JetResolution:
                 resos.append(
                     func(
                         *args,
-                        dask_label=f"{self._campaign}-{self._dataera}-{self._datatype}-{self._levels[i]}-{self._jettype}",
+                        dask_label=f"{self._campaign}_{self._dataera}_{self._datatype}_{self._levels[i]}_{self._jettype}",
                     )
                 )
             else:

@@ -4,7 +4,6 @@ from coffea.lookup_tools.dense_lookup import dense_lookup
 from coffea.lookup_tools.jec_uncertainty_lookup import jec_uncertainty_lookup
 from coffea.lookup_tools.jersf_lookup import jersf_lookup
 from coffea.lookup_tools.jme_standard_function import jme_standard_function
-from coffea.lookup_tools.json_lookup import json_lookup
 from coffea.lookup_tools.rochester_lookup import rochester_lookup
 
 lookup_types = {
@@ -14,7 +13,6 @@ lookup_types = {
     "jersf_lookup": jersf_lookup,
     "jec_uncertainty_lookup": jec_uncertainty_lookup,
     "rochester_lookup": rochester_lookup,
-    "json_lookup": json_lookup,
     "correctionlib_wrapper": correctionlib_wrapper,
 }
 
@@ -35,9 +33,23 @@ class evaluator:
         evaluator = extractor.make_evaluator()
         out = evaluator["testSF2d"](eta, pt)
 
-    The returned value has the same shape as the input arguments.
+    The returned value has the same shape as the input arguments. `lookup_types` is a map of possible
+    constructors for extracted data. The arguments used when calling the evaluator depend on which named
+    weight is being used (eg. in the above example, the "testSF2d" weight requires `eta` and `pt` be
+    passed when calling the evaluator).
 
-    lookup_types is a map of possible constructors for extracted data
+    It is recommended to construct an evaluator from an extractor, so ensure that inputs to the
+    constructor are properly ordered and formatted.
+
+    Parameters
+    ----------
+    names: dict[str, int]
+        A dictionary mapping the names of weights to the index of that weight in `primitives`.
+    types: list[str]
+        A list of the types of weights, ordered in the same way as `primitives`.
+    primitives: list[Varies]
+        A list of primitives, whose type and structure depend on types. Should be order in the
+        same way as `primitives`.
     """
 
     def __init__(self, names, types, primitives):

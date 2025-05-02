@@ -122,12 +122,12 @@ class BaseSchema:
 
     @property
     def form(self):
-        """Awkward form of this schema"""
+        """Awkward form of this schema (dict)"""
         return self._form
 
     @classmethod
     def behavior(cls):
-        """Behaviors necessary to implement this schema"""
+        """Behaviors necessary to implement this schema (dict)"""
         from coffea.nanoevents.methods import base
 
         return base.behavior

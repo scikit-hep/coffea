@@ -4,12 +4,15 @@ This provides just a Lorentz vector with charge, but maybe
 in the future it will provide some sort of composite candidate building tool
 that automatically resolves duplicates in the chain.
 """
+
 import awkward
 import numpy
 
 from coffea.nanoevents.methods import vector
 
 behavior = dict(vector.behavior)
+
+behavior.update(awkward._util.copy_behaviors("LorentzVector", "Candidate", behavior))
 
 
 @awkward.mixin_class(behavior)
@@ -68,5 +71,20 @@ class PtEtaPhiECandidate(Candidate, vector.PtEtaPhiELorentzVector):
 
     pass
 
+
+CandidateArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+CandidateArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+CandidateArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
+CandidateArray.MomentumClass = CandidateArray  # noqa: F821
+
+PtEtaPhiMCandidateArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+PtEtaPhiMCandidateArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+PtEtaPhiMCandidateArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
+PtEtaPhiMCandidateArray.MomentumClass = PtEtaPhiMCandidateArray  # noqa: F821
+
+PtEtaPhiECandidateArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+PtEtaPhiECandidateArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+PtEtaPhiECandidateArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
+PtEtaPhiECandidateArray.MomentumClass = PtEtaPhiECandidateArray  # noqa: F821
 
 __all__ = ["Candidate", "PtEtaPhiMCandidate", "PtEtaPhiECandidate"]

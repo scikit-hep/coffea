@@ -1,6 +1,9 @@
 import json
 import warnings
 
+import awkward
+import numpy
+
 from coffea.nanoevents.mapping.base import BaseSourceMapping, UUIDOpener
 from coffea.nanoevents.util import quote, tuple_to_key
 
@@ -76,12 +79,31 @@ class PreloadedSourceMapping(BaseSourceMapping):
         key = self.key_root() + tuple_to_key((uuid, path_in_source))
         self._cache[key] = source
 
-    def get_column_handle(self, columnsource, name):
+    def get_column_handle(self, columnsource, name, allow_missing):
+        if allow_missing:
+            return columnsource[name] if name in columnsource else None
         return columnsource[name]
 
-    def extract_column(self, columnhandle, start, stop, **kwargs):
-        # make sure uproot is single-core since our calling context might not be
-        return columnhandle[start:stop]
+    def extract_column(
+        self, columnhandle, start, stop, allow_missing, use_ak_forth=True
+    ):
+        if allow_missing and columnhandle is None:
+            return awkward.contents.IndexedOptionArray(
+                awkward.index.Index64(numpy.full(stop - start, -1, dtype=numpy.int64)),
+                awkward.contents.NumpyArray(numpy.array([], dtype=bool)),
+            )
+        elif not allow_missing and columnhandle is None:
+            raise RuntimeError(
+                "Received columnhandle of None when missing column in file is not allowed!"
+            )
+        the_array = columnhandle[start:stop]
+        if allow_missing:
+            the_array = awkward.contents.IndexedOptionArray(
+                awkward.index.Index64(numpy.arange(stop - start, dtype=numpy.int64)),
+                awkward.contents.NumpyArray(the_array),
+            )
+
+        return the_array
 
     def __len__(self):
         return self._stop - self._start

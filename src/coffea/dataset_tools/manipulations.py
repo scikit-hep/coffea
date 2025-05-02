@@ -12,6 +12,7 @@ from coffea.dataset_tools.preprocess import CoffeaFileSpec, DatasetSpec, Fileset
 def max_chunks(fileset: FilesetSpec, maxchunks: int | None = None) -> FilesetSpec:
     """
     Modify the input dataset so that only the first "maxchunks" chunks of each file will be processed.
+
     Parameters
     ----------
         fileset: FilesetSpec
@@ -30,6 +31,7 @@ def max_chunks(fileset: FilesetSpec, maxchunks: int | None = None) -> FilesetSpe
 def slice_chunks(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpec:
     """
     Modify the input dataset so that only the chunks of each file specified by the input slice are processed.
+
     Parameters
     ----------
         fileset: FilesetSpec
@@ -56,6 +58,7 @@ def slice_chunks(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSp
 def max_files(fileset: FilesetSpec, maxfiles: int | None = None) -> FilesetSpec:
     """
     Modify the input dataset so that only the first "maxfiles" files of each dataset will be processed.
+
     Parameters
     ----------
         fileset: FilesetSpec
@@ -74,6 +77,7 @@ def max_files(fileset: FilesetSpec, maxfiles: int | None = None) -> FilesetSpec:
 def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpec:
     """
     Modify the input dataset so that only the files of each dataset specified by the input slice are processed.
+
     Parameters
     ----------
         fileset: FilesetSpec
@@ -101,10 +105,8 @@ def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpe
 
 def _default_filter(name_and_spec):
     name, spec = name_and_spec
-    thesteps = spec["steps"]
-    return thesteps is not None and (
-        len(thesteps) > 1 or (thesteps[0][1] - thesteps[0][0]) > 0
-    )
+    num_entries = spec["num_entries"]
+    return num_entries is not None and num_entries > 0
 
 
 def filter_files(
@@ -113,6 +115,7 @@ def filter_files(
 ) -> FilesetSpec:
     """
     Modify the input dataset so that only the files of each dataset that pass the filter remain.
+
     Parameters
     ----------
         fileset: FilesetSpec
@@ -136,6 +139,7 @@ def get_failed_steps_for_dataset(
 ) -> DatasetSpec:
     """
     Modify an input dataset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
+
     Parameters
     ----------
         dataset: DatasetSpec
@@ -192,6 +196,7 @@ def get_failed_steps_for_fileset(
 ):
     """
     Modify an input dataset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
+
     Parameters
     ----------
         fileset: FilesetSpec

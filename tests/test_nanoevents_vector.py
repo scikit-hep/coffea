@@ -1,16 +1,25 @@
 import awkward as ak
 import numpy as np
 import pytest
+from numpy.testing import assert_allclose
 
 from coffea.nanoevents.methods import vector
 
 ATOL = 1e-8
 
 
-def record_arrays_equal(a, b):
-    return (ak.fields(a) == ak.fields(b)) and all(
-        ak.all(a[f] == b[f]) for f in ak.fields(a)
-    )
+def assert_record_arrays_equal(a, b, check_type=False):
+    if check_type:
+        assert type(a) is type(b)
+    assert ak.fields(a) == ak.fields(b)
+    assert all(ak.all(ak.isclose(a[f], b[f])) for f in ak.fields(a))
+
+
+def assert_awkward_allclose(actual, desired):
+    flat_actual = ak.flatten(actual, axis=None)
+    flat_desired = ak.flatten(desired, axis=None)
+    # we should check None values, but not used in these tests
+    assert_allclose(flat_actual, flat_desired)
 
 
 def test_two_vector():
@@ -25,31 +34,31 @@ def test_two_vector():
         behavior=vector.behavior,
     )
 
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         -a, ak.zip({"x": [[-1, -2], [], [-3], [-4]], "y": [[-5, -6], [], [-7], [-8]]})
     )
 
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a + b,
         ak.zip({"x": [[12, 14], [], [16], [18]], "y": [[20, 22], [], [24], [26]]}),
     )
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a - b,
         ak.zip(
             {"x": [[-10, -10], [], [-10], [-10]], "y": [[-10, -10], [], [-10], [-10]]}
         ),
     )
 
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a * 2, ak.zip({"x": [[2, 4], [], [6], [8]], "y": [[10, 12], [], [14], [16]]})
     )
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a / 2,
         ak.zip({"x": [[0.5, 1], [], [1.5], [2]], "y": [[2.5, 3], [], [3.5], [4]]}),
     )
 
-    assert record_arrays_equal(a.dot(b), ak.Array([[86, 120], [], [158], [200]]))
-    assert record_arrays_equal(b.dot(a), ak.Array([[86, 120], [], [158], [200]]))
+    assert_awkward_allclose(a.dot(b), ak.Array([[86, 120], [], [158], [200]]))
+    assert_awkward_allclose(b.dot(a), ak.Array([[86, 120], [], [158], [200]]))
 
     assert ak.all(abs(a.unit.r - 1) < ATOL)
     assert ak.all(abs(a.unit.phi - a.phi) < ATOL)
@@ -58,18 +67,18 @@ def test_two_vector():
 def test_polar_two_vector():
     a = ak.zip(
         {
-            "r": [[1, 2], [], [3], [4]],
+            "rho": [[1, 2], [], [3], [4]],
             "phi": [[0.3, 0.4], [], [0.5], [0.6]],
         },
         with_name="PolarTwoVector",
         behavior=vector.behavior,
     )
 
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a * 2,
-        ak.zip({"r": [[2, 4], [], [6], [8]], "phi": [[0.3, 0.4], [], [0.5], [0.6]]}),
+        ak.zip({"rho": [[2, 4], [], [6], [8]], "phi": [[0.3, 0.4], [], [0.5], [0.6]]}),
     )
-    assert ak.all((a * (-2)).r == [[2, 4], [], [6], [8]])
+    assert ak.all((a * (-2)).rho == [[2, 4], [], [6], [8]])
     assert ak.all(
         (a * (-2)).phi
         - ak.Array(
@@ -77,18 +86,18 @@ def test_polar_two_vector():
         )
         < ATOL
     )
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a / 2,
         ak.zip(
-            {"r": [[0.5, 1], [], [1.5], [2]], "phi": [[0.3, 0.4], [], [0.5], [0.6]]}
+            {"rho": [[0.5, 1], [], [1.5], [2]], "phi": [[0.3, 0.4], [], [0.5], [0.6]]}
         ),
     )
 
     assert ak.all(abs((-a).x + a.x) < ATOL)
     assert ak.all(abs((-a).y + a.y) < ATOL)
-    assert record_arrays_equal(a * (-1), -a)
+    assert_record_arrays_equal(a * (-1), -a)
 
-    assert ak.all(a.unit.phi == a.phi)
+    assert ak.all(ak.isclose(a.unit.phi, a.phi))
 
 
 def test_three_vector():
@@ -111,7 +120,7 @@ def test_three_vector():
         behavior=vector.behavior,
     )
 
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         -a,
         ak.zip(
             {
@@ -122,7 +131,7 @@ def test_three_vector():
         ),
     )
 
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a + b,
         ak.zip(
             {
@@ -132,7 +141,7 @@ def test_three_vector():
             }
         ),
     )
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a - b,
         ak.zip(
             {
@@ -142,7 +151,7 @@ def test_three_vector():
             }
         ),
     )
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         b - a,
         ak.zip(
             {
@@ -153,7 +162,7 @@ def test_three_vector():
         ),
     )
 
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a * 2,
         ak.zip(
             {
@@ -163,7 +172,7 @@ def test_three_vector():
             }
         ),
     )
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a / 2,
         ak.zip(
             {
@@ -177,7 +186,7 @@ def test_three_vector():
     assert ak.all(a.dot(b) == ak.Array([[170, 154], [], [162], [284]]))
     assert ak.all(b.dot(a) == ak.Array([[170, 154], [], [162], [284]]))
 
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a.cross(b),
         ak.zip(
             {
@@ -187,7 +196,7 @@ def test_three_vector():
             }
         ),
     )
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         b.cross(a),
         ak.zip(
             {
@@ -216,7 +225,7 @@ def test_spherical_three_vector():
     assert ak.all(abs((-a).x + a.x) < ATOL)
     assert ak.all(abs((-a).y + a.y) < ATOL)
     assert ak.all(abs((-a).z + a.z) < ATOL)
-    assert record_arrays_equal(a * (-1), -a)
+    assert_record_arrays_equal(a * (-1), -a, check_type=True)
 
 
 def test_lorentz_vector():
@@ -241,7 +250,7 @@ def test_lorentz_vector():
         behavior=vector.behavior,
     )
 
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         -a,
         ak.zip(
             {
@@ -253,7 +262,7 @@ def test_lorentz_vector():
         ),
     )
 
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a + b,
         ak.zip(
             {
@@ -264,7 +273,7 @@ def test_lorentz_vector():
             }
         ),
     )
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a - b,
         ak.zip(
             {
@@ -276,7 +285,7 @@ def test_lorentz_vector():
         ),
     )
 
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a * 2,
         ak.zip(
             {
@@ -287,7 +296,7 @@ def test_lorentz_vector():
             }
         ),
     )
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a / 2,
         ak.zip(
             {
@@ -299,7 +308,7 @@ def test_lorentz_vector():
         ),
     )
 
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a.pvec,
         ak.zip(
             {
@@ -344,7 +353,7 @@ def test_pt_eta_phi_m_lorentz_vector():
         )
         < ATOL
     )
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a / 2,
         ak.zip(
             {
@@ -355,7 +364,7 @@ def test_pt_eta_phi_m_lorentz_vector():
             }
         ),
     )
-    assert record_arrays_equal(a * (-1), -a)
+    assert_record_arrays_equal(a * (-1), -a, check_type=True)
 
     boosted = a.boost(-a.boostvec)
     assert ak.all(abs(boosted.x) < ATOL)
@@ -390,7 +399,7 @@ def test_pt_eta_phi_e_lorentz_vector():
         )
         < ATOL
     )
-    assert record_arrays_equal(
+    assert_record_arrays_equal(
         a / 2,
         ak.zip(
             {
@@ -401,7 +410,7 @@ def test_pt_eta_phi_e_lorentz_vector():
             }
         ),
     )
-    assert record_arrays_equal(a * (-1), -a)
+    assert_record_arrays_equal(a * (-1), -a, check_type=True)
 
     boosted = a.boost(-a.boostvec)
     assert ak.all(abs(boosted.x) < ATOL)
@@ -444,12 +453,18 @@ def test_lorentz_vector_numba(a_dtype, b_dtype):
         110.66616465749593,
         110.68423555321688,
     ]
-    assert pytest.approx(a.delta_phi(b), abs=1e-7) == [
-        0.03369510734601633,
-        -0.1798534997924781,
-        0.33292327383538156,
-        0.6078019961139605,
-    ]
+
+    computed_dphi = a.delta_phi(b).to_numpy()
+
+    assert pytest.approx(computed_dphi, abs=1e-6) == np.array(
+        [
+            0.03369510734601633,
+            -0.1798534997924781,
+            0.33292327383538156,
+            0.6078019961139605,
+        ],
+        dtype=computed_dphi.dtype,
+    )
 
 
 @pytest.mark.parametrize(
@@ -519,39 +534,54 @@ def test_inherited_method_transpose(lcoord, threecoord, twocoord):
         )
     elif twocoord == "PolarTwoVector":
         c = ak.zip(
-            {"r": [-10.0, 13.0, 15.0], "phi": [1.22, -1.0, 1.0]},
+            {"rho": [-10.0, 13.0, 15.0], "phi": [1.22, -1.0, 1.0]},
             with_name=twocoord,
             behavior=vector.behavior,
         )
 
-    assert record_arrays_equal(a + b, b + a)
-    assert record_arrays_equal(a + c, c + a)
-    assert record_arrays_equal(b + c, c + b)
+    assert_record_arrays_equal(a.like(b) + b, b + a.like(b), check_type=True)
+    assert_record_arrays_equal(a.like(c) + c, c + a.like(c), check_type=True)
+    assert_record_arrays_equal(b.like(c) + c, c + b.like(c), check_type=True)
 
-    assert record_arrays_equal(a.delta_phi(b), b.delta_phi(a))
-    assert record_arrays_equal(a.delta_phi(c), c.delta_phi(a))
-    assert record_arrays_equal(b.delta_phi(c), c.delta_phi(b))
+    with pytest.raises(TypeError):
+        a + b == b + a
+    with pytest.raises(TypeError):
+        a + c == c + a
+    with pytest.raises(TypeError):
+        b + c == c + b
 
-    assert record_arrays_equal(a - b, -(b - a))
-    assert record_arrays_equal(a - c, -(c - a))
-    assert record_arrays_equal(b - c, -(c - b))
+    assert_allclose(a.delta_phi(b), -b.delta_phi(a))
+    assert_allclose(a.delta_phi(c), -c.delta_phi(a))
+    assert_allclose(b.delta_phi(c), -c.delta_phi(b))
+
+    assert_record_arrays_equal((a.like(b) - b), -(b - a.like(b)), check_type=True)
+    assert_record_arrays_equal((a.like(c) - c), -(c - a.like(c)), check_type=True)
+    assert_record_arrays_equal((b.like(c) - c), -(c - b.like(c)), check_type=True)
+
+    with pytest.raises(TypeError):
+        a - b == -(b - a)
+    with pytest.raises(TypeError):
+        a - c == -(c - a)
+    with pytest.raises(TypeError):
+        b - c == -(c - b)
 
 
-def test_dask_metric_table_and_nearest():
+@pytest.mark.parametrize("optimization_enabled", [True, False])
+def test_dask_metric_table_and_nearest(optimization_enabled):
     import dask
     from dask_awkward.lib.testutils import assert_eq
 
     from coffea.nanoevents import NanoEventsFactory
 
-    with dask.config.set({"awkward.optimization.enabled": False}):
+    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
         eagerevents = NanoEventsFactory.from_root(
             {"tests/samples/nano_dy.root": "Events"},
-            delayed=False,
+            mode="eager",
         ).events()
 
         daskevents = NanoEventsFactory.from_root(
             {"tests/samples/nano_dy.root": "Events"},
-            delayed=True,
+            mode="dask",
         ).events()
 
         mval_eager, (a_eager, b_eager) = eagerevents.Electron.metric_table(
@@ -572,7 +602,6 @@ def test_dask_metric_table_and_nearest():
         out_dask, metric_dask = dask.compute(
             *daskevents.Electron.nearest(daskevents.TrigObj, return_metric=True)
         )
-        # NB: make this more strict when we fix optimization and parameter dtype issues fixed!
         assert_eq(out_eager, out_dask)
         assert_eq(metric_eager, metric_dask)
 
@@ -584,6 +613,73 @@ def test_dask_metric_table_and_nearest():
                 daskevents.TrigObj, return_metric=True, threshold=0.4
             )
         )
-        # NB: make this more strict when we fix optimization and parameter dtype issues fixed!
         assert_eq(out_eager_thresh, out_dask_thresh)
         assert_eq(metric_eager_thresh, metric_dask_thresh)
+
+
+@pytest.mark.parametrize("optimization_enabled", [True, False])
+def test_photon_zero_mass_charge(optimization_enabled):
+    import dask
+    from dask_awkward.lib.testutils import assert_eq
+
+    from coffea.nanoevents import NanoEventsFactory
+
+    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+        eagerevents = NanoEventsFactory.from_root(
+            {"tests/samples/nano_dy.root": "Events"},
+            mode="eager",
+        ).events()
+
+        daskevents = NanoEventsFactory.from_root(
+            {"tests/samples/nano_dy.root": "Events"},
+            mode="dask",
+        ).events()
+
+        np.testing.assert_allclose(ak.flatten(eagerevents.Photon.mass), 0.0, atol=1e-5)
+        np.testing.assert_allclose(
+            ak.flatten(daskevents.Photon.mass).compute(), 0.0, atol=1e-5
+        )
+        np.testing.assert_allclose(
+            ak.flatten(eagerevents.Photon.charge), 0.0, atol=1e-5
+        )
+        np.testing.assert_allclose(
+            ak.flatten(daskevents.Photon.charge).compute(), 0.0, atol=1e-5
+        )
+
+        eagerdiphotonevents = eagerevents[ak.num(eagerevents.Photon) == 2]
+        daskdiphotonevents = daskevents[ak.num(daskevents.Photon) == 2]
+        eagerdiphotons = ak.zip(
+            {
+                "tag": eagerdiphotonevents.Photon[:, 0],
+                "probe": eagerdiphotonevents.Photon[:, 1],
+            }
+        )
+        daskdiphotons = ak.zip(
+            {
+                "tag": daskdiphotonevents.Photon[:, 0],
+                "probe": daskdiphotonevents.Photon[:, 1],
+            }
+        )
+        eagerdiphotons["mass"] = (eagerdiphotons.tag + eagerdiphotons.probe).mass
+        daskdiphotons["mass"] = (daskdiphotons.tag + daskdiphotons.probe).mass
+        eagermll = np.sqrt(
+            2
+            * eagerdiphotons.tag.pt
+            * eagerdiphotons.probe.pt
+            * (
+                np.cosh(eagerdiphotons.tag.eta - eagerdiphotons.probe.eta)
+                - np.cos(eagerdiphotons.tag.phi - eagerdiphotons.probe.phi)
+            )
+        )
+        daskmll = np.sqrt(
+            2
+            * daskdiphotons.tag.pt
+            * daskdiphotons.probe.pt
+            * (
+                np.cosh(daskdiphotons.tag.eta - daskdiphotons.probe.eta)
+                - np.cos(daskdiphotons.tag.phi - daskdiphotons.probe.phi)
+            )
+        )
+        assert_eq(eagerdiphotons.mass, eagermll)
+        assert_eq(daskdiphotons.mass, daskmll)
+        assert_eq(eagerdiphotons.mass, daskdiphotons.mass)

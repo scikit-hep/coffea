@@ -192,7 +192,9 @@ def _build_standard_jme_lookup(
                     theBins = numpy.union1d(binMins, binMaxs[-1:])
                 allBins = numpy.append(allBins, theBins)
                 counts = numpy.append(counts, theBins.size)
-            bins[layout[i + offset_name]] = awkward.unflatten(allBins, counts)
+            bins[layout[i + offset_name]] = awkward.to_packed(
+                awkward.unflatten(allBins, counts)
+            )
         bin_order.append(layout[i + offset_name])
         offset_col += 1
 
@@ -214,11 +216,15 @@ def _build_standard_jme_lookup(
     for i in range(nEvalVars):
         var_order.append(layout[i + offset_name])
         if not interpolatedFunc:
-            clamp_mins[layout[i + offset_name]] = awkward.unflatten(
-                numpy.atleast_1d(pars[columns[i + offset_col]]), jagged_counts
+            clamp_mins[layout[i + offset_name]] = awkward.to_packed(
+                awkward.unflatten(
+                    numpy.atleast_1d(pars[columns[i + offset_col]]), jagged_counts
+                )
             )
-            clamp_maxs[layout[i + offset_name]] = awkward.unflatten(
-                numpy.atleast_1d(pars[columns[i + offset_col + 1]]), jagged_counts
+            clamp_maxs[layout[i + offset_name]] = awkward.to_packed(
+                awkward.unflatten(
+                    numpy.atleast_1d(pars[columns[i + offset_col + 1]]), jagged_counts
+                )
             )
             assert awkward.is_valid(clamp_mins[layout[i + offset_name]])
             assert awkward.is_valid(clamp_maxs[layout[i + offset_name]])
@@ -229,7 +235,9 @@ def _build_standard_jme_lookup(
     param_order = []
     offset_col = 2 * nBinnedVars + 1 + int(not interpolatedFunc) * 2 * nEvalVars
     for i in range(nParams):
-        jag = awkward.unflatten(pars[columns[i + offset_col]], jagged_counts)
+        jag = awkward.to_packed(
+            awkward.unflatten(pars[columns[i + offset_col]], jagged_counts)
+        )
         assert awkward.is_valid(jag)
         params.append(jag)
         param_order.append("p%i" % (i))
@@ -505,7 +513,9 @@ def convert_effective_area_file(eaFilePath):
                 theBins = numpy.union1d(binMins, binMaxs)
                 allBins = numpy.append(allBins, theBins)
                 counts = numpy.append(counts, theBins.size)
-            bins[layout[i + offset_name]] = awkward.unflatten(allBins, counts)
+            bins[layout[i + offset_name]] = awkward.to_packed(
+                awkward.unflatten(allBins, counts)
+            )
         bin_order.append(layout[i + offset_name])
         offset_col += 1
 

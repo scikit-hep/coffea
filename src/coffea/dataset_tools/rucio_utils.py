@@ -3,6 +3,7 @@ import json
 import os
 import re
 import subprocess
+import time
 from collections import defaultdict
 
 from rucio.client import Client
@@ -64,8 +65,16 @@ def get_xrootd_sites_map():
     This function returns the list of xrootd prefix rules for each site.
     """
     sites_xrootd_access = defaultdict(dict)
-    # TODO Do not rely on local sites_map cache. Just reload it?
-    if not os.path.exists(".sites_map.json"):
+    # Check if the cache file has been modified in the last 10 minutes
+    cache_valid = False
+    if os.path.exists(".sites_map.json"):
+        file_time = os.path.getmtime(".sites_map.json")
+        current_time = time.time()
+        ten_minutes_ago = current_time - 600
+        if file_time > ten_minutes_ago:
+            cache_valid = True
+
+    if not os.path.exists(".sites_map.json") or not cache_valid:
         print("Loading SITECONF info")
         sites = [
             (s, "/cvmfs/cms.cern.ch/SITECONF/" + s + "/storage.json")
@@ -91,11 +100,12 @@ def get_xrootd_sites_map():
                         if "prefix" not in proc:
                             if "rules" in proc:
                                 for rule in proc["rules"]:
-                                    sites_xrootd_access[site["rse"]][
-                                        rule["lfn"]
-                                    ] = rule["pfn"]
+                                    sites_xrootd_access[site["rse"]][rule["lfn"]] = (
+                                        rule["pfn"]
+                                    )
                         else:
                             sites_xrootd_access[site["rse"]] = proc["prefix"]
+
         json.dump(sites_xrootd_access, open(".sites_map.json", "w"))
 
     return json.load(open(".sites_map.json"))
@@ -114,7 +124,8 @@ def _get_pfn_for_site(path, rules):
                     pfn = pfn.replace(f"${i+1}", grs[i])
                 return pfn
     else:
-        return rules + "/" + path
+        # not adding any slash as the path usually starts with it
+        return rules + "/" + path.removeprefix("/")
 
 
 def get_dataset_files_replicas(
@@ -123,6 +134,7 @@ def get_dataset_files_replicas(
     blocklist_sites=None,
     regex_sites=None,
     mode="full",
+    partial_allowed=False,
     client=None,
     scope="cms",
 ):
@@ -145,12 +157,22 @@ def get_dataset_files_replicas(
     ----------
 
         dataset: str
+            The dataset to search for.
         allowlist_sites: list
+            List of sites to select from. If the file is not found there, raise an Exception.
         blocklist_sites: list
+            List of sites to avoid. If the file has no left site, raise an Exception.
         regex_sites: list
+            Regex expression to restrict the list of sites.
         mode:  str, default "full"
+            One of "full", "first", "best", or "roundrobin". Behavior of each described above.
         client: rucio Client, optional
+            The rucio client to use. If not provided, one will be generated for you.
+        partial_allowed: bool, default False
+            If False, throws an exception if any file in the dataset cannot be found. If True,
+            will find as many files from the dataset as it can.
         scope:  rucio scope, "cms"
+            The scope for rucio to search through.
 
     Returns
     -------
@@ -195,7 +217,7 @@ def get_dataset_files_replicas(
                     outsite.append(site)
                     found = True
 
-            if not found:
+            if not found and not partial_allowed:
                 raise Exception(
                     f"No SITE available in the allowlist for file {filedata['name']}"
                 )
@@ -206,7 +228,7 @@ def get_dataset_files_replicas(
                     filter(lambda key: key not in blocklist_sites, possible_sites)
                 )
 
-            if len(possible_sites) == 0:
+            if len(possible_sites) == 0 and not partial_allowed:
                 raise Exception(f"No SITE available for file {filedata['name']}")
 
             # now check for regex
@@ -246,7 +268,7 @@ def get_dataset_files_replicas(
                     outsite.append(site)
                     found = True
 
-        if not found:
+        if not found and not partial_allowed:
             raise Exception(f"No SITE available for file {filedata['name']}")
         else:
             if mode == "full":
@@ -279,18 +301,21 @@ def query_dataset(
 
     Parameters
     ---------
-        query: str = query to filter datasets / containers with the rucio list_dids functions
-        client: rucio client
-        tree: bool = if True return the results splitting the dataset name in parts parts
-        datatype: "container/dataset":  rucio terminology. "Container"==CMS dataset. "Dataset" == CMS block.
-        scope: "cms". Rucio instance
+        query: str
+            Query to filter datasets / containers with the rucio list_dids functions
+        client: rucio Client
+            The rucio client to use. If not provided, one will be generated for you
+        tree: bool, default False
+            If True, return the results splitting the dataset name in parts
+        datatype: str, default "container"
+            Options are "container", "dataset".  rucio terminology. "Container"==CMS dataset. "Dataset" == CMS block.
+        scope: str, default "cms"
+            Rucio instance
 
     Returns
     -------
-       list of containers/datasets
-
-       if tree==True, returns the list of dataset and also a dictionary decomposing the datasets
-       names in the 1st command part and a list of available 2nd parts.
+       List of containers/datasets. If tree==True, returns the list of dataset and also a dictionary decomposing
+       the datasets names in the 1st command part and a list of available 2nd parts.
 
     """
     client = client if client else get_rucio_client()

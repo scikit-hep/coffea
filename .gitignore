@@ -74,6 +74,9 @@ target/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# VSCode
+.vscode
+
 # pyenv
 .python-version
 
@@ -108,3 +111,6 @@ venv.bak/
 .idea
 .servicex
 dask-worker-space/
+
+# VCS versioning
+src/coffea/_version.py

@@ -67,8 +67,10 @@ class DelphesSchema(BaseSchema):
         "LHCOEvent": "LHCOEvent",
         "Rho": "Rho",
         "ScalarHT": "ScalarHT",
-        "MissingET": "MissingET",
     }
+    """
+    Default configuration for mixin types, based on the collection name.
+    """
 
     # These are stored as length-1 vectors unnecessarily
     singletons = [
@@ -80,6 +82,10 @@ class DelphesSchema(BaseSchema):
         "ScalarHT",
         "MissingET",
     ]
+    """
+    Fields that are stored as length-1 vectors in Delphes, to be flattened out in nanoevents
+    (removing an unnecessary level of nesting).
+    """
 
     docstrings = {
         "AlphaQCD": "value of the QCD coupling used in the event, see hep-ph/0109068",
@@ -92,7 +98,6 @@ class DelphesSchema(BaseSchema):
         "Beta": "(sum pt of charged pile-up constituents)/(sum pt of charged constituents)",
         "BetaStar": "(sum pt of charged constituents coming from hard interaction)/(sum pt of charged constituents)",
         "Charge": "charge",
-        "Constituents": "references to constituents",
         "Constituents": "references to constituents",
         "CrossSection": "cross-section in [pb]",
         "CrossSectionError": "cross-section error [pb]",
@@ -199,6 +204,9 @@ class DelphesSchema(BaseSchema):
         "ZOuter": "position (z component) at the edge",
         "Zd": "Z coordinate of point of closest approach to vertex",
     }
+    """
+    The docstrings for each field in the resulting nanoevents
+    """
 
     def __init__(self, base_form, version="latest", *args, **kwargs):
         super().__init__(base_form)
@@ -282,13 +290,13 @@ class DelphesSchema(BaseSchema):
             for index, parameter in enumerate(output[name]["content"]["fields"]):
                 if "parameters" not in output[name]["content"]["contents"][index]:
                     continue
-                output[name]["content"]["contents"][index]["parameters"][
-                    "__doc__"
-                ] = self.docstrings.get(
-                    parameter,
-                    output[name]["content"]["contents"][index]["parameters"].get(
-                        "__doc__", "no docstring available"
-                    ),
+                output[name]["content"]["contents"][index]["parameters"]["__doc__"] = (
+                    self.docstrings.get(
+                        parameter,
+                        output[name]["content"]["contents"][index]["parameters"].get(
+                            "__doc__", "no docstring available"
+                        ),
+                    )
                 )
 
             # handle branches named like [4] and [5]
@@ -312,7 +320,7 @@ class DelphesSchema(BaseSchema):
 
     @classmethod
     def behavior(cls):
-        """Behaviors necessary to implement this schema"""
+        """Behaviors necessary to implement this schema (dict)"""
         from coffea.nanoevents.methods import delphes
 
         return delphes.behavior

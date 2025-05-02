@@ -1,4 +1,5 @@
 """Mixins for the ATLAS PHYSLITE schema - work in progress."""
+
 from numbers import Number
 
 import awkward
@@ -35,6 +36,14 @@ _hash_to_target_name = {
 
 
 def _element_link(target_collection, eventindex, index, key):
+    # check to make sure both the target_collection and the eventindex are both dask-awkward arrays or both awkward arrays
+    if isinstance(target_collection, dask_awkward.Array) != isinstance(
+        eventindex, dask_awkward.Array
+    ):
+        raise ValueError(
+            "element linking must be done on two dask_awkward arrays or two awkward arrays not a mix of the two"
+        )
+
     global_index = _get_global_index(target_collection, eventindex, index)
     global_index = awkward.where(key != 0, global_index, -1)
     return target_collection._apply_global_index(global_index)
@@ -95,7 +104,7 @@ def _get_target_offsets(load_column, event_index):
     ):
         # wrap in map_partitions if dask arrays
         return dask_awkward.map_partitions(
-            _get_target_offsets, load_column, event_index
+            _get_target_offsets, load_column, event_index, label="get_target_offsets"
         )
 
     offsets = load_column.layout.offsets.data
@@ -132,6 +141,11 @@ def _get_global_index(target, eventindex, index):
     return target_offsets + index
 
 
+behavior.update(
+    awkward._util.copy_behaviors("PtEtaPhiMLorentzVector", "Particle", behavior)
+)
+
+
 @awkward.mixin_class(behavior)
 class Particle(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
     """Generic particle collection that has Lorentz vector properties"""
@@ -142,6 +156,15 @@ class Particle(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
 
 
 _set_repr_name("Particle")
+
+ParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+ParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+ParticleArray.ProjectionClass4D = ParticleArray  # noqa: F821
+ParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(
+    awkward._util.copy_behaviors("LorentzVector", "TrackParticle", behavior)
+)
 
 
 @awkward.mixin_class(behavior)
@@ -181,6 +204,13 @@ class TrackParticle(vector.LorentzVector, base.NanoCollection):
 
 _set_repr_name("TrackParticle")
 
+TrackParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+TrackParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+TrackParticleArray.ProjectionClass4D = TrackParticleArray  # noqa: F821
+TrackParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(awkward._util.copy_behaviors("Particle", "Muon", behavior))
+
 
 @awkward.mixin_class(behavior)
 class Muon(Particle):
@@ -208,6 +238,13 @@ class Muon(Particle):
 
 
 _set_repr_name("Muon")
+
+MuonArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+MuonArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+MuonArray.ProjectionClass4D = MuonArray  # noqa: F821
+MuonArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(awkward._util.copy_behaviors("Particle", "Electron", behavior))
 
 
 @awkward.mixin_class(behavior)
@@ -248,18 +285,25 @@ class Electron(Particle):
 
     @dask_property
     def caloClusters(self):
-        return _element_link_method(
-            self, "caloClusterLinks", "CaloCalTopoClusters", None
-        )
+        return _element_link_method(self, "caloClusterLinks", "egammaClusters", None)
 
     @caloClusters.dask
     def caloClusters(self, dask_array):
         return _element_link_method(
-            self, "caloClusterLinks", "CaloCalTopoClusters", dask_array
+            self, "caloClusterLinks", "egammaClusters", dask_array
         )
 
 
 _set_repr_name("Electron")
+
+ElectronArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+ElectronArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+ElectronArray.ProjectionClass4D = ElectronArray  # noqa: F821
+ElectronArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(
+    awkward._util.copy_behaviors("LorentzVector", "TruthParticle", behavior)
+)
 
 
 @awkward.mixin_class(behavior)
@@ -302,3 +346,8 @@ class TruthParticle(vector.LorentzVector, base.NanoCollection):
 
 
 _set_repr_name("TruthParticle")
+
+TruthParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+TruthParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+TruthParticleArray.ProjectionClass4D = TruthParticleArray  # noqa: F821
+TruthParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import copy
-from typing import Any, Callable, Dict, Hashable, List, Set, Tuple, Union
+from collections.abc import Hashable
+from typing import Any, Callable, Union
 
 import awkward
 import dask.base
@@ -19,14 +20,14 @@ from coffea.util import decompress_form
 
 DaskOutputBaseType = Union[
     dask.base.DaskMethodsMixin,
-    Dict[Hashable, dask.base.DaskMethodsMixin],
-    Set[dask.base.DaskMethodsMixin],
-    List[dask.base.DaskMethodsMixin],
-    Tuple[dask.base.DaskMethodsMixin],
+    dict[Hashable, dask.base.DaskMethodsMixin],
+    set[dask.base.DaskMethodsMixin],
+    list[dask.base.DaskMethodsMixin],
+    tuple[dask.base.DaskMethodsMixin],
 ]
 
 # NOTE TO USERS: You can use nested python containers as arguments to dask.compute!
-DaskOutputType = Union[DaskOutputBaseType, Tuple[DaskOutputBaseType, ...]]
+DaskOutputType = Union[DaskOutputBaseType, tuple[DaskOutputBaseType, ...]]
 
 GenericHEPAnalysis = Callable[[dask_awkward.Array], DaskOutputType]
 
@@ -40,6 +41,7 @@ def apply_to_dataset(
 ) -> DaskOutputType | tuple[DaskOutputType, dask_awkward.Array]:
     """
     Apply the supplied function or processor to the supplied dataset.
+
     Parameters
     ----------
         data_manipulation : ProcessorABC or GenericHEPAnalysis
@@ -86,7 +88,7 @@ def apply_to_dataset(
 
     if report is not None:
         return out, report
-    return out
+    return (out,)
 
 
 def apply_to_fileset(
@@ -97,6 +99,7 @@ def apply_to_fileset(
 ) -> dict[str, DaskOutputType] | tuple[dict[str, DaskOutputType], dask_awkward.Array]:
     """
     Apply the supplied function or processor to the supplied fileset (set of datasets).
+
     Parameters
     ----------
         data_manipulation : ProcessorABC or GenericHEPAnalysis
@@ -125,10 +128,10 @@ def apply_to_fileset(
         dataset_out = apply_to_dataset(
             data_manipulation, dataset, schemaclass, metadata, uproot_options
         )
-        if isinstance(dataset_out, tuple):
+        if isinstance(dataset_out, tuple) and len(dataset_out) > 1:
             out[name], report[name] = dataset_out
         else:
-            out[name] = dataset_out
+            out[name] = dataset_out[0]
     if len(report) > 0:
         return out, report
     return out

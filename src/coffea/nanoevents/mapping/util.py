@@ -7,7 +7,7 @@ from coffea.nanoevents.util import key_to_tuple
 class CachedMapping(Mapping):
     """A cache-wrapped mapping
     Reads will call into ``cache`` first, and if no key exists,
-    the read will fall back to ``base``, saving the reult into ``cache``.
+    the read will fall back to ``base``, saving the result into ``cache``.
     """
 
     def __init__(self, cache, base):

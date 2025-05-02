@@ -165,7 +165,7 @@ tstart = time.time()
 workers = wq.Factory(
     # local runs:
     batch_type="local",
-    manager_host_port=f"localhost:{wq_port}"
+    manager_host_port=f"localhost:{wq_port}",
     # with a batch system, e.g., condor.
     # (If coffea not at the installation site, then a conda
     # environment_file should be defined in the work_queue_executor_args.)

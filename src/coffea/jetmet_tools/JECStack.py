@@ -8,12 +8,35 @@ _nicenames = ["Jet Resolution Calculator", "Jet Resolution Scale Factor Calculat
 
 
 class JECStack:
+    """
+    Mostly used as an input to `CorrectedJetsFactory`. Hosts and organizes multiple
+    corrections under one object.
+
+    jec, junc, etc. can be explicitly set by passing in the appropriate corrector class
+    (eg: FactorizedJetCorrector). If they are not set, correctors will be created, using
+    the info in `corrections` as input.
+
+    Parameters
+    ---------
+        corrections: dict[str,lookup_base]
+            A dict-like of function names and functions. The function depends on the type
+            of correction (eg: for JEC, should be jme_standard_function). We expect JEC
+            names to be formatted as their filenames.
+        jec: FactorizedJetCorrector, optional
+            If provided, overrides the jec that would be created from `corrections` in
+            the stack.
+        junc: JetCorrectionUncertainty, optional
+            If provided, overrides the junc that would be created from `corrections` in
+            the stack.
+        jer: JetResolution, optional
+            If provided, overrides the jer that would be created from `corrections` in
+            the stack.
+        jersf: JetResolutionScaleFactor, optional
+            If provided, overrides the jersf that would be created from `corrections` in
+            the stack.
+    """
+
     def __init__(self, corrections, jec=None, junc=None, jer=None, jersf=None):
-        """
-        corrections is a dict-like of function names and functions
-        we expect JEC names to be formatted as their filenames
-        jecs, etc. can be overridden by passing in the appropriate corrector class.
-        """
         self._jec = None
         self._junc = None
         self._jer = None
@@ -99,6 +122,10 @@ class JECStack:
 
     @property
     def blank_name_map(self):
+        """
+        A dictionary in the form of the `name_map` input parameter for
+        `CorrectedJetsFactory`, with all keys mapped to None.
+        """
         out = {
             "massRaw",
             "ptRaw",
@@ -126,16 +153,28 @@ class JECStack:
 
     @property
     def jec(self):
+        """
+        The stack's FactorizedJetCorrector object.
+        """
         return self._jec
 
     @property
     def junc(self):
+        """
+        The stack's JetCorrectionUncertainty object.
+        """
         return self._junc
 
     @property
     def jer(self):
+        """
+        The stack's JetResolution object.
+        """
         return self._jer
 
     @property
     def jersf(self):
+        """
+        The stack's JetResolutionScaleFactor object.
+        """
         return self._jersf

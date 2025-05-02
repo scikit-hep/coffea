@@ -27,6 +27,7 @@ def jetmet_evaluator():
             "* * tests/samples/RegroupedV2_Fall17_17Nov2017_V32_MC_UncertaintySources_AK4PFchs.junc.txt.gz",
             "* * tests/samples/Regrouped_Fall17_17Nov2017_V32_MC_UncertaintySources_AK4PFchs.junc.txt",
             "* * tests/samples/Spring16_25nsV10_MC_PtResolution_AK4PFPuppi.jr.txt.gz",
+            "* * tests/samples/Summer23Prompt23_RunCv1234_JRV1_MC_PtResolution_AK4PFPuppi.jr.txt.gz",
             "* * tests/samples/Spring16_25nsV10_MC_SF_AK4PFPuppi.jersf.txt.gz",
             "* * tests/samples/Autumn18_V7_MC_SF_AK4PFchs.jersf.txt.gz",
         ]
@@ -311,6 +312,9 @@ def test_jet_resolution(optimization_enabled):
 
         jer_names = ["Spring16_25nsV10_MC_PtResolution_AK4PFPuppi"]
         reso = JetResolution(**{name: evaluator[name] for name in jer_names})
+
+        check2023_names = ["Summer23Prompt23_RunCv1234_JRV1_MC_PtResolution_AK4PFPuppi"]
+        _ = JetResolution(**{name: evaluator[name] for name in check2023_names})
 
         print(reso)
 
@@ -711,16 +715,22 @@ def test_jet_resolution_sf_2d(optimization_enabled):
         )
 
 
+@pytest.mark.dask_client
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_corrected_jets_factory(optimization_enabled):
     import os
+
+    from distributed import Client
 
     from coffea.jetmet_tools import CorrectedJetsFactory, CorrectedMETFactory, JECStack
 
     events = None
     from coffea.nanoevents import NanoEventsFactory
 
-    with dask.config.set({"awkward.optimization.enabled": True}):
+    with (
+        Client(),
+        dask.config.set({"awkward.optimization.enabled": optimization_enabled}),
+    ):
         events = NanoEventsFactory.from_root(
             {os.path.abspath("tests/samples/nano_dy.root"): "Events"},
             metadata={},

@@ -11,7 +11,7 @@ def events(tests_directory):
     events = NanoEventsFactory.from_root(
         {path: "Events"},
         schemaclass=PFNanoAODSchema,
-        delayed=True,
+        mode="dask",
     ).events()
     return events
 

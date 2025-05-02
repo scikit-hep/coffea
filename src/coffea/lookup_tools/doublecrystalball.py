@@ -204,7 +204,7 @@ class doublecrystalball_gen(rv_continuous):
         """
         Shape parameter bounds are m > 1 and beta > 0.
         """
-        return (mL > 1) & (betaL > 0) & (mH > 1) & (betaH > 1)
+        return (mL > 1) & (betaL > 0) & (mH > 1) & (betaH > 0)
 
 
 doublecrystalball = doublecrystalball_gen(

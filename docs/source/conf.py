@@ -25,14 +25,14 @@ print("coffea version:", coffea.__version__)
 # -- Project information -----------------------------------------------------
 
 project = "coffea"
-copyright = "2019, Fermi National Accelerator Laboratory"
+copyright = "2024, Fermi National Accelerator Laboratory"
 author = "L. Gray, N. Smith, et al. (The Coffea Team)"
 
 version = coffea.__version__.rsplit(".", 1)[0]
 release = coffea.__version__
 githash = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("ascii")
 
-language = None
+language = "en"
 
 # -- General configuration ---------------------------------------------------
 
@@ -45,6 +45,7 @@ extensions = [
     "nbsphinx",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.graphviz",
     "sphinx.ext.intersphinx",
     "sphinx.ext.linkcode",
     "sphinx.ext.napoleon",
@@ -77,12 +78,12 @@ def linkcode_resolve(domain, info):
     obj = reduce(getattr, [mod] + info["fullname"].split("."))
     try:
         path = inspect.getsourcefile(obj)
-        relpath = path[len(modpath) + 1 :]
+        relpath = path[modpath.rfind("/src") + 1 :]
         _, lineno = inspect.getsourcelines(obj)
     except TypeError:
         # skip property or other type that inspect doesn't like
         return None
-    return "http://github.com/CoffeaTeam/coffea/blob/{}/{}#L{}".format(
+    return "http://github.com/scikit-hep/coffea/blob/{}/{}#L{}".format(
         githash, relpath, lineno
     )
 
@@ -114,6 +115,8 @@ pygments_style = "sphinx"
 html_theme = "sphinx_rtd_theme"
 todo_include_todos = False
 htmlhelp_basename = "coffeadoc"
+html_logo = "logo/coffea_favicon.png"
+html_favicon = "logo/coffea_favicon.png"
 
 
 # Add any paths that contain custom static files (such as style sheets) here,

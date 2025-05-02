@@ -28,7 +28,7 @@ class dense_mapped_lookup(lookup_base):
                     feval = eval(
                         "lambda x: " + formula, {"log": numpy.log, "sqrt": numpy.sqrt}
                     )
-                    out = numba.jit()(feval)
+                    out = numba.jit(nopython=True)(feval)
                 else:
                     out = eval(formula)
                 dense_mapped_lookup._formulaCache[formula] = out

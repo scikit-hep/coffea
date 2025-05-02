@@ -31,7 +31,7 @@ extending array programming capabilities to the complexity of HEP data.
 Coffea processor
 ----------------
 In almost all HEP analyses, each row corresponds to an independent event, and it is exceptionally rare
-to need to compute inter-row derived quantites. Due to this, horizontal scale-out is almost trivial:
+to need to compute inter-row derived quantities. Due to this, horizontal scale-out is almost trivial:
 each chunk of rows can be operated on independently. Further, if the output of an analysis is restricted
 to reducible accumulators such as histograms (abstracted by `dask`, `dask-awkward`, and `dask-histogram`),
 then outputs can even be merged via tree reduction. The `ProcessorABC` class is an abstraction to encapsulate

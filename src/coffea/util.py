@@ -1,16 +1,16 @@
-"""Utility functions
+"""Utility functions"""
 
-"""
 import base64
 import gzip
 import hashlib
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import awkward
 import dask_awkward
 import hist
 import numba
 import numpy
+import uproot
 from rich.progress import (
     BarColumn,
     Column,
@@ -21,8 +21,6 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
-
-import coffea
 
 ak = awkward
 dak = dask_awkward
@@ -120,7 +118,7 @@ def _gethistogramaxis(name, var, bins, start, stop, edges, transform, delayed_mo
     )
 
 
-def _exception_chain(exc: BaseException) -> List[BaseException]:
+def _exception_chain(exc: BaseException) -> list[BaseException]:
     """Retrieves the entire exception chain as a list."""
     ret = []
     while isinstance(exc, BaseException):
@@ -165,22 +163,27 @@ def rich_bar():
     )
 
 
-# lifted from awkward - https://github.com/scikit-hep/awkward-1.0/blob/5fe31a916bf30df6c2ea10d4094f6f1aefcf3d0c/src/awkward/_util.py#L47-L61 # noqa
+# lifted from awkward - https://github.com/scikit-hep/awkward/blob/2b80da6b60bd5f0437b66f266387f1ab4bf98fe1/src/awkward/_errors.py#L421 # noqa
 # drive our deprecations-as-errors as with awkward
-def deprecate(exception, version, date=None):
-    if coffea.deprecations_as_errors:
-        raise exception
+def deprecate(
+    message,
+    version,
+    date=None,
+    will_be="an error",
+    category=DeprecationWarning,
+    stacklevel=2,
+):
+    if date is None:
+        date = ""
     else:
-        if date is None:
-            date = ""
-        else:
-            date = " (target date: " + date + ")"
-        message = """In coffea version {}{}, this will be an error.
-(Set coffea.deprecations_as_errors = True to get a stack trace now.)
-{}: {}""".format(
-            version, date, type(exception).__name__, str(exception)
-        )
-        warnings.warn(message, FutureWarning)
+        date = " (target date: " + date + ")"
+    warning = f"""In version {version}{date}, this will be {will_be}.
+To raise these warnings as errors (and get stack traces to find out where they're called), run
+    import warnings
+    warnings.filterwarnings("error", module="coffea.*")
+after the first `import coffea` or use `@pytest.mark.filterwarnings("error:::coffea.*")` in pytest.
+Issue: {message}."""
+    warnings.warn(warning, category, stacklevel=stacklevel + 1)
 
 
 # re-nest a record array into a ListArray
@@ -204,3 +207,37 @@ def compress_form(formjson):
 # shorthand for decompressing forms
 def decompress_form(form_compressedb64):
     return gzip.decompress(base64.b64decode(form_compressedb64)).decode("utf-8")
+
+
+def _remove_not_interpretable(branch, emit_warning=True):
+    if isinstance(
+        branch.interpretation, uproot.interpretation.identify.uproot.AsGrouped
+    ):
+        for name, interpretation in branch.interpretation.subbranches.items():
+            if isinstance(
+                interpretation, uproot.interpretation.identify.UnknownInterpretation
+            ):
+                if emit_warning:
+                    warnings.warn(
+                        f"Skipping {branch.name} as it is not interpretable by Uproot"
+                    )
+                return False
+    if isinstance(
+        branch.interpretation, uproot.interpretation.identify.UnknownInterpretation
+    ):
+        if emit_warning:
+            warnings.warn(
+                f"Skipping {branch.name} as it is not interpretable by Uproot"
+            )
+        return False
+
+    try:
+        _ = branch.interpretation.awkward_form(None)
+    except uproot.interpretation.objects.CannotBeAwkward:
+        if emit_warning:
+            warnings.warn(
+                f"Skipping {branch.name} as it is it cannot be represented as an Awkward array"
+            )
+        return False
+    else:
+        return True

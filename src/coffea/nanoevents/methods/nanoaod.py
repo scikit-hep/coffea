@@ -1,4 +1,5 @@
 """Mixins for the CMS NanoAOD schema"""
+
 import warnings
 
 import awkward
@@ -14,9 +15,7 @@ behavior.update(candidate.behavior)
 
 class _NanoAODEvents(behavior["NanoEvents"]):
     def __repr__(self):
-        return f"<event {getattr(self,'run','??')}:\
-                {getattr(self,'luminosityBlock','??')}:\
-                {getattr(self,'event','??')}>"
+        return "<NanoAOD event>"
 
 
 behavior["NanoEvents"] = _NanoAODEvents
@@ -30,11 +29,29 @@ def _set_repr_name(classname):
     behavior[classname].__repr__ = namefcn
 
 
+behavior.update(
+    awkward._util.copy_behaviors(
+        "PtEtaPhiMLorentzVector", "PtEtaPhiMCollection", behavior
+    )
+)
+
+
 @awkward.mixin_class(behavior)
 class PtEtaPhiMCollection(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
     """Generic collection that has Lorentz vector properties"""
 
     pass
+
+
+PtEtaPhiMCollectionArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+PtEtaPhiMCollectionArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+PtEtaPhiMCollectionArray.ProjectionClass4D = PtEtaPhiMCollectionArray  # noqa: F821
+PtEtaPhiMCollectionArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+
+behavior.update(
+    awkward._util.copy_behaviors("PtEtaPhiMLorentzVector", "GenParticle", behavior)
+)
 
 
 @awkward.mixin_class(behavior)
@@ -87,6 +104,9 @@ class GenParticle(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
 
     @dask_property
     def parent(self):
+        """
+        Accessor to the direct parent of this particle.
+        """
         return self._events().GenPart._apply_global_index(self.genPartIdxMotherG)
 
     @parent.dask
@@ -97,6 +117,9 @@ class GenParticle(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
 
     @dask_property
     def distinctParent(self):
+        """
+        Accessor to distinct (different PDG id) parent particle.
+        """
         return self._events().GenPart._apply_global_index(self.distinctParentIdxG)
 
     @distinctParent.dask
@@ -107,6 +130,10 @@ class GenParticle(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
 
     @dask_property
     def children(self):
+        """
+        Accessor to direct children of this particle (not grandchildren). Includes particles
+        with the same PDG ID as this particle.
+        """
         return self._events().GenPart._apply_global_index(self.childrenIdxG)
 
     @children.dask
@@ -115,6 +142,12 @@ class GenParticle(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
 
     @dask_property
     def distinctChildren(self):
+        """
+        Accessor to direct children of this particle which do not have the same PDG ID as
+        this particle. Note that this implies the summed four-momentum of the distinctChildren
+        may not sum to the four-momentum of this particle (for example, if this particle
+        radiates another particle type). If that behavior is desired, see `distinctChildrenDeep`.
+        """
         return self._events().GenPart._apply_global_index(self.distinctChildrenIdxG)
 
     @distinctChildren.dask
@@ -125,7 +158,12 @@ class GenParticle(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
 
     @dask_property
     def distinctChildrenDeep(self):
-        """Accessor to distinct child particles with different PDG id, or last ones in the chain"""
+        """
+        Accessor to distinct child particles with different PDG id, or last ones in the chain.
+        Note that this does not always find the correct children, since this sometimes depends
+        on the MC generator! See `here <https://github.com/scikit-hep/coffea/pull/698>` for more
+        information.
+        """
         warnings.warn(
             "distinctChildrenDeep may not give correct answers for all generators!"
         )
@@ -143,6 +181,15 @@ class GenParticle(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
 
 
 _set_repr_name("GenParticle")
+
+GenParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+GenParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+GenParticleArray.ProjectionClass4D = GenParticleArray  # noqa: F821
+GenParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(
+    awkward._util.copy_behaviors("PtEtaPhiMLorentzVector", "GenVisTau", behavior)
+)
 
 
 @awkward.mixin_class(behavior)
@@ -163,6 +210,15 @@ class GenVisTau(candidate.PtEtaPhiMCandidate, base.NanoCollection):
 
 
 _set_repr_name("GenVisTau")
+
+GenVisTauArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+GenVisTauArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+GenVisTauArray.ProjectionClass4D = GenVisTauArray  # noqa: F821
+GenVisTauArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(
+    awkward._util.copy_behaviors("PtEtaPhiMCandidate", "Electron", behavior)
+)
 
 
 @awkward.mixin_class(behavior)
@@ -203,6 +259,7 @@ class Electron(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systemati
 
     @dask_property
     def matched_gen(self):
+        """The matched gen-level particle as determined by the NanoAOD branch genPartIdx"""
         return self._events().GenPart._apply_global_index(self.genPartIdxG)
 
     @matched_gen.dask
@@ -211,6 +268,7 @@ class Electron(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systemati
 
     @dask_property
     def matched_jet(self):
+        """The matched jet as determined by the NanoAOD branch jetIdx"""
         return self._events().Jet._apply_global_index(self.jetIdxG)
 
     @matched_jet.dask
@@ -219,6 +277,7 @@ class Electron(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systemati
 
     @dask_property
     def matched_photon(self):
+        """The associated photon as determined by the NanoAOD branch photonIdx"""
         return self._events().Photon._apply_global_index(self.photonIdxG)
 
     @matched_photon.dask
@@ -228,6 +287,59 @@ class Electron(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systemati
 
 _set_repr_name("Electron")
 
+ElectronArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+ElectronArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+ElectronArray.ProjectionClass4D = ElectronArray  # noqa: F821
+ElectronArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(
+    awkward._util.copy_behaviors("PtEtaPhiMCandidate", "LowPtElectron", behavior)
+)
+
+
+@awkward.mixin_class(behavior)
+class LowPtElectron(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
+    """NanoAOD low-pt electron object"""
+
+    @dask_property
+    def matched_gen(self):
+        """The matched gen-level particle as determined by the NanoAOD branch genPartIdx"""
+        return self._events().GenPart._apply_global_index(self.genPartIdxG)
+
+    @matched_gen.dask
+    def matched_gen(self, dask_array):
+        return dask_array._events().GenPart._apply_global_index(dask_array.genPartIdxG)
+
+    @dask_property
+    def matched_electron(self):
+        """The matched gen-level electron as determined by the NanoAOD branch electronIdx"""
+        return self._events().Electron._apply_global_index(self.electronIdxG)
+
+    @matched_electron.dask
+    def matched_electron(self, dask_array):
+        return dask_array._events().Electron._apply_global_index(
+            dask_array.electronIdxG
+        )
+
+    @dask_property
+    def matched_photon(self):
+        """The associated photon as determined by the NanoAOD branch photonIdx"""
+        return self._events().Photon._apply_global_index(self.photonIdxG)
+
+    @matched_photon.dask
+    def matched_photon(self, dask_array):
+        return dask_array._events().Photon._apply_global_index(dask_array.photonIdxG)
+
+
+_set_repr_name("LowPtElectron")
+
+LowPtElectronArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+LowPtElectronArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+LowPtElectronArray.ProjectionClass4D = LowPtElectronArray  # noqa: F821
+LowPtElectronArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(awkward._util.copy_behaviors("PtEtaPhiMCandidate", "Muon", behavior))
+
 
 @awkward.mixin_class(behavior)
 class Muon(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
@@ -235,6 +347,7 @@ class Muon(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
 
     @dask_property
     def matched_fsrPhoton(self):
+        """The matched FSR photon with the lowest dR/ET2. Accessed via the NanoAOD branch fsrPhotonIdx"""
         return self._events().FsrPhoton._apply_global_index(self.fsrPhotonIdxG)
 
     @matched_fsrPhoton.dask
@@ -245,6 +358,7 @@ class Muon(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
 
     @dask_property
     def matched_gen(self):
+        """The matched gen-level particle as determined by the NanoAOD branch genPartIdx"""
         return self._events().GenPart._apply_global_index(self.genPartIdxG)
 
     @matched_gen.dask
@@ -253,6 +367,7 @@ class Muon(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
 
     @dask_property
     def matched_jet(self):
+        """The matched jet as determined by the NanoAOD branch jetIdx"""
         return self._events().Jet._apply_global_index(self.jetIdxG)
 
     @matched_jet.dask
@@ -262,6 +377,13 @@ class Muon(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
 
 _set_repr_name("Muon")
 
+MuonArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+MuonArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+MuonArray.ProjectionClass4D = MuonArray  # noqa: F821
+MuonArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(awkward._util.copy_behaviors("PtEtaPhiMCandidate", "Tau", behavior))
+
 
 @awkward.mixin_class(behavior)
 class Tau(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
@@ -269,6 +391,7 @@ class Tau(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
 
     @dask_property
     def matched_gen(self):
+        """The matched gen-level particle as determined by the NanoAOD branch genPartIdx"""
         return self._events().GenPart._apply_global_index(self.genPartIdxG)
 
     @matched_gen.dask
@@ -277,6 +400,7 @@ class Tau(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
 
     @dask_property
     def matched_jet(self):
+        """The matched jet as determined by the NanoAOD branch jetIdx"""
         return self._events().Jet._apply_global_index(self.jetIdxG)
 
     @matched_jet.dask
@@ -286,39 +410,62 @@ class Tau(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
 
 _set_repr_name("Tau")
 
+TauArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+TauArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+TauArray.ProjectionClass4D = TauArray  # noqa: F821
+TauArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(awkward._util.copy_behaviors("PtEtaPhiMCandidate", "Photon", behavior))
+
 
 @awkward.mixin_class(behavior)
 class Photon(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
     """NanoAOD photon object"""
 
-    LOOSE = 0
-    "cutBasedBitmap bit position"
-    MEDIUM = 1
-    "cutBasedBitmap bit position"
-    TIGHT = 2
-    "cutBasedBitmap bit position"
+    FAIL = 0
+    "cutBased selection minimum value"
+    LOOSE = 1
+    "cutBased selection minimum value"
+    MEDIUM = 2
+    "cutBased selection minimum value"
+    TIGHT = 3
+    "cutBased selection minimum value"
 
     @property
     def mass(self):
-        return 0.0 * self.pt
+        return awkward.zeros_like(self.pt)
+
+    @property
+    def charge(self):
+        return awkward.zeros_like(self.pt)
 
     @property
     def isLoose(self):
         """Returns a boolean array marking loose cut-based photons"""
-        return (self.cutBasedBitmap & (1 << self.LOOSE)) != 0
+        # For NanoAOD v9+ the cutBasedBitmap was changed to a cutBased integer
+        if "cutBased" in self.fields:
+            return self.cutBased >= self.LOOSE
+        return (self.cutBasedBitmap & (1 << (self.LOOSE - 1))) != 0
 
     @property
     def isMedium(self):
         """Returns a boolean array marking medium cut-based photons"""
-        return (self.cutBasedBitmap & (1 << self.MEDIUM)) != 0
+        # For NanoAOD v9+ the cutBasedBitmap was changed to a cutBased integer
+        if "cutBased" in self.fields:
+            return self.cutBased >= self.MEDIUM
+        return (self.cutBasedBitmap & (1 << (self.MEDIUM - 1))) != 0
 
     @property
     def isTight(self):
         """Returns a boolean array marking tight cut-based photons"""
-        return (self.cutBasedBitmap & (1 << self.TIGHT)) != 0
+        # For NanoAOD v9+ the cutBasedBitmap was changed to a cutBased integer
+        if "cutBased" in self.fields:
+            return self.cutBased >= self.TIGHT
+        return (self.cutBasedBitmap & (1 << (self.TIGHT - 1))) != 0
 
     @dask_property
     def matched_electron(self):
+        """The matched electron as determined by the NanoAOD branch electronIdx"""
         return self._events().Electron._apply_global_index(self.electronIdxG)
 
     @matched_electron.dask
@@ -329,6 +476,7 @@ class Photon(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic)
 
     @dask_property
     def matched_gen(self):
+        """The matched gen-level particle as determined by the NanoAOD branch genPartIdx"""
         return self._events().GenPart._apply_global_index(self.genPartIdxG)
 
     @matched_gen.dask
@@ -337,6 +485,7 @@ class Photon(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic)
 
     @dask_property
     def matched_jet(self):
+        """The matched jet as determined by the NanoAOD branch jetIdx"""
         return self._events().Jet._apply_global_index(self.jetIdxG)
 
     @matched_jet.dask
@@ -346,6 +495,15 @@ class Photon(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic)
 
 _set_repr_name("Photon")
 
+PhotonArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+PhotonArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+PhotonArray.ProjectionClass4D = PhotonArray  # noqa: F821
+PhotonArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(
+    awkward._util.copy_behaviors("PtEtaPhiMCandidate", "FsrPhoton", behavior)
+)
+
 
 @awkward.mixin_class(behavior)
 class FsrPhoton(candidate.PtEtaPhiMCandidate, base.NanoCollection):
@@ -353,6 +511,7 @@ class FsrPhoton(candidate.PtEtaPhiMCandidate, base.NanoCollection):
 
     @dask_property
     def matched_muon(self):
+        """The matched muon as determined by the NanoAOD branch muonIdx"""
         return self._events().Muon._apply_global_index(self.muonIdxG)
 
     @matched_muon.dask
@@ -362,9 +521,16 @@ class FsrPhoton(candidate.PtEtaPhiMCandidate, base.NanoCollection):
 
 _set_repr_name("FsrPhoton")
 
+FsrPhotonArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+FsrPhotonArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+FsrPhotonArray.ProjectionClass4D = FsrPhotonArray  # noqa: F821
+FsrPhotonArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(awkward._util.copy_behaviors("PtEtaPhiMCandidate", "Jet", behavior))
+
 
 @awkward.mixin_class(behavior)
-class Jet(vector.PtEtaPhiMLorentzVector, base.NanoCollection, base.Systematic):
+class Jet(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
     """NanoAOD narrow radius jet object"""
 
     LOOSE = 0
@@ -373,6 +539,10 @@ class Jet(vector.PtEtaPhiMLorentzVector, base.NanoCollection, base.Systematic):
     "jetId bit position"
     TIGHTLEPVETO = 2
     "jetId bit position"
+
+    @property
+    def charge(self):
+        return awkward.zeros_like(self.pt)
 
     @property
     def isLoose(self):
@@ -391,6 +561,11 @@ class Jet(vector.PtEtaPhiMLorentzVector, base.NanoCollection, base.Systematic):
 
     @dask_property
     def matched_electrons(self):
+        """
+        The matched electrons as determined by the NanoAOD branch electronIdx. The resulting awkward
+        array has two entries per jet, where if there are fewer than 2 electrons matched to a jet, the
+        innermost dimensions are padded with None to be of size 2.
+        """
         return self._events().Electron._apply_global_index(self.electronIdxG)
 
     @matched_electrons.dask
@@ -401,6 +576,11 @@ class Jet(vector.PtEtaPhiMLorentzVector, base.NanoCollection, base.Systematic):
 
     @dask_property
     def matched_muons(self):
+        """
+        The matched muons as determined by the NanoAOD branch muonIdx. The resulting awkward
+        array has two entries per jet, where if there are fewer than 2 muons matched to a jet, the
+        innermost dimensions are padded with None to be of size 2.
+        """
         return self._events().Muon._apply_global_index(self.muonIdxG)
 
     @matched_muons.dask
@@ -409,6 +589,9 @@ class Jet(vector.PtEtaPhiMLorentzVector, base.NanoCollection, base.Systematic):
 
     @dask_property
     def matched_gen(self):
+        """
+        AK4 jets made with visible genparticles, matched to this jet via the NanoAOD branch genJetIdx
+        """
         return self._events().GenJet._apply_global_index(self.genJetIdxG)
 
     @matched_gen.dask
@@ -432,9 +615,16 @@ class Jet(vector.PtEtaPhiMLorentzVector, base.NanoCollection, base.Systematic):
 
 _set_repr_name("Jet")
 
+JetArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+JetArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+JetArray.ProjectionClass4D = JetArray  # noqa: F821
+JetArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(awkward._util.copy_behaviors("PtEtaPhiMCandidate", "FatJet", behavior))
+
 
 @awkward.mixin_class(behavior)
-class FatJet(vector.PtEtaPhiMLorentzVector, base.NanoCollection, base.Systematic):
+class FatJet(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
     """NanoAOD large radius jet object"""
 
     LOOSE = 0
@@ -443,6 +633,10 @@ class FatJet(vector.PtEtaPhiMLorentzVector, base.NanoCollection, base.Systematic
     "jetId bit position"
     TIGHTLEPVETO = 2
     "jetId bit position"
+
+    @property
+    def charge(self):
+        return awkward.zeros_like(self.pt)
 
     @property
     def isLoose(self):
@@ -469,6 +663,7 @@ class FatJet(vector.PtEtaPhiMLorentzVector, base.NanoCollection, base.Systematic
 
     @dask_property
     def matched_gen(self):
+        """AK8 jets made of visible genparticles, matched via the NanoAOD branch genJetAK8Idx"""
         return self._events().GenJetAK8._apply_global_index(self.genJetAK8IdxG)
 
     @matched_gen.dask
@@ -494,6 +689,13 @@ class FatJet(vector.PtEtaPhiMLorentzVector, base.NanoCollection, base.Systematic
 
 _set_repr_name("FatJet")
 
+FatJetArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+FatJetArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+FatJetArray.ProjectionClass4D = FatJetArray  # noqa: F821
+FatJetArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+behavior.update(awkward._util.copy_behaviors("PolarTwoVector", "MissingET", behavior))
+
 
 @awkward.mixin_class(behavior)
 class MissingET(vector.PolarTwoVector, base.NanoCollection, base.Systematic):
@@ -501,10 +703,16 @@ class MissingET(vector.PolarTwoVector, base.NanoCollection, base.Systematic):
 
     @property
     def r(self):
+        """Distance from origin in XY plane"""
         return self["pt"]
 
 
 _set_repr_name("MissingET")
+
+MissingETArray.ProjectionClass2D = MissingETArray  # noqa: F821
+MissingETArray.ProjectionClass3D = vector.SphericalThreeVectorArray  # noqa: F821
+MissingETArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
+MissingETArray.MomentumClass = MissingETArray  # noqa: F821
 
 
 @awkward.mixin_class(behavior)
@@ -632,12 +840,17 @@ class PFCand(candidate.PtEtaPhiMCandidate, base.NanoCollection):
 
 _set_repr_name("PFCand")
 
+PFCandArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+PFCandArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+PFCandArray.ProjectionClass4D = PFCandArray  # noqa: F821
+PFCandArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
 __all__ = [
     "PtEtaPhiMCollection",
     "GenParticle",
     "GenVisTau",
     "Electron",
+    "LowPtElectron",
     "Muon",
     "Tau",
     "Photon",

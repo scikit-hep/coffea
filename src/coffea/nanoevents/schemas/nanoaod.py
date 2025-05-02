@@ -43,8 +43,8 @@ class NanoAODSchema(BaseSchema):
     """
 
     __dask_capable__ = True
-    warn_missing_crossrefs = True
-    error_missing_event_ids = True
+    warn_missing_crossrefs = True  # If True, issues a warning when a missing global index cross-ref target is encountered
+    error_missing_event_ids = True  # If True, raises an exception when 'run', 'event', or 'luminosityBlock' fields are missing
 
     event_ids = ["run", "luminosityBlock", "event"]
     """List of NanoAOD event IDs
@@ -76,6 +76,7 @@ class NanoAODSchema(BaseSchema):
         "SubJet": "PtEtaPhiMCollection",
         # Candidate: lorentz + charge
         "Electron": "Electron",
+        "LowPtElectron": "LowPtElectron",
         "Muon": "Muon",
         "Photon": "Photon",
         "FsrPhoton": "FsrPhoton",
@@ -94,6 +95,9 @@ class NanoAODSchema(BaseSchema):
         "Electron_genPartIdx": "GenPart",
         "Electron_jetIdx": "Jet",
         "Electron_photonIdx": "Photon",
+        "LowPtElectron_electronIdx": "Electron",
+        "LowPtElectron_genPartIdx": "GenPart",
+        "LowPtElectron_photonIdx": "Photon",
         "FatJet_genJetAK8Idx": "GenJetAK8",
         "FatJet_subJetIdx1": "SubJet",
         "FatJet_subJetIdx2": "SubJet",
@@ -185,17 +189,34 @@ class NanoAODSchema(BaseSchema):
 
         For example, one can use ``NanoEventsFactory.from_root("file.root", schemaclass=NanoAODSchema.v7)``
         to ensure NanoAODv7 compatibility.
+
+        Returns
+        -------
+            out: NanoAODSchema
+                Schema assuming NanoAODv7
         """
         return cls(base_form, version="7")
 
     @classmethod
     def v6(cls, base_form):
-        """Build the NanoEvents assuming NanoAODv6"""
+        """Build the NanoEvents assuming NanoAODv6
+
+        Returns
+        -------
+            out: NanoAODSchema
+                Schema assuming NanoAODv6
+        """
         return cls(base_form, version="6")
 
     @classmethod
     def v5(cls, base_form):
-        """Build the NanoEvents assuming NanoAODv5"""
+        """Build the NanoEvents assuming NanoAODv5
+
+        Returns
+        -------
+            out: NanoAODSchema
+                Schema assuming NanoAODv5
+        """
         return cls(base_form, version="5")
 
     def _build_collections(self, field_names, input_contents):
@@ -323,7 +344,7 @@ class NanoAODSchema(BaseSchema):
 
     @classmethod
     def behavior(cls):
-        """Behaviors necessary to implement this schema"""
+        """Behaviors necessary to implement this schema (dict)"""
         from coffea.nanoevents.methods import nanoaod
 
         return nanoaod.behavior
@@ -371,3 +392,26 @@ class PFNanoAODSchema(NanoAODSchema):
         "JetSVs_sVIdx": "SV",
         "SubJet_subGenJetAK8Idx": "SubGenJetAK8",
     }
+
+
+class ScoutingNanoAODSchema(NanoAODSchema):
+    """ScoutingNano schema builder
+
+    ScoutingNano is a NanoAOD format that includes Scouting objects
+    """
+
+    mixins = {
+        **NanoAODSchema.mixins,
+        "ScoutingJet": "Jet",
+        "ScoutingFatJet": "FatJet",
+        "ScoutingMET": "MissingET",
+        "ScoutingMuonNoVtxDisplacedVertex": "Vertex",
+        "ScoutingMuonVtxDisplacedVertex": "Vertex",
+        "ScoutingPrimaryVertex": "Vertex",
+        "ScoutingElectron": "Electron",
+        "ScoutingPhoton": "Photon",
+        "ScoutingMuonNoVtx": "Muon",
+        "ScoutingMuonVtx": "Muon",
+    }
+
+    all_cross_references = {**NanoAODSchema.all_cross_references}

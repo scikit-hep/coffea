@@ -104,12 +104,16 @@ class TreeMakerSchema(BaseSchema):
 
         # Generating collection from branch name
         collections = [k for k in branch_forms if "_" in k and not k.startswith("n")]
-        collections = {
-            "_".join(k.split("_")[:-1])
-            for k in collections
-            if k.split("_")[-1] != "AK8"
-            # Excluding per-event variables with AK8 variants like Mjj and MT
-        }
+        collections = sorted(
+            {
+                "_".join(k.split("_")[:-1])
+                for k in collections
+                if k.split("_")[-1] != "AK8"
+                # Excluding per-event variables with AK8 variants like Mjj and MT
+            },
+            key=lambda colname: colname.count("_"),
+            reverse=True,
+        )
 
         subcollections = []
 
@@ -166,7 +170,7 @@ class TreeMakerSchema(BaseSchema):
 
     @classmethod
     def behavior(cls):
-        """Behaviors necessary to implement this schema"""
+        """Behaviors necessary to implement this schema (dict)"""
         from coffea.nanoevents.methods import base, vector
 
         behavior = {}
@@ -180,7 +184,18 @@ class TreeMakerSchema(BaseSchema):
         Converting a TreeMakerSchema event into something that is uproot
         writeable. Based off the discussion thread here [1], but added specific
         cased to handled the nested structures define for TreeMaker n-tuples.
-        [1] https://github.com/CoffeaTeam/coffea/discussions/735
+        [1] https://github.com/scikit-hep/coffea/discussions/735
+
+        Parameters
+        ----------
+            events: TreeMakerSchema events
+                The TreeMakerSchema events to be turned into something uproot-writeable
+
+        Returns
+        -------
+            out: dict
+                An uproot-writeable dictionary representing the same information as the input
+                TreeMakerSchema events
         """
         import awkward as ak
 

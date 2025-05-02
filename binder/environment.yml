@@ -9,3 +9,4 @@ dependencies:
   - pip
   - pip:
     - '--editable ./coffea'
+    - distributed

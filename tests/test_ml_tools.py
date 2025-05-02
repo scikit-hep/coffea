@@ -24,6 +24,11 @@ def prepare_jets_array(njets):
             "phi": ak.from_regular(np.random.random(size=(njets, NFEAT))),
             "feat1": ak.from_regular(np.random.random(size=(njets, NFEAT))),
             "feat2": ak.from_regular(np.random.random(size=(njets, NFEAT))),
+            # Extra features for testing Tensorflow model for PFCandidate classification
+            **{
+                f"feat{i}": ak.from_regular(np.random.random(size=(njets, NFEAT)))
+                for i in range(3, 19)
+            },
         }
     )
 
@@ -37,8 +42,8 @@ def prepare_jets_array(njets):
     return ak_jets, dak_jets
 
 
-def common_prepare_awkward(array_lib, jets):
-    ak = array_lib
+def common_prepare_awkward(jets):
+    """Common jet parsing routing for pytorch and triton inference"""
 
     def my_pad(arr):
         return ak.fill_none(ak.pad_none(arr, 100, axis=1, clip=True), 0.0)
@@ -71,6 +76,7 @@ def common_prepare_awkward(array_lib, jets):
     }
 
 
+@pytest.mark.dask_client
 def test_triton():
     _ = pytest.importorskip("tritonclient")
 
@@ -81,10 +87,9 @@ def test_triton():
     # Defining custom wrapper function with awkward padding requirements.
     class triton_wrapper_test(triton_wrapper):
         def prepare_awkward(self, output_list, jets):
-            ak = self.get_awkward_lib(jets)
             return [], {
                 "output_list": output_list,
-                "input_dict": common_prepare_awkward(ak, jets),
+                "input_dict": common_prepare_awkward(jets),
             }
 
     # Running the evaluation in lazy and non-lazy forms
@@ -115,9 +120,16 @@ def test_triton():
     columns = set(list(dak.necessary_columns(dak_res).values())[0])
     assert columns == expected_columns
 
+    # Length 0 tests
+    ak_res = tw(["output"], ak_jets[ak_jets.eta < 0])
+    dak_res = tw(["output"], dak_jets[dak_jets.eta < 0])
+    for k in ak_res.keys():
+        assert len(ak_res[k]) == 0 and len(dak_res[k].compute()) == 0
+
     client.close()
 
 
+@pytest.mark.dask_client
 def test_torch():
     _ = pytest.importorskip("torch")
 
@@ -127,8 +139,7 @@ def test_torch():
 
     class torch_wrapper_test(torch_wrapper):
         def prepare_awkward(self, jets):
-            ak = self.get_awkward_lib(jets)
-            default = common_prepare_awkward(ak, jets)
+            default = common_prepare_awkward(jets)
             return [], {
                 "points": ak.values_astype(default["points"], np.float32),
                 "features": ak.values_astype(default["features"], np.float32),
@@ -137,7 +148,6 @@ def test_torch():
 
     tw = torch_wrapper_test("tests/samples/pn_demo.pt")
     ak_jets, dak_jets = prepare_jets_array(njets=256)
-
     ak_res = tw(ak_jets)
     dak_res = tw(dak_jets)
 
@@ -153,9 +163,95 @@ def test_torch():
     }
     columns = set(list(dak.necessary_columns(dak_res).values())[0])
     assert columns == expected_columns
+
+    # Length-0 testing
+    tw = torch_wrapper_test("tests/samples/pn_demo.pt", expected_output_shape=(None,))
+    ak_jets, dak_jets = prepare_jets_array(njets=256)
+    ak_jets = ak_jets[ak_jets.eta < -100]  # Mimicking a low efficiency selection
+    dak_jets = dak_jets[dak_jets.eta < -100]
+    ak_res, dak_res = tw(ak_jets), tw(dak_jets)
+    assert len(ak_jets) == 0 and len(dak_res.compute()) == 0
+
     client.close()
 
 
+@pytest.mark.dask_client
+def test_tensorflow():
+    _ = pytest.importorskip("tensorflow")
+
+    from coffea.ml_tools.tf_wrapper import tf_wrapper
+
+    client = Client()  # Spawn local cluster
+
+    class tf_wrapper_test(tf_wrapper):
+        def prepare_awkward(self, jets):
+            # List of PF candidate features used for computation
+            features = [f"feat{i}" for i in range(1, 19)]
+
+            cands = ak.concatenate(
+                [
+                    # Filling pad with dummy value
+                    ak.fill_none(
+                        ak.pad_none(jets.pfcands[f], 64),
+                        0,
+                        axis=1,
+                    )[..., np.newaxis]
+                    for f in features
+                ],
+                axis=2,
+            )
+            cands = ak.flatten(cands, axis=None)  # Flatten everything
+            cands = ak.unflatten(cands, 18)  # Number of features
+            cands = ak.unflatten(cands, 64)  # Number of target entries
+
+            return [cands], {}
+
+        def postprocess_awkward(self, ret, jets):
+            # First arguments is the return object of the models method
+            ret = ret[:, :, 0]  # Flattening to get the per candidate entry
+            ret = ak.from_regular(ret)  # Making this into a jagged array
+            ret = ret[ak.local_index(ret) < jets.ncands]
+            return ret
+
+    # The tensorflow model here is used to classify jet constitutes
+    tfw = tf_wrapper_test("tests/samples/tf_model.keras")
+    ak_jets, dak_jets = prepare_jets_array(njets=256)
+
+    ak_res = tfw(ak_jets)
+    dak_res = tfw(dak_jets)
+
+    assert np.all(np.isclose(ak_res, dak_res.compute()))
+    expected_columns = {"ncands"} | {f"pfcands.feat{i}" for i in range(1, 19)}
+    columns = set(list(dak.necessary_columns(dak_res).values())[0])
+    assert columns == expected_columns
+
+    # Length 0 testing. we cannot use the unflatten module in this case
+    class tf_wrapper_lenght0_test(tf_wrapper):
+        def prepare_awkward(self, arr):
+            return [arr], {}
+
+    tfw_length0_tester = tf_wrapper_lenght0_test(
+        "tests/samples/tf_model.keras", skip_length_zero=True
+    )
+
+    # Making an explicit shape
+    arr = ak.from_numpy(np.random.random(size=(10, 64, 18)))
+    ak.to_parquet(arr, "tf_length10.parquet")
+    darr = dak.from_parquet("tf_length10.parquet")
+    ak_res = tfw_length0_tester(arr)
+    dak_res = tfw_length0_tester(darr)
+    assert np.all(np.isclose(ak_res, dak_res.compute()))
+    # Reducing the length 0
+    arr = ak.from_numpy(np.zeros(shape=(0, 64, 18)))
+    ak.to_parquet(arr, "tf_length0.parquet")
+    darr = dak.from_parquet("tf_length0.parquet")
+    ak_res = tfw_length0_tester(arr)
+    dak_res = tfw_length0_tester(darr)
+
+    client.close()
+
+
+@pytest.mark.dask_client
 def test_xgboost():
     _ = pytest.importorskip("xgboost")
 
@@ -167,7 +263,6 @@ def test_xgboost():
 
     class xgboost_test(xgboost_wrapper):
         def prepare_awkward(self, events):
-            ak = self.get_awkward_lib(events)
             ret = ak.concatenate(
                 [events[name][:, np.newaxis] for name in feature_list], axis=1
             )
@@ -191,4 +286,10 @@ def test_xgboost():
     # Should only load required columns
     columns = set(list(dak.necessary_columns(dak_res).values())[0])
     assert columns == set(feature_list)
+
+    # Length 0 testing, xgboost always handles 0-length arrays elegantly
+    ak_res = xgb_wrap(ak_events[ak_events.feat0 < 0])
+    dak_res = xgb_wrap(dak_events[dak_events.feat0 < 0])
+    assert len(ak_res) == 0 and len(dak_res.compute()) == 0
+
     client.close()

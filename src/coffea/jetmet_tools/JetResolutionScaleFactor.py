@@ -45,15 +45,19 @@ class JetResolutionScaleFactor:
     You can use this class as follows::
 
         jersf = JetResolutionScaleFactor(name1=corrL1,...)
-        jetResSF = jersf(JetParameter1=jet.parameter1,...)
+        jetResSF = jersf.getScaleFactor(JetParameter1=jet.parameter1,...)
 
+    in which `jetResSF` are the scale factors, with the same shape as the input parameters.
+    In order to see which parameters must be passed to `getScaleFactor`, one can do
+    `jersf.signature`.
+
+    You construct a JetResolutionScaleFactor by passing in a dict of names and functions.
+    Names must be formatted as '<campaign>_<dataera>_<datatype>_<level>_<jettype>'.  You
+    can use coffea.lookup_tools' `extractor` and `evaluator` to get the functions from
+    some input files.
     """
 
     def __init__(self, **kwargs):
-        """
-        You construct a JetResolutionScaleFactor by passing in a dict of names and functions.
-        Names must be formatted as '<campaign>_<dataera>_<datatype>_<level>_<jettype>'.
-        """
         jettype = None
         levels = []
         funcs = []
@@ -155,7 +159,7 @@ class JetResolutionScaleFactor:
                 sfs.append(
                     func(
                         *args,
-                        dask_label=f"{self._campaign}-{self._dataera}-{self._datatype}-{self._levels[i]}-{self._jettype}",
+                        dask_label=f"{self._campaign}_{self._dataera}_{self._datatype}_{self._levels[i]}_{self._jettype}",
                     )
                 )
             else:
