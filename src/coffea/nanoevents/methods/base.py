@@ -63,7 +63,7 @@ class Systematic:
                     if awkward.backend(array) == "typetracer":
                         array["__systematics__"] = x
                         return array
-                    array["__systematics__"] = {}
+                    array["__systematics__"] = awkward.broadcast_arrays(self, {})[1]
                     return array
 
                 temp = dask_awkward.map_partitions(
