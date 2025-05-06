@@ -14,11 +14,8 @@ class UpDownSystematic(Systematic):
             self[what] if what != "weight" else self["__systematics__", "__ones__"]
         )
 
-        self["__systematics__", f"__{name}__"] = awkward.virtual(
-            varying_function,
-            args=(whatarray, *args),
-            kwargs=kwargs,
-            length=len(whatarray),
+        self["__systematics__", f"__{name}__"] = varying_function(
+            *(whatarray, *args), **kwargs
         )
 
     def describe_variations(self):
@@ -51,21 +48,19 @@ class UpDownSystematic(Systematic):
 
     def up(self, name, what, astype):
         """Return the "up" variation of this observable."""
-        return awkward.virtual(
-            self.get_variation,
-            args=(name, what, astype, "up"),
-            length=len(self),
-            parameters=self[what].layout.parameters if what != "weight" else None,
+        array = self.get_variation(name, what, astype, "up")
+        array.layout.parameters = (
+            self[what].layout.parameters if what != "weight" else None
         )
+        return array
 
     def down(self, name, what, astype):
         """Return the "down" variation of this observable."""
-        return awkward.virtual(
-            self.get_variation,
-            args=(name, what, astype, "down"),
-            length=len(self),
-            parameters=self[what].layout.parameters if what != "weight" else None,
+        array = self.get_variation(name, what, astype, "down")
+        array.layout.parameters = (
+            self[what].layout.parameters if what != "weight" else None
         )
+        return array
 
 
 behavior[("__typestr__", "UpDownSystematic")] = "UpDownSystematic"
