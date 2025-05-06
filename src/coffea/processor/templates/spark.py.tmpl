@@ -1,0 +1,24 @@
+global coffea_udf
+
+
+def coffea_udf(dataset: pd.Series, {% for col in cols %}{{col + ": pd.Series"}}{{ "," if not loop.last }}{% endfor %}):
+    global processor_instance, lz4_clevel, nano_schema
+
+    columns = [{% for col in cols %}awkward.Array({{col}}){{ "," if not loop.last }}{% endfor %}]
+    names = [{% for col in cols %}{{"'"|safe+col+"'"|safe}}{{ "," if not loop.last }}{% endfor %}]
+
+    size = len(dataset)
+    src = SimplePreloadedColumnSource(dict(zip(names, columns)), None, size, object_path='/Events')
+
+    events = NanoEventsFactory \
+                .from_preloaded(src, metadata={'dataset': dataset[0]}, schemaclass=nano_schema) \
+                .events()
+
+    vals = processor_instance.process(events)
+
+    valsblob = lz4.frame.compress(pickle.dumps(vals), compression_level=lz4_clevel)
+
+    outs = numpy.full(shape=(size, ), fill_value=b'', dtype='O')
+    outs[0] = valsblob
+
+    return pandas.Series(outs)
