@@ -1,4 +1,3 @@
-from calendar import c
 import awkward
 import numpy
 from copy import copy

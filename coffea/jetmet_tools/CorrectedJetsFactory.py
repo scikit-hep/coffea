@@ -2,7 +2,6 @@ import awkward
 import numpy
 import warnings
 from functools import partial
-import operator
 
 
 _stack_parts = ["jec", "junc", "jer", "jersf"]
