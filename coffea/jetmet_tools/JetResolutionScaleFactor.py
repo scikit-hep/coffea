@@ -150,14 +150,8 @@ class JetResolutionScaleFactor(object):
             sig = func.signature
             args = tuple(kwargs[input] for input in sig)
 
-            if isinstance(args[0], awkward.highlevel.Array):
-                sfs.append(
-                    awkward.virtual(
-                        func, args=args, length=len(args[0]), form=form, cache=cache
-                    )
-                )
-            elif isinstance(args[0], numpy.ndarray):
-                sfs.append(func(*args))  # np is non-lazy
+            if isinstance(args[0], (awkward.highlevel.Array, numpy.ndarray)):
+                sfs.append(func(*args))
             else:
                 raise Exception("Unknown array library for inputs.")
 

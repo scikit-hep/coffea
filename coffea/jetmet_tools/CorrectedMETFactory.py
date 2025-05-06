@@ -1,3 +1,4 @@
+from calendar import c
 import awkward
 import numpy
 from copy import copy
@@ -59,25 +60,9 @@ class CorrectedMETFactory(object):
 
         def make_variant(*args):
             variant = copy(MET)
-            corrected_met = awkward.virtual(
-                corrected_polar_met,
-                args=args,
-                length=length,
-                form=form,
-                cache=lazy_cache,
-            )
-            variant[self.name_map["METpt"]] = awkward.virtual(
-                lambda: awkward.materialized(corrected_met.pt),
-                length=length,
-                form=form.contents["pt"],
-                cache=lazy_cache,
-            )
-            variant[self.name_map["METphi"]] = awkward.virtual(
-                lambda: awkward.materialized(corrected_met.phi),
-                length=length,
-                form=form.contents["phi"],
-                cache=lazy_cache,
-            )
+            corrected_met = corrected_polar_met(*args)
+            variant[self.name_map["METpt"]] = awkward.materialized(corrected_met.pt)
+            variant[self.name_map["METphi"]] = awkward.materialized(corrected_met.phi)
             return variant
 
         def lazy_variant(unc, metpt, metphi, jetpt, jetphi, jetptraw):
@@ -148,18 +133,13 @@ class CorrectedMETFactory(object):
         for unc in filter(
             lambda x: x.startswith(("JER", "JES")), awkward.fields(corrected_jets)
         ):
-            out_dict[unc] = awkward.virtual(
-                lazy_variant,
-                args=(
-                    unc,
-                    self.name_map["METpt"],
-                    self.name_map["METphi"],
-                    self.name_map["JetPt"],
-                    self.name_map["JetPhi"],
-                    self.name_map["ptRaw"],
-                ),
-                length=length,
-                cache={},
+            out_dict[unc] = lazy_variant(
+                unc,
+                self.name_map["METpt"],
+                self.name_map["METphi"],
+                self.name_map["JetPt"],
+                self.name_map["JetPhi"],
+                self.name_map["ptRaw"],
             )
 
         out_parms = out.layout.parameters
