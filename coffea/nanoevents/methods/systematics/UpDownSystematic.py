@@ -48,19 +48,11 @@ class UpDownSystematic(Systematic):
 
     def up(self, name, what, astype):
         """Return the "up" variation of this observable."""
-        array = self.get_variation(name, what, astype, "up")
-        array.layout.parameters = (
-            self[what].layout.parameters if what != "weight" else None
-        )
-        return array
+        return self.get_variation(name, what, astype, "up")
 
     def down(self, name, what, astype):
         """Return the "down" variation of this observable."""
-        array = self.get_variation(name, what, astype, "down")
-        array.layout.parameters = (
-            self[what].layout.parameters if what != "weight" else None
-        )
-        return array
+        return self.get_variation(name, what, astype, "down")
 
 
 behavior[("__typestr__", "UpDownSystematic")] = "UpDownSystematic"
