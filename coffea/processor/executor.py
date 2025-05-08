@@ -1129,7 +1129,7 @@ class DaskExecutor(ExecutorBase):
                     item,
                     pure=True,
                     priority=self.priority,
-                    retries=self.retries
+                    retries=self.retries,
                 )
                 work.append(fut)
                 key_to_item[fut.key] = item
