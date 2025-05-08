@@ -1102,15 +1102,18 @@ class DaskExecutor(ExecutorBase):
                     for item in items
                     if belongsto(self.heavy_input, workerindex, item)
                 ]
-                work_worker = self.client.map(
-                    function,
-                    items_worker,
-                    pure=(self.heavy_input is not None),
-                    priority=self.priority,
-                    retries=self.retries,
-                    workers={worker},
-                    allow_other_workers=False,
-                )
+                work_worker = []
+                for item in items_worker:
+                    fut = self.client.submit(
+                        function,
+                        item,
+                        pure=True,
+                        priority=self.priority,
+                        retries=self.retries,
+                        workers={worker},
+                        allow_other_workers=False,
+                    )
+                    work_worker.append(fut)
                 work.extend(work_worker)
                 key_to_item.update(
                     {
@@ -1119,27 +1122,34 @@ class DaskExecutor(ExecutorBase):
                     }
                 )
         else:
-            work = self.client.map(
-                function,
-                items,
-                pure=(self.heavy_input is not None),
-                priority=self.priority,
-                retries=self.retries,
-            )
-            key_to_item.update({future.key: item for future, item in zip(work, items)})
-        if (self.function_name == "get_metadata") or not self.use_dataframes:
-            while len(work) > 1:
-                work = self.client.map(
-                    reducer,
-                    [
-                        work[i : i + self.treereduction]
-                        for i in range(0, len(work), self.treereduction)
-                    ],
+            work = []
+            for item in items:
+                fut = self.client.submit(
+                    function,
+                    item,
                     pure=True,
                     priority=self.priority,
-                    retries=self.retries,
+                    retries=self.retries
                 )
-                key_to_item.update({future.key: "(output reducer)" for future in work})
+                work.append(fut)
+                key_to_item[fut.key] = item
+
+        if (self.function_name == "get_metadata") or not self.use_dataframes:
+            while len(work) > 1:
+                new_work = []
+                for i in range(0, len(work), self.treereduction):
+                    chunk = work[i : i + self.treereduction]
+                    fut = self.client.submit(
+                        reducer,
+                        chunk,
+                        pure=True,
+                        priority=self.priority,
+                        retries=self.retries,
+                    )
+                    key_to_item[fut.key] = "(output reducer)"
+                    new_work.append(fut)
+                work = new_work
+
             work = work[0]
             try:
                 if self.status:
