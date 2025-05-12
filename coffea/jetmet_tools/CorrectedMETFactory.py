@@ -7,10 +7,10 @@ from coffea.jetmet_tools.JECStack import JECNameMap
 
 def corrected_polar_met(met_pt, met_phi, jet_pt, jet_phi, jet_pt_orig, deltas=None):
     sj, cj = numpy.sin(jet_phi), numpy.cos(jet_phi)
-    x = met_pt * numpy.cos(met_phi) + awkward.sum(
+    x = met_pt * numpy.cos(met_phi) - awkward.sum(
         jet_pt * cj - jet_pt_orig * cj, axis=1
     )
-    y = met_pt * numpy.sin(met_phi) + awkward.sum(
+    y = met_pt * numpy.sin(met_phi) - awkward.sum(
         jet_pt * sj - jet_pt_orig * sj, axis=1
     )
     if deltas:
@@ -82,7 +82,7 @@ class CorrectedMETFactory(object):
             )
             return variant
 
-        def lazy_variant(unc, metpt, metphi, jetpt, jetphi, jetptraw):
+        def lazy_variant(unc, metpt, metphi, jetpt, jetphi, jetpt_orig):
             return awkward.zip(
                 {
                     "up": make_variant(
@@ -90,14 +90,14 @@ class CorrectedMETFactory(object):
                         MET[metphi],
                         corrected_jets[unc].up[jetpt],
                         corrected_jets[unc].up[jetphi],
-                        corrected_jets[unc].up[jetptraw],
+                        corrected_jets[unc].up[jetpt_orig],
                     ),
                     "down": make_variant(
                         MET[metpt],
                         MET[metphi],
                         corrected_jets[unc].down[jetpt],
                         corrected_jets[unc].down[jetphi],
-                        corrected_jets[unc].down[jetptraw],
+                        corrected_jets[unc].down[jetpt_orig],
                     ),
                 },
                 depth_limit=1,
@@ -109,7 +109,7 @@ class CorrectedMETFactory(object):
             MET[self.name_map["METphi"]],
             corrected_jets[self.name_map["JetPt"]],
             corrected_jets[self.name_map["JetPhi"]],
-            corrected_jets[self.name_map["ptRaw"]],
+            corrected_jets[self.name_map["JetPt"] + "_orig"],
         )
         out[self.name_map["METpt"] + "_orig"] = MET[self.name_map["METpt"]]
         out[self.name_map["METphi"] + "_orig"] = MET[self.name_map["METphi"]]
@@ -123,7 +123,7 @@ class CorrectedMETFactory(object):
                     MET[self.name_map["METphi"]],
                     corrected_jets[self.name_map["JetPt"]],
                     corrected_jets[self.name_map["JetPhi"]],
-                    corrected_jets[self.name_map["ptRaw"]],
+                    corrected_jets[self.name_map["JetPt"] + "_orig"],
                     (
                         True,
                         MET[self.name_map["UnClusteredEnergyDeltaX"]],
@@ -135,7 +135,7 @@ class CorrectedMETFactory(object):
                     MET[self.name_map["METphi"]],
                     corrected_jets[self.name_map["JetPt"]],
                     corrected_jets[self.name_map["JetPhi"]],
-                    corrected_jets[self.name_map["ptRaw"]],
+                    corrected_jets[self.name_map["JetPt"] + "_orig"],
                     (
                         False,
                         MET[self.name_map["UnClusteredEnergyDeltaX"]],
@@ -158,7 +158,7 @@ class CorrectedMETFactory(object):
                     self.name_map["METphi"],
                     self.name_map["JetPt"],
                     self.name_map["JetPhi"],
-                    self.name_map["ptRaw"],
+                    self.name_map["JetPt"] + "_orig",
                 ),
                 length=length,
                 cache={},

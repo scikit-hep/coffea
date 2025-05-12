@@ -171,13 +171,12 @@ class CorrectedJetsFactory(object):
         ).layout.form
 
         in_dict = {field: out[field] for field in fields}
+        # always forward the original (likely corrected) pt/mass
+        in_dict[self.name_map["JetPt"] + "_orig"] = in_dict[self.name_map["JetPt"]]
+        in_dict[self.name_map["JetMass"] + "_orig"] = in_dict[self.name_map["JetMass"]]
         out_dict = dict(in_dict)
 
         # take care of nominal JEC (no JER if available)
-        out_dict[self.name_map["JetPt"] + "_orig"] = out_dict[self.name_map["JetPt"]]
-        out_dict[self.name_map["JetMass"] + "_orig"] = out_dict[
-            self.name_map["JetMass"]
-        ]
         if self.treat_pt_as_raw:
             out_dict[self.name_map["ptRaw"]] = out_dict[self.name_map["JetPt"]]
             out_dict[self.name_map["massRaw"]] = out_dict[self.name_map["JetMass"]]
@@ -326,6 +325,9 @@ class CorrectedJetsFactory(object):
                 cache=lazy_cache,
             )
             up = awkward.flatten(jets)
+            # always forward the original (likely corrected) pt/mass
+            up[self.name_map["JetPt"] + "_orig"] = up[self.name_map["JetPt"]]
+            up[self.name_map["JetMass"] + "_orig"] = up[self.name_map["JetMass"]]
             up["jet_energy_resolution_correction"] = jerc_up(
                 length=len(out), form=scalar_form
             )
@@ -368,6 +370,9 @@ class CorrectedJetsFactory(object):
                 cache=lazy_cache,
             )
             down = awkward.flatten(jets)
+            # always forward the original (likely corrected) pt/mass
+            down[self.name_map["JetPt"] + "_orig"] = down[self.name_map["JetPt"]]
+            down[self.name_map["JetMass"] + "_orig"] = down[self.name_map["JetMass"]]
             down["jet_energy_resolution_correction"] = jerc_down(
                 length=len(out), form=scalar_form
             )
