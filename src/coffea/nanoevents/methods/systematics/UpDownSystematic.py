@@ -55,21 +55,11 @@ class UpDownSystematic(Systematic):
 
     def up(self, name, what, astype):
         """Return the "up" variation of this observable."""
-        return self.get_variation(
-            name,
-            what,
-            astype,
-            "up",
-        )
+        return self.get_variation(name, what, astype, "up")
 
     def down(self, name, what, astype):
         """Return the "down" variation of this observable."""
-        return self.get_variation(
-            name,
-            what,
-            astype,
-            "down",
-        )
+        return self.get_variation(name, what, astype, "down")
 
 
 behavior[("__typestr__", "UpDownSystematic")] = "UpDownSystematic"

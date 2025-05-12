@@ -37,10 +37,10 @@ classifiers = [
   "Topic :: Utilities",
 ]
 dependencies = [
-  "awkward>=2.6.7",
+  "awkward>=2.8.2",
   "uproot>=5.6.0",
-  "dask[array]>=2024.3.0,!=2025.4.0",
-  "dask-awkward>=2025.2.0",
+  "dask[array]>=2024.3.0",
+  "dask-awkward>=2025.5.0",
   "dask-histogram>=2025.2.0",
   "vector>=1.4.1,!=1.6.0",
   "correctionlib>=2.6.0",

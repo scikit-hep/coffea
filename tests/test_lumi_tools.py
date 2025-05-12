@@ -170,6 +170,7 @@ def test_lumilist_client_fromfile():
     with Client() as _:
         events = NanoEventsFactory.from_root(
             {"tests/samples/nano_dy.root": "Events"},
+            mode="dask",
         ).events()
 
         lumilist = LumiList(runs=events.run, lumis=events.luminosityBlock)

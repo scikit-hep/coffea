@@ -11,6 +11,7 @@ def test_explicit_delete_after_assign():
         {testfile: "Events"},
         metadata={"dataset": "nano_dy"},
         schemaclass=NanoAODSchema,
+        mode="dask",
     ).events()
 
     genpart = events["GenPart"]

@@ -7,19 +7,17 @@ import pytest
 from coffea.nanoevents import DelphesSchema, NanoEventsFactory
 
 
-def _events():
+def _events(**kwargs):
     path = os.path.abspath("tests/samples/delphes.root")
     factory = NanoEventsFactory.from_root(
-        {path: "Delphes"},
-        schemaclass=DelphesSchema,
-        mode="dask",
+        {path: "Delphes"}, schemaclass=DelphesSchema, **kwargs
     )
     return factory.events()
 
 
 @pytest.fixture(scope="module")
 def events():
-    return _events()
+    return _events(mode="dask")
 
 
 def test_listify(events):

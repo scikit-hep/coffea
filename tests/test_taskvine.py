@@ -15,6 +15,7 @@ def histogram_common():
         {os.path.abspath("tests/samples/nano_dy.root"): "Events"},
         steps_per_file=4,
         metadata={"dataset": "SingleMu"},
+        mode="dask",
     ).events()
 
     q1_hist = (

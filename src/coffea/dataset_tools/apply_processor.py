@@ -72,6 +72,7 @@ def apply_to_dataset(
         schemaclass=schemaclass,
         known_base_form=maybe_base_form,
         uproot_options=uproot_options,
+        mode="dask",
     ).events()
 
     report = None

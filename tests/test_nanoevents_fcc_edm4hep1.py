@@ -20,14 +20,14 @@ def _events(**kwargs):
 @pytest.fixture(scope="module")
 def eager_events():
     return _events(
-        delayed=False, uproot_options={"filter_name": lambda x: "PARAMETERS" not in x}
+        mode="eager", uproot_options={"filter_name": lambda x: "PARAMETERS" not in x}
     )
 
 
 @pytest.fixture(scope="module")
 def delayed_events():
     return _events(
-        delayed=True, uproot_options={"filter_name": lambda x: "PARAMETERS" not in x}
+        mode="dask", uproot_options={"filter_name": lambda x: "PARAMETERS" not in x}
     )
 
 

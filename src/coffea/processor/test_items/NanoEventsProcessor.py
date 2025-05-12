@@ -1,4 +1,4 @@
-import dask_awkward as dak
+import awkward as ak
 import hist
 import hist.dask as dah
 
@@ -6,9 +6,10 @@ from coffea import processor
 
 
 class NanoEventsProcessor(processor.ProcessorABC):
-    def __init__(self, columns=[], canaries=[]):
+    def __init__(self, columns=[], canaries=[], mode="dask"):
         self._columns = columns
         self._canaries = canaries
+        self.mode = mode
 
         self.expected_usermeta = {
             "ZJets": ("someusermeta", "hello"),
@@ -29,12 +30,17 @@ class NanoEventsProcessor(processor.ProcessorABC):
         )
         pt_axis = hist.axis.Regular(30000, 0.24, 300, name="pt", label=r"$p_{T}$ [GeV]")
 
+        if self.mode == "dask":
+            mass_hist = dah.Hist(dataset_axis, mass_axis)
+            pt_hist = dah.Hist(dataset_axis, pt_axis)
+        elif self.mode in ["eager", "virtual"]:
+            mass_hist = hist.Hist(dataset_axis, mass_axis)
+            pt_hist = hist.Hist(dataset_axis, pt_axis)
+        else:
+            raise ValueError(f"Invalid mode: {self.mode}")
         accumulator = {
-            # replace when py3.6 is dropped
-            # "mass": hist.Hist(dataset_axis, mass_axis, name="Counts"),
-            # "pt": hist.Hist(dataset_axis, pt_axis, name="Counts"),
-            "mass": dah.Hist(dataset_axis, mass_axis),
-            "pt": dah.Hist(dataset_axis, pt_axis),
+            "mass": mass_hist,
+            "pt": pt_hist,
             "cutflow": {},
             "worker": set(),
         }
@@ -64,15 +70,15 @@ class NanoEventsProcessor(processor.ProcessorABC):
         #        except ValueError:
         #            pass
 
-        dimuon = dak.combinations(events.Muon, 2)
+        dimuon = ak.combinations(events.Muon, 2)
         # print(events.Muon.behavior)
         # print(dimuon["0"].behavior)
         dimuon = dimuon["0"] + dimuon["1"]
 
-        output["pt"].fill(dataset=dataset, pt=dak.flatten(muon_pt))
-        output["mass"].fill(dataset=dataset, mass=dak.flatten(dimuon.mass))
-        output["cutflow"]["%s_pt" % dataset] = dak.sum(dak.num(events.Muon, axis=1))
-        output["cutflow"]["%s_mass" % dataset] = dak.sum(dak.num(dimuon, axis=1))
+        output["pt"].fill(dataset=dataset, pt=ak.flatten(muon_pt))
+        output["mass"].fill(dataset=dataset, mass=ak.flatten(dimuon.mass))
+        output["cutflow"]["%s_pt" % dataset] = ak.sum(ak.num(events.Muon, axis=1))
+        output["cutflow"]["%s_mass" % dataset] = ak.sum(ak.num(dimuon, axis=1))
 
         return output
 

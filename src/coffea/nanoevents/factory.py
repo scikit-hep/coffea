@@ -22,7 +22,7 @@ from coffea.nanoevents.mapping import (
 )
 from coffea.nanoevents.schemas import BaseSchema, NanoAODSchema
 from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
-from coffea.util import _remove_not_interpretable, deprecate
+from coffea.util import _remove_not_interpretable
 
 _offsets_label = quote(",!offsets")
 
@@ -261,8 +261,7 @@ class NanoEventsFactory:
         access_log=None,
         iteritems_options={},
         use_ak_forth=True,
-        delayed=True,  # deprecated
-        mode=uproot._util.unset,  # mode takes precedence over delayed
+        mode="virtual",
         known_base_form=None,
         decompression_executor=None,
         interpretation_executor=None,
@@ -299,10 +298,8 @@ class NanoEventsFactory:
                 Pass a list instance to record which branches were lazily accessed by this instance
             use_ak_forth:
                 Toggle using awkward_forth to interpret branches in root file.
-            delayed:
-                Nanoevents will use dask as a backend to construct a delayed task graph representing your analysis.
             mode:
-                Nanoevents will use "eager", "virtual", or "dask" as a backend. 'mode' will take precedence over 'delayed'.
+                Nanoevents will use "eager", "virtual", or "dask" as a backend.
             known_base_form:
                 If the base form of the input file is known ahead of time we can skip opening a single file and parsing metadata.
             decompression_executor (None or Executor with a ``submit`` method):
@@ -324,16 +321,6 @@ class NanoEventsFactory:
             Please use one of the allowed types for "files" specified by uproot: https://github.com/scikit-hep/uproot5/blob/v5.1.2/src/uproot/_dask.py#L109-L132
             """
             )
-
-        if mode is uproot._util.unset:
-            deprecate(
-                RuntimeError(
-                    "The 'delayed' argument is deprecated, please use 'mode' instead. "
-                    "If you are using 'delayed=True' to construct a dask graph, please use 'mode=dask'"
-                ),
-                "<unknown>",
-            )
-            mode = "dask" if delayed else "eager"
 
         if mode not in _allowed_modes:
             raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
@@ -382,7 +369,7 @@ class NanoEventsFactory:
             return cls(map_schema, opener, None, cache=None, mode="dask")
         elif mode == "dask" and not schemaclass.__dask_capable__:
             warnings.warn(
-                f"{schemaclass} is not dask capable despite requesting delayed mode, generating non-dask nanoevents",
+                f"{schemaclass} is not dask capable despite requesting dask mode, generating non-dask nanoevents",
                 RuntimeWarning,
             )
             # fall through to virtual mode
@@ -453,8 +440,7 @@ class NanoEventsFactory:
         parquet_options={},
         skyhook_options={},
         access_log=None,
-        delayed=True,  # deprecated
-        mode=None,  # mode takes precedence over delayed
+        mode="virtual",
     ):
         """Quickly build NanoEvents from a parquet file
 
@@ -483,10 +469,8 @@ class NanoEventsFactory:
                 Any options to pass to ``pyarrow.parquet.ParquetFile``
             access_log : list, optional
                 Pass a list instance to record which branches were lazily accessed by this instance
-            delayed:
-                Nanoevents will use dask as a backend to construct a delayed task graph representing your analysis.
             mode:
-                Nanoevents will use "eager", "virtual", or "dask" as a backend. 'mode' will take precedence over 'delayed'.
+                Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
         Returns
         -------
@@ -505,16 +489,6 @@ class NanoEventsFactory:
             io.RawIOBase,
             io.IOBase,
         )
-
-        if mode is None:
-            deprecate(
-                RuntimeError(
-                    "The 'delayed' argument is deprecated, please use 'mode' instead. "
-                    "If you are using 'delayed=True' to construct a dask graph, please use 'mode=dask'"
-                ),
-                "<unknown>",
-            )
-            mode = "dask" if delayed else "virtual"
 
         if mode not in _allowed_modes:
             raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
@@ -759,10 +733,10 @@ class NanoEventsFactory:
         Returns
         -------
             out:
-                If the NanoEventsFactory is running in delayed mode (Dask), this is
+                If the NanoEventsFactory is running in dask mode, this is
                 a Dask awkward array of the events. If the mapping also produces a
                 report, the output will be a tuple (events, report).
-                If the factory is not running in delayed mode, this is an awkward
+                If the factory is running in virtual or eager mode, this is an awkward
                 array of the events.
         """
         if self._mode == "dask":
