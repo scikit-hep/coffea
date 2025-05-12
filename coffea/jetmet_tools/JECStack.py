@@ -138,7 +138,7 @@ class JECStack(object):
                     **{name: corrections[name] for name in assembled["jersf"]}
                 )
         else:
-            if isinstance(jer, JetResolutionScaleFactor):
+            if isinstance(jersf, JetResolutionScaleFactor):
                 self._jersf = jersf
             else:
                 raise Exception(
