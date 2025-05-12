@@ -1,3 +1,4 @@
+from typing import Any
 from coffea.lookup_tools.lookup_base import lookup_base
 
 import numpy
@@ -31,7 +32,7 @@ class jec_uncertainty_lookup(lookup_base):
     The list of required jet properties are given in junc_lut.signature
     """
 
-    def __init__(self, formula, bins_and_orders, knots_and_vars):
+    def __init__(self, formula, bins_and_orders: tuple[Any, list[str]], knots_and_vars):
         """
         The constructor takes the output of the "convert_junc_txt_file"
         text file converter, which returns a formula, bins, and an interpolation table.

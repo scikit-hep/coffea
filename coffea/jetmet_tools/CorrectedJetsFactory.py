@@ -4,6 +4,8 @@ import warnings
 from functools import partial
 import operator
 
+from coffea.jetmet_tools.JECStack import JECNameMap, JECStack
+
 
 _stack_parts = ["jec", "junc", "jer", "jersf"]
 _MIN_JET_ENERGY = numpy.array(1e-2, dtype=numpy.float32)
@@ -99,10 +101,11 @@ def jer_smear(
 
 
 class CorrectedJetsFactory(object):
-    def __init__(self, name_map, jec_stack):
+    def __init__(self, name_map: JECNameMap, jec_stack: JECStack):
         # from PhysicsTools/PatUtils/interface/SmearedJetProducerT.h#L283
         self.forceStochastic = False
-
+        assert name_map["JetPt"] is not None
+        assert name_map["JetMass"] is not None
         if "ptRaw" not in name_map or name_map["ptRaw"] is None:
             warnings.warn(
                 "There is no name mapping for ptRaw,"
@@ -223,7 +226,7 @@ class CorrectedJetsFactory(object):
         has_jer = False
         if self.jec_stack.jer is not None and self.jec_stack.jersf is not None:
             has_jer = True
-            jer_name_map = dict(self.name_map)
+            jer_name_map = JECNameMap(self.name_map)
             jer_name_map["JetPt"] = jer_name_map["JetPt"] + "_jec"
             jer_name_map["JetMass"] = jer_name_map["JetMass"] + "_jec"
 

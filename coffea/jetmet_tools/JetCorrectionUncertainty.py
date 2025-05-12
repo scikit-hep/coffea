@@ -75,7 +75,7 @@ class JetCorrectionUncertainty(object):
         """
         jettype = None
         levels = []
-        funcs = []
+        funcs: list[jec_uncertainty_lookup] = []
         datatype = None
         campaign = None
         dataera = None
@@ -117,7 +117,7 @@ class JetCorrectionUncertainty(object):
         else:
             self._jettype = jettype
         # now we setup the call signature for this factorized JEC
-        self._signature = []
+        self._signature: list[str] = []
         for func in self._funcs:
             sig = func.signature
             for input in sig:
@@ -125,7 +125,7 @@ class JetCorrectionUncertainty(object):
                     self._signature.append(input)
 
     @property
-    def signature(self):
+    def signature(self) -> list[str]:
         """list the necessary jet properties that must be input to this function"""
         return self._signature
 

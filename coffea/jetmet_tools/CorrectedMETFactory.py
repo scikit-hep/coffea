@@ -2,6 +2,8 @@ import awkward
 import numpy
 from copy import copy
 
+from coffea.jetmet_tools.JECStack import JECNameMap
+
 
 def corrected_polar_met(met_pt, met_phi, jet_pt, jet_phi, jet_pt_orig, deltas=None):
     sj, cj = numpy.sin(jet_phi), numpy.cos(jet_phi)
@@ -19,8 +21,8 @@ def corrected_polar_met(met_pt, met_phi, jet_pt, jet_phi, jet_pt_orig, deltas=No
 
 
 class CorrectedMETFactory(object):
-    def __init__(self, name_map):
-        for name in [
+    def __init__(self, name_map: JECNameMap):
+        for name in (
             "METpt",
             "METphi",
             "JetPt",
@@ -28,7 +30,7 @@ class CorrectedMETFactory(object):
             "ptRaw",
             "UnClusteredEnergyDeltaX",
             "UnClusteredEnergyDeltaY",
-        ]:
+        ):
             if name not in name_map or name_map[name] is None:
                 raise ValueError(
                     f"There is no name mapping for {name}, which is needed for CorrectedMETFactory"

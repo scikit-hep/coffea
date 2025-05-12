@@ -59,7 +59,7 @@ class FactorizedJetCorrector(object):
         """
         jettype = None
         levels = []
-        funcs = []
+        funcs: list[jme_standard_function] = []
         datatype = None
         campaign = None
         dataera = None
@@ -110,10 +110,10 @@ class FactorizedJetCorrector(object):
 
         temp = list(zip(*sorted(zip(self._levels, self._funcs), key=_sorting_key)))
         self._levels = list(temp[0])
-        self._funcs = list(temp[1])
+        self._funcs: list[jme_standard_function] = list(temp[1])
 
         # now we setup the call signature for this factorized JEC
-        self._signature = []
+        self._signature: list[str] = []
         for func in self._funcs:
             sig = func.signature
             for input in sig:
@@ -121,7 +121,7 @@ class FactorizedJetCorrector(object):
                     self._signature.append(input)
 
     @property
-    def signature(self):
+    def signature(self) -> list[str]:
         """list the necessary jet properties that must be input to this function"""
         return self._signature
 

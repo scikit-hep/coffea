@@ -1,3 +1,5 @@
+from typing import Optional, TypedDict
+from typing_extensions import NotRequired
 from coffea.jetmet_tools.FactorizedJetCorrector import FactorizedJetCorrector, _levelre
 from coffea.jetmet_tools.JetResolution import JetResolution
 from coffea.jetmet_tools.JetResolutionScaleFactor import JetResolutionScaleFactor
@@ -5,6 +7,55 @@ from coffea.jetmet_tools.JetCorrectionUncertainty import JetCorrectionUncertaint
 
 _singletons = ["jer", "jersf"]
 _nicenames = ["Jet Resolution Calculator", "Jet Resolution Scale Factor Calculator"]
+
+
+class JECNameMap(TypedDict):
+    JetPt: Optional[str]
+    """Jet transverse momentum (typically already corrected)"""
+    ptRaw: Optional[str]
+    """Jet raw (uncorrected) transverse momentum"""
+    JetMass: Optional[str]
+    """Jet mass"""
+    massRaw: Optional[str]
+    """Jet raw (uncorrected) mass"""
+    JetPhi: Optional[str]
+    """Jet polar angle (required for MET corrections)"""
+    METpt: Optional[str]
+    """Missing transverse energy (corrected or not, but consistent with JetPt correction)"""
+    METphi: Optional[str]
+    """Angle of missing transverse energy"""
+    UnClusteredEnergyDeltaX: Optional[str]
+    """Sum of unclustered energy systematic shift (x component)"""
+    UnClusteredEnergyDeltaY: Optional[str]
+    """Sum of unclustered energy systematic shift (y component)"""
+    JetEta: NotRequired[Optional[str]]
+    """Jet pseudorapidity (optional in principle but required for most JEC)"""
+    JetA: NotRequired[Optional[str]]
+    """Jet area (optional in principle but required for most JEC)"""
+    Rho: NotRequired[Optional[str]]
+    """Event average energy deposition (optional in principle but required for most JEC)"""
+    ptGenJet: NotRequired[Optional[str]]
+    """Transverse momentum of the gen-level jet if this jet is matched to a gen jet, 0 if unmatched.
+    (optional in principle but required for most JEC)
+    """
+
+
+def blank_name_map() -> JECNameMap:
+    """
+    Create a new JECNameMap with all values set to None.
+    This is useful for creating a blank map to fill in later.
+    """
+    return JECNameMap(
+        JetPt=None,
+        ptRaw=None,
+        JetMass=None,
+        massRaw=None,
+        JetPhi=None,
+        METpt=None,
+        METphi=None,
+        UnClusteredEnergyDeltaX=None,
+        UnClusteredEnergyDeltaY=None,
+    )
 
 
 class JECStack(object):
@@ -99,31 +150,21 @@ class JECStack(object):
             raise Exception("Cannot apply JER-SF without an input JER, and vice-versa!")
 
     @property
-    def blank_name_map(self):
-        out = {
-            "massRaw",
-            "ptRaw",
-            "JetMass",
-            "JetPt",
-            "METpt",
-            "METphi",
-            "JetPhi",
-            "UnClusteredEnergyDeltaX",
-            "UnClusteredEnergyDeltaY",
-        }
+    def blank_name_map(self) -> JECNameMap:
+        out = blank_name_map()
         if self._jec is not None:
             for name in self._jec.signature:
-                out.add(name)
+                out[name] = None
         if self._junc is not None:
             for name in self._junc.signature:
-                out.add(name)
+                out[name] = None
         if self._jer is not None:
             for name in self._jer.signature:
-                out.add(name)
+                out[name] = None
         if self._jersf is not None:
             for name in self._jersf.signature:
-                out.add(name)
-        return {name: None for name in out}
+                out[name] = None
+        return out
 
     @property
     def jec(self):

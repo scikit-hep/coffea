@@ -53,7 +53,7 @@ class JetResolution(object):
         """
         jettype = None
         levels = []
-        funcs = []
+        funcs: list[jme_standard_function] = []
         datatype = None
         campaign = None
         dataera = None
@@ -116,7 +116,7 @@ class JetResolution(object):
                 )
 
         # now we setup the call signature for this factorized JEC
-        self._signature = []
+        self._signature: list[str] = []
         for func in self._funcs:
             sig = func.signature
             for input in sig:

@@ -52,8 +52,8 @@ class JetResolutionScaleFactor(object):
         Names must be formatted as '<campaign>_<dataera>_<datatype>_<level>_<jettype>'.
         """
         jettype = None
-        levels = []
-        funcs = []
+        levels: list[str] = []
+        funcs: list[jersf_lookup] = []
         datatype = None
         campaign = None
         dataera = None
@@ -113,7 +113,7 @@ class JetResolutionScaleFactor(object):
                 )
 
         # now we setup the call signature for this factorized JEC
-        self._signature = []
+        self._signature: list[str] = []
         for func in self._funcs:
             sig = func.signature
             for input in sig:
@@ -121,7 +121,7 @@ class JetResolutionScaleFactor(object):
                     self._signature.append(input)
 
     @property
-    def signature(self):
+    def signature(self) -> list[str]:
         """list the necessary jet properties that must be input to this function"""
         return self._signature
 

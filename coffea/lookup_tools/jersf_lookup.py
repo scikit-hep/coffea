@@ -1,3 +1,4 @@
+from typing import Any
 from coffea.lookup_tools.lookup_base import lookup_base
 
 import numpy
@@ -26,7 +27,13 @@ class jersf_lookup(lookup_base):
     The list of required jet properties are given in jersf_lut.signature
     """
 
-    def __init__(self, formula, bins_and_orders, clamps_and_vars, parms_and_orders):
+    def __init__(
+        self,
+        formula,
+        bins_and_orders: tuple[Any, list[str]],
+        clamps_and_vars,
+        parms_and_orders,
+    ):
         """
         The constructor takes the output of the "convert_jersf_txt_file"
         text file converter, which returns a formula, bins, and values.
@@ -109,7 +116,7 @@ class jersf_lookup(lookup_base):
         return parm_values
 
     @property
-    def signature(self):
+    def signature(self) -> list[str]:
         """the list of all needed jet properties to be passed as kwargs to this lookup"""
         return self._signature
 
