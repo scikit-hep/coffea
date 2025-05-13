@@ -366,6 +366,8 @@ def _watcher(
                     # Add debug for batch mem size? TODO with logging?
                     if isinstance(executor, FuturesExecutor) and pool is not None:
                         FH.add_merge(pool.submit(merge_fcn, batch))
+                    elif isinstance(executor, ParslExecutor):
+                        FH.add_merge(merge_fcn(batch))
                     else:
                         raise RuntimeError("Invalid executor")
                     progress.update(
@@ -790,6 +792,146 @@ class DaskExecutor(ExecutorBase):
             return {"out": dd.from_delayed(work)}, 0
 
 
+@dataclass
+class ParslExecutor(ExecutorBase):
+    """Execute using parsl pyapp wrapper
+
+    Parameters
+    ----------
+        items : list
+            List of input arguments
+        function : callable
+            A function to be called on each input, which returns an accumulator instance
+        accumulator : Accumulatable
+            An accumulator to collect the output of the function
+        config : parsl.config.Config, optional
+            A parsl DataFlow configuration object. Necessary if there is no active kernel
+
+            .. note:: In general, it is safer to construct the DFK with ``parsl.load(config)`` prior to calling this function
+        status : bool
+            If true (default), enable progress bar
+        unit : str
+            Label of progress bar unit
+        desc : str
+            Label of progress bar description
+        compression : int, optional
+            Compress accumulator outputs in flight with LZ4, at level specified (default 1)
+            Set to ``None`` for no compression.
+        recoverable : bool, optional
+            Instead of raising Exception right away, the exception is captured and returned
+            up for custom parsing. Already completed items will be returned as well.
+        merging : bool | tuple(int, int, int), optional
+            Enables submitting intermediate merge jobs to the executor. Format is
+            (n_batches, min_batch_size, max_batch_size). Passing ``True`` will use default: (5, 4, 100),
+            aka as they are returned try to split completed jobs into 5 batches, but of at least 4 and at most 100 items.
+            Default is ``False`` - results get merged as they finish in the main process.
+        jobs_executors : list | "all" optional
+            Labels of the executors (from dfk.config.executors) that will process main jobs.
+            Default is 'all'. Recommended is ``['jobs']``, while passing ``label='jobs'`` to the primary executor.
+        merges_executors : list | "all" optional
+            Labels of the executors (from dfk.config.executors) that will process main jobs.
+            Default is 'all'. Recommended is ``['merges']``, while passing ``label='merges'`` to the executor dedicated towards merge jobs.
+        tailtimeout : int, optional
+            Timeout requirement on job tails. Cancel all remaining jobs if none have finished
+            in the timeout window.
+    """
+
+    tailtimeout: Optional[int] = None
+    config: Optional["parsl.config.Config"] = None  # noqa
+    recoverable: bool = False
+    merging: Optional[Union[bool, tuple[int, int, int]]] = False
+    jobs_executors: Union[str, list] = "all"
+    merges_executors: Union[str, list] = "all"
+
+    def __post_init__(self):
+        if not (
+            isinstance(self.merging, bool)
+            or (isinstance(self.merging, tuple) and len(self.merging) == 3)
+        ):
+            raise ValueError(
+                f"merging={self.merging} not understood. Required format is "
+                "(n_batches, min_batch_size, max_batch_size)"
+            )
+        elif self.merging is True:
+            self.merging = (5, 4, 100)
+
+    def _merge_size(self, size: int):
+        return min(self.merging[2], max(size // self.merging[0] + 1, self.merging[1]))
+
+    def __call__(
+        self,
+        items: Iterable,
+        function: Callable,
+        accumulator: Accumulatable,
+    ):
+        if len(items) == 0:
+            return accumulator
+        import parsl
+        from parsl.app.app import python_app
+
+        from .parsl.timeout import timeout
+
+        if self.compression is not None:
+            function = _compression_wrapper(self.compression, function)
+
+        # Parse config if passed
+        cleanup = False
+        try:
+            parsl.dfk()
+        except RuntimeError:
+            cleanup = True
+            pass
+        if cleanup and self.config is None:
+            raise RuntimeError(
+                "No active parsl DataFlowKernel, must specify a config to construct one"
+            )
+        elif not cleanup and self.config is not None:
+            raise RuntimeError("An active parsl DataFlowKernel already exists")
+        elif self.config is not None:
+            parsl.clear()
+            parsl.load(self.config)
+
+        # Check config/executors
+        _exec_avail = [exe.label for exe in parsl.dfk().config.executors]
+        _execs_tried = (
+            [] if self.jobs_executors == "all" else [e for e in self.jobs_executors]
+        )
+        _execs_tried += (
+            [] if self.merges_executors == "all" else [e for e in self.merges_executors]
+        )
+        if not all([_e in _exec_avail for _e in _execs_tried]):
+            raise RuntimeError(
+                f"Executors: [{','.join(_e for _e in _execs_tried if _e not in _exec_avail)}] not available in the config."
+            )
+
+        # Apps
+        app = timeout(python_app(function, executors=self.jobs_executors))
+        reducer = timeout(
+            python_app(_reduce(self.compression), executors=self.merges_executors)
+        )
+
+        FH = _FuturesHolder(set(map(app, items)), refresh=2)
+        try:
+            merged = _watcher(FH, self, reducer)
+            return accumulate([_decompress(merged), accumulator]), 0
+
+        except Exception as e:
+            traceback.print_exc()
+            if self.recoverable:
+                print("Exception occurred, recovering progress...")
+                # for job in FH.futures:  # NotImplemented in parsl
+                #     job.cancel()
+
+                merged = _wait_for_merges(FH, self)
+                return accumulate([_decompress(merged), accumulator]), e
+            else:
+                raise e from None
+        finally:
+            if cleanup:
+                parsl.dfk().cleanup()
+                parsl.clear()
+
+
 class ParquetFileUprootShim:
     def __init__(self, table, name):
         self.table = table
@@ -1083,7 +1225,7 @@ class Runner:
                 "unit": "file",
                 "compression": None,
             }
-            if isinstance(self.pre_executor, FuturesExecutor):
+            if isinstance(self.pre_executor, (FuturesExecutor, ParslExecutor)):
                 pre_arg_override.update({"tailtimeout": None})
             if isinstance(self.pre_executor, (DaskExecutor)):
                 self.pre_executor.heavy_input = None
@@ -1119,7 +1261,7 @@ class Runner:
                 "unit": "file",
                 "compression": None,
             }
-            if isinstance(self.pre_executor, FuturesExecutor):
+            if isinstance(self.pre_executor, (FuturesExecutor, ParslExecutor)):
                 pre_arg_override.update({"tailtimeout": None})
             if isinstance(self.pre_executor, (DaskExecutor)):
                 self.pre_executor.heavy_input = None

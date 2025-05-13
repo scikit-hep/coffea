@@ -15,6 +15,7 @@ from .executor import (
     DaskExecutor,
     FuturesExecutor,
     IterativeExecutor,
+    ParslExecutor,
     Runner,
 )
 from .processor import ProcessorABC
@@ -24,6 +25,7 @@ __all__ = [
     "IterativeExecutor",
     "FuturesExecutor",
     "DaskExecutor",
+    "ParslExecutor",
     "Runner",
     "accumulate",
     "Accumulatable",

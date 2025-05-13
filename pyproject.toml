@@ -79,7 +79,7 @@ spark = [
   "jinja2",
 ]
 parsl = [
-  "parsl>=2022.12.1"
+  "parsl>=2024.12.09"
 ]
 rucio = [
   "rucio-clients>=32",
