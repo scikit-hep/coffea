@@ -153,8 +153,14 @@ class JetResolution(object):
             sig = func.signature
             args = tuple(kwargs[input] for input in sig)
 
-            if isinstance(args[0], (awkward.highlevel.Array, numpy.ndarray)):
-                resos.append(func(*args))
+            if isinstance(args[0], awkward.highlevel.Array):
+                resos.append(
+                    awkward.virtual(
+                        func, args=args, length=len(args[0]), form=form, cache=cache
+                    )
+                )
+            elif isinstance(args[0], numpy.ndarray):
+                resos.append(func(*args))  # np is non-lazy
             else:
                 raise Exception("Unknown array library for inputs.")
 

@@ -152,8 +152,17 @@ class FactorizedJetCorrector(object):
             return reduce(lambda x, y: y * x, corrs, 1.0)
 
         out = None
-        if isinstance(first_arg, (awkward.highlevel.Array, numpy.ndarray)):
-            out = total_corr(self, **kwargs)
+        if isinstance(first_arg, awkward.highlevel.Array):
+            out = awkward.virtual(
+                total_corr,
+                args=(self,),
+                kwargs=kwargs,
+                length=len(first_arg),
+                form=form,
+                cache=cache,
+            )
+        elif isinstance(first_arg, numpy.ndarray):
+            out = total_corr(self, **kwargs)  # np is non-lazy
         else:
             raise Exception("Unknown array library for inputs.")
 
@@ -190,8 +199,14 @@ class FactorizedJetCorrector(object):
                 for arg in sig
             )
 
-            if isinstance(fargs[0], (awkward.highlevel.Array, numpy.ndarray)):
-                corrections.append(func(*fargs))
+            if isinstance(fargs[0], awkward.highlevel.Array):
+                corrections.append(
+                    awkward.virtual(
+                        func, args=fargs, length=len(fargs[0]), form=form, cache=cache
+                    )
+                )
+            elif isinstance(fargs[0], numpy.ndarray):
+                corrections.append(func(*fargs))  # np is non-lazy
             else:
                 raise Exception("Unknown array library for inputs.")
 
