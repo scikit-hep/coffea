@@ -98,8 +98,8 @@ class Weights:
         self._weightStats[name] = WeightStatistics(
             weight.sum(),
             (weight**2).sum(),
-            weight.min(),
-            weight.max(),
+            weight.min(initial=numpy.inf),
+            weight.max(initial=-numpy.inf),
             weight.size,
         )
 
@@ -160,8 +160,8 @@ class Weights:
         self._weightStats[name] = WeightStatistics(
             weight.sum(),
             (weight**2).sum(),
-            weight.min(),
-            weight.max(),
+            weight.min(initial=numpy.inf),
+            weight.max(initial=-numpy.inf),
             weight.size,
         )
 
