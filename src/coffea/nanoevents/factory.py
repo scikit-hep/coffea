@@ -438,6 +438,7 @@ class NanoEventsFactory:
             persistent_cache,
             schemaclass,
             metadata,
+            tree,
             mode=mode,
         )
 
@@ -692,6 +693,7 @@ class NanoEventsFactory:
         persistent_cache,
         schemaclass,
         metadata,
+        tree,
         mode,
     ):
         """Quickly build NanoEvents from a root file
@@ -715,6 +717,8 @@ class NanoEventsFactory:
                 A schema class deriving from `BaseSchema` and implementing the desired view of the file
             metadata : dict
                 Arbitrary metadata to add to the `base.NanoEvents` object
+            tree : TTree
+                Pass TTree directly to schema
             mode:
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
@@ -725,7 +729,10 @@ class NanoEventsFactory:
             base_form["parameters"]["metadata"] = metadata
         if not callable(schemaclass):
             raise ValueError("Invalid schemaclass type")
-        schema = schemaclass(base_form)
+        if schemaclass.__name__ == "NanoAODSchema":
+            schema = schemaclass(base_form, tree)
+        else:
+            schema = schemaclass(base_form)
         if not isinstance(schema, BaseSchema):
             raise RuntimeError("Invalid schema type")
         return cls(
