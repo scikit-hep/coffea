@@ -1,0 +1,19 @@
+AccumulatorABC
+==============
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: AccumulatorABC
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~AccumulatorABC.add
+      ~AccumulatorABC.identity
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: add
+   .. automethod:: identity

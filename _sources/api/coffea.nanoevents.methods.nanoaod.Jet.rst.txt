@@ -1,0 +1,35 @@
+Jet
+===
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: Jet
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~Jet.LOOSE
+      ~Jet.TIGHT
+      ~Jet.TIGHTLEPVETO
+      ~Jet.constituents
+      ~Jet.isLoose
+      ~Jet.isTight
+      ~Jet.isTightLeptonVeto
+      ~Jet.matched_electrons
+      ~Jet.matched_gen
+      ~Jet.matched_muons
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: LOOSE
+   .. autoattribute:: TIGHT
+   .. autoattribute:: TIGHTLEPVETO
+   .. autoattribute:: constituents
+   .. autoattribute:: isLoose
+   .. autoattribute:: isTight
+   .. autoattribute:: isTightLeptonVeto
+   .. autoattribute:: matched_electrons
+   .. autoattribute:: matched_gen
+   .. autoattribute:: matched_muons
