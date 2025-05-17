@@ -503,6 +503,9 @@ class CoffeaVine(Manager):
         self.tune("attempt-schedule-depth", 200)
         self.tune("hungry-minimum", 100)
 
+        if executor.disable_worker_transfers:
+            self.disable_peer_transfers()
+
         # if resource_monitor is given, and not 'off', then monitoring is activated.
         # anything other than 'measure' is assumed to be 'watchdog' mode, where in
         # addition to measuring resources, tasks are killed if they go over their
@@ -613,7 +616,7 @@ class CoffeaVineTask(PythonTask):
         # disable vine serialization as coffea does its own.
         self.disable_output_serialization()
 
-        if bring_back_output:
+        if bring_back_output or m.executor.disable_worker_transfers:
             self.set_output_cache(True)
         else:
             self.enable_temp_output()

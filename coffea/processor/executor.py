@@ -555,6 +555,10 @@ class TaskVineExecutor(ExecutorBase):
             Number of replicas for temporary results in the cluster before checkpointing to manager
             with an accumulation. If less than 2, only one copy of a result is kept, which reduces
             cluster disk usage, but results need to be regenerated if workers are lost.
+        disable_worker_transfers: bool
+            Disable file transfers between workers. In normal operation, TaskVine will attempt to transfer
+            common and intermediate results between workers as needed, but some workers network
+            setup do not allow for this. Default is False.
 
         verbose : bool
             If true, emit a message on each task submission and completion.
@@ -600,6 +604,7 @@ class TaskVineExecutor(ExecutorBase):
     treereduction: int = 10
     concurrent_reads: int = 2
     replicas: int = 3
+    disable_worker_transfers: bool = False
     chunksize: int = 100000
     dynamic_chunksize: Optional[Dict] = None
     custom_init: Optional[Callable] = None
