@@ -1,0 +1,17 @@
+FsrPhoton
+=========
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: FsrPhoton
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~FsrPhoton.matched_muon
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: matched_muon
