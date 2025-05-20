@@ -3,6 +3,7 @@
 These helper classes were previously part of ``coffea.processor``
 but have been migrated and updated to be compatible with awkward-array 1.0
 """
+import awkward
 import numpy
 import coffea.util
 import coffea.processor
@@ -98,8 +99,8 @@ class Weights:
         self._weightStats[name] = WeightStatistics(
             weight.sum(),
             (weight**2).sum(),
-            weight.min(initial=numpy.inf),
-            weight.max(initial=-numpy.inf),
+            awkward.min(weight, mask_identity=False),
+            awkward.max(weight, mask_identity=False),
             weight.size,
         )
 
