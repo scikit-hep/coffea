@@ -31,6 +31,7 @@ import warnings
 from functools import partial
 
 import cloudpickle
+import pickle
 import lz4.frame
 
 
@@ -41,14 +42,20 @@ def load(filename):
     return output
 
 
-def save(output, filename):
+def save(output, filename, fast=True):
     """Save a coffea object or collection thereof to disk
 
     This function can accept any picklable object.  Suggested suffix: ``.coffea``
+
+    If `fast` is ste to `true`, it will use fast mode of the python pickler
+    (see https://docs.python.org/3/library/pickle.html).
+    This has no memory overhead, while the default creates a copy in memory.
+    However, it could in principle cause issues with recursive objects.
     """
     with lz4.frame.open(filename, "wb") as fout:
-        thepickle = cloudpickle.dumps(output)
-        fout.write(thepickle)
+        p = cloudpickle.Pickler(fout, protocol=pickle.HIGHEST_PROTOCOL)
+        p.fast = fast
+        p.dump(output)
 
 
 def _hex(string):
