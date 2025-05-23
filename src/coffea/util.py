@@ -53,10 +53,17 @@ def save(output, filename, fast=True):
     However, it could in principle cause issues with recursive objects, so
     care should be taken.
     """
-    with lz4.frame.open(filename, "wb") as fout:
-        p = cloudpickle.Pickler(fout, protocol=pickle.HIGHEST_PROTOCOL)
-        p.fast = fast
-        p.dump(output)
+    try:
+        with lz4.frame.open(filename, "wb") as fout:
+            p = cloudpickle.Pickler(fout, protocol=pickle.HIGHEST_PROTOCOL)
+            p.fast = fast
+            p.dump(output)
+    except ValueError as e:
+        if fast:
+            # Try again without fast on a cyclic error
+            save(output, filename, fast=False)
+        else:
+            raise e
 
 
 def _hex(string):
