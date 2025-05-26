@@ -27,7 +27,6 @@ dak = dask_awkward
 np = numpy
 nb = numba
 
-import pickle
 import warnings
 from functools import partial
 
@@ -55,13 +54,18 @@ def save(output, filename, fast=True):
     """
     try:
         with lz4.frame.open(filename, "wb") as fout:
-            p = cloudpickle.Pickler(fout, protocol=pickle.HIGHEST_PROTOCOL)
+            p = cloudpickle.Pickler(fout)
             p.fast = fast
             p.dump(output)
     except ValueError as e:
         if fast:
             # Try again without fast on a cyclic error
             save(output, filename, fast=False)
+            warnings.warn(
+                f"Could not save object to path '{filename}' "
+                "in fast mode due to possible recursion in object. "
+                "Falling back to default saving."
+            )
         else:
             raise e
 
