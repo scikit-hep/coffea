@@ -1,0 +1,19 @@
+CorrectedMETFactory
+===================
+
+.. currentmodule:: coffea.jetmet_tools
+
+.. autoclass:: CorrectedMETFactory
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~CorrectedMETFactory.build
+      ~CorrectedMETFactory.uncertainties
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: build
+   .. automethod:: uncertainties

@@ -1,0 +1,35 @@
+futures_executor
+================
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: futures_executor
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~futures_executor.mergepool
+      ~futures_executor.merging
+      ~futures_executor.recoverable
+      ~futures_executor.tailtimeout
+      ~futures_executor.workers
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~futures_executor.__call__
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: mergepool
+   .. autoattribute:: merging
+   .. autoattribute:: recoverable
+   .. autoattribute:: tailtimeout
+   .. autoattribute:: workers
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__
