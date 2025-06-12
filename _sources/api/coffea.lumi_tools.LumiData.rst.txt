@@ -1,0 +1,17 @@
+LumiData
+========
+
+.. currentmodule:: coffea.lumi_tools
+
+.. autoclass:: LumiData
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~LumiData.get_lumi
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: get_lumi

@@ -1,0 +1,19 @@
+Candidate
+=========
+
+.. currentmodule:: coffea.nanoevents.methods.candidate
+
+.. autoclass:: Candidate
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~Candidate.add
+      ~Candidate.sum
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: add
+   .. automethod:: sum
