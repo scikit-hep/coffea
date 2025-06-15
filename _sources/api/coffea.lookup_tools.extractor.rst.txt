@@ -1,0 +1,27 @@
+extractor
+=========
+
+.. currentmodule:: coffea.lookup_tools
+
+.. autoclass:: extractor
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~extractor.add_weight_set
+      ~extractor.add_weight_sets
+      ~extractor.extract_from_file
+      ~extractor.finalize
+      ~extractor.import_file
+      ~extractor.make_evaluator
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: add_weight_set
+   .. automethod:: add_weight_sets
+   .. automethod:: extract_from_file
+   .. automethod:: finalize
+   .. automethod:: import_file
+   .. automethod:: make_evaluator
