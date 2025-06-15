@@ -215,8 +215,8 @@ class Weights:
         self._weightStats[name] = WeightStatistics(
             weight.sum(),
             (weight**2).sum(),
-            weight.min(),
-            weight.max(),
+            awkward.min(weight, mask_identity=False),
+            awkward.max(weight, mask_identity=False),
             weight.size,
         )
         self._names.append(name)
@@ -238,8 +238,9 @@ class Weights:
         self._weightStats[name] = {
             "sumw": dask_awkward.sum(weight),
             "sumw2": dask_awkward.sum(weight**2),
-            "minw": dask_awkward.min(weight),
-            "maxw": dask_awkward.max(weight),
+            "minw": dask_awkward.min(weight, mask_identity=False),
+            "maxw": dask_awkward.max(weight, mask_identity=False),
+            "n": dask_awkward.num(weight, axis=0),
         }
         self._names.append(name)
 
@@ -284,7 +285,7 @@ class Weights:
             self.__add_delayed(name, weight, weightUp, weightDown, shift)
         else:
             raise ValueError(
-                f"Incompatible weights: self._weight={type(self.weight)}, weight={type(weight)}"
+                f"Incompatible weights: self._weight={type(self._weight)}, weight={type(weight)}"
             )
 
     def __add_multivariation_eager(
@@ -315,8 +316,8 @@ class Weights:
         self._weightStats[name] = WeightStatistics(
             weight.sum(),
             (weight**2).sum(),
-            weight.min(),
-            weight.max(),
+            awkward.min(weight, mask_identity=False),
+            awkward.max(weight, mask_identity=False),
             weight.size,
         )
         self._names.append(name)
@@ -352,8 +353,9 @@ class Weights:
         self._weightStats[name] = {
             "sumw": dask_awkward.sum(weight),
             "sumw2": dask_awkward.sum(weight**2),
-            "minw": dask_awkward.min(weight),
-            "maxw": dask_awkward.max(weight),
+            "minw": dask_awkward.min(weight, mask_identity=False),
+            "maxw": dask_awkward.max(weight, mask_identity=False),
+            "n": dask_awkward.num(weight, axis=0),
         }
         self._names.append(name)
 
@@ -406,7 +408,7 @@ class Weights:
             )
         else:
             raise ValueError(
-                f"Incompatible weights: self._weight={type(self.weight)}, weight={type(weight)}"
+                f"Incompatible weights: self._weight={type(self._weight)}, weight={type(weight)}"
             )
 
     def __add_variation_eager(self, name, weight, weightUp, weightDown, shift):

@@ -1031,7 +1031,7 @@ class Runner:
     xrootdtimeout: Optional[int] = 60
     align_clusters: bool = False
     savemetrics: bool = False
-    schema: Optional[schemas.BaseSchema] = schemas.BaseSchema
+    schema: Optional[schemas.BaseSchema] = schemas.NanoAODSchema
     processor_compression: int = 1
     use_skyhook: Optional[bool] = False
     skyhook_options: Optional[dict] = field(default_factory=dict)
@@ -1099,8 +1099,7 @@ class Runner:
             except Exception as e:
                 chain = _exception_chain(e)
                 if skipbadfiles and any(
-                    isinstance(c, (FileNotFoundError, UprootMissTreeError))
-                    for c in chain
+                    isinstance(c, (OSError, UprootMissTreeError)) for c in chain
                 ):
                     warnings.warn(str(e))
                     break
@@ -1493,7 +1492,7 @@ class Runner:
     def preprocess(
         self,
         fileset: dict,
-        treename: str,
+        treename: Optional[str] = None,
     ) -> Generator:
         """Run the processor_instance on a given fileset
 
@@ -1503,6 +1502,8 @@ class Runner:
                 A dictionary ``{dataset: [file, file], }``
                 Optionally, if some files' tree name differ, the dictionary can be specified:
                 ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
+                You can also define a different tree name per file in the dictionary:
+                ``{dataset: {'files': {file: 'name'}}, }``
             treename : str
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
@@ -1543,6 +1544,8 @@ class Runner:
                 - A dictionary ``{dataset: [file, file], }``
                   Optionally, if some files' tree name differ, the dictionary can be specified:
                   ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
+                  You can also define a different tree name per file in the dictionary:
+                ``{dataset: {'files': {file: 'name'}}, }``
                 - A single file name
                 - File chunks for self.preprocess()
                 - Chunk generator

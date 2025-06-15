@@ -44,12 +44,10 @@ A small example::
 """
 
 import numbers
-from datetime import datetime
 
 import awkward
 import numba
 import numpy
-import pytz
 import vector
 from dask_awkward import dask_method
 from vector.backends.awkward import (
@@ -58,20 +56,21 @@ from vector.backends.awkward import (
     MomentumAwkward4D,
 )
 
-from coffea.util import deprecate
+# TODO: add this back in when there is an actual plan to only use scikit-hep vector
+# from coffea.util import deprecate
 
-_cst = pytz.timezone("US/Central")
-_depttime = _cst.localize(datetime(2024, 12, 31, 11, 59, 59))
-deprecate(
-    (
-        "coffea.nanoevents.methods.vector will be removed and replaced with scikit-hep vector. "
-        "Nanoevents schemas internal to coffea will be migrated. "
-        "Otherwise please consider using that package!"
-    ),
-    version="2025.1.0",
-    date=str(_depttime),
-    category=FutureWarning,
-)
+# _cst = pytz.timezone("US/Central")
+# _depttime = _cst.localize(datetime(2024, 12, 31, 11, 59, 59))
+# deprecate(
+#     (
+#         "coffea.nanoevents.methods.vector will be removed and replaced with scikit-hep vector. "
+#         "Nanoevents schemas internal to coffea will be migrated. "
+#         "Otherwise please consider using that package!"
+#     ),
+#     version="2025.1.0",
+#     date=str(_depttime),
+#     category=FutureWarning,
+# )
 
 
 @numba.vectorize(

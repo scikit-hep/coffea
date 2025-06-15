@@ -4,6 +4,7 @@ import sys
 import pytest
 
 from coffea import processor
+from coffea.nanoevents import BaseSchema
 
 
 def test_parsl_start_stop():
@@ -24,7 +25,7 @@ def do_parsl_job(filelist, flatten=False, compression=0, config=None):
     from coffea.processor.test_items import NanoTestProcessor
 
     executor = processor.ParslExecutor(compression=compression, config=config)
-    run = processor.Runner(executor=executor)
+    run = processor.Runner(executor=executor, schema=BaseSchema)
 
     hists = run(
         filelist,
