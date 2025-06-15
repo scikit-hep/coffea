@@ -73,7 +73,10 @@ def linkcode_resolve(domain, info):
     if len(modpath) < 1:
         raise RuntimeException("Cannot deduce module path")
     modpath = modpath[0]
-    obj = reduce(getattr, [mod] + info["fullname"].split("."))
+    try:
+        obj = reduce(getattr, [mod] + info["fullname"].split("."))
+    except AttributeError:
+        return None
     try:
         path = inspect.getsourcefile(obj)
         relpath = path[len(modpath) + 1 :]
