@@ -1439,7 +1439,9 @@ class Runner:
             try:
                 out = processor_instance.process(events)
             except Exception as e:
-                raise Exception(f"Failed processing file: {item!r}") from e
+                raise Exception(
+                    f"Failed processing file: {item!r}. The error was: {e!r}."
+                ) from e
             if out is None:
                 raise ValueError(
                     "Output of process() should not be None. Make sure your processor's process() function returns an accumulator."
