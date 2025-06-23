@@ -16,9 +16,14 @@ class UpDownSystematic(Systematic):
             self[what] if what != "weight" else self["__systematics__", "__ones__"]
         )
 
-        self["__systematics__", f"__{name}__"] = varying_function(
-            *(whatarray, *args), **kwargs
+        fields = awkward.fields(self["__systematics__"])
+        as_dict = {field: self["__systematics__", field] for field in fields}
+        as_dict[f"__{name}__"] = varying_function(
+            whatarray,
+            *args,
+            **kwargs,
         )
+        self["__systematics__"] = awkward.zip(as_dict, depth_limit=1)
 
     def describe_variations(self):
         """Show the map of variation names to indices."""
