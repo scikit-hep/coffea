@@ -776,7 +776,5 @@ class NanoEventsFactory:
                 allow_noncanonical_form=True,
             )
             self._events = weakref.ref(events)
-            if self._mode == "virtual":
-                events.attrs["@original_array"] = events
 
         return events
