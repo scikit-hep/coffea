@@ -1,0 +1,9 @@
+<map id="inheritancec0b8dd00a1" name="inheritancec0b8dd00a1">
+<area shape="rect" id="node1" href="../api/coffea.jetmet_tools.CorrectedJetsFactory.html#coffea.jetmet_tools.CorrectedJetsFactory" target="_top" title="CorrectedJetsFactory" alt="" coords="19,301,175,327"/>
+<area shape="rect" id="node2" href="../api/coffea.jetmet_tools.CorrectedMETFactory.html#coffea.jetmet_tools.CorrectedMETFactory" target="_top" title="CorrectedMETFactory" alt="" coords="17,252,177,277"/>
+<area shape="rect" id="node3" href="../api/coffea.jetmet_tools.FactorizedJetCorrector.html#coffea.jetmet_tools.FactorizedJetCorrector" target="_top" title="This class is a columnar implementation of the FactorizedJetCorrector tool in" alt="" coords="14,203,179,228"/>
+<area shape="rect" id="node4" href="../api/coffea.jetmet_tools.JECStack.html#coffea.jetmet_tools.JECStack" target="_top" title="JECStack" alt="" coords="57,153,136,179"/>
+<area shape="rect" id="node5" href="../api/coffea.jetmet_tools.JetCorrectionUncertainty.html#coffea.jetmet_tools.JetCorrectionUncertainty" target="_top" title="This class is a columnar implementation of the JetCorrectionUncertainty tool in" alt="" coords="5,104,188,129"/>
+<area shape="rect" id="node6" href="../api/coffea.jetmet_tools.JetResolution.html#coffea.jetmet_tools.JetResolution" target="_top" title="This class is a columnar implementation of the JetResolution tool in" alt="" coords="43,55,151,80"/>
+<area shape="rect" id="node7" href="../api/coffea.jetmet_tools.JetResolutionScaleFactor.html#coffea.jetmet_tools.JetResolutionScaleFactor" target="_top" title="This class is a columnar implementation of the JetResolutionScaleFactor tool in" alt="" coords="5,5,188,31"/>
+</map>

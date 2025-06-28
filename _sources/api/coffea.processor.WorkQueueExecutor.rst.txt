@@ -1,0 +1,103 @@
+WorkQueueExecutor
+=================
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: WorkQueueExecutor
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~WorkQueueExecutor.bar_format
+      ~WorkQueueExecutor.chunks_accum_in_mem
+      ~WorkQueueExecutor.chunks_per_accum
+      ~WorkQueueExecutor.chunksize
+      ~WorkQueueExecutor.compression
+      ~WorkQueueExecutor.cores
+      ~WorkQueueExecutor.custom_init
+      ~WorkQueueExecutor.debug_log
+      ~WorkQueueExecutor.desc
+      ~WorkQueueExecutor.disk
+      ~WorkQueueExecutor.dynamic_chunksize
+      ~WorkQueueExecutor.environment_file
+      ~WorkQueueExecutor.events_total
+      ~WorkQueueExecutor.extra_input_files
+      ~WorkQueueExecutor.fast_terminate_workers
+      ~WorkQueueExecutor.filepath
+      ~WorkQueueExecutor.function_name
+      ~WorkQueueExecutor.gpus
+      ~WorkQueueExecutor.manager_name
+      ~WorkQueueExecutor.master_name
+      ~WorkQueueExecutor.memory
+      ~WorkQueueExecutor.password_file
+      ~WorkQueueExecutor.port
+      ~WorkQueueExecutor.print_stdout
+      ~WorkQueueExecutor.resource_monitor
+      ~WorkQueueExecutor.resources_mode
+      ~WorkQueueExecutor.retries
+      ~WorkQueueExecutor.split_on_exhaustion
+      ~WorkQueueExecutor.ssl
+      ~WorkQueueExecutor.stats_log
+      ~WorkQueueExecutor.status
+      ~WorkQueueExecutor.status_display_interval
+      ~WorkQueueExecutor.tasks_accum_log
+      ~WorkQueueExecutor.transactions_log
+      ~WorkQueueExecutor.treereduction
+      ~WorkQueueExecutor.unit
+      ~WorkQueueExecutor.verbose
+      ~WorkQueueExecutor.wrapper
+      ~WorkQueueExecutor.x509_proxy
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~WorkQueueExecutor.__call__
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: bar_format
+   .. autoattribute:: chunks_accum_in_mem
+   .. autoattribute:: chunks_per_accum
+   .. autoattribute:: chunksize
+   .. autoattribute:: compression
+   .. autoattribute:: cores
+   .. autoattribute:: custom_init
+   .. autoattribute:: debug_log
+   .. autoattribute:: desc
+   .. autoattribute:: disk
+   .. autoattribute:: dynamic_chunksize
+   .. autoattribute:: environment_file
+   .. autoattribute:: events_total
+   .. autoattribute:: extra_input_files
+   .. autoattribute:: fast_terminate_workers
+   .. autoattribute:: filepath
+   .. autoattribute:: function_name
+   .. autoattribute:: gpus
+   .. autoattribute:: manager_name
+   .. autoattribute:: master_name
+   .. autoattribute:: memory
+   .. autoattribute:: password_file
+   .. autoattribute:: port
+   .. autoattribute:: print_stdout
+   .. autoattribute:: resource_monitor
+   .. autoattribute:: resources_mode
+   .. autoattribute:: retries
+   .. autoattribute:: split_on_exhaustion
+   .. autoattribute:: ssl
+   .. autoattribute:: stats_log
+   .. autoattribute:: status
+   .. autoattribute:: status_display_interval
+   .. autoattribute:: tasks_accum_log
+   .. autoattribute:: transactions_log
+   .. autoattribute:: treereduction
+   .. autoattribute:: unit
+   .. autoattribute:: verbose
+   .. autoattribute:: wrapper
+   .. autoattribute:: x509_proxy
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

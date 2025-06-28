@@ -1,0 +1,19 @@
+Tau
+===
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: Tau
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~Tau.matched_gen
+      ~Tau.matched_jet
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: matched_gen
+   .. autoattribute:: matched_jet
