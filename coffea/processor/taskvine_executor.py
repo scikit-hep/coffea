@@ -78,6 +78,7 @@ class CoffeaVine(Manager):
         self,
         executor,
     ):
+        os.makedirs(executor.filepath, exist_ok=True)
         self._staging_dir_obj = TemporaryDirectory(
             prefix="vine-tmp-", dir=executor.filepath
         )
