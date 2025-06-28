@@ -170,7 +170,7 @@ def get_failed_steps_for_dataset(
     dataset: DatasetSpec, report: awkward.Array
 ) -> DatasetSpec:
     """
-    Modify an input dataset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
+    Modify the input dataset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
 
     Parameters
     ----------
@@ -227,7 +227,7 @@ def get_failed_steps_for_fileset(
     fileset: FilesetSpec, report_dict: dict[str, awkward.Array]
 ):
     """
-    Modify an input fileset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
+    Modify the input fileset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
 
     Parameters
     ----------
