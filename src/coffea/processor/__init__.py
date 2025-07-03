@@ -19,6 +19,7 @@ from .executor import (
     Runner,
 )
 from .processor import ProcessorABC
+from .taskvine_executor import TaskVineExecutor
 
 __all__ = [
     "ProcessorABC",
@@ -26,6 +27,7 @@ __all__ = [
     "FuturesExecutor",
     "DaskExecutor",
     "ParslExecutor",
+    "TaskVineExecutor",
     "Runner",
     "accumulate",
     "Accumulatable",
