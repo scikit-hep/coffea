@@ -144,6 +144,89 @@ jobs:
     #   env:
     #     GH_PAT: ${{ secrets.GITHUB_OAUTH }}
 
+  test-vine:
+    runs-on: ubuntu-latest
+    needs: pre-commit
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+    name: test coffea-taskvine
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Conda
+      uses: conda-incubator/setup-miniconda@v3
+      env:
+        ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+      with:
+        auto-update-conda: true
+        python-version: ${{ matrix.python-version }}
+        channels: conda-forge
+    - name: Construct conda environment
+      shell: bash -l {0}
+      run: |
+        conda create --yes --prefix ./coffea-conda-test-env -c conda-forge python=${{ matrix.python-version }} ndcctools uv
+        conda activate ./coffea-conda-test-env
+        uv pip install . 'dask<2025.1.0'
+        uv pip install pytest
+    - name: Test with pytest
+      run: |
+        conda run --prefix ./coffea-conda-test-env pytest tests/test_taskvine.py
+
+#  testskyhookjob:
+#    runs-on: ubuntu-latest
+#    needs: pre-commit
+#    name: test coffea-skyhook-job
+#
+#    steps:
+#    - uses: actions/checkout@3
+#    - name: Test Coffea Skyhook Bindings
+#      shell: bash -l {0}
+#      run: |
+#        docker build -t coffea-skyhook-test \
+#          --file docker/skyhook/Dockerfile \
+#          .
+#        docker run \
+#        -v $(pwd):/w \
+#        -w /w \
+#        -e IS_CI=true \
+#        --privileged \
+#        coffea-skyhook-test \
+#        ./docker/skyhook/script.sh
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: [test, test-vine]
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+    name: deploy release
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Build package for PyPI
+      run: |
+        pipx run hatch build -t sdist -t wheel
+    - name: Verify the distribution
+      run: pipx run twine check --strict dist/*
+    - name: Generate artifact attestation for sdist and wheel
+      uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+      with:
+        subject-path: "dist/coffea-*"
+    - name: Publish package to PyPI
+      uses: pypa/gh-action-pypi-publish@v1.12.4
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_TOKEN }}
+
   pass:
     needs: [test, test-vine]
     runs-on: ubuntu-latest
