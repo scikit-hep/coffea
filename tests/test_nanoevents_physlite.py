@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 import awkward as ak
 import dask
@@ -144,3 +145,169 @@ def test_electron_forms():
         "form_key": "node0",
     }
     assert json.dumps(expected_json) == mocked.to_json()
+
+
+def test_entry_start_and_entry_stop():
+    is_windows = sys.platform.startswith("win")
+
+    NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="eager",
+        schemaclass=PHYSLITESchema,
+        entry_start=31,
+        iteritems_options=dict(
+            filter_name=lambda name: name
+            in [
+                "AnalysisElectronsAuxDyn.pt",
+                "AnalysisElectronsAuxDyn.trackParticleLinks",
+            ]
+        ),
+    ).events()
+
+    NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="eager",
+        schemaclass=PHYSLITESchema,
+        entry_stop=31,
+        iteritems_options=dict(
+            filter_name=lambda name: name
+            in [
+                "AnalysisElectronsAuxDyn.pt",
+                "AnalysisElectronsAuxDyn.trackParticleLinks",
+            ]
+        ),
+    ).events()
+
+    NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="eager",
+        schemaclass=PHYSLITESchema,
+        entry_start=31,
+        entry_stop=62,
+        iteritems_options=dict(
+            filter_name=lambda name: name
+            in [
+                "AnalysisElectronsAuxDyn.pt",
+                "AnalysisElectronsAuxDyn.trackParticleLinks",
+            ]
+        ),
+    ).events()
+
+    NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="eager",
+        schemaclass=PHYSLITESchema,
+        entry_start=31,
+    ).events()
+
+    NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="eager",
+        schemaclass=PHYSLITESchema,
+        entry_stop=31,
+    ).events()
+
+    NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="eager",
+        schemaclass=PHYSLITESchema,
+        entry_start=31,
+        entry_stop=62,
+    ).events()
+
+    access_log = []
+    NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="virtual",
+        schemaclass=PHYSLITESchema,
+        entry_start=31,
+        access_log=access_log,
+    ).events()
+    if not is_windows:
+        assert access_log == []
+
+    access_log = []
+    NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="virtual",
+        schemaclass=PHYSLITESchema,
+        entry_stop=31,
+        access_log=access_log,
+    ).events()
+    if not is_windows:
+        assert access_log == []
+
+    access_log = []
+    NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="virtual",
+        schemaclass=PHYSLITESchema,
+        entry_start=31,
+        entry_stop=62,
+        access_log=access_log,
+    ).events()
+    if not is_windows:
+        assert access_log == []
+
+    events = NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="eager",
+        schemaclass=PHYSLITESchema,
+        entry_start=31,
+        entry_stop=40,
+    ).events()
+
+    assert events.Electrons.trackParticleLinks.tolist() == [
+        [
+            [
+                {"m_persIndex": 0, "m_persKey": 776133387},
+                {"m_persIndex": 0, "m_persKey": 0},
+                {"m_persIndex": 0, "m_persKey": 0},
+                {"m_persIndex": 0, "m_persKey": 0},
+            ],
+            [{"m_persIndex": 2, "m_persKey": 776133387}],
+            [{"m_persIndex": 1, "m_persKey": 776133387}],
+        ],
+        [
+            [{"m_persIndex": 0, "m_persKey": 776133387}],
+            [{"m_persIndex": 1, "m_persKey": 776133387}],
+        ],
+        [
+            [
+                {"m_persIndex": 0, "m_persKey": 776133387},
+                {"m_persIndex": 0, "m_persKey": 0},
+                {"m_persIndex": 0, "m_persKey": 0},
+            ],
+            [{"m_persIndex": 1, "m_persKey": 776133387}],
+        ],
+        [
+            [{"m_persIndex": 0, "m_persKey": 776133387}],
+            [{"m_persIndex": 1, "m_persKey": 776133387}],
+        ],
+        [
+            [{"m_persIndex": 1, "m_persKey": 776133387}],
+            [{"m_persIndex": 0, "m_persKey": 776133387}],
+        ],
+        [],
+        [[{"m_persIndex": 0, "m_persKey": 776133387}]],
+        [[{"m_persIndex": 1, "m_persKey": 776133387}]],
+        [
+            [
+                {"m_persIndex": 0, "m_persKey": 776133387},
+                {"m_persIndex": 1, "m_persKey": 776133387},
+                {"m_persIndex": 0, "m_persKey": 0},
+            ],
+            [{"m_persIndex": 2, "m_persKey": 776133387}],
+        ],
+    ]
+    assert events.Electrons.pt.tolist() == [
+        [58211.04296875, 36531.87890625, 6576.1328125],
+        [136858.140625, 85670.0390625],
+        [52149.78125, 31514.447265625],
+        [72111.9375, 27898.1015625],
+        [71988.453125, 22240.546875],
+        [],
+        [16296.65625],
+        [49905.984375],
+        [98232.9921875, 29483.591796875],
+    ]

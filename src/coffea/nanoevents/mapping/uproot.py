@@ -233,11 +233,17 @@ class UprootSourceMapping(BaseSourceMapping):
             decompression_executor=self.decompression_executor,
             interpretation_executor=self.interpretation_executor,
         )
+        if isinstance(the_array.layout, awkward.contents.ListOffsetArray):
+            the_array = awkward.Array(the_array.layout.to_ListOffsetArray64(True))
 
         if allow_missing:
-            the_array = awkward.contents.IndexedOptionArray(
-                awkward.index.Index64(numpy.arange(stop - start, dtype=numpy.int64)),
-                awkward.contents.NumpyArray(the_array),
+            the_array = awkward.Array(
+                awkward.contents.IndexedOptionArray(
+                    awkward.index.Index64(
+                        numpy.arange(stop - start, dtype=numpy.int64)
+                    ),
+                    awkward.contents.NumpyArray(the_array),
+                )
             )
 
         return the_array

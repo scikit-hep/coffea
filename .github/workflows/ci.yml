@@ -168,9 +168,14 @@ jobs:
         conda activate ./coffea-conda-test-env
         uv pip install . 'dask<2025.1.0'
         uv pip install pytest
-    - name: Test with pytest
+    - name: Test with pytest coffea with dask + taskvine
+      timeout-minutes: 5
       run: |
-        conda run --prefix ./coffea-conda-test-env pytest tests/test_taskvine.py
+        conda run --prefix ./coffea-conda-test-env pytest tests/test_taskvine_dask.py
+    - name: Test with pytest coffea with virtual arrays + taskvine
+      timeout-minutes: 5
+      run: |
+        conda run --prefix ./coffea-conda-test-env pytest tests/test_taskvine_virtual.py
 
 #  testskyhookjob:
 #    runs-on: ubuntu-latest
