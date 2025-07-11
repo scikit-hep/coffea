@@ -101,7 +101,7 @@ class Systematic:
             f for f in awkward.fields(self["__systematics__"]) if not regex.match(f)
         ]
         return self["__systematics__"][fields]
-    
+
     @abstractmethod
     def _build_variations(
         self,
