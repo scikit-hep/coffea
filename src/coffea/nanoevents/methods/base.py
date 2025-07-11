@@ -7,13 +7,32 @@ from typing import Any, Callable, Union
 
 import awkward
 import dask_awkward
-import numpy
 from dask_awkward import dask_method, dask_property
 
 import coffea
 from coffea.util import awkward_rewrap, rewrap_recordarray
 
 behavior = {}
+
+
+def _add_systematic_wrapper(
+    self,
+    name: str,
+    kind: str,
+    what: Union[str, list[str], tuple[str]],
+    varying_function: Callable,
+):
+    self.add_systematic(name, kind, what, varying_function)
+    return self
+
+
+def _add_systematics_wrapper(array):
+    if awkward.backend(array) == "typetracer":
+        x = awkward.Array(awkward.Array([{}]).layout.to_typetracer(forget_length=True))
+        array["__systematics__"] = x
+        return array
+    array["__systematics__"] = awkward.broadcast_arrays(array, {})[1]
+    return array
 
 
 class _ClassMethodFn:
@@ -48,36 +67,30 @@ class Systematic:
         """
         cls._systematic_kinds.add(kind)
 
-    def _ensure_systematics(self, _dask_array_=None):
+    @dask_method
+    def _ensure_systematics(self):
         """
         Make sure that the parent object always has a field called '__systematics__'.
         """
         if "__systematics__" not in awkward.fields(self):
-            if _dask_array_ is not None:
-                x = awkward.Array(
-                    awkward.Array([{}]).layout.to_typetracer(forget_length=True)
-                )
-                _dask_array_._meta["__systematics__"] = x
+            self["__systematics__"] = awkward.broadcast_arrays(self, {})[1]
 
-                def add_systematics_hack(array):
-                    if awkward.backend(array) == "typetracer":
-                        array["__systematics__"] = x
-                        return array
-                    array["__systematics__"] = awkward.broadcast_arrays(self, {})[1]
-                    return array
+    @_ensure_systematics.dask
+    def _ensure_systematics(self, dask_array):
+        """
+        Make sure that the parent object always has a field called '__systematics__'.
+        """
+        if "__systematics__" not in awkward.fields(dask_array._meta):
+            _ = dask_awkward.map_partitions(
+                _add_systematics_wrapper,
+                dask_array,
+                label="ensure-systematics",
+            )
+            dask_array._meta = _._meta
+            dask_array._dask = _._dask
+            dask_array._name = _._name
 
-                temp = dask_awkward.map_partitions(
-                    add_systematics_hack,
-                    _dask_array_,
-                    label="ensure-systematics",
-                    meta=_dask_array_._meta,
-                )
-                _dask_array_._meta = temp._meta
-                _dask_array_._dask = temp._dask
-                _dask_array_._name = temp._name
-            else:
-                self["__systematics__"] = awkward.broadcast_arrays(self, {})[1]
-
+    # @dask_property
     @property
     def systematics(self):
         """
@@ -89,6 +102,13 @@ class Systematic:
             f for f in awkward.fields(self["__systematics__"]) if not regex.match(f)
         ]
         return self["__systematics__"][fields]
+
+    # @systematics.dask
+    # def systematics(self, dask_array):
+    #    """
+    #    Return the list of all systematics attached to this object.
+    #    """
+    #    return dask_array.systematics
 
     @abstractmethod
     def _build_variations(
@@ -122,13 +142,13 @@ class Systematic:
         """returns a list of variation names"""
         pass
 
+    @dask_method
     def add_systematic(
         self,
         name: str,
         kind: str,
         what: Union[str, list[str], tuple[str]],
         varying_function: Callable,
-        _dask_array_=None,
     ):
         """
         Add a systematic to the nanoevents object's `systematics` field, with field name `name`, of kind `kind` (must be registered
@@ -145,22 +165,6 @@ class Systematic:
             varying_function: Union[function, bound method]
                 A function that describes how 'what' is varied, it must close over all non-event-data arguments.
         """
-        if _dask_array_ is not None:
-            print("self", repr(self))
-            print("name", name)
-            print("kind", kind)
-            print("what", repr(what))
-            print("vf  ", varying_function)
-            print("da  ", _dask_array_, type(_dask_array_))
-            _dask_array_.map_partitions(
-                _ClassMethodFn(
-                    "add_systematic",
-                    name=name,
-                    kind=kind,
-                    varying_function=varying_function,
-                ),
-                what=what,
-            )
 
         self._ensure_systematics()
 
@@ -186,12 +190,21 @@ class Systematic:
         ):
             fields = awkward.fields(flat["__systematics__"])
             as_dict = {field: flat["__systematics__", field] for field in fields}
-            as_dict["__ones__"] = numpy.ones(len(flat), dtype=numpy.float32)
+            as_dict["__ones__"] = 1.0
             flat["__systematics__"] = awkward.zip(as_dict, depth_limit=1)
 
         rendered_type = flat.layout.parameters["__record__"]
         as_syst_type = awkward.with_parameter(flat, "__record__", kind)
-        as_syst_type._build_variations(name, what, varying_function)
+        if awkward.backend(as_syst_type) == "typetracer":
+            lza = awkward.typetracer.length_zero_if_typetracer(as_syst_type)
+            lza._build_variations(name, what, varying_function)
+            as_syst_type = awkward.Array(
+                lza.layout.to_typetracer(forget_length=True),
+                behavior=lza.behavior,
+                attrs=lza.attrs,
+            )
+        else:
+            as_syst_type._build_variations(name, what, varying_function)
         variations = as_syst_type.describe_variations()
 
         fields = awkward.fields(flat["__systematics__"])
@@ -208,6 +221,36 @@ class Systematic:
 
         self["__systematics__"] = wrap(flat["__systematics__"])
         self.behavior[("__typestr__", f"{name}Systematics")] = f"{kind}"
+
+    @add_systematic.dask
+    def add_systematic(
+        self,
+        dask_array,
+        name: str,
+        kind: str,
+        what: Union[str, list[str], tuple[str]],
+        varying_function: Callable,
+    ):
+        dask_array._ensure_systematics()
+
+        if name in awkward.fields(dask_array._meta["__systematics__"]):
+            raise ValueError(f"{name} already exists as a systematic for this object!")
+
+        if kind not in self._systematic_kinds:
+            raise ValueError(
+                f"{kind} is not an available systematics type, please add it and try again!"
+            )
+
+        _ = dask_array.map_partitions(
+            _add_systematic_wrapper,
+            name,
+            kind,
+            what,
+            varying_function,
+        )
+        dask_array._meta = _._meta
+        dask_array._dask = _._dask
+        dask_array._name = _._name
 
 
 behavior[("__typestr__", "Systematic")] = "Systematic"
