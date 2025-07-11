@@ -90,7 +90,6 @@ class Systematic:
             dask_array._dask = _._dask
             dask_array._name = _._name
 
-    # @dask_property
     @property
     def systematics(self):
         """
@@ -102,14 +101,7 @@ class Systematic:
             f for f in awkward.fields(self["__systematics__"]) if not regex.match(f)
         ]
         return self["__systematics__"][fields]
-
-    # @systematics.dask
-    # def systematics(self, dask_array):
-    #    """
-    #    Return the list of all systematics attached to this object.
-    #    """
-    #    return dask_array.systematics
-
+    
     @abstractmethod
     def _build_variations(
         self,
