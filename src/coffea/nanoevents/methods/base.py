@@ -26,7 +26,7 @@ def _add_systematic_wrapper(
     return self
 
 
-def _add_systematics_wrapper(array):
+def _ensure_systematics_wrapper(array):
     if awkward.backend(array) == "typetracer":
         x = awkward.Array(awkward.Array([{}]).layout.to_typetracer(forget_length=True))
         array["__systematics__"] = x
@@ -82,7 +82,7 @@ class Systematic:
         """
         if "__systematics__" not in awkward.fields(dask_array._meta):
             _ = dask_awkward.map_partitions(
-                _add_systematics_wrapper,
+                _ensure_systematics_wrapper,
                 dask_array,
                 label="ensure-systematics",
             )
