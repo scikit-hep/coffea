@@ -1,3 +1,4 @@
+import inspect
 import io
 import pathlib
 import warnings
@@ -25,21 +26,6 @@ from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
 from coffea.util import _remove_not_interpretable
 
 _offsets_label = quote(",!offsets")
-
-
-warnings.warn(
-    """NanoEventsFactory.from_root() behavior has changed.
-    The default behavior is that now it reads the input root file using
-    the newly developed virtual arrays backend of awkward instead of dask.
-    The backend choice is controlled by the `mode` argument of the method
-    which can be set to "eager", "virtual", or "dask".
-    The new default is "virtual" while the `delayed` argument has been removed.
-    The old `delayed=True` is now equivalent to `mode="dask"`.
-    The old `delayed=False` is now equivalent to `mode="eager"`.
-    """,
-    DeprecationWarning,
-    stacklevel=3,
-)
 
 
 def _key_formatter(prefix, form_key, form, attribute):
@@ -280,6 +266,7 @@ class NanoEventsFactory:
         known_base_form=None,
         decompression_executor=None,
         interpretation_executor=None,
+        delayed=uproot._util.unset,
     ):
         """Quickly build NanoEvents from a root file
 
@@ -327,6 +314,18 @@ class NanoEventsFactory:
             out: NanoEventsFactory
                 A NanoEventsFactory instance built from the file at `file`.
         """
+        if delayed is not uproot._util.unset:
+            msg = """
+            NanoEventsFactory.from_root() behavior has changed.
+            The default behavior is that now it reads the input root file using
+            the newly developed virtual arrays backend of awkward instead of dask.
+            The backend choice is controlled by the `mode` argument of the method
+            which can be set to "eager", "virtual", or "dask".
+            The new default is "virtual" while the `delayed` argument has been removed.
+            The old `delayed=True` is now equivalent to `mode="dask"`.
+            The old `delayed=False` is now equivalent to `mode="eager"`.
+            """
+            raise TypeError(inspect.cleandoc(msg))
 
         if treepath is not uproot._util.unset and not isinstance(
             file, uproot.reading.ReadOnlyDirectory
