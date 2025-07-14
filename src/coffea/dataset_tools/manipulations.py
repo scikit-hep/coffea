@@ -28,6 +28,27 @@ def max_chunks(fileset: FilesetSpec, maxchunks: int | None = None) -> FilesetSpe
     return slice_chunks(fileset, slice(maxchunks))
 
 
+def max_chunks_per_file(
+    fileset: FilesetSpec, maxchunks: int | None = None
+) -> FilesetSpec:
+    """
+    Modify the input fileset so that only the first "maxchunks" chunks of each file will be processed.
+
+    Parameters
+    ----------
+        fileset: FilesetSpec
+            The set of datasets reduce to max-chunks row-ranges.
+        maxchunks: int | None, default None
+            How many chunks to keep for each file.
+
+    Returns
+    -------
+        out : FilesetSpec
+            The reduced fileset with only the first maxchunks event ranges left in.
+    """
+    return slice_chunks(fileset, slice(maxchunks), bydataset=False)
+
+
 def slice_chunks(
     fileset: FilesetSpec, theslice: Any = slice(None), bydataset: bool = True
 ) -> FilesetSpec:
