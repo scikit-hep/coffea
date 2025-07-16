@@ -7,6 +7,7 @@ import uproot
 
 from coffea.nanoevents.mapping.base import BaseSourceMapping, UUIDOpener
 from coffea.nanoevents.util import quote, tuple_to_key
+from coffea.util import _is_interpretable
 
 
 class TrivialUprootOpener(UUIDOpener):
@@ -152,19 +153,9 @@ class UprootSourceMapping(BaseSourceMapping):
                     f"Skipping {key} because it contains characters that NanoEvents cannot accept [,!]"
                 )
                 continue
-            if isinstance(
-                branch.interpretation,
-                uproot.interpretation.identify.UnknownInterpretation,
-            ):
-                warnings.warn(f"Skipping {key} as it is not interpretable by Uproot")
+            if not _is_interpretable(branch):
                 continue
-            try:
-                form = branch.interpretation.awkward_form(None)
-            except uproot.interpretation.objects.CannotBeAwkward:
-                warnings.warn(
-                    f"Skipping {key} as it is it cannot be represented as an Awkward array"
-                )
-                continue
+            form = branch.interpretation.awkward_form(None)
             # until awkward-forth is available, this fixer is necessary
             if cls._fix_awkward_form_of_iter:
                 form = uproot._util.recursively_fix_awkward_form_of_iter(

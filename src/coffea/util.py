@@ -209,7 +209,7 @@ def decompress_form(form_compressedb64):
     return gzip.decompress(base64.b64decode(form_compressedb64)).decode("utf-8")
 
 
-def _remove_not_interpretable(branch, emit_warning=True):
+def _is_interpretable(branch, emit_warning=True):
     if isinstance(
         branch.interpretation, uproot.interpretation.identify.uproot.AsGrouped
     ):
