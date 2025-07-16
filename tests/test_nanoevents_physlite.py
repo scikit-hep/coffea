@@ -59,7 +59,8 @@ def mock_empty(form, behavior={}):
     )
 
 
-def test_electron_forms():
+@pytest.mark.parametrize("mode", ["dask", "virtual", "eager"])
+def test_electron_forms(mode):
     def filter_name(name):
         return name in [
             "AnalysisElectronsAuxDyn.pt",
@@ -68,9 +69,12 @@ def test_electron_forms():
             "AnalysisElectronsAuxDyn.m",
         ]
 
-    events = _events(filter_name)
+    events = _events(filter_name, mode=mode)
 
-    mocked, _, _ = ak.to_buffers(mock_empty(events.form))
+    if mode == "dask":
+        mocked, _, _ = ak.to_buffers(mock_empty(events.form))
+    else:
+        mocked, _, _ = ak.to_buffers(events)
 
     expected_json = {
         "class": "RecordArray",
