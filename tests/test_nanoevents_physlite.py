@@ -9,13 +9,17 @@ import pytest
 from coffea.nanoevents import NanoEventsFactory, PHYSLITESchema
 
 
-def _events(filter=None):
+def _events(filter=None, mode="dask"):
+    if mode == "dask":
+        kwargs = dict(uproot_options=dict(filter_name=filter))
+    else:
+        kwargs = dict(iteritems_options=dict(filter_name=filter))
     path = os.path.abspath("tests/samples/PHYSLITE_example.root")
     factory = NanoEventsFactory.from_root(
         {path: "CollectionTree"},
         schemaclass=PHYSLITESchema,
-        mode="dask",
-        uproot_options=dict(filter_name=filter),
+        mode=mode,
+        **kwargs,
     )
     return factory.events()
 
@@ -145,6 +149,121 @@ def test_electron_forms():
         "form_key": "node0",
     }
     assert json.dumps(expected_json) == mocked.to_json()
+
+
+@pytest.mark.parametrize("mode", ["dask", "virtual", "eager"])
+def test_jet_forms(mode):
+    def filter_name(name):
+        return name in [
+            "AnalysisJetsAuxDyn.pt",
+            "AnalysisJetsAuxDyn.eta",
+            "AnalysisJetsAuxDyn.phi",
+            "AnalysisJetsAuxDyn.m",
+            "AnalysisJetsAuxDyn.btaggingLink",  # this one is split into sub branches, important to test this
+        ]
+
+    events = _events(filter_name, mode=mode)
+
+    if mode == "dask":
+        mocked, _, _ = ak.to_buffers(mock_empty(events.form))
+    else:
+        mocked, _, _ = ak.to_buffers(events)
+    expected_json = {
+        "class": "RecordArray",
+        "fields": ["Jets"],
+        "contents": [
+            {
+                "class": "ListOffsetArray",
+                "offsets": "i64",
+                "content": {
+                    "class": "RecordArray",
+                    "fields": ["pt", "_eventindex", "eta", "phi", "m", "btaggingLink"],
+                    "contents": [
+                        {
+                            "class": "NumpyArray",
+                            "primitive": "float32",
+                            "inner_shape": [],
+                            "parameters": {
+                                "__doc__": "AnalysisJetsAuxDyn.pt",
+                                "typename": "std::vector<float>",
+                            },
+                            "form_key": "node3",
+                        },
+                        {
+                            "class": "NumpyArray",
+                            "primitive": "int64",
+                            "inner_shape": [],
+                            "parameters": {},
+                            "form_key": "node4",
+                        },
+                        {
+                            "class": "NumpyArray",
+                            "primitive": "float32",
+                            "inner_shape": [],
+                            "parameters": {
+                                "__doc__": "AnalysisJetsAuxDyn.eta",
+                                "typename": "std::vector<float>",
+                            },
+                            "form_key": "node5",
+                        },
+                        {
+                            "class": "NumpyArray",
+                            "primitive": "float32",
+                            "inner_shape": [],
+                            "parameters": {
+                                "__doc__": "AnalysisJetsAuxDyn.phi",
+                                "typename": "std::vector<float>",
+                            },
+                            "form_key": "node6",
+                        },
+                        {
+                            "class": "NumpyArray",
+                            "primitive": "float32",
+                            "inner_shape": [],
+                            "parameters": {
+                                "__doc__": "AnalysisJetsAuxDyn.m",
+                                "typename": "std::vector<float>",
+                            },
+                            "form_key": "node7",
+                        },
+                        {
+                            "class": "RecordArray",
+                            "fields": ["m_persKey", "m_persIndex"],
+                            "contents": [
+                                {
+                                    "class": "NumpyArray",
+                                    "primitive": "uint32",
+                                    "inner_shape": [],
+                                    "parameters": {},
+                                    "form_key": "node9",
+                                },
+                                {
+                                    "class": "NumpyArray",
+                                    "primitive": "uint32",
+                                    "inner_shape": [],
+                                    "parameters": {},
+                                    "form_key": "node10",
+                                },
+                            ],
+                            "parameters": {},
+                            "form_key": "node8",
+                        },
+                    ],
+                    "parameters": {"__record__": "Particle", "collection_name": "Jets"},
+                    "form_key": "node2",
+                },
+                "parameters": {},
+                "form_key": "node1",
+            }
+        ],
+        "parameters": {
+            "__doc__": "CollectionTree",
+            "__record__": "NanoEvents",
+            "metadata": {},
+        },
+        "form_key": "node0",
+    }
+    assert expected_json == json.loads(mocked.to_json())
 
 
 def test_entry_start_and_entry_stop():
