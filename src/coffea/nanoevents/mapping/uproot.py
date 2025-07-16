@@ -152,9 +152,6 @@ class UprootSourceMapping(BaseSourceMapping):
                     f"Skipping {key} because it contains characters that NanoEvents cannot accept [,!]"
                 )
                 continue
-            if len(branch):
-                # The branch is split and its sub-branches will be enumerated by tree.iteritems
-                continue
             if isinstance(
                 branch.interpretation,
                 uproot.interpretation.identify.UnknownInterpretation,
