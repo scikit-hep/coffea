@@ -280,6 +280,9 @@ def preprocess(
         recalculate_steps: bool, default False
             If steps are present in the input normed files, force the recalculation of those steps,
             instead of only recalculating the steps if the uuid has changed.
+        files_per_batch: int, default 1
+            The number of files to preprocess in a single batch.
+            Large values will result in fewer dask tasks but each task will have to do more work.
         skip_bad_files: bool, False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
         file_exceptions: Exception | Warning | tuple[Exception | Warning], default (FileNotFoundError, OSError)
