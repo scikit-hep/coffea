@@ -259,8 +259,8 @@ class NanoEventsFactory:
         schemaclass=NanoAODSchema,
         metadata=None,
         uproot_options={},
-        access_log=None,
         iteritems_options={},
+        access_log=None,
         use_ak_forth=True,
         mode="virtual",
         known_base_form=None,
@@ -277,9 +277,9 @@ class NanoEventsFactory:
                 or ``uproot.dask()``) already opened file using e.g. ``uproot.open()``.
             treepath : str, optional
                 Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``.
-            entry_start : int, optional (eager mode only)
+            entry_start : int, optional (eager and virtual mode only)
                 Start at this entry offset in the tree (default 0)
-            entry_stop : int, optional (eager mode only)
+            entry_stop : int, optional (eager and virtual mode only)
                 Stop at this entry offset in the tree (default end of tree)
             steps_per_file: int, optional
                 Partition files into this many steps (previously "chunks")
@@ -296,6 +296,8 @@ class NanoEventsFactory:
                 Arbitrary metadata to add to the `base.NanoEvents` object
             uproot_options : dict, optional
                 Any options to pass to ``uproot.open`` or ``uproot.dask``
+            iteritems_options : dict, optional (eager and virtual mode only)
+                Any options to pass to ``tree.iteritems`` when iterating over the tree's branches to extract the form.
             access_log : list, optional
                 Pass a list instance to record which branches were lazily accessed by this instance
             use_ak_forth:
