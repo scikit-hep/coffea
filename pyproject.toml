@@ -11,10 +11,12 @@ requires-python = ">=3.9"
 authors = [
   { name = "Lindsey Gray", email = "lagray@fnal.gov" },
   { name = "Nick Smith", email = "ncsmith@fnal.gov" },
+  { name = "Iason Krommydas", email = "ik23@rice.edu" },
 ]
 maintainers = [
   { name = "Lindsey Gray", email = "lagray@fnal.gov" },
   { name = "Nick Smith", email = "ncsmith@fnal.gov" },
+  { name = "Iason Krommydas", email = "ik23@rice.edu" },
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
