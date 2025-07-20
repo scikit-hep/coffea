@@ -105,6 +105,12 @@ def boolean_masks_to_categorical_integers(
     else:
         # if multiple irregular masks were created, concatenate them a final time
         irregular_mask = awkward.concatenate(irregular_masks, axis=1)
+    irregular_mask_sequel = awkward.from_regular(
+        awkward.concatenate(mask_inputs, axis=1), axis=1
+    )
+    print(
+        f"irregular_mask check: ak.all(irregular_mask == irregular_mask_sequel) == {ak.all(irregular_mask == irregular_mask_sequel)}"
+    )
     if return_mask:
         return irregular_mask
     # convert the boolean masks to categorical integers by calling local index and remove elements whose mask entry was false
