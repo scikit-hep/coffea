@@ -47,7 +47,6 @@ dependencies = [
   "vector>=1.4.1,!=1.6.0",
   "correctionlib>=2.6.0",
   "pyarrow>=6.0.0,<21.0.0",
-  "fsspec-xrootd>=0.2.3",
   "matplotlib>=3",
   "numba>=0.58.1",
   "numpy>=1.22",
@@ -85,6 +84,9 @@ parsl = [
 ]
 rucio = [
   "rucio-clients>=32",
+]
+xrootd = [
+  "fsspec-xrootd>=0.5.1",
 ]
 dev = [
   "pre-commit",
