@@ -160,7 +160,7 @@ class doublecrystalball_gen(rv_continuous):
             return apply_where(x < betaH, (x, betaL, betaH, mL, mH), core, hightail)
 
         if _old_style_where:
-            return _lazywhere(x > -betaL, (x, betaL, betaH, mL, mH), f=rhs, f2=lhs)
+            return N * _lazywhere(x > -betaL, (x, betaL, betaH, mL, mH), f=rhs, f2=lhs)
         return N * apply_where(x > -betaL, (x, betaL, betaH, mL, mH), rhs, lhs)
 
     def _ppf(self, p, betaL, betaH, mL, mH):
