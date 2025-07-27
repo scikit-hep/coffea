@@ -54,7 +54,6 @@ try:
     from ndcctools.taskvine import Manager, PythonTask, PythonTaskNoResult
 except ImportError:
     vine = None
-    print("ndcctools.taskvine module not available")
 
     class PythonTask:
         def __init__(self, *args, **kwargs):
@@ -163,6 +162,8 @@ class TaskVineExecutor(ExecutorBase):
     custom_init: Optional[Callable] = None
 
     def __post_init__(self):
+        if not vine:
+            print("ndcctools.taskvine module not available")
         if self.extra_input_files is None:
             self.extra_input_files = []
         if self.treereduction < 2:
