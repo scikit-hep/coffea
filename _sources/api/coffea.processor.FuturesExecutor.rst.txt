@@ -1,0 +1,45 @@
+FuturesExecutor
+===============
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: FuturesExecutor
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~FuturesExecutor.compression
+      ~FuturesExecutor.desc
+      ~FuturesExecutor.function_name
+      ~FuturesExecutor.mergepool
+      ~FuturesExecutor.merging
+      ~FuturesExecutor.recoverable
+      ~FuturesExecutor.status
+      ~FuturesExecutor.tailtimeout
+      ~FuturesExecutor.unit
+      ~FuturesExecutor.workers
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~FuturesExecutor.__call__
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: compression
+   .. autoattribute:: desc
+   .. autoattribute:: function_name
+   .. autoattribute:: mergepool
+   .. autoattribute:: merging
+   .. autoattribute:: recoverable
+   .. autoattribute:: status
+   .. autoattribute:: tailtimeout
+   .. autoattribute:: unit
+   .. autoattribute:: workers
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

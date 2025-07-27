@@ -1,0 +1,29 @@
+FactorizedJetCorrector
+======================
+
+.. currentmodule:: coffea.jetmet_tools
+
+.. autoclass:: FactorizedJetCorrector
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~FactorizedJetCorrector.signature
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~FactorizedJetCorrector.getCorrection
+      ~FactorizedJetCorrector.getSubCorrections
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: signature
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: getCorrection
+   .. automethod:: getSubCorrections
