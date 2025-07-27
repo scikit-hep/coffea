@@ -2,14 +2,14 @@ import numpy as np
 
 _old_style_where = False
 try:
-    from scipy._lib.array_api_extra.xpx import apply_where
+    from scipy._lib.array_api_extra import apply_where
     from scipy.stats._continuous_distns import (
         _norm_cdf,
         _norm_pdf_C,
         _norm_ppf,
         rv_continuous,
     )
-except (ImportError, ModuleNotFoundError) as _:
+except ImportError as _:
     _old_style_where = True
     from scipy.stats._continuous_distns import (
         _lazywhere,
