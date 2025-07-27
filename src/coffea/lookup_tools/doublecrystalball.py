@@ -9,7 +9,7 @@ try:
         _norm_ppf,
         rv_continuous,
     )
-except ImportError as _:
+except (ImportError, ModuleNotFoundError) as _:
     _old_style_where = True
     from scipy.stats._continuous_distns import (
         _lazywhere,
