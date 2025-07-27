@@ -77,7 +77,7 @@ class doublecrystalball_gen(rv_continuous):
             return apply_where(x < betaH, (-x, betaH, mH), core, tail)
 
         if _old_style_where:
-            N * _lazywhere(x > -betaL, (x, betaL, betaH, mL, mH), f=rhs, f2=lhs)
+            return N * _lazywhere(x > -betaL, (x, betaL, betaH, mL, mH), f=rhs, f2=lhs)
         return N * apply_where(x > -betaL, (x, betaL, betaH, mL, mH), rhs, lhs)
 
     def _logpdf(self, x, betaL, betaH, mL, mH):
