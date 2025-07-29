@@ -11,7 +11,7 @@ from coffea.dataset_tools.preprocess import CoffeaFileSpec, DatasetSpec, Fileset
 
 def max_chunks(fileset: FilesetSpec, maxchunks: int | None = None) -> FilesetSpec:
     """
-    Modify the input dataset so that only the first "maxchunks" chunks of each file will be processed.
+    Modify the input fileset so that only the first "maxchunks" chunks of each dataset will be processed.
 
     Parameters
     ----------
@@ -28,9 +28,32 @@ def max_chunks(fileset: FilesetSpec, maxchunks: int | None = None) -> FilesetSpe
     return slice_chunks(fileset, slice(maxchunks))
 
 
-def slice_chunks(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpec:
+def max_chunks_per_file(
+    fileset: FilesetSpec, maxchunks: int | None = None
+) -> FilesetSpec:
     """
-    Modify the input dataset so that only the chunks of each file specified by the input slice are processed.
+    Modify the input fileset so that only the first "maxchunks" chunks of each file will be processed.
+
+    Parameters
+    ----------
+        fileset: FilesetSpec
+            The set of datasets reduce to max-chunks row-ranges.
+        maxchunks: int | None, default None
+            How many chunks to keep for each file.
+
+    Returns
+    -------
+        out : FilesetSpec
+            The reduced fileset with only the first maxchunks event ranges left in.
+    """
+    return slice_chunks(fileset, slice(maxchunks), bydataset=False)
+
+
+def slice_chunks(
+    fileset: FilesetSpec, theslice: Any = slice(None), bydataset: bool = True
+) -> FilesetSpec:
+    """
+    Modify the input fileset so that only the chunks of each file or each dataset specified by the input slice are processed.
 
     Parameters
     ----------
@@ -38,26 +61,56 @@ def slice_chunks(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSp
             The set of datasets to be sliced.
         theslice: Any, default slice(None)
             How to slice the array of row-ranges (steps) in the input fileset.
+        bydataset: bool, default True
+            If True, slices across all steps in all files in each dataset, otherwise slices each file individually.
 
     Returns
     -------
         out : FilesetSpec
-            The reduce fileset with only the row-ranges specific by theslice left.
+            The reduced fileset with only the row-ranges specified by theslice left.
     """
     if not isinstance(theslice, slice):
         theslice = slice(theslice)
 
     out = copy.deepcopy(fileset)
-    for name, entry in fileset.items():
-        for fname, finfo in entry["files"].items():
-            out[name]["files"][fname]["steps"] = finfo["steps"][theslice]
+
+    if not bydataset:
+        for dname, d in fileset.items():
+            for fname, finfo in d["files"].items():
+                out[dname]["files"][fname]["steps"] = finfo["steps"][theslice]
+        return out
+
+    for dname, d in fileset.items():
+        # 1) build a flat list of (fname, step)
+        flat: list[tuple[str, Any]] = []
+        for fname, finfo in d["files"].items():
+            for step in finfo["steps"]:
+                flat.append((fname, step))
+
+        # 2) slice that flat list
+        kept = flat[theslice]
+
+        # 3) zero-out all steps in the output
+        for fname in out[dname]["files"]:
+            out[dname]["files"][fname]["steps"] = []
+
+        # 4) repopulate in order, up to maxchunks total
+        for fname, step in kept:
+            out[dname]["files"][fname]["steps"].append(step)
+
+        # 5) drop files with no steps
+        out[dname]["files"] = {
+            fname: finfo
+            for fname, finfo in out[dname]["files"].items()
+            if finfo["steps"]
+        }
 
     return out
 
 
 def max_files(fileset: FilesetSpec, maxfiles: int | None = None) -> FilesetSpec:
     """
-    Modify the input dataset so that only the first "maxfiles" files of each dataset will be processed.
+    Modify the input fileset so that only the first "maxfiles" files of each dataset will be processed.
 
     Parameters
     ----------
@@ -76,7 +129,7 @@ def max_files(fileset: FilesetSpec, maxfiles: int | None = None) -> FilesetSpec:
 
 def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpec:
     """
-    Modify the input dataset so that only the files of each dataset specified by the input slice are processed.
+    Modify the input fileset so that only the files of each dataset specified by the input slice are processed.
 
     Parameters
     ----------
@@ -114,7 +167,7 @@ def filter_files(
     thefilter: Callable[[tuple[str, CoffeaFileSpec]], bool] = _default_filter,
 ) -> FilesetSpec:
     """
-    Modify the input dataset so that only the files of each dataset that pass the filter remain.
+    Modify the input fileset so that only the files of each dataset that pass the filter remain.
 
     Parameters
     ----------
@@ -138,7 +191,7 @@ def get_failed_steps_for_dataset(
     dataset: DatasetSpec, report: awkward.Array
 ) -> DatasetSpec:
     """
-    Modify an input dataset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
+    Modify the input dataset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
 
     Parameters
     ----------
@@ -195,7 +248,7 @@ def get_failed_steps_for_fileset(
     fileset: FilesetSpec, report_dict: dict[str, awkward.Array]
 ):
     """
-    Modify an input dataset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
+    Modify the input fileset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
 
     Parameters
     ----------

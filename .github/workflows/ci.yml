@@ -168,9 +168,14 @@ jobs:
         conda activate ./coffea-conda-test-env
         uv pip install . 'dask<2025.1.0'
         uv pip install pytest
-    - name: Test with pytest
+    - name: Test with pytest coffea with dask + taskvine
+      timeout-minutes: 5
       run: |
-        conda run --prefix ./coffea-conda-test-env pytest tests/test_taskvine.py
+        conda run --prefix ./coffea-conda-test-env pytest tests/test_taskvine_dask.py
+    - name: Test with pytest coffea with virtual arrays + taskvine
+      timeout-minutes: 5
+      run: |
+        conda run --prefix ./coffea-conda-test-env pytest tests/test_taskvine_virtual.py
 
 #  testskyhookjob:
 #    runs-on: ubuntu-latest
@@ -218,7 +223,7 @@ jobs:
     - name: Verify the distribution
       run: pipx run twine check --strict dist/*
     - name: Generate artifact attestation for sdist and wheel
-      uses: actions/attest-build-provenance@db473fddc028af60658334401dc6fa3ffd8669fd # v2.3.0
+      uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
       with:
         subject-path: "dist/coffea-*"
     - name: Publish package to PyPI

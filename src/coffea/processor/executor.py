@@ -1380,6 +1380,7 @@ class Runner:
         item: WorkItem,
         processor_instance: ProcessorABC,
         uproot_options: dict,
+        iteritems_options: dict,
     ) -> dict:
         if "timeout" in uproot_options:
             xrootdtimeout = uproot_options["timeout"]
@@ -1426,6 +1427,7 @@ class Runner:
                         mode="virtual",
                         entry_start=item.entrystart,
                         entry_stop=item.entrystop,
+                        iteritems_options=iteritems_options,
                     )
                     events = factory.events()
                 elif format == "parquet":
@@ -1439,7 +1441,9 @@ class Runner:
             try:
                 out = processor_instance.process(events)
             except Exception as e:
-                raise Exception(f"Failed processing file: {item!r}") from e
+                raise Exception(
+                    f"Failed processing file: {item!r}. The error was: {e!r}."
+                ) from e
             if out is None:
                 raise ValueError(
                     "Output of process() should not be None. Make sure your processor's process() function returns an accumulator."
@@ -1465,6 +1469,7 @@ class Runner:
         processor_instance: ProcessorABC,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
+        iteritems_options: Optional[dict] = {},
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
 
@@ -1481,8 +1486,12 @@ class Runner:
                 treename can also be defined in fileset, which will override the passed treename
             uproot_options : dict, optional
                 Any options to pass to ``uproot.open``
+            iteritems_options : dict, optional
+                Any options to pass to ``tree.iteritems``
         """
-        wrapped_out = self.run(fileset, processor_instance, treename, uproot_options)
+        wrapped_out = self.run(
+            fileset, processor_instance, treename, uproot_options, iteritems_options
+        )
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
         if self.savemetrics:
@@ -1535,6 +1544,7 @@ class Runner:
         processor_instance: ProcessorABC,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
+        iteritems_options: Optional[dict] = {},
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
 
@@ -1557,6 +1567,8 @@ class Runner:
                 Not needed if processing premade chunks
             uproot_options : dict, optional
                 Any options to pass to ``uproot.open``
+            iteritems_options : dict, optional
+                Any options to pass to ``tree.iteritems``
         """
 
         meta = False
@@ -1594,6 +1606,7 @@ class Runner:
                 self.savemetrics,
                 processor_instance="heavy",
                 uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
             )
         else:
             closure = partial(
@@ -1605,6 +1618,7 @@ class Runner:
                 self.savemetrics,
                 processor_instance=pi_to_send,
                 uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
             )
 
         chunks = list(chunks)

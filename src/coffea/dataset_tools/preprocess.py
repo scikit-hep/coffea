@@ -17,7 +17,7 @@ import numpy
 import uproot
 from uproot._util import no_filter
 
-from coffea.util import _remove_not_interpretable, compress_form, decompress_form
+from coffea.util import _is_interpretable, compress_form, decompress_form
 
 
 def get_steps(
@@ -86,7 +86,7 @@ def get_steps(
                 ak_add_doc={"__doc__": "title", "typename": "typename"},
                 filter_name=no_filter,
                 filter_typename=no_filter,
-                filter_branch=partial(_remove_not_interpretable, emit_warning=False),
+                filter_branch=partial(_is_interpretable, emit_warning=False),
             ).layout.form.to_json()
             # the function cache needs to be popped if present to prevent memory growth
             if hasattr(dask.base, "function_cache"):
@@ -280,6 +280,9 @@ def preprocess(
         recalculate_steps: bool, default False
             If steps are present in the input normed files, force the recalculation of those steps,
             instead of only recalculating the steps if the uuid has changed.
+        files_per_batch: int, default 1
+            The number of files to preprocess in a single batch.
+            Large values will result in fewer dask tasks but each task will have to do more work.
         skip_bad_files: bool, False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
         file_exceptions: Exception | Warning | tuple[Exception | Warning], default (FileNotFoundError, OSError)

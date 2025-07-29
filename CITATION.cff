@@ -41,7 +41,6 @@ authors:
   orcid: "https://orcid.org/0000-0001-7849-8863"
   email: "ik23@rice.edu"
 title: "coffea"
-version: 0.7.21
-doi: 10.5281/zenodo.7733568
+doi: 10.5281/zenodo.3266454
 date-released: 2023-03-14
 url: "https://github.com/scikit-hep/coffea"

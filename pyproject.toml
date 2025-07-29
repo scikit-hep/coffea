@@ -11,10 +11,12 @@ requires-python = ">=3.9"
 authors = [
   { name = "Lindsey Gray", email = "lagray@fnal.gov" },
   { name = "Nick Smith", email = "ncsmith@fnal.gov" },
+  { name = "Iason Krommydas", email = "ik23@rice.edu" },
 ]
 maintainers = [
   { name = "Lindsey Gray", email = "lagray@fnal.gov" },
   { name = "Nick Smith", email = "ncsmith@fnal.gov" },
+  { name = "Iason Krommydas", email = "ik23@rice.edu" },
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -44,8 +46,7 @@ dependencies = [
   "dask-histogram>=2025.2.0",
   "vector>=1.4.1,!=1.6.0",
   "correctionlib>=2.6.0",
-  "pyarrow>=6.0.0",
-  "fsspec-xrootd>=0.2.3",
+  "pyarrow>=6.0.0,<21.0.0",
   "matplotlib>=3",
   "numba>=0.58.1",
   "numpy>=1.22",
@@ -83,6 +84,9 @@ parsl = [
 ]
 rucio = [
   "rucio-clients>=32",
+]
+xrootd = [
+  "fsspec-xrootd>=0.5.1",
 ]
 dev = [
   "pre-commit",

@@ -19,7 +19,7 @@ def _events(**kwargs):
 @pytest.fixture(scope="module")
 def eager_events():
     return _events(
-        mode="eager", uproot_options={"filter_name": lambda x: "PARAMETERS" not in x}
+        mode="eager", iteritems_options={"filter_name": lambda x: "PARAMETERS" not in x}
     )
 
 
