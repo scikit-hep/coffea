@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import Callable
 
 import awkward as ak
-from util import unquote
+
+from coffea.nanoevents.util import unquote
 
 
 def trace(fun: Callable, events: ak.Array, throw: bool = True) -> frozenset[str]:
