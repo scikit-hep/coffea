@@ -1,35 +1,45 @@
-Coffea concepts
-===============
+---
+jupytext:
+  formats: md:myst
+  text_representation:
+    extension: .md
+    format_name: myst
+---
+
+
+# Coffea concepts
+
 
 This page explains concepts and terminology used within the coffea package.
 It is intended to provide a high-level overview, while details can be found in other sections of the documentation.
 
-.. _def-columnar-analysis:
 
-Columnar analysis
------------------
+(columnar-analysis)=
+## Columnar analysis
+
 Columnar analysis is a paradigm that describes the way the user writes the analysis application that is best described
 in contrast to the the traditional paradigm in high-energy particle physics (HEP) of using an event loop.  In an event loop, the analysis operates row-wise
 on the input data (in HEP, one row usually corresponds to one reconstructed particle collision event.) Each row
 is a structure containing several fields, such as the properties of the visible outgoing particles
 that were reconstructed in a collision event. The analysis code manipulates this structure to either output derived
 quantities or summary statistics in the form of histograms. In contrast, columnar analysis operates on individual
-columns of data spanning a *chunk* (partition, batch) of rows using `array programming <https://en.wikipedia.org/wiki/Array_programming>`_
+columns of data spanning a *chunk* (partition, batch) of rows using [array programming](https://en.wikipedia.org/wiki/Array_programming>)
 primitives in turn, to compute derived quantities and summary statistics. Array programming is widely used within
-the `scientific python ecosystem <https://www.scipy.org/about.html>`_, supported by the `numpy <https://numpy.org/>`_ library.
+the [scientific python ecosystem](https://www.scipy.org/about.html), supported by the [numpy](https://numpy.org/) library.
 However, although the existing scientific python stack is fully capable of analyzing rectangular arrays (i.e.
 no variable-length array dimensions), HEP data is very irregular, and manipulating it can become awkward without
-first generalizing array structure a bit. The `awkward <https://awkward-array.org>`_ package does this,
+first generalizing array structure a bit. The [awkward](https://awkward-array.org) package does this,
 extending array programming capabilities to the complexity of HEP data.
 
-.. image:: images/columnar.png
-   :width: 70 %
-   :align: center
+:::{figure} ../images/columnar.png
+:width: 70 %
+:align: center
+:::
 
-.. _def-processor:
 
-Coffea processor
-----------------
+(processor)=
+## Coffea processor
+-
 In almost all HEP analyses, each row corresponds to an independent event, and it is exceptionally rare
 to need to compute inter-row derived quantities. Due to this, horizontal scale-out is almost trivial:
 each chunk of rows can be operated on independently. Further, if the output of an analysis is restricted
@@ -39,34 +49,34 @@ analysis code so that it can be easily scaled out, leaving the delivery of input
 output accumulators to the coffea framework. However it is not an absolute requirement, and mere a useful
 organizational framework.
 
-.. _def-scale-out:
 
-Scale-out
----------
+(scale-out)=
+## Scale-out
+
 Often, the computation requirements of a HEP data analysis exceed the resources of a single thread of execution.
 To facilitate parallelization and allow the user to access more compute resources, coffea employs dask,
 dask-distributed, and taskvine to ease the transition between a local analysis on a small set of test data to a
 full-scale analysis. Dask provides local schedulers and distributed schedulers, and taskvine supplies an additional
 distributed scheduler.
 
-.. _def-local-schedulers:
 
-Local executors
-^^^^^^^^^^^^^^^
+(#local-executors)=
+### Local executors
+
 Currently, four local executors exist: `sync`, `threads`, `processes`, and `local distributed client`.
 The sync schedulersimply processes each chunk of an input dataset in turn, using the current python thread. The
 threads scheduler employs python `multithreaded` to spawn multiple python threads that process chunks in parallel
 on the machine. The processes and local distributed client schedulures use `multiprocessing` to spawn multiple python
 processes that process chunk in parallel on the machine. Process-base parallelism tends to more efficient when using
-uproot since it avoids performance limitations due to the CPython `global interpreter lock <https://wiki.python.org/moin/GlobalInterpreterLock>`_.
+uproot since it avoids performance limitations due to the CPython [global interpreter lock](https://wiki.python.org/moin/GlobalInterpreterLock).
 
-.. _def-distributed-executors:
 
-Distributed executors
-^^^^^^^^^^^^^^^^^^^^^
+(#distributed-executors)=
+### Distributed executors
+
 Currently, coffea supports two types of distributed schedulers:
 
-   - the `dask <https://distributed.dask.org/en/latest/>`_ distributed executor, accessed via the `distributed.Client` entrypoint,
+   - the [dask](https://distributed.dask.org/en/latest/) distributed executor, accessed via the `distributed.Client` entrypoint,
    - and the taskvine distributed scheduler.
 
 These schedulers use their respective underlying libraries to distribute processing tasks over multiple machines.

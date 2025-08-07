@@ -222,7 +222,7 @@ class BTagScaleFactor:
         Returns
         -------
             out : numpy.ndarray or awkward.Array
-                An array with shape matching ``pt``, containing the per-jet scale factor
+                An array with shape matching ```pt```, containing the per-jet scale factor
         """
         if systematic not in self._corrections:
             raise ValueError("Unrecognized systematic: %s" % systematic)

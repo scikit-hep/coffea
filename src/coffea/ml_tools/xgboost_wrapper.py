@@ -20,8 +20,8 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
     Parameters
     ----------
         fname: str
-            Path to the xgboost model file, such that an `xgbooster` can be created
-            via `xgboost.Booster(model_file=fname)`.
+            Path to the xgboost model file, such that an ``xgbooster`` can be created
+            via ``xgboost.Booster(model_file=fname)```.
     """
 
     def __init__(self, fname):
@@ -61,12 +61,12 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
         Parameters
         ----------
             data: np.ndarray
-                The data to pass into the `xgboost.DMatrix` construction.
+                The data to pass into the ``xgboost.DMatrix`` construction.
             dmat_args: dict[str,str], optional
-                Keyword arguments to pass into the `xgboost.DMatrix` construction.
+                Keyword arguments to pass into the ``xgboost.DMatrix`` construction.
             predict_args: dict[str,str], optional
-                Keyword arguments to pass to the actual prediction step of `xgboost`,
-                ie: the `predict` method of `xgbooster.Booster.predict`. Note that the
+                Keyword arguments to pass to the actual prediction step of ``xgboost``,
+                ie: the ``predict`` method of ``xgbooster.Booster.predict``. Note that the
                 first argument of that method is handled by this method.
         """
         ndims = data.shape[-1]
@@ -96,12 +96,12 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
         Parameters
         ----------
             data: np.ndarray
-                The data to pass into the `xgboost.DMatrix` construction.
+                The data to pass into the ``xgboost.DMatrix`` construction.
             dmat_args: dict[str,str], optional
-                Keyword arguments to pass into the `xgboost.DMatrix` construction.
+                Keyword arguments to pass into the ``xgboost.DMatrix`` construction.
             predict_args: dict[str,str], optional
-                Keyword arguments to pass to the actual prediction step of `xgboost`,
-                ie: the `predict` method of `xgbooster.Booster.predict`. Note that the
+                Keyword arguments to pass to the actual prediction step of ``xgboost``,
+                ie: the ``predict`` method of ``xgbooster.Booster.predict``. Note that the
                 first argument of that method is handled by this method.
         """
         if dmat_args is None:

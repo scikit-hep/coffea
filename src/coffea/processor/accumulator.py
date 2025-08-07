@@ -259,8 +259,8 @@ class set_accumulator(set, AccumulatorABC):
 
         Note
         ----
-        This replaces `set.add` behavior, unfortunately.
-        A workaround is to use `set.update`, e.g. ``a.update({'val'})``
+        This replaces ``set.add`` behavior, unfortunately.
+        A workaround is to use ``set.update``, e.g. ``a.update({'val'})``
         """
         if isinstance(other, MutableSet):
             set.update(self, other)

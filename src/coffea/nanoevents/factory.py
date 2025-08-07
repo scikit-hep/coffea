@@ -276,7 +276,7 @@ class NanoEventsFactory:
                 The filename or dict of filenames including the treepath (as it would be passed directly to ``uproot.open()``
                 or ``uproot.dask()``) already opened file using e.g. ``uproot.open()``.
             treepath : str, optional
-                Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``.
+                Name of the tree to read in the file. Used only if ```file``` is a ``uproot.reading.ReadOnlyDirectory``.
             entry_start : int, optional (eager and virtual mode only)
                 Start at this entry offset in the tree (default 0)
             entry_stop : int, optional (eager and virtual mode only)
@@ -314,14 +314,14 @@ class NanoEventsFactory:
         Returns
         -------
             out: NanoEventsFactory
-                A NanoEventsFactory instance built from the file at `file`.
+                A NanoEventsFactory instance built from the file at ``file``.
         """
         if delayed is not uproot._util.unset:
             msg = """
             NanoEventsFactory.from_root() behavior has changed.
             The default behavior is that now it reads the input root file using
             the newly developed virtual arrays backend of awkward instead of dask.
-            The backend choice is controlled by the `mode` argument of the method
+            The backend choice is controlled by the ``mode`` argument of the method
             which can be set to "eager", "virtual", or "dask".
             The new default is "virtual" while the `delayed` argument has been removed.
             The old `delayed=True` is now equivalent to `mode="dask"`.
@@ -491,7 +491,7 @@ class NanoEventsFactory:
         Returns
         -------
             out: NanoEventsFactory
-                A NanoEventsFactory instance built from the file at `file`.
+                A NanoEventsFactory instance built from the file at ``file``.
         """
         import pyarrow
         import pyarrow.dataset as ds
@@ -640,7 +640,7 @@ class NanoEventsFactory:
         Returns
         -------
             out: NanoEventsFactory
-                A NanoEventsFactory instance built from information in `array_source`.
+                A NanoEventsFactory instance built from information in ``array_source``.
         """
         if not isinstance(array_source, Mapping):
             raise TypeError(

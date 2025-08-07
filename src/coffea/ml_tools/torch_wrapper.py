@@ -22,15 +22,15 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
     the clusters, the TorchScript file will need to be passed to the worker
     nodes in a way which preserves the file path.
 
-    Once an instance `wrapper` of this class is created, it can be called on inputs
-    like `wrapper(*args)`, where `args` are the inputs to `prepare_awkward` (see
+    Once an instance ``wrapper`` of this class is created, it can be called on inputs
+    like ``wrapper(*args)``, where `args` are the inputs to `prepare_awkward` (see
     next paragraph).
 
     In order to actually use the class, the user must override the method
     `prepare_awkward`. The input to this method is an arbitrary number of awkward
     arrays or dask awkward arrays (but never a mix of dask/non-dask array). The
-    output is two objects: a tuple `a` and a dictionary `b` such that the underlying
-    `pytorch` model instance calls like `model(*a,**b)`. The contents of a and b
+    output is two objects: a tuple ``a`` and a dictionary ``b`` such that the underlying
+    ``pytorch`` model instance calls like ``model(*a,**b)``. The contents of a and b
     should be numpy-compatible awkward-like arrays: if the inputs are non-dask awkward
     arrays, the return should also be non-dask awkward arrays that can be trivially
     converted to numpy arrays via a ak.to_numpy call; if the inputs are dask awkward
