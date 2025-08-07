@@ -58,7 +58,7 @@ class Systematic:
         Register a type of systematic variation, which must fulfill the base class interface. Types of
         systematic variations must be registered here before an actual systematic of that type can be
         added. For example, by default an up/down systematic is registered, as described in
-        `coffea.nanoevents.methods.systematics.UpDownSystematic`.
+        ``coffea.nanoevents.methods.systematics.UpDownSystematic``.
 
         Parameters
         ----------

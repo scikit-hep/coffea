@@ -109,7 +109,7 @@ class DataDiscoveryCLI:
     """
     Simplifies dataset query, replicas, filters, and uproot preprocessing with Dask.
     It can be accessed in a Python script or interpreter via this class, or from the
-    command line (as in `python -m coffea.dataset_tools.dataset_query --help`).
+    command line (as in ``python -m coffea.dataset_tools.dataset_query --help``).
     """
 
     def __init__(self):
@@ -207,7 +207,7 @@ Some basic commands:
 
     def do_login(self, proxy=None):
         """Login to the rucio client. Optionally a specific proxy file can be passed to the command.
-        If the proxy file is not specified, `voms-proxy-info` is used"""
+        If the proxy file is not specified, ```voms-proxy-info``` is used"""
         if proxy:
             self.rucio_client = rucio_utils.get_rucio_client(proxy)
         else:
@@ -707,7 +707,7 @@ Some basic commands:
         replicas_strategy="round-robin",
     ):
         """
-        Initialize the DataDiscoverCLI by querying a set of datasets defined in `dataset_definitions`
+        Initialize the DataDiscoverCLI by querying a set of datasets defined in ``dataset_definitions``
         and selected results and replicas following the options.
 
         Parameters

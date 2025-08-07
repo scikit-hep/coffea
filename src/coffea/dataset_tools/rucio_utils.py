@@ -39,7 +39,7 @@ def get_rucio_client(proxy=None) -> Client:
     Parameters
     ----------
         proxy : str, optional
-            Use the provided proxy file if given, if not use `voms-proxy-info` to get the current active one.
+            Use the provided proxy file if given, if not use ``voms-proxy-info`` to get the current active one.
 
     Returns
     -------
@@ -60,7 +60,7 @@ def get_rucio_client(proxy=None) -> Client:
 def get_xrootd_sites_map():
     """
     The mapping between RSE (sites) and the xrootd prefix rules is read
-    from `/cvmfs/cms/cern.ch/SITECONF/*site*/storage.json`.
+    from ``/cvmfs/cms/cern.ch/SITECONF/*site*/storage.json``.
 
     This function returns the list of xrootd prefix rules for each site.
     """
@@ -143,11 +143,11 @@ def get_dataset_files_replicas(
     of all the replicas of the files in a CMS dataset.
 
     The sites can be filtered in 3 different ways:
-    - `allowlist_sites`: list of sites to select from. If the file is not found there, raise an Exception.
-    - `blocklist_sites`: list of sites to avoid. If the file has no left site, raise an Exception
-    - `regex_sites`: regex expression to restrict the list of sites.
+    - ``allowlist_sites``: list of sites to select from. If the file is not found there, raise an Exception.
+    - ``blocklist_sites``: list of sites to avoid. If the file has no left site, raise an Exception
+    - ``regex_sites``: regex expression to restrict the list of sites.
 
-    The fileset returned by the function is controlled by the `mode` parameter:
+    The fileset returned by the function is controlled by the ``mode`` parameter:
     - "full": returns the full set of replicas and sites (passing the filtering parameters)
     - "first": returns the first replica found for each file
     - "best": to be implemented (ServiceX..)
@@ -177,14 +177,14 @@ def get_dataset_files_replicas(
     Returns
     -------
         files: list
-           depending on the `mode` option.
-           - If `mode=="full"`, returns the complete list of replicas for each file in the dataset
-           - If `mode=="first"`, returns only the first replica for each file.
+           depending on the ``mode`` option.
+           - If ``mode=="full"``, returns the complete list of replicas for each file in the dataset
+           - If ``mode=="first"``, returns only the first replica for each file.
 
         sites: list
-           depending on the `mode` option.
-           - If `mode=="full"`, returns the list of sites where the file replica is available for each file in the dataset
-           - If `mode=="first"`, returns a list of sites for the first replica of each file.
+           depending on the ``mode`` option.
+           - If ``mode=="full"``, returns the list of sites where the file replica is available for each file in the dataset
+           - If ``mode=="first"``, returns a list of sites for the first replica of each file.
 
         sites_counts: dict
            Metadata counting the coverage of the dataset by site

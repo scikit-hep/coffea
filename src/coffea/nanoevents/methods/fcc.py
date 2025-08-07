@@ -29,12 +29,12 @@ def _set_repr_name(classname):
 class MomentumCandidate(vector.LorentzVector):
     """A Lorentz vector with charge
 
-    This mixin class requires the parent class to provide the items `px`, `py`, `pz`, `E`, and `charge`.
+    This mixin class requires the parent class to provide the items ``px``, ``py``, ``pz``, `E`, and ``charge``.
     """
 
     @awkward.mixin_class_method(numpy.add, {"MomentumCandidate"})
     def add(self, other):
-        """Add two candidates together elementwise using `px`, `py`, `pz`, `E`, and `charge` components"""
+        """Add two candidates together elementwise using ``px``, ``py``, ``pz``, `E`, and ``charge`` components"""
         return awkward.zip(
             {
                 "px": self.px + other.px,
@@ -48,7 +48,7 @@ class MomentumCandidate(vector.LorentzVector):
         )
 
     def sum(self, axis=-1):
-        """Sum an array of vectors elementwise using `px`, `py`, `pz`, `E`, and `charge` components"""
+        """Sum an array of vectors elementwise using ``px``, ``py``, ``pz``, `E`, and ``charge`` components"""
         return awkward.zip(
             {
                 "px": awkward.sum(self.px, axis=axis),

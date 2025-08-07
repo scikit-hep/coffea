@@ -19,12 +19,12 @@ behavior.update(awkward._util.copy_behaviors("LorentzVector", "Candidate", behav
 class Candidate(vector.LorentzVector):
     """A Lorentz vector with charge
 
-    This mixin class requires the parent class to provide items `x`, `y`, `z`, `t`, and `charge`.
+    This mixin class requires the parent class to provide items ``x``, ``y``, ``z``, ``t``, and ``charge``.
     """
 
     @awkward.mixin_class_method(numpy.add, {"Candidate"})
     def add(self, other):
-        """Add two candidates together elementwise using `x`, `y`, `z`, `t`, and `charge` components"""
+        """Add two candidates together elementwise using ``x``, ``y``, ``z``, ``t``, and ``charge`` components"""
         return awkward.zip(
             {
                 "x": self.x + other.x,
@@ -38,7 +38,7 @@ class Candidate(vector.LorentzVector):
         )
 
     def sum(self, axis=-1):
-        """Sum an array of vectors elementwise using `x`, `y`, `z`, `t`, and `charge` components"""
+        """Sum an array of vectors elementwise using ``x``, ``y``, ``z``, ``t``, and ``charge`` components"""
         return awkward.zip(
             {
                 "x": awkward.sum(self.x, axis=axis),
@@ -56,7 +56,7 @@ class Candidate(vector.LorentzVector):
 class PtEtaPhiMCandidate(Candidate, vector.PtEtaPhiMLorentzVector):
     """A Lorentz vector in eta, mass coordinates with charge
 
-    This mixin class requires the parent class to provide items `pt`, `eta`, `phi`, `mass`, and `charge`.
+    This mixin class requires the parent class to provide items ``pt``, ``eta``, ``phi``, `mass`, and ``charge``.
     """
 
     pass
@@ -66,7 +66,7 @@ class PtEtaPhiMCandidate(Candidate, vector.PtEtaPhiMLorentzVector):
 class PtEtaPhiECandidate(Candidate, vector.PtEtaPhiELorentzVector):
     """A Lorentz vector in eta, energy coordinates with charge
 
-    This mixin class requires the parent class to provide items `pt`, `eta`, `phi`, `energy`, and `charge`.
+    This mixin class requires the parent class to provide items ``pt``, ``eta``, ``phi``, ``energy``, and ``charge``.
     """
 
     pass

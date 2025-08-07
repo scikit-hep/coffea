@@ -46,7 +46,7 @@ def save(output, filename, fast=True):
 
     This function can accept any picklable object.  Suggested suffix: ``.coffea``
 
-    If `fast` is set to `True`, it will use fast mode of the python pickler
+    If ``fast`` is set to `True`, it will use fast mode of the python pickler
     (see https://docs.python.org/3/library/pickle.html).
     This has no memory overhead, while the default creates a copy in memory.
     However, it could in principle cause issues with recursive objects, so
