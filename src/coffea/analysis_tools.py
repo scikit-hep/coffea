@@ -56,7 +56,7 @@ def boolean_masks_to_categorical_integers(
     masks : list of boolean numpy.ndarray, awkward.Array or dask_awkward.lib.core.Array objects
         The boolean mask arrays to convert to categorical integers
     insert_unmasked_as_zeros : bool, optional
-        Whether to insert a zero entry representing an 'unmasked' state, equivalent to the first mask satisfying `ak.all(mask == True)`. Default is False.
+        Whether to insert a zero entry representing an 'unmasked' state, equivalent to the first mask satisfying ``ak.all(mask == True)``. Default is False.
     insert_commonmask_as_zeros : boolean numpy.ndarray, awkward.Array, or dask_awkward.lib.core.Array, optional
         If not None, insert a zero entry representing a 'commonmasked' state. Default is None. Not compatible with insert_unmasked_as_zeros=True.
     return_mask : bool, optional

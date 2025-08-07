@@ -66,7 +66,7 @@ class LumiData:
         lumi_csv : str
             The path to the luminosity csv file to read from. Generally, this is the output file from brilcalc.
         is_inst_lumi: bool, default False
-            If True, treats the values read in from `lumi_csv` as average instantaneous luminosities, instead of integrated luminosities.
+            If True, treats the values read in from ``lumi_csv`` as average instantaneous luminosities, instead of integrated luminosities.
 
     The values are extracted from the csv output as returned by brilcalc_, e.g. with a command such as::
 
@@ -108,12 +108,12 @@ class LumiData:
         ----------
             runlumis : numpy.ndarray or LumiList
                 A 2d numpy array of ``[[run,lumi], [run,lumi], ...]`` or `LumiList` object
-                of the lumiSections to integrate over, where `run` is a run number and `lumi` is a
+                of the lumiSections to integrate over, where `run` is a run number and ``lumi`` is a
                 lumisection number.
 
         Returns
         -------
-            (float) The total integrated luminosity of the runs and lumisections indicated in `runlumis`.
+            (float) The total integrated luminosity of the runs and lumisections indicated in ``runlumis``.
         """
 
         if isinstance(runlumis, LumiList):
