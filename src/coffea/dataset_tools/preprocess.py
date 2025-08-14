@@ -191,6 +191,12 @@ class UprootFileSpec:
 
 
 @dataclass
+class ParquetFileSpec:
+    object_path: None
+    steps: list[list[int]] | list[int] | None
+
+
+@dataclass
 class CoffeaFileSpec(UprootFileSpec):
     steps: list[list[int]]
     num_entries: int
@@ -200,13 +206,28 @@ class CoffeaFileSpec(UprootFileSpec):
 @dataclass
 class CoffeaFileSpecOptional(CoffeaFileSpec):
     steps: list[list[int]] | None
-    num_entriees: int | None
+    num_entries: int | None
+    uuid: str | None
+
+
+@dataclass
+class CoffeaParquetFileSpec(ParquetFileSpec):
+    steps: list[list[int]]
+    num_entries: int
+    uuid: str
+
+
+@dataclass
+class CoffeaParquetFileSpecOptional(CoffeaParquetFileSpec):
+    steps: list[list[int]] | None
+    num_entries: int | None
     uuid: str | None
 
 
 @dataclass
 class DatasetSpec:
-    files: dict[str, CoffeaFileSpec]
+    files: dict[str, CoffeaFileSpec | CoffeaParquetFileSpec]
+    format: str | None
     metadata: dict[Hashable, Any] | None
     form: str | None
 
@@ -214,7 +235,15 @@ class DatasetSpec:
 @dataclass
 class DatasetSpecOptional(DatasetSpec):
     files: (
-        dict[str, str] | list[str] | dict[str, UprootFileSpec | CoffeaFileSpecOptional]
+        dict[str, str]
+        | list[str]
+        | dict[
+            str,
+            UprootFileSpec
+            | ParquetFileSpec
+            | CoffeaFileSpecOptional
+            | CoffeaParquetFileSpecOptional,
+        ]
     )
 
 
