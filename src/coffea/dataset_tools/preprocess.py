@@ -233,6 +233,28 @@ class DatasetSpec:
 
 
 @dataclass
+class DatasetJoinableSpec(DatasetSpec):
+    form: str  # form is required
+    format: str
+
+    def __post_init__(self):
+        if not isinstance(self.form, str):
+            raise TypeError("form: form must be a string")
+        try:
+            import awkward
+
+            from coffea.util import decompress_form
+
+            _ = awkward.forms.from_json(decompress_form(self.form))
+        except Exception as e:
+            raise ValueError(
+                "form: was not able to decompress_form into an awkward form"
+            ) from e
+        if not isinstance(self.format, str) or not IOFactory.valid_format(self.format):
+            raise ValueError(f"format: format must be one of {IOFactory._formats}")
+
+
+@dataclass
 class DatasetSpecOptional(DatasetSpec):
     files: (
         dict[str, str]
@@ -249,6 +271,158 @@ class DatasetSpecOptional(DatasetSpec):
 
 FilesetSpecOptional = dict[str, DatasetSpecOptional]
 FilesetSpec = dict[str, DatasetSpec]
+
+
+class IOFactory:
+    _formats = ["root", "parquet"]
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def valid_format(cls, format: str) -> bool:
+        return format in cls._formats
+
+    @classmethod
+    def promote_datasetspec(
+        cls, input: DatasetSpec | DatasetSpecOptional | DatasetJoinableSpec
+    ):
+        if type(input) is DatasetJoinableSpec:
+            return input
+        elif isinstance(input, dict):
+            return cls.dict_to_datasetspec(input)
+        else:
+            try:
+                return DatasetJoinableSpec(
+                    files=input.files,
+                    format=input.format,
+                    metadata=input.metadata,
+                    form=input.form,
+                )
+            except Exception:
+                return input
+
+    @classmethod
+    def identify_format(cls, input: Any):
+        if type(input) is DatasetSpec or type(input) is DatasetSpecOptional:
+            return input.format
+
+        if isinstance(input, str):
+            if input.endswith(".root"):
+                return "root"
+            if (
+                input.endswith(".parq")
+                or input.endswith(".parquet")
+                or "." not in input.split("/")[-1]
+            ):
+                return "parquet"
+            else:
+                raise RuntimeError(
+                    f"{__class__.__name__} couldn't identify if the string path is for a root file or parquet file/directory"
+                )
+        else:
+            raise NotImplementedError(
+                "identify_format doesn't handle all valid input types, such as fsspec instances"
+            )
+
+    @classmethod
+    def dict_to_uprootfilespec(cls, input):
+        assert isinstance(input, dict), f"{input} is not a dictionary"
+        try:
+            return CoffeaFileSpec(**input)
+        except Exception:
+            return CoffeaFileSpecOptional(**input)
+
+    @classmethod
+    def dict_to_parquetfilespec(cls, input):
+        assert isinstance(input, dict), f"{input} is not a dictionary"
+        try:
+            return CoffeaParquetFileSpec(**input)
+        except Exception:
+            return CoffeaParquetFileSpecOptional(**input)
+
+    @classmethod
+    def filespec_to_dict(
+        cls,
+        input: (
+            CoffeaFileSpec
+            | CoffeaFileSpecOptional
+            | CoffeaParquetFileSpec
+            | CoffeaParquetFileSpecOptional
+        ),
+    ):
+        output = {}
+        output["object_path"] = input.object_path
+        output["steps"] = input.steps
+        output["num_entries"] = input.num_entries
+        output["uuid"] = input.uuid
+        return output
+
+    @classmethod
+    def dict_to_datasetspec(
+        cls, input: dict[str, Any], verbose=False
+    ) -> DatasetSpec | DatasetSpecOptional | DatasetJoinableSpec:
+        input = copy.deepcopy(input)
+        output = {}
+        output["files"] = input.get("files")
+        output["format"] = None
+        output["metadata"] = input.get("metadata", None)
+        output["form"] = input.get("form", None)
+        concrete_vs_optional = {}
+        formats = {}
+        for name, info_raw in output["files"].items():
+            format = cls.identify_format(name)
+            formats[name] = format
+            if isinstance(info_raw, dict):
+                if format in ["root"]:
+                    output["files"][name] = cls.dict_to_uprootfilespec(info_raw)
+                elif format in ["parquet"]:
+                    output["files"][name] = cls.dict_to_parquetfilespec(info_raw)
+                else:
+                    raise ValueError(
+                        f"{name}: {info_raw} couldn't be identified as either root or parquet format for conversion"
+                    )
+
+            info = output["files"][name]
+
+            if type(info) in [CoffeaParquetFileSpec, CoffeaFileSpec]:
+                concrete_vs_optional[name] = True
+            elif type(info) in [CoffeaParquetFileSpecOptional, CoffeaFileSpecOptional]:
+                concrete_vs_optional[name] = False
+            else:
+                concrete_vs_optional[name] = None
+
+        if all(fmt == "root" for fmt in formats.values()):
+            output["format"] = "root"
+        elif all(fmt == "parquet" for fmt in formats.values()):
+            output["format"] = "parquet"
+
+        if all(concrete_vs_optional.values()):
+            if output["form"] is not None:
+                return DatasetJoinableSpec(**output)
+            else:
+                return DatasetSpec(**output)
+        else:
+            if verbose:
+                print(f"concrete_vs_optional: {concrete_vs_optional}")
+            return DatasetSpecOptional(**output)
+
+    @classmethod
+    def datasetspec_to_dict(
+        cls,
+        input: DatasetSpec | DatasetSpecOptional | DatasetJoinableSpec,
+        coerce_filespec_to_dict=True,
+    ) -> dict[str, Any]:
+        output = {}
+        output["files"] = {} if coerce_filespec_to_dict else input.files
+        output["format"] = input.format
+        output["metadata"] = input.metadata
+        output["form"] = input.form
+        if coerce_filespec_to_dict:
+            for name, info in input.files.items():
+                output["files"][name] = cls.filespec_to_dict(info)
+
+        return output
 
 
 def _normalize_file_info(file_info):
