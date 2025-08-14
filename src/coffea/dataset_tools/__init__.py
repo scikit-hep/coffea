@@ -48,7 +48,6 @@ __all__ = [
     "DatasetSpecOptional",
     "FilesetSpecOptional",
     "FilesetSpec",
-    "FilesetSpecOptional",
     "FilesetSpec",
     "IOFactory",
 ]
