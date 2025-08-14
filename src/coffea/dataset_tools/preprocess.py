@@ -318,7 +318,7 @@ class IOFactory:
                 return "parquet"
             else:
                 raise RuntimeError(
-                    f"{__class__.__name__} couldn't identify if the string path is for a root file or parquet file/directory"
+                    f"{cls.__name__} couldn't identify if the string path is for a root file or parquet file/directory"
                 )
         else:
             raise NotImplementedError(
