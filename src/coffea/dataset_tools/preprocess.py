@@ -427,7 +427,14 @@ class IOFactory:
 
 def _normalize_file_info(file_info):
     normed_files = None
-    if isinstance(file_info, list) or (
+    if type(file_info) in [DatasetSpec, DatasetSpecOptional, DatasetJoinableSpec]:
+        normed_files = uproot._util.regularize_files(
+            IOFactory.datasetspec_to_dict(file_info, coerce_filespec_to_dict=True)[
+                "files"
+            ],
+            steps_allowed=True,
+        )
+    elif isinstance(file_info, list) or (
         isinstance(file_info, dict) and "files" not in file_info
     ):
         normed_files = uproot._util.regularize_files(file_info, steps_allowed=True)
@@ -515,6 +522,11 @@ def preprocess(
     all_ak_norm_files = {}
     files_to_preprocess = {}
     for name, info in fileset.items():
+        is_datasetspec = type(info) in [
+            DatasetSpec,
+            DatasetSpecOptional,
+            DatasetJoinableSpec,
+        ]
         norm_files = _normalize_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
         ak_norm_files = awkward.from_iter(norm_files)
@@ -688,7 +700,15 @@ def preprocess(
                 "uuid": item["uuid"],
             }
 
-        if "files" in out_updated[name]:
+        if is_datasetspec:
+            out_updated[name].files = {
+                k: IOFactory.dict_to_uprootfilespec(v) for k, v in files_out.items()
+            }
+            out_available[name].files = {
+                k: IOFactory.dict_to_uprootfilespec(v)
+                for k, v in files_available.items()
+            }
+        elif "files" in out_updated[name]:
             out_updated[name]["files"] = files_out
             out_available[name]["files"] = files_available
         else:
@@ -702,13 +722,23 @@ def preprocess(
         compressed_union_form = None
         if union_form_jsonstr is not None:
             compressed_union_form = compress_form(union_form_jsonstr)
-            out_updated[name]["form"] = compressed_union_form
-            out_available[name]["form"] = compressed_union_form
+            if is_datasetspec:
+                out_updated[name].form = compressed_union_form
+                out_available[name].form = compressed_union_form
+            else:
+                out_updated[name]["form"] = compressed_union_form
+                out_available[name]["form"] = compressed_union_form
         else:
-            out_updated[name]["form"] = None
-            out_available[name]["form"] = None
+            if is_datasetspec:
+                out_updated[name].form = None
+                out_available[name].form = None
+            else:
+                out_updated[name]["form"] = None
+                out_available[name]["form"] = None
 
-        if "metadata" not in out_updated[name]:
+        if is_datasetspec:
+            pass
+        elif "metadata" not in out_updated[name]:
             out_updated[name]["metadata"] = None
             out_available[name]["metadata"] = None
 
