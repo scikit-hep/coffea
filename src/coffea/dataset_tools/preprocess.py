@@ -351,6 +351,10 @@ class IOFactory:
             | CoffeaParquetFileSpecOptional
         ),
     ):
+        if type(input) in [UprootFileSpec, ParquetFileSpec]:
+            raise ValueError(
+                f"{cls.__name__}.filespec_to_dict expects the fields provided by Coffea(Parquet)FileSpec(Optional), UprootFileSpec and ParquetFileSpec should be promoted"
+            )
         output = {}
         output["object_path"] = input.object_path
         output["steps"] = input.steps
