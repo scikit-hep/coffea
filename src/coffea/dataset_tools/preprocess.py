@@ -212,6 +212,7 @@ class CoffeaFileSpecOptional(UprootFileSpec):
         if not isinstance(self.uuid, (str, type(None))):
             raise TypeError("uuid: uuid must be a string or None")
 
+
 @dataclass
 class CoffeaFileSpec(CoffeaFileSpecOptional):
     steps: list[list[int]]
@@ -220,9 +221,16 @@ class CoffeaFileSpec(CoffeaFileSpecOptional):
 
     def __post_init__(self):
         super().__post_init__()
-        if not isinstance(self.steps, list) or not all(
-            [isinstance(item, list) for item in self.steps]
-        ) or not all([isinstance(first, int) and isinstance(second, int) for first, second in self.steps]):
+        if (
+            not isinstance(self.steps, list)
+            or not all([isinstance(item, list) for item in self.steps])
+            or not all(
+                [
+                    isinstance(first, int) and isinstance(second, int)
+                    for first, second in self.steps
+                ]
+            )
+        ):
             raise TypeError("steps: steps must be a list of lists of integers pairs")
         if not isinstance(self.num_entries, int):
             raise TypeError("num_entries: num_entries must be an int")
@@ -255,9 +263,16 @@ class CoffeaParquetFileSpec(CoffeaParquetFileSpecOptional):
 
     def __post_init__(self):
         super().__post_init__()
-        if not isinstance(self.steps, list) or not all(
-            [isinstance(item, list) for item in self.steps]
-        ) or not all([isinstance(first, int) and isinstance(second, int) for first, second in self.steps]):
+        if (
+            not isinstance(self.steps, list)
+            or not all([isinstance(item, list) for item in self.steps])
+            or not all(
+                [
+                    isinstance(first, int) and isinstance(second, int)
+                    for first, second in self.steps
+                ]
+            )
+        ):
             raise TypeError("steps: steps must be a list of lists of integers pairs")
         if not isinstance(self.num_entries, int):
             raise TypeError("num_entries: num_entries must be an int")
@@ -282,6 +297,7 @@ class DatasetSpecOptional:
     metadata: dict[Hashable, Any] | None
     form: str | None
 
+
 @dataclass
 class DatasetSpec(DatasetSpecOptional):
     files: dict[str, CoffeaFileSpec | CoffeaParquetFileSpec]
@@ -291,14 +307,24 @@ class DatasetSpec(DatasetSpecOptional):
 
     def __post_init__(self):
         files_is_dict = isinstance(self.files, dict)
-        file_keys_are_str = all(isinstance(k, str) for k in self.files.keys()) if files_is_dict else False
-        file_values_are_filespec = all(
-            type(v) in [CoffeaFileSpec, CoffeaParquetFileSpec] for v in self.files.values()
-        ) if files_is_dict else False
+        file_keys_are_str = (
+            all(isinstance(k, str) for k in self.files.keys())
+            if files_is_dict
+            else False
+        )
+        file_values_are_filespec = (
+            all(
+                type(v) in [CoffeaFileSpec, CoffeaParquetFileSpec]
+                for v in self.files.values()
+            )
+            if files_is_dict
+            else False
+        )
         if not files_is_dict or not file_keys_are_str or not file_values_are_filespec:
             raise TypeError(
                 "files: files must be a dict[str, CoffeaFileSpec | CoffeaParquetFileSpec]discovered that files_is_dict={files_is_dict}, file_keys_are_str={file_keys_are_str}, file_values_are_filespec={file_values_are_filespec}"
             )
+
 
 @dataclass
 class DatasetJoinableSpec(DatasetSpec):
