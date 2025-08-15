@@ -197,40 +197,108 @@ class ParquetFileSpec:
 
 
 @dataclass
-class CoffeaFileSpec(UprootFileSpec):
-    steps: list[list[int]]
-    num_entries: int
-    uuid: str
-
-
-@dataclass
-class CoffeaFileSpecOptional(CoffeaFileSpec):
+class CoffeaFileSpecOptional(UprootFileSpec):
     steps: list[list[int]] | None
     num_entries: int | None
     uuid: str | None
 
+    def __post_init__(self):
+        if not isinstance(self.object_path, str):
+            raise TypeError("object_path: object_path must be a string")
+        if not isinstance(self.steps, (list, type(None))):
+            raise TypeError("steps: steps must be a list or None")
+        if not isinstance(self.num_entries, (int, type(None))):
+            raise TypeError("num_entries: num_entries must be an int or None")
+        if not isinstance(self.uuid, (str, type(None))):
+            raise TypeError("uuid: uuid must be a string or None")
 
 @dataclass
-class CoffeaParquetFileSpec(ParquetFileSpec):
+class CoffeaFileSpec(CoffeaFileSpecOptional):
     steps: list[list[int]]
     num_entries: int
     uuid: str
 
+    def __post_init__(self):
+        super().__post_init__()
+        if not isinstance(self.steps, list) or not all(
+            [isinstance(item, list) for item in self.steps]
+        ) or not all([isinstance(first, int) and isinstance(second, int) for first, second in self.steps]):
+            raise TypeError("steps: steps must be a list of lists of integers pairs")
+        if not isinstance(self.num_entries, int):
+            raise TypeError("num_entries: num_entries must be an int")
+        if not isinstance(self.uuid, str):
+            raise TypeError("uuid: uuid must be a string")
+
 
 @dataclass
-class CoffeaParquetFileSpecOptional(CoffeaParquetFileSpec):
+class CoffeaParquetFileSpecOptional(ParquetFileSpec):
     steps: list[list[int]] | None
     num_entries: int | None
     uuid: str | None
 
+    def __post_init__(self):
+        if not isinstance(self.object_path, (str, type(None))):
+            raise TypeError("object_path: object_path must be a string or None")
+        if not isinstance(self.steps, (list, type(None))):
+            raise TypeError("steps: steps must be a list or None")
+        if not isinstance(self.num_entries, (int, type(None))):
+            raise TypeError("num_entries: num_entries must be an int or None")
+        if not isinstance(self.uuid, (str, type(None))):
+            raise TypeError("uuid: uuid must be a string or None")
+
 
 @dataclass
-class DatasetSpec:
+class CoffeaParquetFileSpec(CoffeaParquetFileSpecOptional):
+    steps: list[list[int]]
+    num_entries: int
+    uuid: str
+
+    def __post_init__(self):
+        super().__post_init__()
+        if not isinstance(self.steps, list) or not all(
+            [isinstance(item, list) for item in self.steps]
+        ) or not all([isinstance(first, int) and isinstance(second, int) for first, second in self.steps]):
+            raise TypeError("steps: steps must be a list of lists of integers pairs")
+        if not isinstance(self.num_entries, int):
+            raise TypeError("num_entries: num_entries must be an int")
+        if not isinstance(self.uuid, str):
+            raise TypeError("uuid: uuid must be a string")
+
+
+@dataclass
+class DatasetSpecOptional:
+    files: (
+        dict[str, str]
+        | list[str]
+        | dict[
+            str,
+            UprootFileSpec
+            | ParquetFileSpec
+            | CoffeaFileSpecOptional
+            | CoffeaParquetFileSpecOptional,
+        ]
+    )
+    format: str | None
+    metadata: dict[Hashable, Any] | None
+    form: str | None
+
+@dataclass
+class DatasetSpec(DatasetSpecOptional):
     files: dict[str, CoffeaFileSpec | CoffeaParquetFileSpec]
     format: str | None
     metadata: dict[Hashable, Any] | None
     form: str | None
 
+    def __post_init__(self):
+        files_is_dict = isinstance(self.files, dict)
+        file_keys_are_str = all(isinstance(k, str) for k in self.files.keys()) if files_is_dict else False
+        file_values_are_filespec = all(
+            type(v) in [CoffeaFileSpec, CoffeaParquetFileSpec] for v in self.files.values()
+        ) if files_is_dict else False
+        if not files_is_dict or not file_keys_are_str or not file_values_are_filespec:
+            raise TypeError(
+                "files: files must be a dict[str, CoffeaFileSpec | CoffeaParquetFileSpec]discovered that files_is_dict={files_is_dict}, file_keys_are_str={file_keys_are_str}, file_values_are_filespec={file_values_are_filespec}"
+            )
 
 @dataclass
 class DatasetJoinableSpec(DatasetSpec):
@@ -238,6 +306,7 @@ class DatasetJoinableSpec(DatasetSpec):
     format: str
 
     def __post_init__(self):
+        super().__post_init__()
         if not isinstance(self.form, str):
             raise TypeError("form: form must be a string")
         try:
@@ -252,21 +321,6 @@ class DatasetJoinableSpec(DatasetSpec):
             ) from e
         if not isinstance(self.format, str) or not IOFactory.valid_format(self.format):
             raise ValueError(f"format: format must be one of {IOFactory._formats}")
-
-
-@dataclass
-class DatasetSpecOptional(DatasetSpec):
-    files: (
-        dict[str, str]
-        | list[str]
-        | dict[
-            str,
-            UprootFileSpec
-            | ParquetFileSpec
-            | CoffeaFileSpecOptional
-            | CoffeaParquetFileSpecOptional,
-        ]
-    )
 
 
 FilesetSpecOptional = dict[str, DatasetSpecOptional]
@@ -292,6 +346,7 @@ class IOFactory:
         elif isinstance(input, dict):
             return cls.dict_to_datasetspec(input)
         else:
+            # If the input is already a DatasetSpec or DatasetSpecOptional, we can try to promote it to DatasetJoinableSpec
             try:
                 return DatasetJoinableSpec(
                     files=input.files,
@@ -304,10 +359,11 @@ class IOFactory:
 
     @classmethod
     def identify_format(cls, input: Any):
-        if type(input) is DatasetSpec or type(input) is DatasetSpecOptional:
+        if type(input) in [DatasetSpec, DatasetSpecOptional]:
             return input.format
 
         if isinstance(input, str):
+            # could check with regular expressions for more compmlicated naming, like atlas .root.N
             if input.endswith(".root"):
                 return "root"
             if (
@@ -327,19 +383,35 @@ class IOFactory:
 
     @classmethod
     def dict_to_uprootfilespec(cls, input):
+        """Convert a dictionary to a CoffeaFileSpec or CoffeaFileSpecOptional."""
         assert isinstance(input, dict), f"{input} is not a dictionary"
         try:
             return CoffeaFileSpec(**input)
         except Exception:
-            return CoffeaFileSpecOptional(**input)
+            add_args = {k: v for k, v in input.items()}
+            if "steps" not in input:
+                add_args["steps"] = None
+            if "num_entries" not in input:
+                add_args["num_entries"] = None
+            if "uuid" not in input:
+                add_args["uuid"] = None
+            return CoffeaFileSpecOptional(**add_args)
 
     @classmethod
     def dict_to_parquetfilespec(cls, input):
+        """Convert a dictionary to a CoffeaParquetFileSpec or CoffeaParquetFileSpecOptional."""
         assert isinstance(input, dict), f"{input} is not a dictionary"
         try:
             return CoffeaParquetFileSpec(**input)
         except Exception:
-            return CoffeaParquetFileSpecOptional(**input)
+            add_args = {k: v for k, v in input.items()}
+            if "steps" not in input:
+                add_args["steps"] = None
+            if "num_entries" not in input:
+                add_args["num_entries"] = None
+            if "uuid" not in input:
+                add_args["uuid"] = None
+            return CoffeaParquetFileSpecOptional(**add_args)
 
     @classmethod
     def filespec_to_dict(
@@ -368,7 +440,12 @@ class IOFactory:
     ) -> DatasetSpec | DatasetSpecOptional | DatasetJoinableSpec:
         input = copy.deepcopy(input)
         output = {}
-        output["files"] = input.get("files")
+        # if the input doesn't contain an explicit "files" key, assume the input is a files dictionary
+        output["files"] = input.get("files", copy.deepcopy(input))
+        if not isinstance(output["files"], dict):
+            raise ValueError(
+                f"{cls.__name__}.dict_to_datasetspec expects a nested dictionary with files key or interprets the dictionary as filename: object_path pairs, got {output['files']} instead"
+            )
         output["format"] = None
         output["metadata"] = input.get("metadata", None)
         output["form"] = input.get("form", None)
