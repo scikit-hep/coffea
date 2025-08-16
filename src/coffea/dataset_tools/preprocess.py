@@ -453,6 +453,15 @@ class IOFactory:
             raise ValueError(
                 f"{cls.__name__}.filespec_to_dict expects the fields provided by Coffea(Parquet)FileSpec(Optional), UprootFileSpec and ParquetFileSpec should be promoted"
             )
+        if type(input) not in [
+            CoffeaFileSpec,
+            CoffeaFileSpecOptional,
+            CoffeaParquetFileSpec,
+            CoffeaParquetFileSpecOptional,
+        ]:
+            raise TypeError(
+                f"{cls.__name__}.filespec_to_dict expects a Coffea(Parquet)FileSpec(Optional), got {type(input)} instead: {input}"
+            )
         output = {}
         output["object_path"] = input.object_path
         output["steps"] = input.steps
@@ -480,15 +489,28 @@ class IOFactory:
         for name, info_raw in output["files"].items():
             format = cls.identify_format(name)
             formats[name] = format
-            if isinstance(info_raw, dict):
-                if format in ["root"]:
-                    output["files"][name] = cls.dict_to_uprootfilespec(info_raw)
-                elif format in ["parquet"]:
-                    output["files"][name] = cls.dict_to_parquetfilespec(info_raw)
-                else:
-                    raise ValueError(
-                        f"{name}: {info_raw} couldn't be identified as either root or parquet format for conversion"
-                    )
+            info_to_convert = copy.deepcopy(info_raw)
+            if type(info_to_convert) in [
+                CoffeaFileSpec,
+                CoffeaParquetFileSpec,
+                CoffeaFileSpecOptional,
+                CoffeaParquetFileSpecOptional
+            ]:
+                # convert to dict to allow promotion potentially
+                info_to_convert = cls.filespec_to_dict(info_to_convert)
+            elif isinstance(info_to_convert, (str, type(None))):
+                # if it's a string, assume it's the object path for root
+                # if it's None, assume it's the object path for parquet
+                info_to_convert = {"object_path": info_to_convert}
+            # Now convert to the appropriate filespec type
+            if format in ["root"]:
+                output["files"][name] = cls.dict_to_uprootfilespec(info_to_convert)
+            elif format in ["parquet"]:
+                output["files"][name] = cls.dict_to_parquetfilespec(info_to_convert)
+            else:
+                raise ValueError(
+                    f"{name}: {info_raw} couldn't be identified as either root or parquet format for conversion"
+                )
 
             info = output["files"][name]
 
@@ -520,6 +542,9 @@ class IOFactory:
         input: DatasetSpec | DatasetSpecOptional | DatasetJoinableSpec,
         coerce_filespec_to_dict=True,
     ) -> dict[str, Any]:
+        assert type(input) in [DatasetSpec, DatasetSpecOptional, DatasetJoinableSpec], (
+            f"{cls.__name__}.datasetspec_to_dict expects a DatasetSpec, DatasetSpecOptional or DatasetJoinableSpec, got {type(input)} instead: {input}"
+        )
         output = {}
         output["files"] = {} if coerce_filespec_to_dict else input.files
         output["format"] = input.format
