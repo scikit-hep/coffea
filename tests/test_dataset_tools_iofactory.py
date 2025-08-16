@@ -1,9 +1,7 @@
-import dask
 import pytest
 from distributed import Client
 
 from coffea.dataset_tools import (
-    apply_to_fileset,
     preprocess,
 )
 from coffea.dataset_tools.preprocess import (
@@ -18,8 +16,6 @@ from coffea.dataset_tools.preprocess import (
     ParquetFileSpec,
     UprootFileSpec,
 )
-from coffea.nanoevents import NanoAODSchema
-from coffea.processor.test_items import NanoEventsProcessor
 
 _starting_fileset_dict = {
     "ZJets": {"tests/samples/nano_dy.root": "Events"},
@@ -520,6 +516,6 @@ def test_preprocess_dataclasses():
             save_form=True,
         )
     from coffea.util import decompress_form
+
     for k, v in dataset_runnable.items():
         assert "Jet_pt" in decompress_form(v.form)
-    

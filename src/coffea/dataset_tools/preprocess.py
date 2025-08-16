@@ -494,7 +494,7 @@ class IOFactory:
                 CoffeaFileSpec,
                 CoffeaParquetFileSpec,
                 CoffeaFileSpecOptional,
-                CoffeaParquetFileSpecOptional
+                CoffeaParquetFileSpecOptional,
             ]:
                 # convert to dict to allow promotion potentially
                 info_to_convert = cls.filespec_to_dict(info_to_convert)
@@ -542,9 +542,11 @@ class IOFactory:
         input: DatasetSpec | DatasetSpecOptional | DatasetJoinableSpec,
         coerce_filespec_to_dict=True,
     ) -> dict[str, Any]:
-        assert type(input) in [DatasetSpec, DatasetSpecOptional, DatasetJoinableSpec], (
-            f"{cls.__name__}.datasetspec_to_dict expects a DatasetSpec, DatasetSpecOptional or DatasetJoinableSpec, got {type(input)} instead: {input}"
-        )
+        assert type(input) in [
+            DatasetSpec,
+            DatasetSpecOptional,
+            DatasetJoinableSpec,
+        ], f"{cls.__name__}.datasetspec_to_dict expects a DatasetSpec, DatasetSpecOptional or DatasetJoinableSpec, got {type(input)} instead: {input}"
         output = {}
         output["files"] = {} if coerce_filespec_to_dict else input.files
         output["format"] = input.format
