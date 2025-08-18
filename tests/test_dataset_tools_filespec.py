@@ -1,12 +1,13 @@
 """Tests for the Pydantic-based IOFactory classes in iofactory.py"""
 
-import awkward
-import pytest
-from pydantic import ValidationError
 import copy
 import gzip
 import os
 import tempfile
+
+import awkward
+import pytest
+from pydantic import ValidationError
 
 from coffea.dataset_tools.filespec import (
     CoffeaFileDict,
@@ -19,7 +20,6 @@ from coffea.dataset_tools.filespec import (
     IOFactory,
     ParquetFileSpec,
     UprootFileSpec,
-    StepPair,
 )
 from coffea.util import compress_form
 
@@ -33,8 +33,14 @@ _starting_fileset = {
             "tests/samples/nano_dy.root": {
                 "object_path": "Events",
                 "steps": [
-                    [0, 5], [5, 10], [10, 15], [15, 20],
-                    [20, 25], [25, 30], [30, 35], [35, 40],
+                    [0, 5],
+                    [5, 10],
+                    [10, 15],
+                    [15, 20],
+                    [20, 25],
+                    [25, 30],
+                    [30, 35],
+                    [35, 40],
                 ],
                 "num_entries": 40,
                 "uuid": "1234-5678-90ab-cdef",
@@ -48,6 +54,8 @@ _starting_fileset = {
         }
     },
 }
+
+
 class TestStepPair:
     """Test the StepPair type annotation"""
 
@@ -227,7 +235,6 @@ class TestCoffeaUprootFileSpecOptional:
         with pytest.raises(ValueError):
             CoffeaUprootFileSpecOptional(object_path="Events", num_entries=-1)
 
-
     def test_json_file_serialization(self):
         """Test JSON serialization with file path"""
         spec = CoffeaUprootFileSpecOptional(object_path="Events", steps=[[0, 10]])
@@ -243,6 +250,7 @@ class TestCoffeaUprootFileSpecOptional:
                 assert restored.format == "root"
                 assert restored.num_entries is None
                 assert restored.uuid is None
+
 
 class TestCoffeaUprootFileSpec:
     """Test CoffeaUprootFileSpec class"""
@@ -297,10 +305,11 @@ class TestCoffeaUprootFileSpec:
                 object_path="Events", steps=None, num_entries=100, uuid="test-uuid"
             )
 
-
     def test_json_file_serialization(self):
         """Test JSON serialization with file path"""
-        spec = CoffeaUprootFileSpec(object_path="Events", steps=[[0, 10]], num_entries=100, uuid="test-uuid")
+        spec = CoffeaUprootFileSpec(
+            object_path="Events", steps=[[0, 10]], num_entries=100, uuid="test-uuid"
+        )
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
@@ -313,6 +322,7 @@ class TestCoffeaUprootFileSpec:
                 assert restored.format == "root"
                 assert restored.num_entries == 100
                 assert restored.uuid == "test-uuid"
+
 
 class TestCoffeaParquetFileSpecOptional:
     """Test CoffeaParquetFileSpecOptional class"""
@@ -355,7 +365,6 @@ class TestCoffeaParquetFileSpecOptional:
                     # Some combinations may be invalid
                     assert isinstance(e, ValueError)
 
-
     def test_json_file_serialization(self):
         """Test JSON serialization with file path"""
         spec = CoffeaParquetFileSpecOptional(object_path=None, steps=[[0, 10]])
@@ -369,6 +378,7 @@ class TestCoffeaParquetFileSpecOptional:
                 assert restored.object_path is None
                 assert restored.steps == [[0, 10]]
                 assert restored.format == "parquet"
+
 
 class TestCoffeaParquetFileSpec:
     """Test CoffeaParquetFileSpec class"""
@@ -414,11 +424,11 @@ class TestCoffeaParquetFileSpec:
         with pytest.raises(ValueError):
             CoffeaParquetFileSpec()  # Missing steps, num_entries, uuid
 
-
-
     def test_json_file_serialization(self):
         """Test JSON serialization with file path"""
-        spec = CoffeaParquetFileSpec(object_path=None, steps=[[0, 10]], num_entries=100, uuid="test-uuid")
+        spec = CoffeaParquetFileSpec(
+            object_path=None, steps=[[0, 10]], num_entries=100, uuid="test-uuid"
+        )
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
@@ -431,6 +441,7 @@ class TestCoffeaParquetFileSpec:
                 assert restored.format == "parquet"
                 assert restored.num_entries == 100
                 assert restored.uuid == "test-uuid"
+
 
 class TestCoffeaFileDict:
     """Test CoffeaFileDict class"""
@@ -447,6 +458,7 @@ class TestCoffeaFileDict:
                 object_path="Events", steps=[[10, 20]], num_entries=None, uuid=None
             ),
         }
+
     def test_dict_methods(self):
         """Test that dict methods work properly"""
         file_dict = CoffeaFileDict(self.get_files())
@@ -494,7 +506,9 @@ class TestCoffeaFileDict:
         files = {"file1.txt": CoffeaUprootFileSpecOptional(object_path="Events")}
         # with pytest.raises(ValidationError):
         fdict = CoffeaFileDict(files)
-        with pytest.raises(RuntimeError, match="IOFactory couldn't identify"):
+        with pytest.raises(
+            RuntimeError, match="identify_file_format couldn't identify"
+        ):
             print(fdict.format)
 
     def test_mixed_root_and_parquet(self):
@@ -514,6 +528,7 @@ class TestCoffeaFileDict:
                 assert len(restored) == 3
                 assert restored == spec
 
+
 class TestDatasetSpec:
     """Test DatasetSpec class"""
 
@@ -523,7 +538,14 @@ class TestDatasetSpec:
                 "files": {
                     "tests/samples/nano_dy.root": {
                         "object_path": "Events",
-                        "steps": [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30]],
+                        "steps": [
+                            [0, 5],
+                            [5, 10],
+                            [10, 15],
+                            [15, 20],
+                            [20, 25],
+                            [25, 30],
+                        ],
                         "num_entries": 30,
                         "uuid": "1234-5678-90ab-cdef",
                     },
@@ -537,17 +559,29 @@ class TestDatasetSpec:
                 "metadata": {"key": "value"},
                 "form": valid_compressed_form,
             },
-            "ZJets2": {"files": ["tests/samples/nano_dy.root:Events", "root://file2.root:Events"]},
+            "ZJets2": {
+                "files": [
+                    "tests/samples/nano_dy.root:Events",
+                    "root://file2.root:Events",
+                ]
+            },
             "ZParquet": {
                 "files": {
                     "tests/samples/nano_dy.parquet": {
                         "object_path": None,
-                        "steps": [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30]],
+                        "steps": [
+                            [0, 5],
+                            [5, 10],
+                            [10, 15],
+                            [15, 20],
+                            [20, 25],
+                            [25, 30],
+                        ],
                         "num_entries": 30,
                         "uuid": "fake-uuid",
                     }
                 }
-            }
+            },
         }
 
     def test_creation_valid(self):
@@ -563,7 +597,6 @@ class TestDatasetSpec:
         assert spec.format == "root"
         assert spec.metadata == {"sample": "test"}
 
-
     def test_starting_fileset_conversion(self):
         """Test conversion of _starting_fileset"""
 
@@ -573,7 +606,7 @@ class TestDatasetSpec:
 
             # Test that the conversion worked
             assert converted[k] is not None
-            assert hasattr(converted[k], 'files')
+            assert hasattr(converted[k], "files")
 
             # Test JSON serialization roundtrip
             json_str = converted[k].model_dump_json()
@@ -594,10 +627,23 @@ class TestDatasetSpec:
         assert test["ZJets1"].metadata == {"key": "value"}
 
         # Test that a mixture of concrete and optional FileSpecs are in the datasetspec
-        assert isinstance(test["ZJets1"].files["tests/samples/nano_dy.root"], CoffeaUprootFileSpec)
-        assert isinstance(test["ZJets1"].files["tests/samples/nano_dy_2.root"], CoffeaUprootFileSpecOptional)
-        assert all([isinstance(v, CoffeaUprootFileSpecOptional) for k, v in test["ZJets2"].files.items()])
-        assert isinstance(test["ZParquet"].files["tests/samples/nano_dy.parquet"], CoffeaParquetFileSpec)
+        assert isinstance(
+            test["ZJets1"].files["tests/samples/nano_dy.root"], CoffeaUprootFileSpec
+        )
+        assert isinstance(
+            test["ZJets1"].files["tests/samples/nano_dy_2.root"],
+            CoffeaUprootFileSpecOptional,
+        )
+        assert all(
+            [
+                isinstance(v, CoffeaUprootFileSpecOptional)
+                for k, v in test["ZJets2"].files.items()
+            ]
+        )
+        assert isinstance(
+            test["ZParquet"].files["tests/samples/nano_dy.parquet"],
+            CoffeaParquetFileSpec,
+        )
 
     def test_json_file_serialization(self):
         """Test JSON serialization with file path"""
@@ -613,6 +659,7 @@ class TestDatasetSpec:
                         assert restored.files.keys() == v["files"].keys()
                     else:
                         assert len(restored.files.keys()) == len(v["files"])
+
 
 class TestDatasetJoinableSpec:
     """Test DatasetJoinableSpec class"""
@@ -697,62 +744,96 @@ class TestIOFactory:
         with pytest.raises(RuntimeError):
             IOFactory.identify_format("file.txt")
 
-    def test_dict_to_uprootfilespec(self):
+    @pytest.mark.parametrize(
+        "input_dict",
+        [
+            {"object_path": "Events"},
+            {
+                "object_path": "Events",
+                "steps": [[0, 10]],
+                "num_entries": 10,
+                "uuid": "uproot-uuid",
+            },
+        ],
+    )
+    def test_dict_to_uprootfilespec(self, input_dict):
         """Test dict_to_uprootfilespec method"""
-        # Test complete spec
-        input_dict = {
-            "object_path": "Events",
-            "steps": [[0, 10]],
-            "num_entries": 10,
-            "uuid": "test-uuid",
-        }
         result = IOFactory.dict_to_uprootfilespec(input_dict)
-        assert isinstance(result, CoffeaUprootFileSpec)
-        assert result.object_path == "Events"
-        assert result.steps == [[0, 10]]
-        assert result.num_entries == 10
-        assert result.uuid == "test-uuid"
+        if "steps" in input_dict:
+            # Test complete spec
+            assert isinstance(result, CoffeaUprootFileSpec)
+            assert result.object_path == "Events"
+            assert result.steps == [[0, 10]]
+            assert result.num_entries == 10
+            assert result.uuid == "uproot-uuid"
+        else:
+            # Test optional spec
+            assert isinstance(result, CoffeaUprootFileSpecOptional)
+            assert result.object_path == "Events"
+            assert result.steps is None
 
-        # Test optional spec
-        input_dict_optional = {"object_path": "Events"}
-        result_optional = IOFactory.dict_to_uprootfilespec(input_dict_optional)
-        assert isinstance(result_optional, CoffeaUprootFileSpecOptional)
-        assert result_optional.object_path == "Events"
-        assert result_optional.steps is None
-
-    def test_dict_to_parquetfilespec(self):
+    @pytest.mark.parametrize(
+        "input_dict",
+        [
+            {"object_path": None},
+            {
+                "object_path": None,
+                "steps": [[0, 100]],
+                "num_entries": 100,
+                "uuid": "parquet-uuid",
+            },
+        ],
+    )
+    def test_dict_to_parquetfilespec(self, input_dict):
         """Test dict_to_parquetfilespec method"""
-        input_dict = {
-            "object_path": None,
-            "steps": [[0, 100]],
-            "num_entries": 100,
-            "uuid": "parquet-uuid",
-        }
         result = IOFactory.dict_to_parquetfilespec(input_dict)
-        assert isinstance(result, CoffeaParquetFileSpec)
-        assert result.object_path is None
-        assert result.steps == [[0, 100]]
-        assert result.num_entries == 100
-        assert result.uuid == "parquet-uuid"
+        if "steps" in input_dict:
+            assert isinstance(result, CoffeaParquetFileSpec)
+            assert result.object_path is None
+            assert result.steps == [[0, 100]]
+            assert result.num_entries == 100
+            assert result.uuid == "parquet-uuid"
+        else:
+            assert isinstance(result, CoffeaParquetFileSpecOptional)
 
     @pytest.mark.parametrize(
         "input_dict, expected_type",
         [
-            ({"object_path": "Events", "steps": [[0, 10]], "num_entries": 10, "uuid": "test-uuid"}, CoffeaUprootFileSpec),
-            ({"object_path": None, "steps": [[0, 10]], "num_entries": 10, "uuid": "test-uuid"}, CoffeaParquetFileSpec),
+            (
+                {
+                    "object_path": "Events",
+                    "steps": [[0, 10]],
+                    "num_entries": 10,
+                    "uuid": "test-uuid",
+                },
+                CoffeaUprootFileSpec,
+            ),
+            (
+                {
+                    "object_path": None,
+                    "steps": [[0, 10]],
+                    "num_entries": 10,
+                    "uuid": "test-uuid",
+                },
+                CoffeaParquetFileSpec,
+            ),
             ({"object_path": "Events"}, CoffeaUprootFileSpecOptional),
             ({"object_path": None}, CoffeaParquetFileSpecOptional),
         ],
     )
     def test_filespec_to_dict(self, input_dict, expected_type):
         """Test filespec_to_dict method"""
-        #spec = CoffeaUprootFileSpec(
+        # spec = CoffeaUprootFileSpec(
         #    object_path="Events", steps=[[0, 10]], num_entries=10, uuid="test-uuid"
-        #)
+        # )
         spec = expected_type(**input_dict)
         result = IOFactory.filespec_to_dict(spec)
         expected = copy.deepcopy(input_dict)
-        expected["format"] = "parquet" if expected_type in [CoffeaParquetFileSpec, CoffeaParquetFileSpecOptional] else "root"
+        expected["format"] = (
+            "parquet"
+            if expected_type in [CoffeaParquetFileSpec, CoffeaParquetFileSpecOptional]
+            else "root"
+        )
         if "steps" not in expected:
             expected["steps"] = None
         if "num_entries" not in expected:
@@ -872,8 +953,9 @@ class TestJSONSerialization:
         assert restored.metadata == spec.metadata
         assert len(restored.files) == len(spec.files)
 
+
 class TestFilesetSpec:
-    """Test FilesetSpec class """
+    """Test FilesetSpec class"""
 
     def test_creation_valid(self):
         """Test creation with valid concrete dataset specs"""
@@ -918,7 +1000,6 @@ class TestFilesetSpec:
         with pytest.raises(ValidationError):
             FilesetSpec(invalid_form_dict)
 
-
     def test_direct_fileset_creation(self):
         """Test complex FilesetSpec creation from __main__"""
         test_input = {
@@ -926,7 +1007,14 @@ class TestFilesetSpec:
                 "files": {
                     "tests/samples/nano_dy.root": {
                         "object_path": "Events",
-                        "steps": [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30]],
+                        "steps": [
+                            [0, 5],
+                            [5, 10],
+                            [10, 15],
+                            [15, 20],
+                            [20, 25],
+                            [25, 30],
+                        ],
                         "num_entries": 30,
                         "uuid": "1234-5678-90ab-cdef",
                     },
@@ -946,9 +1034,15 @@ class TestFilesetSpec:
         # Convert via direct constructor
         test = FilesetSpec(test_input)
 
-
         # test that the steps are correct
-        assert test["ZJets1"].files["tests/samples/nano_dy.root"].steps == [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30]]
+        assert test["ZJets1"].files["tests/samples/nano_dy.root"].steps == [
+            [0, 5],
+            [5, 10],
+            [10, 15],
+            [15, 20],
+            [20, 25],
+            [25, 30],
+        ]
         assert test["ZJets1"].files["tests/samples/nano_dy_2.root"].steps is None
 
         assert len(test) == 1
@@ -959,7 +1053,10 @@ class TestFilesetSpec:
         # Test we can modify the steps after creation
         test["ZJets1"].files["tests/samples/nano_dy_2.root"].steps = [0, 30]
         test2 = FilesetSpec(test)
-        assert isinstance(test2["ZJets1"].files["tests/samples/nano_dy_2.root"].steps, list)
+        assert isinstance(
+            test2["ZJets1"].files["tests/samples/nano_dy_2.root"].steps, list
+        )
+
 
 class TestMainMethodScenarios:
     """Test scenarios specifically from the __main__ method"""
@@ -1090,7 +1187,7 @@ class TestComplexScenarios:
         assert len(empty_fileset) == 0
 
     def test_error_handling_invalid_steps(self):
-        """Test error handling for invalid step configurations"""
+        """Test error handling for invalid step configurations, effectively nesting the StepPair tests"""
         with pytest.raises(ValueError):
             CoffeaUprootFileSpec(
                 object_path="Events",
