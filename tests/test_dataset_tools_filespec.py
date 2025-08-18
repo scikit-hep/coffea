@@ -2,7 +2,7 @@
 
 import pytest
 
-from coffea.dataset_tools.fileset import (
+from coffea.dataset_tools.filespec import (
     UprootFileSpec,
     ParquetFileSpec,
     CoffeaUprootFileSpec,
