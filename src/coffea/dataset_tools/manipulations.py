@@ -6,7 +6,13 @@ from typing import Any, Callable
 import awkward
 import numpy
 
-from coffea.dataset_tools.preprocess import CoffeaUprootFileSpec, CoffeaParquetFileSpec, CoffeaFileDict, DatasetSpec, FilesetSpec
+from coffea.dataset_tools.preprocess import (
+    CoffeaFileDict,
+    CoffeaParquetFileSpec,
+    CoffeaUprootFileSpec,
+    DatasetSpec,
+    FilesetSpec,
+)
 
 
 def max_chunks(fileset: FilesetSpec, maxchunks: int | None = None) -> FilesetSpec:
@@ -164,7 +170,10 @@ def _default_filter(name_and_spec):
 
 def filter_files(
     fileset: FilesetSpec,
-    thefilter: Callable[[tuple[str, CoffeaUprootFileSpec | CoffeaParquetFileSpec] | CoffeaFileDict], bool] = _default_filter,
+    thefilter: Callable[
+        [tuple[str, CoffeaUprootFileSpec | CoffeaParquetFileSpec] | CoffeaFileDict],
+        bool,
+    ] = _default_filter,
 ) -> FilesetSpec:
     """
     Modify the input fileset so that only the files of each dataset that pass the filter remain.

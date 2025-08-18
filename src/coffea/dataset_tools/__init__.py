@@ -1,16 +1,16 @@
+from coffea.dataset_tools.apply_processor import apply_to_dataset, apply_to_fileset
 from coffea.dataset_tools.filespec import (
-    UprootFileSpec,
-    ParquetFileSpec,
-    CoffeaUprootFileSpec,
-    CoffeaUprootFileSpecOptional,
+    CoffeaFileDict,
     CoffeaParquetFileSpec,
     CoffeaParquetFileSpecOptional,
-    CoffeaFileDict,
+    CoffeaUprootFileSpec,
+    CoffeaUprootFileSpecOptional,
     DatasetSpec,
     FilesetSpec,
     IOFactory,
+    ParquetFileSpec,
+    UprootFileSpec,
 )
-from coffea.dataset_tools.apply_processor import apply_to_dataset, apply_to_fileset
 from coffea.dataset_tools.manipulations import (
     filter_files,
     get_failed_steps_for_dataset,
