@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import copy
-
 from collections.abc import Hashable
-from coffea.util import _is_interpretable, compress_form, decompress_form
-from typing import Any, Callable, Annotated, Literal
-from annotated_types import Gt, Len
-from pydantic import BaseModel, RootModel, Field, model_validator, computed_field
+from typing import Annotated, Any, Literal
 
-StepPair = Annotated[list[Annotated[int, Field(ge=0)]], Field(min_length=2, max_length=2)]
+from pydantic import BaseModel, Field, RootModel, computed_field, model_validator
+
+
+StepPair = Annotated[
+    list[Annotated[int, Field(ge=0)]], Field(min_length=2, max_length=2)
+]
 
 
 class UprootFileSpec(BaseModel):
@@ -39,12 +40,11 @@ class CoffeaParquetFileSpecOptional(ParquetFileSpec):
     uuid: str | None = None
 
 
-
 class CoffeaParquetFileSpec(CoffeaParquetFileSpecOptional):
     steps: Annotated[list[StepPair], Field(min_length=1)] | StepPair
     num_entries: Annotated[int, Field(ge=0)]
     uuid: str
-    #directory: Literal[True, False] #identify whether it's a directory of parquet files or a single parquet file, may be useful or necessary to distinguish
+    # directory: Literal[True, False] #identify whether it's a directory of parquet files or a single parquet file, may be useful or necessary to distinguish
 
 
 class DictMethodsMixin:
@@ -82,24 +82,38 @@ class DictMethodsMixin:
     def update(self, other=None, **kwargs):
         self.root.update(other, **kwargs)
 
-class CoffeaFileDict(RootModel[dict[str, CoffeaUprootFileSpec | CoffeaParquetFileSpec | CoffeaUprootFileSpecOptional | CoffeaParquetFileSpecOptional]], DictMethodsMixin):
+
+class CoffeaFileDict(
+    RootModel[
+        dict[
+            str,
+            CoffeaUprootFileSpec
+            | CoffeaParquetFileSpec
+            | CoffeaUprootFileSpecOptional
+            | CoffeaParquetFileSpecOptional,
+        ]
+    ],
+    DictMethodsMixin,
+):
 
     def __iter__(self) -> Iterator[str]:
         print("CoffeaFileDict.__iter__ called")
         return iter(self.root)
-    
+
     @computed_field
     @property
     def format(self) -> str:
         """Identify the format of the files in the dictionary."""
         union = set()
-        formats_by_name = {k: set(IOFactory.identify_format(k), v.format) for k, v in self.root.items()}
+        formats_by_name = {
+            k: set(IOFactory.identify_format(k), v.format) for k, v in self.root.items()
+        }
         union.update(formats_by_name.values())
         if len(union) == 1:
             return union.pop()
         return "|".join(union)
-    
-    @model_validator(mode='before')
+
+    @model_validator(mode="before")
     def preproc_data(cls, data: Any) -> Any:
         for k, v in data.items():
             if isinstance(v, (str, type(None))):
@@ -111,15 +125,19 @@ class CoffeaFileDict(RootModel[dict[str, CoffeaUprootFileSpec | CoffeaParquetFil
                     if "format" not in v:
                         v["format"] = "root"
                     else:
-                        assert v["format"] == "root", f"Expected 'format' to be 'root', got {v['format']} for {k}"
+                        assert (
+                            v["format"] == "root"
+                        ), f"Expected 'format' to be 'root', got {v['format']} for {k}"
                 elif fmt == "parquet":
                     if "format" not in v:
                         v["format"] = "parquet"
                     else:
-                        assert v["format"] == "parquet", f"Expected 'format' to be 'parquet', got {v['format']} for {k}"
+                        assert (
+                            v["format"] == "parquet"
+                        ), f"Expected 'format' to be 'parquet', got {v['format']} for {k}"
         return data
-    
-    @model_validator(mode='after')
+
+    @model_validator(mode="after")
     def promote_and_check_files(self) -> Self:
         for k, v in self.root.items():
             try:
@@ -149,14 +167,13 @@ class DatasetSpec(BaseModel):
     metadata: dict[Hashable, Any] | None = None
     format: str | None = None
     form: str | None = None
-    
-    
-    @model_validator(mode='before')
+
+    @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
         print("preprocess_data - data:", data)
         if isinstance(data, dict):
             files = data.pop("files")
-            #promote files list to dict if necessary
+            # promote files list to dict if necessary
             if isinstance(files, list):
                 # If files is a list, convert it to a dict and let it pass through the rest of the promotion logic
                 tmp = [f.rsplit(":", maxsplit=1) for f in files]
@@ -164,7 +181,7 @@ class DatasetSpec(BaseModel):
                 for fsplit in tmp:
                     # Need a valid split into file name and object path
                     if len(fsplit) > 1:
-                        #but ensure we don't catch 'root://' and split that
+                        # but ensure we don't catch 'root://' and split that
                         if fsplit[1].startswith("//"):
                             # no object path
                             files[":".join(fsplit)] = None
@@ -173,11 +190,12 @@ class DatasetSpec(BaseModel):
                             files[fsplit[0]] = fsplit[1]
             data["files"] = files
         elif not isinstance(data, DatasetSpec):
-            raise ValueError("DatasetSpec expects a dictionary with a 'files' key or a DatasetSpec instance")
+            raise ValueError(
+                "DatasetSpec expects a dictionary with a 'files' key or a DatasetSpec instance"
+            )
         return data
-    
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def check_form(self) -> Self:
         """Check the form can be decompressed, validate the format if mannually specified, and then ."""
         # check_form
@@ -193,7 +211,7 @@ class DatasetSpec(BaseModel):
                 raise ValueError(
                     "form: was not able to decompress_form into an awkward form"
                 ) from e
-        
+
         if self.format is None:
 
             # set the format if not already set
@@ -208,10 +226,10 @@ class DatasetSpec(BaseModel):
             # validate the format, if present
             if not IOFactory.valid_format(self.format):
                 raise ValueError(f"format: format must be one of {IOFactory._formats}")
-        
+
         return self
-    
-    @model_validator(mode='after')
+
+    @model_validator(mode="after")
     def set_format(self) -> Self:
         return self
         """ if isinstance(files, dict):
@@ -271,6 +289,7 @@ class DatasetSpec(BaseModel):
         return self
         """
 
+
 class DatasetSpecOptional(BaseModel):
     files: (
         CoffeaFileDict
@@ -288,7 +307,7 @@ class DatasetSpecOptional(BaseModel):
     format: str | None = None
     form: str | None = None
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def attempt_promotion(self) -> Self:
         if isinstance(self.files, list):
             # If files is a list, convert it to a dict and let it pass through the rest of the promotion logic
@@ -297,7 +316,7 @@ class DatasetSpecOptional(BaseModel):
             for fsplit in tmp:
                 # Need a valid split into file name and object path
                 if len(fsplit) > 1:
-                    #but ensure we don't catch 'root://' and split that
+                    # but ensure we don't catch 'root://' and split that
                     if fsplit[1].startswith("//"):
                         # no object path
                         self.files[":".join(fsplit)] = None
@@ -307,7 +326,7 @@ class DatasetSpecOptional(BaseModel):
         if isinstance(self.files, dict):
             for k, v in self.files.items():
                 try:
-                    #passthrough or promote to concrete filespec
+                    # passthrough or promote to concrete filespec
                     if type(v) in [CoffeaUprootFileSpec, CoffeaParquetFileSpec]:
                         continue
                     elif type(v) in [CoffeaUprootFileSpecOptional]:
@@ -331,12 +350,10 @@ class DatasetSpecOptional(BaseModel):
         # now we have a dictionary or CoffeaFileDict(Optional)
         try:
             self.files = CoffeaFileDict(dict(self.files))
-        except Exception as e:
+        except Exception:
             self.files = CoffeaFileDictOptional(dict(self.files))
-        #check if the format can be set
-        formats = {
-            k: IOFactory.identify_format(k) for k in self.files.keys()
-        }
+        # check if the format can be set
+        formats = {k: IOFactory.identify_format(k) for k in self.files.keys()}
         auto_format = None
         if all(fmt == "root" for fmt in formats.values()):
             auto_format = "root"
@@ -351,7 +368,7 @@ class DatasetSpecOptional(BaseModel):
         if self.format is not None:
             if self.form is not None and self.form is not None:
                 try:
-                   return DatasetJoinableSpec(self)
+                    return DatasetJoinableSpec(self)
                 except Exception:
                     pass
             else:
@@ -367,8 +384,7 @@ class DatasetJoinableSpec(DatasetSpec):
     form: str  # form is required
     format: str
 
-
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def check_form_and_format(self) -> Self:
         if not IOFactory.valid_format(self.format):
             raise ValueError(f"format: format must be one of {IOFactory._formats}")
@@ -384,7 +400,8 @@ class DatasetJoinableSpec(DatasetSpec):
             ) from e
         return self
 
-""" 
+
+"""
 class FilesetSpecOptional(RootModel[dict[str, DatasetJoinableSpec | DatasetSpecOptional | DatasetSpec ]], DictMethodsMixin):
     def __iter__(self) -> Iterator[str]:
         return iter(self.root) """
@@ -403,7 +420,9 @@ class IOFactory:
         pass
 
     @classmethod
-    def valid_format(cls, format: str | DatasetSpecOptional | DatasetSpec | DatasetJoinableSpec) -> bool:
+    def valid_format(
+        cls, format: str | DatasetSpecOptional | DatasetSpec | DatasetJoinableSpec
+    ) -> bool:
         if type(format) in [DatasetSpecOptional, DatasetSpec, DatasetJoinableSpec]:
             return format.format in cls._formats
         return format in cls._formats
@@ -520,9 +539,7 @@ class IOFactory:
         return output
 
     @classmethod
-    def dict_to_datasetspec(
-        cls, input: dict[str, Any], verbose=False
-    ) -> DatasetSpec:
+    def dict_to_datasetspec(cls, input: dict[str, Any], verbose=False) -> DatasetSpec:
         return DatasetSpec(**input)
 
     @classmethod
@@ -572,7 +589,10 @@ class IOFactory:
 
             if type(info) in [CoffeaParquetFileSpec, CoffeaUprootFileSpec]:
                 concrete_vs_optional[name] = True
-            elif type(info) in [CoffeaParquetFileSpecOptional, CoffeaUprootFileSpecOptional]:
+            elif type(info) in [
+                CoffeaParquetFileSpecOptional,
+                CoffeaUprootFileSpecOptional,
+            ]:
                 concrete_vs_optional[name] = False
             else:
                 concrete_vs_optional[name] = None
@@ -614,6 +634,7 @@ class IOFactory:
 
         return output
 
+
 if __name__ == "__main__":
     # This is a placeholder for the main function or test cases
     for steps in [None, [0, 100], [[0, 1], [2, 3]]]:
@@ -631,7 +652,9 @@ if __name__ == "__main__":
                     num_entries=num_entries,
                 )
             except Exception as e:
-                print(f"\t\tError creating CoffeaUprootFileSpecOptional with steps={steps} and num_entries={num_entries}: {e}")
+                print(
+                    f"\t\tError creating CoffeaUprootFileSpecOptional with steps={steps} and num_entries={num_entries}: {e}"
+                )
         for uuid in [None, "hello-there"]:
             print("\n\t", uuid)
             try:
@@ -641,7 +664,9 @@ if __name__ == "__main__":
                     uuid=uuid,
                 )
             except Exception as e:
-                print(f"\t\tError creating CoffeaUprootFileSpecOptional with steps={steps} and num_entries={num_entries}: {e}")
+                print(
+                    f"\t\tError creating CoffeaUprootFileSpecOptional with steps={steps} and num_entries={num_entries}: {e}"
+                )
             try:
                 c2 = CoffeaParquetFileSpecOptional(
                     object_path=None,
@@ -649,7 +674,9 @@ if __name__ == "__main__":
                     uuid=uuid,
                 )
             except Exception as e:
-                print(f"\t\tError creating CoffeaParquetFileSpecOptional with steps={steps} and num_entries={num_entries}: {e}")
+                print(
+                    f"\t\tError creating CoffeaParquetFileSpecOptional with steps={steps} and num_entries={num_entries}: {e}"
+                )
         for num_entries, uuid in [(100, "hello-there")]:
             print("\n\t", num_entries, uuid)
             try:
@@ -660,7 +687,9 @@ if __name__ == "__main__":
                     uuid=uuid,
                 )
             except Exception as e:
-                print(f"\t\tError creating CoffeaUprootFileSpec with steps={steps}, num_entries={num_entries}, and uuid={uuid}: {e}")
+                print(
+                    f"\t\tError creating CoffeaUprootFileSpec with steps={steps}, num_entries={num_entries}, and uuid={uuid}: {e}"
+                )
             try:
                 d2 = CoffeaParquetFileSpec(
                     object_path=None,
@@ -669,7 +698,9 @@ if __name__ == "__main__":
                     uuid=uuid,
                 )
             except Exception as e:
-                print(f"\t\tError creating CoffeaParquetFileSpec with steps={steps}, num_entries={num_entries}, and uuid={uuid}: {e}")
+                print(
+                    f"\t\tError creating CoffeaParquetFileSpec with steps={steps}, num_entries={num_entries}, and uuid={uuid}: {e}"
+                )
 
     _starting_fileset = {
         "ZJets": {
@@ -702,7 +733,7 @@ if __name__ == "__main__":
     converted = {}
     for k, v in _starting_fileset.items():
         print("\n\nConverting:", k, v.keys())
-        #converted[k] = IOFactory.dict_to_datasetspec(v)
+        # converted[k] = IOFactory.dict_to_datasetspec(v)
         converted[k] = DatasetSpecOptional(**v)
         try:
             print("\nValidating:", k, "for DatasetSpecOptional")
@@ -716,50 +747,57 @@ if __name__ == "__main__":
             print("DatasetSpec failed to validate:", k, v, e)
         try:
             print("\nValidating:", k, "for FilesetSpecOptional")
-            FilesetSpecOptional.model_validate_json(FilesetSpecOptional({k: converted[k]}).model_dump_json())
+            FilesetSpecOptional.model_validate_json(
+                FilesetSpecOptional({k: converted[k]}).model_dump_json()
+            )
         except Exception as e:
             print("FilesetSpecOptional failed to validate:", k, v, e)
         print("\n\nTest writing each out to json and loading it back in")
     print("\n\n")
     conv_pyd = FilesetSpecOptional(converted)
     import rich
+
     rich.print(conv_pyd)
-    #print(converted)
+    # print(converted)
     with open("test.json", "w") as f:
         import json
+
         json.dump(
             conv_pyd.model_dump_json(),
             f,
             indent=2,
             sort_keys=True,
         )
-    with open("test.json", "r") as f:
+    with open("test.json") as f:
         import json
+
         data = json.load(f)
         print("Attempting to restore from JSON data")
         restored = FilesetSpecOptional.model_validate_json(data)
         rich.print(restored)
 
     rich.print("[red]Creating DatasetSpecOptional")
-    test_input = {"ZJets1": {
-                    "files": {
-                        "tests/samples/nano_dy.root": {
-                            "object_path": "Events",
-                            "steps": [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30]],
-                            "num_entries": 30,
-                            "uuid": "1234-5678-90ab-cdef",
-                        },
-                        "tests/samples/nano_dy_2.root": {
-                            "object_path": "Events",
-                            "steps": None,
-                            "num_entries": 30,
-                            "uuid": "1234-5678-90ab-cdef",
-                        }
-                    },
-                    "format": "root",
-                    "metadata": {"key": "value"},
-                    "form": "awkward:0.15.0",
-                }}
+    test_input = {
+        "ZJets1": {
+            "files": {
+                "tests/samples/nano_dy.root": {
+                    "object_path": "Events",
+                    "steps": [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30]],
+                    "num_entries": 30,
+                    "uuid": "1234-5678-90ab-cdef",
+                },
+                "tests/samples/nano_dy_2.root": {
+                    "object_path": "Events",
+                    "steps": None,
+                    "num_entries": 30,
+                    "uuid": "1234-5678-90ab-cdef",
+                },
+            },
+            "format": "root",
+            "metadata": {"key": "value"},
+            "form": "awkward:0.15.0",
+        }
+    }
     # convert test_input via direct constructor:
     test = {k: DatasetSpecOptional(**v) for k, v in test_input.items()}
     test["ZJets1"].files["tests/samples/nano_dy_2.root"].steps = [0, 30]
@@ -767,9 +805,9 @@ if __name__ == "__main__":
     rich.print("[blue]Trying to use FilesetSpecOptional")
     test2 = FilesetSpecOptional(test)
     rich.print(test2)
-    #rich.print("[green]Trying promote_datasetspec on DatasetSpecOptional")
-    #test2 = IOFactory.promote_datasetspec(test["ZJets1"])
-    #rich.print(test2)
+    # rich.print("[green]Trying promote_datasetspec on DatasetSpecOptional")
+    # test2 = IOFactory.promote_datasetspec(test["ZJets1"])
+    # rich.print(test2)
     """ for k, v in test.items():
         v.object_path = "Events"
         v.steps = [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30]]
