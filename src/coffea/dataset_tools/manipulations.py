@@ -6,7 +6,7 @@ from typing import Any, Callable
 import awkward
 import numpy
 
-from coffea.dataset_tools.preprocess import (
+from coffea.dataset_tools.filespec import (
     CoffeaFileDict,
     CoffeaParquetFileSpec,
     CoffeaUprootFileSpec,
