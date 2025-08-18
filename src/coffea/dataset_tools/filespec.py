@@ -290,15 +290,15 @@ class IOFactory:
         print("promoting newstyle:", input)
         try:
             if isinstance(input, (CoffeaUprootFileSpec, CoffeaUprootFileSpecOptional)):
-                print("promoting to CoffeaUprootFileSpec")
                 return CoffeaUprootFileSpec(**input.model_dump())
             elif isinstance(
                 input, (CoffeaParquetFileSpec, CoffeaParquetFileSpecOptional)
             ):
-                print("promoting to CoffeaParquetFileSpec")
                 return CoffeaParquetFileSpec(**input.model_dump())
+            elif isinstance(input, CoffeaFileDict):
+                return CoffeaFileDict(input.model_dump())
             elif isinstance(input, DatasetSpec):
-                return DatasetSpec(input.model_dump())
+                return DatasetSpec(**input.model_dump())
             elif isinstance(input, FilesetSpec):
                 return FilesetSpec(input.model_dump())
             else:
