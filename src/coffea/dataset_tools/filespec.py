@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 from collections.abc import Hashable
 from typing import Annotated, Any, Literal, Iterable, Tuple, Self
+import re
 
 from pydantic import BaseModel, Field, RootModel, computed_field, model_validator
 
@@ -106,7 +107,7 @@ class CoffeaFileDict(
         """Identify the format of the files in the dictionary."""
         union = set()
         formats_by_name = {
-            k: set(IOFactory.identify_format(k), v.format) for k, v in self.root.items()
+            k: set(identify_file_format(k), v.format) for k, v in self.root.items()
         }
         union.update(formats_by_name.values())
         if len(union) == 1:
@@ -120,7 +121,7 @@ class CoffeaFileDict(
                 data[k] = {"object_path": v}
                 v = data[k]
             if isinstance(v, dict):
-                fmt = IOFactory.identify_format(k)
+                fmt = identify_file_format(k)
                 if fmt == "root":
                     if "format" not in v:
                         v["format"] = "root"
@@ -152,18 +153,6 @@ class CoffeaFileDict(
 
 class DatasetSpec(BaseModel):
     files: CoffeaFileDict
-    """ files: (
-        CoffeaUprootFileDict | CoffeaFileDictOptional
-        | dict[
-            str,
-            str
-            | UprootFileSpec
-            | ParquetFileSpec
-            | CoffeaUprootFileSpecOptional
-            | CoffeaParquetFileSpecOptional,
-        ]
-        | list[str]
-    ) """
     metadata: dict[Hashable, Any] | None = None
     format: str | None = None
     form: str | None = None
@@ -230,70 +219,24 @@ class DatasetSpec(BaseModel):
 
         return self
 
-    @model_validator(mode="after")
-    def set_format(self) -> Self:
-        return self
-        """ if isinstance(files, dict):
-                for k, v in self.files.items():
-                    try:
-                        #passthrough or promote to concrete filespec
-                        if type(v) in [CoffeaFileSpec, CoffeaParquetFileSpec]:
-                            continue
-                        elif type(v) in [CoffeaFileSpecOptional]:
-                            self.files[k] = CoffeaFileSpec(v)
-                        elif type(v) in [CoffeaParquetFileSpecOptional]:
-                            self.files[k] = CoffeaParquetFileSpec(v)
-                        # handle the basic cases of filename: object_path pairs
-                        elif type(v) in [str, type(None)]:
-                            # we only have the basic information, identify the format and convert to the appropriate filespecoptional
-                            if IOFactory.identify_format(k) in ["root"]:
-                                self.files[k] = CoffeaFileSpecOptional(object_path=v)
-                            elif IOFactory.identify_format(k) in ["parquet"]:
-                                self.files[k] = CoffeaParquetFileSpecOptional(object_path=v)
-                            else:
-                                raise ValueError(
-                                    f"{k}: {v} couldn't be identified as either root or parquet format for conversion"
-                                )
+    #@computed_field
+    #@property
+    def joinable(self) -> bool:
+        """Identify DatasetSpec criteria to be pre-joined for typetracing (necessary) and column-joining (sufficient)"""
+        if not IOFactory.valid_format(self.format):
+            return False
+        try:
+            _ = awkward.forms.from_json(decompress_form(self.form))
+            return True
+        except Exception:
+            return False
 
-                    except Exception:
-            # now we have a dictionary or CoffeaFileDict(Optional)
-            try:
-                self.files = CoffeaFileDict(dict(self.files))
-            except Exception as e:
-                self.files = CoffeaFileDictOptional(dict(self.files))
-            #check if the format can be set
-            formats = {
-                k: IOFactory.identify_format(k) for k in self.files.keys()
-            }
-            auto_format = None
-            if all(fmt == "root" for fmt in formats.values()):
-                auto_format = "root"
-            elif all(fmt == "parquet" for fmt in formats.values()):
-                auto_format = "parquet"
-            elif all(fmt in ["root", "parquet"] for fmt in formats.values()):
-                # mixed formats, leave format as None
-                auto_format = "root|parquet"
-            if self.format is None and auto_format is not None:
-                self.format = auto_format
-            # check if there's a non-None form. If possible, promote to DatasetJoinableSpec, else DatasetSpec
-            if self.format is not None:
-                if self.form is not None and self.form is not None:
-                    try:
-                    return DatasetJoinableSpec(self)
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        return DatasetSpec(self)
-                    except Exception:
-                        pass
-        return self
-        """
 
 class DatasetJoinableSpec(DatasetSpec):
     files: CoffeaFileDict
     form: str  # form is required
     format: str
+    """ 
 
     @model_validator(mode="after")
     def check_form_and_format(self) -> Self:
@@ -308,8 +251,8 @@ class DatasetJoinableSpec(DatasetSpec):
         except Exception as e:
             raise ValueError(
                 "form: was not able to decompress_form into an awkward form"
-            ) from e
-        return self
+            ) from e 
+        return self"""
 
 
 class FilesetSpec(RootModel[dict[str, DatasetSpec]], DictMethodsMixin):
@@ -323,9 +266,23 @@ class FilesetSpec(RootModel[dict[str, DatasetSpec]], DictMethodsMixin):
             return data.model_dump()
         return data
 
+def identify_file_format(name_or_directory: str) -> str:
+    root_expression = re.compile(r"\.root")
+    parquet_expression = re.compile(r"\.parq(?:uet)?$")
+    if root_expression.search(name_or_directory):
+        return "root"
+    elif parquet_expression.search(name_or_directory):
+        return "parquet"
+    elif "." not in name_or_directory.split("/")[-1]:
+        # could be a parquet directory, would require a file opening to determine
+        return "parquet" #maybe "parquet?" to trigger further inspection?
+    else:
+        raise RuntimeError(
+            f"identify_file_format couldn't identify if the string path is for a root file or parquet file/directory for {name_or_directory}"
+        )
 
 class IOFactory:
-    _formats = ["root", "parquet"]
+    _formats = {"root", "parquet"}
 
     def __init__(self):
         pass
@@ -335,7 +292,7 @@ class IOFactory:
         cls, format: str | DatasetSpec
     ) -> bool:
         if isinstance(format, DatasetSpec):
-            return format.format in cls._formats
+            return format.format in cls._formats or all(fmt in _formats for fmt in format.format.split("|"))
         return format in cls._formats
 
     @classmethod
@@ -368,6 +325,8 @@ class IOFactory:
 
         if isinstance(input, str):
             # could check with regular expressions for more compmlicated naming, like atlas .root.N
+            # Use re to find an instance of '.root' in the name
+
             if input.endswith(".root"):
                 return "root"
             if (
@@ -392,15 +351,7 @@ class IOFactory:
         try:
             return CoffeaUprootFileSpec(**input)
         except Exception:
-            print("Failed to create CoffeaUprootFileSpec, trying optional")
-            add_args = {k: v for k, v in input.items()}
-            if "steps" not in input:
-                add_args["steps"] = None
-            if "num_entries" not in input:
-                add_args["num_entries"] = None
-            if "uuid" not in input:
-                add_args["uuid"] = None
-            return CoffeaUprootFileSpecOptional(**add_args)
+            return CoffeaUprootFileSpecOptional(**input)
 
     @classmethod
     def dict_to_parquetfilespec(cls, input):
@@ -409,15 +360,7 @@ class IOFactory:
         try:
             return CoffeaParquetFileSpec(**input)
         except Exception:
-            print("Failed to create CoffeaParquetFileSpec, trying optional")
-            add_args = {k: v for k, v in input.items()}
-            if "steps" not in input:
-                add_args["steps"] = None
-            if "num_entries" not in input:
-                add_args["num_entries"] = None
-            if "uuid" not in input:
-                add_args["uuid"] = None
-            return CoffeaParquetFileSpecOptional(**add_args)
+            return CoffeaParquetFileSpecOptional(**input)
 
     @classmethod
     def filespec_to_dict(
@@ -443,12 +386,6 @@ class IOFactory:
                 f"{cls.__name__}.filespec_to_dict expects a Coffea(Parquet)FileSpec(Optional), got {type(input)} instead: {input}"
             )
         return input.model_dump()
-        output = {}
-        output["object_path"] = input.object_path
-        output["steps"] = input.steps
-        output["num_entries"] = input.num_entries
-        output["uuid"] = input.uuid
-        return output
 
     @classmethod
     def dict_to_datasetspec(cls, input: dict[str, Any], verbose=False) -> DatasetSpec:
