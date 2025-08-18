@@ -170,7 +170,7 @@ class TestParquetFileSpec:
             with gzip.open(fname, "rt") as fin:
                 restored = ParquetFileSpec.model_validate_json(fin.read())
 
-                assert restored.object_path == None
+                assert restored.object_path is None
                 assert restored.steps == [[0, 10]]
 
 
