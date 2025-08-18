@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Hashable
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Iterable, Tuple, Self
 
 from pydantic import BaseModel, Field, RootModel, computed_field, model_validator
 
@@ -60,17 +60,17 @@ class DictMethodsMixin:
     def __len__(self) -> int:
         return len(self.root)
 
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self) -> Iterable[str]:
         print("DictMethodsMixin.__iter__ called")
         return iter(self.root)
 
-    def keys(self) -> Iterator[str]:
+    def keys(self) -> Iterable[str]:
         return self.root.keys()
 
-    def values(self) -> Iterator[str]:
+    def values(self) -> Iterable[str]:
         return self.root.values()
 
-    def items(self) -> Iterator[Tuple[str, str]]:
+    def items(self) -> Iterable[Tuple[str, str]]:
         return self.root.items()
 
     def get(self, key: str, default=None) -> str | None:
@@ -96,7 +96,7 @@ class CoffeaFileDict(
     DictMethodsMixin,
 ):
 
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self) -> Iterable[str]:
         print("CoffeaFileDict.__iter__ called")
         return iter(self.root)
 
@@ -351,7 +351,7 @@ class DatasetSpecOptional(BaseModel):
         try:
             self.files = CoffeaFileDict(dict(self.files))
         except Exception:
-            self.files = CoffeaFileDictOptional(dict(self.files))
+            pass
         # check if the format can be set
         formats = {k: IOFactory.identify_format(k) for k in self.files.keys()}
         auto_format = None
@@ -380,7 +380,7 @@ class DatasetSpecOptional(BaseModel):
 
 
 class DatasetJoinableSpec(DatasetSpec):
-    files: CoffeaFileDict | CoffeaFileDictOptional
+    files: CoffeaFileDict
     form: str  # form is required
     format: str
 
@@ -402,13 +402,13 @@ class DatasetJoinableSpec(DatasetSpec):
 
 
 """
-class FilesetSpecOptional(RootModel[dict[str, DatasetJoinableSpec | DatasetSpecOptional | DatasetSpec ]], DictMethodsMixin):
-    def __iter__(self) -> Iterator[str]:
+class FilesetSpec(RootModel[dict[str, DatasetJoinableSpec | DatasetSpecOptional | DatasetSpec ]], DictMethodsMixin):
+    def __iter__(self) -> Iterable[str]:
         return iter(self.root) """
 
 
 class FilesetSpec(RootModel[dict[str, DatasetSpec]], DictMethodsMixin):
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self) -> Iterable[str]:
         print("FilesetSpec.__iter__ called")
         return iter(self.root)
 
@@ -432,7 +432,7 @@ class IOFactory:
         cls, input: DatasetSpec | DatasetSpecOptional | DatasetJoinableSpec
     ):
         print("promoting newstyle:", input)
-        tmp = CoffeaFileDictOptional({"placeholder": input})["placeholder"]
+        tmp = CoffeaFileDict({"placeholder": input})["placeholder"]
         print(type(input), "promoted to", type(tmp))
         if type(input) is DatasetJoinableSpec:
             return input
@@ -746,15 +746,15 @@ if __name__ == "__main__":
         except Exception as e:
             print("DatasetSpec failed to validate:", k, v, e)
         try:
-            print("\nValidating:", k, "for FilesetSpecOptional")
-            FilesetSpecOptional.model_validate_json(
-                FilesetSpecOptional({k: converted[k]}).model_dump_json()
+            print("\nValidating:", k, "for FilesetSpec")
+            FilesetSpec.model_validate_json(
+                FilesetSpec({k: converted[k]}).model_dump_json()
             )
         except Exception as e:
-            print("FilesetSpecOptional failed to validate:", k, v, e)
+            print("FilesetSpec failed to validate:", k, v, e)
         print("\n\nTest writing each out to json and loading it back in")
     print("\n\n")
-    conv_pyd = FilesetSpecOptional(converted)
+    conv_pyd = FilesetSpec(converted)
     import rich
 
     rich.print(conv_pyd)
@@ -773,7 +773,7 @@ if __name__ == "__main__":
 
         data = json.load(f)
         print("Attempting to restore from JSON data")
-        restored = FilesetSpecOptional.model_validate_json(data)
+        restored = FilesetSpec.model_validate_json(data)
         rich.print(restored)
 
     rich.print("[red]Creating DatasetSpecOptional")
@@ -802,8 +802,8 @@ if __name__ == "__main__":
     test = {k: DatasetSpecOptional(**v) for k, v in test_input.items()}
     test["ZJets1"].files["tests/samples/nano_dy_2.root"].steps = [0, 30]
     rich.print(test)
-    rich.print("[blue]Trying to use FilesetSpecOptional")
-    test2 = FilesetSpecOptional(test)
+    rich.print("[blue]Trying to use FilesetSpec")
+    test2 = FilesetSpec(test)
     rich.print(test2)
     # rich.print("[green]Trying promote_datasetspec on DatasetSpecOptional")
     # test2 = IOFactory.promote_datasetspec(test["ZJets1"])

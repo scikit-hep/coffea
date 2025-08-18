@@ -225,7 +225,7 @@ _trivial_file_fields = {"run", "luminosityBlock", "event"}
 
 
 def preprocess(
-    fileset: FilesetSpecOptional,
+    fileset: FilesetSpec,
     step_size: None | int = None,
     align_clusters: bool = False,
     recalculate_steps: bool = False,
@@ -237,13 +237,13 @@ def preprocess(
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
-) -> tuple[FilesetSpec, FilesetSpecOptional]:
+) -> tuple[FilesetSpec]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
 
     Parameters
     ----------
-        fileset: FilesetSpecOptional
+        fileset: FilesetSpec
             The set of datasets whose files will be preprocessed.
         step_size: int | None, default None
             If specified, the size of the steps to make when analyzing the input files.
@@ -276,7 +276,7 @@ def preprocess(
     -------
         out_available : FilesetSpec
             The subset of files in each dataset that were successfully preprocessed, organized by dataset.
-        out_updated : FilesetSpecOptional
+        out_updated : FilesetSpec
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
     out_updated = copy.deepcopy(fileset)
