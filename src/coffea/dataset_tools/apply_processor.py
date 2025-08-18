@@ -10,7 +10,6 @@ import dask_awkward
 
 from coffea.dataset_tools.filespec import (
     DatasetSpec,
-    DatasetSpecOptional,
     FilesetSpec,
 )
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
@@ -33,7 +32,7 @@ GenericHEPAnalysis = Callable[[dask_awkward.Array], DaskOutputType]
 
 def apply_to_dataset(
     data_manipulation: ProcessorABC | GenericHEPAnalysis,
-    dataset: DatasetSpec | DatasetSpecOptional,
+    dataset: DatasetSpec,
     schemaclass: BaseSchema = NanoAODSchema,
     metadata: dict[Hashable, Any] = {},
     uproot_options: dict[str, Any] = {},
@@ -45,7 +44,7 @@ def apply_to_dataset(
     ----------
         data_manipulation : ProcessorABC or GenericHEPAnalysis
             The user analysis code to run on the input dataset
-        dataset: DatasetSpec | DatasetSpecOptional
+        dataset: DatasetSpec
             The data to be acted upon by the data manipulation passed in.
         schemaclass: BaseSchema, default NanoAODSchema
             The nanoevents schema to interpret the input dataset with.
