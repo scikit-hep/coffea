@@ -653,14 +653,14 @@ if __name__ == "__main__":
         for num_entries, uuid in [(100, "hello-there")]:
             print("\n\t", num_entries, uuid)
             try:
-                d1 = CoffeaFileSpec(
+                d1 = CoffeaUprootFileSpec(
                     object_path="example_path",
                     steps=steps,
                     num_entries=num_entries,
                     uuid=uuid,
                 )
             except Exception as e:
-                print(f"\t\tError creating CoffeaFileSpec with steps={steps}, num_entries={num_entries}, and uuid={uuid}: {e}")
+                print(f"\t\tError creating CoffeaUprootFileSpec with steps={steps}, num_entries={num_entries}, and uuid={uuid}: {e}")
             try:
                 d2 = CoffeaParquetFileSpec(
                     object_path=None,

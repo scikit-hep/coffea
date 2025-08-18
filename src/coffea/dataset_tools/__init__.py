@@ -1,3 +1,15 @@
+from coffea.dataset_tools.filespec import (
+    UprootFileSpec,
+    ParquetFileSpec,
+    CoffeaUprootFileSpec,
+    CoffeaUprootFileSpecOptional,
+    CoffeaParquetFileSpec,
+    CoffeaParquetFileSpecOptional,
+    CoffeaFileDict,
+    DatasetSpec,
+    FilesetSpec,
+    IOFactory,
+)
 from coffea.dataset_tools.apply_processor import apply_to_dataset, apply_to_fileset
 from coffea.dataset_tools.manipulations import (
     filter_files,
@@ -9,21 +21,7 @@ from coffea.dataset_tools.manipulations import (
     slice_chunks,
     slice_files,
 )
-from coffea.dataset_tools.preprocess import (
-    CoffeaFileSpec,
-    CoffeaFileSpecOptional,
-    CoffeaParquetFileSpec,
-    CoffeaParquetFileSpecOptional,
-    DatasetJoinableSpec,
-    DatasetSpec,
-    DatasetSpecOptional,
-    FilesetSpec,
-    FilesetSpecOptional,
-    IOFactory,
-    ParquetFileSpec,
-    UprootFileSpec,
-    preprocess,
-)
+from coffea.dataset_tools.preprocess import preprocess
 
 __all__ = [
     "preprocess",
@@ -39,14 +37,12 @@ __all__ = [
     "get_failed_steps_for_fileset",
     "UprootFileSpec",
     "ParquetFileSpec",
-    "CoffeaFileSpec",
-    "CoffeaFileSpecOptional",
+    "CoffeaUprootFileSpec",
+    "CoffeaUprootFileSpecOptional",
     "CoffeaParquetFileSpec",
     "CoffeaParquetFileSpecOptional",
+    "CoffeaFileDict",
     "DatasetSpec",
-    "DatasetJoinableSpec",
-    "DatasetSpecOptional",
-    "FilesetSpecOptional",
     "FilesetSpec",
     "IOFactory",
 ]

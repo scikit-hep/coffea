@@ -4,10 +4,8 @@ import copy
 import hashlib
 import math
 import warnings
-from collections.abc import Hashable
-from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable
+from typing import Callable
 
 import awkward
 import dask
@@ -17,18 +15,13 @@ import numpy
 import uproot
 from uproot._util import no_filter
 
-from coffea.util import _is_interpretable, compress_form, decompress_form
-
-from coffea.dataset_tools.fileset import (
-    CoffeaUprootFileSpec,
-    CoffeaUprootFileSpecOptional,
-    CoffeaParquetFileSpec,
-    CoffeaParquetFileSpecOptional,
-    CoffeaFileDict,
-    FilesetSpec,
+from coffea.dataset_tools.filespec import (
     DatasetSpec,
+    FilesetSpec,
     IOFactory,
 )
+from coffea.util import _is_interpretable, compress_form, decompress_form
+
 
 def get_steps(
     normed_files: awkward.Array | dask_awkward.Array,
@@ -196,7 +189,8 @@ def get_steps(
 
 def _normalize_file_info(file_info):
     normed_files = None
-    if type(file_info) in [DatasetSpec, DatasetSpecOptional, DatasetJoinableSpec]:
+    is_datasetspec = isinstance(file_info, DatasetSpec)
+    if is_datasetspec:
         normed_files = uproot._util.regularize_files(
             IOFactory.datasetspec_to_dict(file_info, coerce_filespec_to_dict=True)[
                 "files"
@@ -291,11 +285,7 @@ def preprocess(
     all_ak_norm_files = {}
     files_to_preprocess = {}
     for name, info in fileset.items():
-        is_datasetspec = type(info) in [
-            DatasetSpec,
-            DatasetSpecOptional,
-            DatasetJoinableSpec,
-        ]
+        is_datasetspec = isinstance(info, DatasetSpec)
         norm_files = _normalize_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
         ak_norm_files = awkward.from_iter(norm_files)
