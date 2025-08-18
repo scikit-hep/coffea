@@ -517,6 +517,39 @@ class TestCoffeaFileDict:
 class TestDatasetSpec:
     """Test DatasetSpec class"""
 
+    def get_test_input(self):
+        return {
+            "ZJets1": {
+                "files": {
+                    "tests/samples/nano_dy.root": {
+                        "object_path": "Events",
+                        "steps": [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30]],
+                        "num_entries": 30,
+                        "uuid": "1234-5678-90ab-cdef",
+                    },
+                    "tests/samples/nano_dy_2.root": {
+                        "object_path": "Events",
+                        "steps": None,
+                        "num_entries": 30,
+                        "uuid": "1234-5678-90ab-cdef",
+                    },
+                },
+                "metadata": {"key": "value"},
+                "form": valid_compressed_form,
+            },
+            "ZJets2": {"files": ["tests/samples/nano_dy.root:Events", "root://file2.root:Events"]},
+            "ZParquet": {
+                "files": {
+                    "tests/samples/nano_dy.parquet": {
+                        "object_path": None,
+                        "steps": [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30]],
+                        "num_entries": 30,
+                        "uuid": "fake-uuid",
+                    }
+                }
+            }
+        }
+
     def test_creation_valid(self):
         """Test creation with valid concrete file specs"""
         files = CoffeaFileDict(
@@ -549,31 +582,9 @@ class TestDatasetSpec:
 
     def test_complex_dataset_spec_optional(self):
         """Test complex DatasetSpec scenario"""
-        test_input = {
-            "ZJets1": {
-                "files": {
-                    "tests/samples/nano_dy.root": {
-                        "object_path": "Events",
-                        "steps": [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30]],
-                        "num_entries": 30,
-                        "uuid": "1234-5678-90ab-cdef",
-                    },
-                    "tests/samples/nano_dy_2.root": {
-                        "object_path": "Events",
-                        "steps": None,
-                        "num_entries": 30,
-                        "uuid": "1234-5678-90ab-cdef",
-                    },
-                },
-                "format": "root",
-                "metadata": {"key": "value"},
-                "form": valid_compressed_form,
-            },
-            "ZJets2": {"files": ["tests/samples/nano_dy.root:Events", "root://file2.root:Events"]}
-        }
 
         # Convert via direct constructor
-        test = {k: DatasetSpec(**v) for k, v in test_input.items()}
+        test = {k: DatasetSpec(**v) for k, v in self.get_test_input().items()}
 
         # Test that we can modify the steps after creation
         test["ZJets1"].files["tests/samples/nano_dy_2.root"].steps = [0, 30]
@@ -582,7 +593,26 @@ class TestDatasetSpec:
         assert test["ZJets1"].format == "root"
         assert test["ZJets1"].metadata == {"key": "value"}
 
+        # Test that a mixture of concrete and optional FileSpecs are in the datasetspec
+        assert isinstance(test["ZJets1"].files["tests/samples/nano_dy.root"], CoffeaUprootFileSpec)
+        assert isinstance(test["ZJets1"].files["tests/samples/nano_dy_2.root"], CoffeaUprootFileSpecOptional)
+        assert all([isinstance(v, CoffeaUprootFileSpecOptional) for k, v in test["ZJets2"].files.items()])
+        assert isinstance(test["ZParquet"].files["tests/samples/nano_dy.parquet"], CoffeaParquetFileSpec)
 
+    def test_json_file_serialization(self):
+        """Test JSON serialization with file path"""
+        for k, v in self.get_test_input().items():
+            spec = DatasetSpec(**v)
+            with tempfile.TemporaryDirectory() as tmp:
+                fname = os.path.join(tmp, "test.json.gz")
+                with gzip.open(fname, "wt") as fout:
+                    fout.write(spec.model_dump_json(exclude_unset=False))
+                with gzip.open(fname, "rt") as fin:
+                    restored = DatasetSpec.model_validate_json(fin.read())
+                    if k != "ZJets2":
+                        assert restored.files.keys() == v["files"].keys()
+                    else:
+                        assert len(restored.files.keys()) == len(v["files"])
 
 class TestDatasetJoinableSpec:
     """Test DatasetJoinableSpec class"""
