@@ -516,6 +516,21 @@ class TestCoffeaFileDict:
         file_dict = CoffeaFileDict(self.get_files())
         assert len(file_dict) == 3
 
+    def test_attempt_promotion(self):
+        """Test attempt_promotion method"""
+        # Test with valid UprootFileSpec
+        spec = CoffeaFileDict(self.get_files())
+        assert isinstance(spec["file2.root"], CoffeaUprootFileSpecOptional)
+        spec["file2.root"].num_entries = 20
+        spec["file2.root"].uuid = "test-uuid"
+        promoted = IOFactory.attempt_promotion(spec)
+        assert all(
+            [
+                isinstance(v, (CoffeaUprootFileSpec, CoffeaParquetFileSpec))
+                for v in promoted.values()
+            ]
+        )
+
     def test_json_file_serialization(self):
         """Test JSON serialization with file path"""
         spec = CoffeaFileDict(self.get_files())
@@ -645,6 +660,27 @@ class TestDatasetSpec:
             CoffeaParquetFileSpec,
         )
 
+    def test_attempt_promotion(self):
+        """Test attempt_promotion method"""
+        # Test with valid UprootFileSpec
+        spec = DatasetSpec(**self.get_test_input()["ZJets2"])
+        assert isinstance(
+            spec.files["tests/samples/nano_dy.root"], CoffeaUprootFileSpecOptional
+        )
+        spec.files["tests/samples/nano_dy.root"].steps = [[0, 10], [10, 20]]
+        spec.files["tests/samples/nano_dy.root"].num_entries = 20
+        spec.files["tests/samples/nano_dy.root"].uuid = "test-uuid"
+        spec.files["root://file2.root"].steps = [[0, 10], [10, 20]]
+        spec.files["root://file2.root"].num_entries = 20
+        spec.files["root://file2.root"].uuid = "test-uuid"
+        promoted = IOFactory.attempt_promotion(spec)
+        assert all(
+            [
+                isinstance(v, (CoffeaUprootFileSpec, CoffeaParquetFileSpec))
+                for v in promoted.files.values()
+            ]
+        )
+
     def test_json_file_serialization(self):
         """Test JSON serialization with file path"""
         for k, v in self.get_test_input().items():
@@ -674,7 +710,7 @@ class TestDatasetJoinableSpec:
             }
         )
 
-        # Create a valid compressed form
+        # Create a valid compressed form, which would normally be found via preprocess
         simple_form = awkward.Array([{"x": 1}]).layout.form.to_json()
         compressed_form = compress_form(simple_form)
 
@@ -689,6 +725,7 @@ class TestDatasetJoinableSpec:
             print(e.errors())
         assert spec.format == "root"
         assert spec.form == compressed_form
+        assert spec.joinable() is True
 
     def test_invalid_format(self):
         """Test that invalid formats are rejected"""
@@ -1028,7 +1065,8 @@ class TestFilesetSpec:
                 "format": "root",
                 "metadata": {"key": "value"},
                 "form": valid_compressed_form,
-            }
+            },
+            "Data": {"files": {"tests/samples/nano_dimuon.root": "Events"}},
         }
 
         # Convert via direct constructor
@@ -1044,8 +1082,7 @@ class TestFilesetSpec:
             [25, 30],
         ]
         assert test["ZJets1"].files["tests/samples/nano_dy_2.root"].steps is None
-
-        assert len(test) == 1
+        assert len(test) == 2
         assert "ZJets1" in test
         assert test["ZJets1"].format == "root"
         assert test["ZJets1"].metadata == {"key": "value"}
@@ -1055,6 +1092,27 @@ class TestFilesetSpec:
         test2 = FilesetSpec(test)
         assert isinstance(
             test2["ZJets1"].files["tests/samples/nano_dy_2.root"].steps, list
+        )
+
+    def test_attempt_promotion(self):
+        """Test attempt_promotion method"""
+        # Test with valid UprootFileSpec
+        spec = FilesetSpec(copy.deepcopy(_starting_fileset))
+        assert isinstance(
+            spec["Data"].files["tests/samples/nano_dimuon.root"],
+            CoffeaUprootFileSpecOptional,
+        )
+        for k, v in spec["Data"].files.items():
+            if isinstance(v, CoffeaUprootFileSpecOptional):
+                v.steps = [[0, 10], [10, 20]]
+                v.num_entries = 20
+                v.uuid = "test-uuid"
+        promoted = IOFactory.attempt_promotion(spec)
+        assert all(
+            [
+                isinstance(v, (CoffeaUprootFileSpec, CoffeaParquetFileSpec))
+                for v in promoted["Data"].files.values()
+            ]
         )
 
 
