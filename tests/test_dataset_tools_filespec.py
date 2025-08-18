@@ -4,6 +4,9 @@ import awkward
 import pytest
 from pydantic import ValidationError
 import copy
+import gzip
+import os
+import tempfile
 
 from coffea.dataset_tools.filespec import (
     CoffeaFileDict,
@@ -115,6 +118,19 @@ class TestUprootFileSpec:
         assert restored.object_path == spec.object_path
         assert restored.steps == spec.steps
 
+    def test_json_file_serialization(self):
+        """Test JSON serialization with file path"""
+        spec = UprootFileSpec(object_path="Events", steps=[[0, 10]])
+        with tempfile.TemporaryDirectory() as tmp:
+            fname = os.path.join(tmp, "test.json.gz")
+            with gzip.open(fname, "wt") as fout:
+                fout.write(spec.model_dump_json(exclude_unset=False))
+            with gzip.open(fname, "rt") as fin:
+                restored = UprootFileSpec.model_validate_json(fin.read())
+
+                assert restored.object_path == "Events"
+                assert restored.steps == [[0, 10]]
+
 
 class TestParquetFileSpec:
     """Test ParquetFileSpec class"""
@@ -135,6 +151,19 @@ class TestParquetFileSpec:
         """Test that object_path must be None for ParquetFileSpec"""
         spec = ParquetFileSpec(object_path=None)
         assert spec.object_path is None
+
+    def test_json_file_serialization(self):
+        """Test JSON serialization with file path"""
+        spec = ParquetFileSpec(object_path=None, steps=[[0, 10]])
+        with tempfile.TemporaryDirectory() as tmp:
+            fname = os.path.join(tmp, "test.json.gz")
+            with gzip.open(fname, "wt") as fout:
+                fout.write(spec.model_dump_json(exclude_unset=False))
+            with gzip.open(fname, "rt") as fin:
+                restored = ParquetFileSpec.model_validate_json(fin.read())
+
+                assert restored.object_path == None
+                assert restored.steps == [[0, 10]]
 
 
 class TestCoffeaUprootFileSpecOptional:
@@ -199,6 +228,22 @@ class TestCoffeaUprootFileSpecOptional:
             CoffeaUprootFileSpecOptional(object_path="Events", num_entries=-1)
 
 
+    def test_json_file_serialization(self):
+        """Test JSON serialization with file path"""
+        spec = CoffeaUprootFileSpecOptional(object_path="Events", steps=[[0, 10]])
+        with tempfile.TemporaryDirectory() as tmp:
+            fname = os.path.join(tmp, "test.json.gz")
+            with gzip.open(fname, "wt") as fout:
+                fout.write(spec.model_dump_json(exclude_unset=False))
+            with gzip.open(fname, "rt") as fin:
+                restored = CoffeaUprootFileSpecOptional.model_validate_json(fin.read())
+
+                assert restored.object_path == "Events"
+                assert restored.steps == [[0, 10]]
+                assert restored.format == "root"
+                assert restored.num_entries is None
+                assert restored.uuid is None
+
 class TestCoffeaUprootFileSpec:
     """Test CoffeaUprootFileSpec class"""
 
@@ -253,6 +298,22 @@ class TestCoffeaUprootFileSpec:
             )
 
 
+    def test_json_file_serialization(self):
+        """Test JSON serialization with file path"""
+        spec = CoffeaUprootFileSpec(object_path="Events", steps=[[0, 10]], num_entries=100, uuid="test-uuid")
+        with tempfile.TemporaryDirectory() as tmp:
+            fname = os.path.join(tmp, "test.json.gz")
+            with gzip.open(fname, "wt") as fout:
+                fout.write(spec.model_dump_json(exclude_unset=False))
+            with gzip.open(fname, "rt") as fin:
+                restored = CoffeaUprootFileSpec.model_validate_json(fin.read())
+
+                assert restored.object_path == "Events"
+                assert restored.steps == [[0, 10]]
+                assert restored.format == "root"
+                assert restored.num_entries == 100
+                assert restored.uuid == "test-uuid"
+
 class TestCoffeaParquetFileSpecOptional:
     """Test CoffeaParquetFileSpecOptional class"""
 
@@ -294,6 +355,20 @@ class TestCoffeaParquetFileSpecOptional:
                     # Some combinations may be invalid
                     assert isinstance(e, ValueError)
 
+
+    def test_json_file_serialization(self):
+        """Test JSON serialization with file path"""
+        spec = CoffeaParquetFileSpecOptional(object_path=None, steps=[[0, 10]])
+        with tempfile.TemporaryDirectory() as tmp:
+            fname = os.path.join(tmp, "test.json.gz")
+            with gzip.open(fname, "wt") as fout:
+                fout.write(spec.model_dump_json(exclude_unset=False))
+            with gzip.open(fname, "rt") as fin:
+                restored = CoffeaParquetFileSpecOptional.model_validate_json(fin.read())
+
+                assert restored.object_path is None
+                assert restored.steps == [[0, 10]]
+                assert restored.format == "parquet"
 
 class TestCoffeaParquetFileSpec:
     """Test CoffeaParquetFileSpec class"""
@@ -340,26 +415,47 @@ class TestCoffeaParquetFileSpec:
             CoffeaParquetFileSpec()  # Missing steps, num_entries, uuid
 
 
-class TestDictMethodsMixin:
-    """Test the DictMethodsMixin functionality through CoffeaFileDict"""
 
-    def test_dict_methods(self):
-        """Test that dict methods work properly"""
-        files = {
+    def test_json_file_serialization(self):
+        """Test JSON serialization with file path"""
+        spec = CoffeaParquetFileSpec(object_path=None, steps=[[0, 10]], num_entries=100, uuid="test-uuid")
+        with tempfile.TemporaryDirectory() as tmp:
+            fname = os.path.join(tmp, "test.json.gz")
+            with gzip.open(fname, "wt") as fout:
+                fout.write(spec.model_dump_json(exclude_unset=False))
+            with gzip.open(fname, "rt") as fin:
+                restored = CoffeaParquetFileSpec.model_validate_json(fin.read())
+
+                assert restored.object_path is None
+                assert restored.steps == [[0, 10]]
+                assert restored.format == "parquet"
+                assert restored.num_entries == 100
+                assert restored.uuid == "test-uuid"
+
+class TestCoffeaFileDict:
+    """Test CoffeaFileDict class"""
+
+    def get_files(self):
+        return {
             "file1.root": CoffeaUprootFileSpec(
                 object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
             ),
-            "file2.root": CoffeaUprootFileSpec(
-                object_path="Events", steps=[[0, 20]], num_entries=20, uuid="uuid2"
+            "file1.parquet": CoffeaParquetFileSpec(
+                steps=[[0, 100]], num_entries=100, uuid="uuid2"
+            ),
+            "file2.root": CoffeaUprootFileSpecOptional(
+                object_path="Events", steps=[[10, 20]], num_entries=None, uuid=None
             ),
         }
-        file_dict = CoffeaFileDict(files)
+    def test_dict_methods(self):
+        """Test that dict methods work properly"""
+        file_dict = CoffeaFileDict(self.get_files())
 
         # Test __getitem__
         assert file_dict["file1.root"].uuid == "uuid1"
 
         # Test __len__
-        assert len(file_dict) == 2
+        assert len(file_dict) == 3
 
         # Test __iter__
         keys = list(file_dict)
@@ -367,24 +463,20 @@ class TestDictMethodsMixin:
         assert "file2.root" in keys
 
         # Test keys()
-        assert set(file_dict.keys()) == {"file1.root", "file2.root"}
+        assert set(file_dict.keys()) == {"file1.root", "file1.parquet", "file2.root"}
 
         # Test values()
         values = list(file_dict.values())
-        assert len(values) == 2
+        assert len(values) == 3
 
         # Test items()
         items = list(file_dict.items())
-        assert len(items) == 2
+        assert len(items) == 3
 
         # Test get()
         assert file_dict.get("file1.root").uuid == "uuid1"
         assert file_dict.get("nonexistent") is None
         assert file_dict.get("nonexistent", "default") == "default"
-
-
-class TestCoffeaFileDict:
-    """Test CoffeaFileDict class"""
 
     def test_creation_valid(self):
         """Test creation with valid CoffeaUprootFileSpec instances"""
@@ -407,17 +499,20 @@ class TestCoffeaFileDict:
 
     def test_mixed_root_and_parquet(self):
         """Test creation with mixed root and parquet files"""
-        files = {
-            "file1.root": CoffeaUprootFileSpec(
-                object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
-            ),
-            "file1.parquet": CoffeaParquetFileSpec(
-                steps=[[0, 100]], num_entries=100, uuid="uuid2"
-            ),
-        }
-        file_dict = CoffeaFileDict(files)
-        assert len(file_dict) == 2
+        file_dict = CoffeaFileDict(self.get_files())
+        assert len(file_dict) == 3
 
+    def test_json_file_serialization(self):
+        """Test JSON serialization with file path"""
+        spec = CoffeaFileDict(self.get_files())
+        with tempfile.TemporaryDirectory() as tmp:
+            fname = os.path.join(tmp, "test.json.gz")
+            with gzip.open(fname, "wt") as fout:
+                fout.write(spec.model_dump_json(exclude_unset=False))
+            with gzip.open(fname, "rt") as fin:
+                restored = CoffeaFileDict.model_validate_json(fin.read())
+                assert len(restored) == 3
+                assert restored == spec
 
 class TestDatasetSpec:
     """Test DatasetSpec class"""
