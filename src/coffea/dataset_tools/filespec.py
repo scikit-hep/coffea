@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Hashable
+from collections.abc import Hashable, Iterable
 from typing import Annotated, Any, Literal, Self
-from collections.abc import Iterable
 
 from pydantic import BaseModel, Field, RootModel, computed_field, model_validator
 
@@ -186,7 +185,7 @@ class DatasetSpec(BaseModel):
 
     @model_validator(mode="after")
     def check_form(self) -> Self:
-        """Check the form can be decompressed, validate the format if mannually specified, and then ."""
+        """Check the form can be decompressed, validate the format if manually specified, and then ."""
         # check_form
         if self.form is not None:
             # If there's a form, validate we can decompress it into an awkward form
@@ -225,33 +224,14 @@ class DatasetSpec(BaseModel):
         if not IOFactory.valid_format(self.format):
             return False
         try:
-            _ = awkward.forms.from_json(decompress_form(self.form))
-            return True
-        except Exception:
-            return False
-
-
-class DatasetJoinableSpec(DatasetSpec):
-    files: CoffeaFileDict
-    form: str  # form is required
-    format: str
-    """
-
-    @model_validator(mode="after")
-    def check_form_and_format(self) -> Self:
-        if not IOFactory.valid_format(self.format):
-            raise ValueError(f"format: format must be one of {IOFactory._formats}")
-        try:
             import awkward
 
             from coffea.util import decompress_form
 
             _ = awkward.forms.from_json(decompress_form(self.form))
-        except Exception as e:
-            raise ValueError(
-                "form: was not able to decompress_form into an awkward form"
-            ) from e
-        return self"""
+            return True
+        except Exception:
+            return False
 
 
 class FilesetSpec(RootModel[dict[str, DatasetSpec]], DictMethodsMixin):
@@ -291,7 +271,7 @@ class IOFactory:
     def valid_format(cls, format: str | DatasetSpec) -> bool:
         if isinstance(format, DatasetSpec):
             return format.format in cls._formats or all(
-                fmt in _formats for fmt in format.format.split("|")
+                fmt in cls._formats for fmt in format.format.split("|")
             )
         return format in cls._formats
 
@@ -330,7 +310,7 @@ class IOFactory:
 
     @classmethod
     def identify_format(cls, input: Any):
-        if type(input) in [DatasetJoinableSpec, DatasetSpec]:
+        if isinstance(input, DatasetSpec):
             return input.format
 
         if isinstance(input, str):
@@ -404,11 +384,10 @@ class IOFactory:
     @classmethod
     def datasetspec_to_dict(
         cls,
-        input: DatasetSpec | DatasetJoinableSpec,
+        input: DatasetSpec,
         coerce_filespec_to_dict=True,
     ) -> dict[str, Any]:
-        assert type(input) in [
-            DatasetSpec,
-            DatasetJoinableSpec,
-        ], f"{cls.__name__}.datasetspec_to_dict expects a DatasetSpec or DatasetJoinableSpec, got {type(input)} instead: {input}"
+        assert isinstance(
+            input, DatasetSpec
+        ), f"{cls.__name__}.datasetspec_to_dict expects a DatasetSpec, got {type(input)} instead: {input}"
         return input.model_dump()
