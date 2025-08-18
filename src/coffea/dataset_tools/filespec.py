@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import copy
-from collections.abc import Hashable
-from typing import Annotated, Any, Literal, Iterable, Tuple, Self
 import re
+from collections.abc import Hashable
+from typing import Annotated, Any, Literal, Self
+from collections.abc import Iterable
 
 from pydantic import BaseModel, Field, RootModel, computed_field, model_validator
-
 
 StepPair = Annotated[
     list[Annotated[int, Field(ge=0)]], Field(min_length=2, max_length=2)
@@ -71,7 +70,7 @@ class DictMethodsMixin:
     def values(self) -> Iterable[str]:
         return self.root.values()
 
-    def items(self) -> Iterable[Tuple[str, str]]:
+    def items(self) -> Iterable[tuple[str, str]]:
         return self.root.items()
 
     def get(self, key: str, default=None) -> str | None:
@@ -219,8 +218,8 @@ class DatasetSpec(BaseModel):
 
         return self
 
-    #@computed_field
-    #@property
+    # @computed_field
+    # @property
     def joinable(self) -> bool:
         """Identify DatasetSpec criteria to be pre-joined for typetracing (necessary) and column-joining (sufficient)"""
         if not IOFactory.valid_format(self.format):
@@ -236,7 +235,7 @@ class DatasetJoinableSpec(DatasetSpec):
     files: CoffeaFileDict
     form: str  # form is required
     format: str
-    """ 
+    """
 
     @model_validator(mode="after")
     def check_form_and_format(self) -> Self:
@@ -251,20 +250,20 @@ class DatasetJoinableSpec(DatasetSpec):
         except Exception as e:
             raise ValueError(
                 "form: was not able to decompress_form into an awkward form"
-            ) from e 
+            ) from e
         return self"""
 
 
 class FilesetSpec(RootModel[dict[str, DatasetSpec]], DictMethodsMixin):
     def __iter__(self) -> Iterable[str]:
         return iter(self.root)
-    
 
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
         if isinstance(data, FilesetSpec):
             return data.model_dump()
         return data
+
 
 def identify_file_format(name_or_directory: str) -> str:
     root_expression = re.compile(r"\.root")
@@ -275,11 +274,12 @@ def identify_file_format(name_or_directory: str) -> str:
         return "parquet"
     elif "." not in name_or_directory.split("/")[-1]:
         # could be a parquet directory, would require a file opening to determine
-        return "parquet" #maybe "parquet?" to trigger further inspection?
+        return "parquet"  # maybe "parquet?" to trigger further inspection?
     else:
         raise RuntimeError(
             f"identify_file_format couldn't identify if the string path is for a root file or parquet file/directory for {name_or_directory}"
         )
+
 
 class IOFactory:
     _formats = {"root", "parquet"}
@@ -288,23 +288,33 @@ class IOFactory:
         pass
 
     @classmethod
-    def valid_format(
-        cls, format: str | DatasetSpec
-    ) -> bool:
+    def valid_format(cls, format: str | DatasetSpec) -> bool:
         if isinstance(format, DatasetSpec):
-            return format.format in cls._formats or all(fmt in _formats for fmt in format.format.split("|"))
+            return format.format in cls._formats or all(
+                fmt in _formats for fmt in format.format.split("|")
+            )
         return format in cls._formats
 
     @classmethod
     def attempt_promotion(
-        cls, input: CoffeaUprootFileSpec | CoffeaUprootFileSpecOptional | CoffeaParquetFileSpec | CoffeaParquetFileSpecOptional | DatasetSpec | FilesetSpec
+        cls,
+        input: (
+            CoffeaUprootFileSpec
+            | CoffeaUprootFileSpecOptional
+            | CoffeaParquetFileSpec
+            | CoffeaParquetFileSpecOptional
+            | DatasetSpec
+            | FilesetSpec
+        ),
     ):
         print("promoting newstyle:", input)
         try:
             if isinstance(input, (CoffeaUprootFileSpec, CoffeaUprootFileSpecOptional)):
                 print("promoting to CoffeaUprootFileSpec")
                 return CoffeaUprootFileSpec(**input.model_dump())
-            elif isinstance(input, (CoffeaParquetFileSpec, CoffeaParquetFileSpecOptional)):
+            elif isinstance(
+                input, (CoffeaParquetFileSpec, CoffeaParquetFileSpecOptional)
+            ):
                 print("promoting to CoffeaParquetFileSpec")
                 return CoffeaParquetFileSpec(**input.model_dump())
             elif isinstance(input, DatasetSpec):
@@ -315,7 +325,7 @@ class IOFactory:
                 raise TypeError(
                     f"IOFactory.attempt_promotion got an unexpected input type {type(input)} for input: {input}"
                 )
-        except Exception as e:
+        except Exception:
             return input
 
     @classmethod
