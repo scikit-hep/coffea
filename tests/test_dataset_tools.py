@@ -530,10 +530,13 @@ def test_max_files(the_fileset):
         assert maxed_files == target
 
 
-def test_slice_files():
-    sliced_files = slice_files(_updated_result, slice(1, None, 2))
+@pytest.mark.parametrize(
+    "the_fileset", [_updated_result, FilesetSpec(_updated_result)]
+)
+def test_slice_files(the_fileset):
+    sliced_files = slice_files(the_fileset, slice(1, None, 2))
 
-    assert sliced_files == {
+    target = {
         "ZJets": {"files": {}, "metadata": None, "form": None},
         "Data": {
             "files": {
@@ -548,12 +551,20 @@ def test_slice_files():
             "form": None,
         },
     }
+    if isinstance(the_fileset, FilesetSpec):
+        target["ZJets"]["format"] = "root"
+        assert sliced_files == FilesetSpec(target)
+    else:
+        assert sliced_files == target
 
 
-def test_max_chunks():
-    max_chunked = max_chunks(_runnable_result, 3)
+@pytest.mark.parametrize(
+    "the_fileset", [_runnable_result, FilesetSpec(_runnable_result)]
+)
+def test_max_chunks(the_fileset):
+    max_chunked = max_chunks(the_fileset, 3)
 
-    assert max_chunked == {
+    target = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -580,9 +591,12 @@ def test_max_chunks():
         },
     }
 
-    max_chunked = max_chunks(_starting_fileset_with_steps, 10)
+    if isinstance(the_fileset, FilesetSpec):
+        assert max_chunked == FilesetSpec(target)
+    else:
+        assert max_chunked == target
 
-    assert max_chunked == {
+    target2 = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -625,10 +639,14 @@ def test_max_chunks():
             }
         },
     }
+    if isinstance(the_fileset, FilesetSpec):
+        max_chunked = max_chunks(FilesetSpec(_starting_fileset_with_steps), 10)
+        assert max_chunked == FilesetSpec(target2)
+    else:
+        max_chunked = max_chunks(_starting_fileset_with_steps, 10)
+        assert max_chunked == target2
 
-    max_chunked = max_chunks_per_file(_starting_fileset_with_steps, 3)
-
-    assert max_chunked == {
+    target3 = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -662,12 +680,21 @@ def test_max_chunks():
             }
         },
     }
+    if isinstance(the_fileset, FilesetSpec):
+        max_chunked = max_chunks_per_file(FilesetSpec(_starting_fileset_with_steps), 3)
+        assert max_chunked == FilesetSpec(target3)
+    else:
+        max_chunked = max_chunks_per_file(_starting_fileset_with_steps, 3)
+        assert max_chunked == target3
 
 
-def test_slice_chunks():
-    slice_chunked = slice_chunks(_runnable_result, slice(None, None, 2))
+@pytest.mark.parametrize(
+    "the_fileset", [_runnable_result, FilesetSpec(_runnable_result)]
+)
+def test_slice_chunks(the_fileset):
+    slice_chunked = slice_chunks(the_fileset, slice(None, None, 2))
 
-    assert slice_chunked == {
+    target = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -693,6 +720,10 @@ def test_slice_chunks():
             "form": None,
         },
     }
+    if isinstance(the_fileset, FilesetSpec):
+        assert slice_chunked == FilesetSpec(target)
+    else:
+        assert slice_chunked == target
 
 
 @pytest.mark.dask_client
