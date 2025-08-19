@@ -57,7 +57,6 @@ _starting_fileset = {
 }
 
 
-
 def test_identify_format():
     """Test identify_format method"""
     assert identify_file_format("file.root") == "root"
@@ -67,6 +66,8 @@ def test_identify_format():
 
     with pytest.raises(RuntimeError):
         identify_file_format("file.txt")
+
+
 class TestStepPair:
     """Test the StepPair type annotation"""
 

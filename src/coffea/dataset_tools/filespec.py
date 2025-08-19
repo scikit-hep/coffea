@@ -106,7 +106,9 @@ class CoffeaFileDict(
         identified_formats_by_name = {
             k: identify_file_format(k) for k, v in self.root.items()
         }
-        stored_formats_by_name = {k: v.format for k, v in self.root.items() if hasattr(v, "format")}
+        stored_formats_by_name = {
+            k: v.format for k, v in self.root.items() if hasattr(v, "format")
+        }
         assert all(
             k in identified_formats_by_name and identified_formats_by_name[k] == v
             for k, v in stored_formats_by_name.items()
