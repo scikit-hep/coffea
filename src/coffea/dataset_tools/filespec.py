@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import copy
 import re
 from collections.abc import Hashable, Iterable
 from typing import Annotated, Any, Literal, Self
-import copy
 
 from pydantic import BaseModel, Field, RootModel, computed_field, model_validator
 
