@@ -58,6 +58,7 @@ dependencies = [
   "mplhep>=0.1.18",
   "packaging",
   "pandas",
+  "pydantic",
   "hist>=2",
   "cachetools",
   "requests",
