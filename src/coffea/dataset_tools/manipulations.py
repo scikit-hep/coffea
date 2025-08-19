@@ -102,7 +102,6 @@ def slice_chunks(
             # 2) slice that flat list
             kept = flat[theslice]
 
-
             # 3) zero-out all steps in the output
             for fname in out[dname].files:
                 out[dname].files[fname].steps = []
@@ -113,7 +112,11 @@ def slice_chunks(
 
             # 5) drop files with no steps
             out[dname].files = CoffeaFileDict(
-                {fname: finfo for fname, finfo in out[dname].files.items() if finfo.steps}
+                {
+                    fname: finfo
+                    for fname, finfo in out[dname].files.items()
+                    if finfo.steps
+                }
             )
         else:
             # 1) build a flat list of (fname, step)
@@ -198,7 +201,9 @@ def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpe
 
 def _default_filter(name_and_spec):
     name, spec = name_and_spec
-    num_entries = spec.num_entries if hasattr(spec, "num_entries") else spec["num_entries"]
+    num_entries = (
+        spec.num_entries if hasattr(spec, "num_entries") else spec["num_entries"]
+    )
     return num_entries is not None and num_entries > 0
 
 
@@ -234,6 +239,7 @@ def filter_files(
         else:
             out[name]["files"] = updated
     return out
+
 
 def get_failed_steps_for_dataset(
     dataset: dict | DatasetSpec, report: awkward.Array

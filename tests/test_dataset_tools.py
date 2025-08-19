@@ -4,11 +4,6 @@ import uproot
 from distributed import Client
 from uproot.exceptions import KeyInFileError
 
-from coffea.dataset_tools.filespec import (
-    CoffeaFileDict,
-    DatasetSpec,
-    FilesetSpec,
-)
 from coffea.dataset_tools import (
     apply_to_fileset,
     filter_files,
@@ -19,6 +14,9 @@ from coffea.dataset_tools import (
     preprocess,
     slice_chunks,
     slice_files,
+)
+from coffea.dataset_tools.filespec import (
+    FilesetSpec,
 )
 from coffea.nanoevents import BaseSchema, NanoAODSchema
 from coffea.processor.test_items import NanoEventsProcessor, NanoTestProcessor
@@ -457,9 +455,7 @@ def test_preprocess_with_file_exceptions():
     }
 
 
-@pytest.mark.parametrize(
-    "the_fileset", [_updated_result, FilesetSpec(_updated_result)]
-)
+@pytest.mark.parametrize("the_fileset", [_updated_result, FilesetSpec(_updated_result)])
 def test_filter_files(the_fileset):
     filtered_files = filter_files(the_fileset)
 
@@ -495,9 +491,7 @@ def test_filter_files(the_fileset):
         assert filtered_files == target
 
 
-@pytest.mark.parametrize(
-    "the_fileset", [_updated_result, FilesetSpec(_updated_result)]
-)
+@pytest.mark.parametrize("the_fileset", [_updated_result, FilesetSpec(_updated_result)])
 def test_max_files(the_fileset):
     maxed_files = max_files(the_fileset, 1)
 
@@ -533,9 +527,7 @@ def test_max_files(the_fileset):
         assert maxed_files == target
 
 
-@pytest.mark.parametrize(
-    "the_fileset", [_updated_result, FilesetSpec(_updated_result)]
-)
+@pytest.mark.parametrize("the_fileset", [_updated_result, FilesetSpec(_updated_result)])
 def test_slice_files(the_fileset):
     sliced_files = slice_files(the_fileset, slice(1, None, 2))
 
@@ -730,7 +722,8 @@ def test_slice_chunks(the_fileset):
 
 
 @pytest.mark.parametrize(
-    "the_fileset", [_starting_fileset_with_steps, FilesetSpec(_starting_fileset_with_steps)]
+    "the_fileset",
+    [_starting_fileset_with_steps, FilesetSpec(_starting_fileset_with_steps)],
 )
 @pytest.mark.dask_client
 def test_recover_failed_chunks(the_fileset):
