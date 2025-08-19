@@ -726,8 +726,11 @@ def test_slice_chunks(the_fileset):
         assert slice_chunked == target
 
 
+@pytest.mark.parametrize(
+    "the_fileset", [_starting_fileset_with_steps, FilesetSpec(_starting_fileset_with_steps)]
+)
 @pytest.mark.dask_client
-def test_recover_failed_chunks():
+def test_recover_failed_chunks(the_fileset):
     with Client() as _:
         to_compute = apply_to_fileset(
             NanoEventsProcessor(),
@@ -737,8 +740,8 @@ def test_recover_failed_chunks():
         )
         out, reports = dask.compute(*to_compute)
 
-    failed_fset = get_failed_steps_for_fileset(_starting_fileset_with_steps, reports)
-    assert failed_fset == {
+    failed_fset = get_failed_steps_for_fileset(the_fileset, reports)
+    target = {
         "Data": {
             "files": {
                 "tests/samples/nano_dimuon_not_there.root": {
@@ -757,3 +760,7 @@ def test_recover_failed_chunks():
             }
         }
     }
+    if isinstance(failed_fset, FilesetSpec):
+        assert failed_fset == FilesetSpec(target)
+    else:
+        assert failed_fset == target
