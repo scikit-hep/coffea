@@ -315,32 +315,6 @@ class IOFactory:
             return input
 
     @classmethod
-    def identify_format(cls, input: Any):
-        if isinstance(input, DatasetSpec):
-            return input.format
-
-        if isinstance(input, str):
-            # could check with regular expressions for more compmlicated naming, like atlas .root.N
-            # Use re to find an instance of '.root' in the name
-
-            if input.endswith(".root"):
-                return "root"
-            if (
-                input.endswith(".parq")
-                or input.endswith(".parquet")
-                or "." not in input.split("/")[-1]
-            ):
-                return "parquet"
-            else:
-                raise RuntimeError(
-                    f"{cls.__name__} couldn't identify if the string path is for a root file or parquet file/directory"
-                )
-        else:
-            raise NotImplementedError(
-                "identify_format doesn't handle all valid input types, such as fsspec instances"
-            )
-
-    @classmethod
     def dict_to_uprootfilespec(cls, input):
         """Convert a dictionary to a CoffeaFileSpec or CoffeaFileSpecOptional."""
         assert isinstance(input, dict), f"{input} is not a dictionary"
@@ -396,4 +370,7 @@ class IOFactory:
         assert isinstance(
             input, DatasetSpec
         ), f"{cls.__name__}.datasetspec_to_dict expects a DatasetSpec, got {type(input)} instead: {input}"
-        return input.model_dump()
+        if coerce_filespec_to_dict:
+            return input.model_dump()
+        else:
+            return dict(input)
