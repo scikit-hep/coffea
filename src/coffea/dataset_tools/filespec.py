@@ -61,7 +61,6 @@ class DictMethodsMixin:
         return len(self.root)
 
     def __iter__(self) -> Iterable[str]:
-        print("DictMethodsMixin.__iter__ called")
         return iter(self.root)
 
     def keys(self) -> Iterable[str]:
@@ -97,7 +96,6 @@ class CoffeaFileDict(
 ):
 
     def __iter__(self) -> Iterable[str]:
-        print("CoffeaFileDict.__iter__ called")
         return iter(self.root)
 
     @computed_field
