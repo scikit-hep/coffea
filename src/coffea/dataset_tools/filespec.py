@@ -3,7 +3,11 @@ from __future__ import annotations
 import copy
 import re
 from collections.abc import Hashable, Iterable
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Any, Literal
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 
 from pydantic import BaseModel, Field, RootModel, computed_field, model_validator
 
