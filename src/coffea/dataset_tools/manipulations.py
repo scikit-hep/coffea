@@ -82,34 +82,63 @@ def slice_chunks(
 
     if not bydataset:
         for dname, d in fileset.items():
-            for fname, finfo in d["files"].items():
-                out[dname]["files"][fname]["steps"] = finfo["steps"][theslice]
+            is_datasetspec = isinstance(d, DatasetSpec)
+            datasetspec = d.files if is_datasetspec else d["files"]
+            for fname, finfo in datasetspec.items():
+                if is_datasetspec:
+                    out[dname].files[fname].steps = finfo.steps[theslice]
+                else:
+                    out[dname]["files"][fname]["steps"] = finfo["steps"][theslice]
         return out
 
     for dname, d in fileset.items():
-        # 1) build a flat list of (fname, step)
-        flat: list[tuple[str, Any]] = []
-        for fname, finfo in d["files"].items():
-            for step in finfo["steps"]:
-                flat.append((fname, step))
+        if isinstance(d, DatasetSpec):
+            # 1) build a flat list of (fname, step)
+            flat: list[tuple[str, Any]] = []
+            for fname, finfo in d.files.items():
+                for step in finfo.steps:
+                    flat.append((fname, step))
 
-        # 2) slice that flat list
-        kept = flat[theslice]
+            # 2) slice that flat list
+            kept = flat[theslice]
 
-        # 3) zero-out all steps in the output
-        for fname in out[dname]["files"]:
-            out[dname]["files"][fname]["steps"] = []
 
-        # 4) repopulate in order, up to maxchunks total
-        for fname, step in kept:
-            out[dname]["files"][fname]["steps"].append(step)
+            # 3) zero-out all steps in the output
+            for fname in out[dname].files:
+                out[dname].files[fname].steps = []
 
-        # 5) drop files with no steps
-        out[dname]["files"] = {
-            fname: finfo
-            for fname, finfo in out[dname]["files"].items()
-            if finfo["steps"]
-        }
+            # 4) repopulate in order, up to maxchunks total
+            for fname, step in kept:
+                out[dname].files[fname].steps.append(step)
+
+            # 5) drop files with no steps
+            out[dname].files = CoffeaFileDict(
+                {fname: finfo for fname, finfo in out[dname].files.items() if finfo.steps}
+            )
+        else:
+            # 1) build a flat list of (fname, step)
+            flat: list[tuple[str, Any]] = []
+            for fname, finfo in d["files"].items():
+                for step in finfo["steps"]:
+                    flat.append((fname, step))
+
+            # 2) slice that flat list
+            kept = flat[theslice]
+
+            # 3) zero-out all steps in the output
+            for fname in out[dname]["files"]:
+                out[dname]["files"][fname]["steps"] = []
+
+            # 4) repopulate in order, up to maxchunks total
+            for fname, step in kept:
+                out[dname]["files"][fname]["steps"].append(step)
+
+            # 5) drop files with no steps
+            out[dname]["files"] = {
+                fname: finfo
+                for fname, finfo in out[dname]["files"].items()
+                if finfo["steps"]
+            }
 
     return out
 
@@ -154,11 +183,12 @@ def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpe
 
     out = copy.deepcopy(fileset)
     for name, entry in fileset.items():
-        files = entry.files if hasattr(entry, "files") else entry["files"]
+        is_datasetspec = isinstance(entry, DatasetSpec)
+        files = entry.files if is_datasetspec else entry["files"]
         fnames = list(files.keys())[theslice]
         finfos = list(files.values())[theslice]
         updated = {fname: finfo for fname, finfo in zip(fnames, finfos)}
-        if hasattr(out[name], "files"):
+        if is_datasetspec:
             out[name].files = CoffeaFileDict(updated)
         else:
             out[name]["files"] = updated
@@ -196,9 +226,10 @@ def filter_files(
     """
     out = copy.deepcopy(fileset)
     for name, entry in fileset.items():
-        to_apply_to = getattr(entry, "files") if hasattr(entry, "files") else entry["files"]
+        is_datasetspec = isinstance(entry, DatasetSpec)
+        to_apply_to = getattr(entry, "files") if is_datasetspec else entry["files"]
         updated = dict(filter(thefilter, to_apply_to.items()))
-        if hasattr(out[name], "files"):
+        if is_datasetspec:
             out[name].files = CoffeaFileDict(updated)
         else:
             out[name]["files"] = updated
