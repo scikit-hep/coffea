@@ -323,10 +323,14 @@ def test_apply_to_fileset(proc_and_schema):
 
 
 @pytest.mark.dask_client
-def test_apply_to_fileset_hinted_form():
+@pytest.mark.parametrize(
+    "the_fileset",
+    [_starting_fileset, FilesetSpec(_starting_fileset)],
+)
+def test_apply_to_fileset_hinted_form(the_fileset):
     with Client() as _:
         dataset_runnable, dataset_updated = preprocess(
-            _starting_fileset,
+            the_fileset,
             step_size=7,
             align_clusters=False,
             files_per_batch=10,
@@ -340,7 +344,6 @@ def test_apply_to_fileset_hinted_form():
             schemaclass=NanoAODSchema,
         )
         out = dask.compute(to_compute)[0]
-
         assert out["ZJets"]["cutflow"]["ZJets_pt"] == 18
         assert out["ZJets"]["cutflow"]["ZJets_mass"] == 6
         assert out["Data"]["cutflow"]["Data_pt"] == 84
