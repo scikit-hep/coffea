@@ -20,6 +20,7 @@ from coffea.dataset_tools.filespec import (
     IOFactory,
     ParquetFileSpec,
     UprootFileSpec,
+    identify_file_format,
 )
 from coffea.util import compress_form
 
@@ -56,6 +57,16 @@ _starting_fileset = {
 }
 
 
+
+def test_identify_format():
+    """Test identify_format method"""
+    assert identify_file_format("file.root") == "root"
+    assert identify_file_format("file.parquet") == "parquet"
+    assert identify_file_format("file.parq") == "parquet"
+    assert identify_file_format("directory") == "parquet"
+
+    with pytest.raises(RuntimeError):
+        identify_file_format("file.txt")
 class TestStepPair:
     """Test the StepPair type annotation"""
 
@@ -770,16 +781,6 @@ class TestIOFactory:
         assert IOFactory.valid_format("root") is True
         assert IOFactory.valid_format("parquet") is True
         assert IOFactory.valid_format("invalid") is False
-
-    def test_identify_format(self):
-        """Test identify_format method"""
-        assert IOFactory.identify_format("file.root") == "root"
-        assert IOFactory.identify_format("file.parquet") == "parquet"
-        assert IOFactory.identify_format("file.parq") == "parquet"
-        assert IOFactory.identify_format("directory") == "parquet"
-
-        with pytest.raises(RuntimeError):
-            IOFactory.identify_format("file.txt")
 
     @pytest.mark.parametrize(
         "input_dict",
