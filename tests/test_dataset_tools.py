@@ -4,6 +4,11 @@ import uproot
 from distributed import Client
 from uproot.exceptions import KeyInFileError
 
+from coffea.dataset_tools.filespec import (
+    CoffeaFileDict,
+    DatasetSpec,
+    FilesetSpec,
+)
 from coffea.dataset_tools import (
     apply_to_fileset,
     filter_files,
@@ -449,10 +454,13 @@ def test_preprocess_with_file_exceptions():
     }
 
 
-def test_filter_files():
-    filtered_files = filter_files(_updated_result)
+@pytest.mark.parametrize(
+    "the_fileset", [_updated_result, FilesetSpec(_updated_result)]
+)
+def test_filter_files(the_fileset):
+    filtered_files = filter_files(the_fileset)
 
-    assert filtered_files == {
+    target = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -478,12 +486,19 @@ def test_filter_files():
             "form": None,
         },
     }
+    if isinstance(filtered_files, FilesetSpec):
+        assert filtered_files == FilesetSpec(target)
+    else:
+        assert filtered_files == target
 
 
-def test_max_files():
-    maxed_files = max_files(_updated_result, 1)
+@pytest.mark.parametrize(
+    "the_fileset", [_updated_result, FilesetSpec(_updated_result)]
+)
+def test_max_files(the_fileset):
+    maxed_files = max_files(the_fileset, 1)
 
-    assert maxed_files == {
+    target = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -509,6 +524,10 @@ def test_max_files():
             "form": None,
         },
     }
+    if isinstance(the_fileset, FilesetSpec):
+        assert maxed_files == FilesetSpec(target)
+    else:
+        assert maxed_files == target
 
 
 def test_slice_files():
