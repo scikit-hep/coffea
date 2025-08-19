@@ -16,6 +16,7 @@ import uproot
 from uproot._util import no_filter
 
 from coffea.dataset_tools.filespec import (
+    CoffeaFileDict,
     DatasetSpec,
     FilesetSpec,
     IOFactory,
@@ -225,7 +226,7 @@ _trivial_file_fields = {"run", "luminosityBlock", "event"}
 
 
 def preprocess(
-    fileset: FilesetSpec,
+    fileset: FilesetSpec | dict,
     step_size: None | int = None,
     align_clusters: bool = False,
     recalculate_steps: bool = False,
@@ -237,13 +238,13 @@ def preprocess(
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
-) -> tuple[FilesetSpec]:
+) -> tuple[FilesetSpec | dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset: FilesetSpec | dict
             The set of datasets whose files will be preprocessed.
         step_size: int | None, default None
             If specified, the size of the steps to make when analyzing the input files.
@@ -274,9 +275,9 @@ def preprocess(
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
     Returns
     -------
-        out_available : FilesetSpec
+        out_available : FilesetSpec | dict
             The subset of files in each dataset that were successfully preprocessed, organized by dataset.
-        out_updated : FilesetSpec
+        out_updated : FilesetSpec | dict
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
     out_updated = copy.deepcopy(fileset)
@@ -460,13 +461,8 @@ def preprocess(
             }
 
         if is_datasetspec:
-            out_updated[name].files = {
-                k: IOFactory.dict_to_uprootfilespec(v) for k, v in files_out.items()
-            }
-            out_available[name].files = {
-                k: IOFactory.dict_to_uprootfilespec(v)
-                for k, v in files_available.items()
-            }
+            out_updated[name].files = CoffeaFileDict(files_out)
+            out_available[name].files = CoffeaFileDict(files_available)
         elif "files" in out_updated[name]:
             out_updated[name]["files"] = files_out
             out_available[name]["files"] = files_available
@@ -501,4 +497,7 @@ def preprocess(
             out_updated[name]["metadata"] = None
             out_available[name]["metadata"] = None
 
+    if is_datasetspec:
+        out_available = FilesetSpec(out_available)
+        out_updated = FilesetSpec(out_updated)
     return out_available, out_updated
