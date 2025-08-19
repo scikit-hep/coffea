@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Hashable, Iterable
 from typing import Annotated, Any, Literal, Self
+import copy
 
 from pydantic import BaseModel, Field, RootModel, computed_field, model_validator
 
@@ -114,6 +115,7 @@ class CoffeaFileDict(
 
     @model_validator(mode="before")
     def preproc_data(cls, data: Any) -> Any:
+        data = copy.deepcopy(data)
         for k, v in data.items():
             if isinstance(v, (str, type(None))):
                 data[k] = {"object_path": v}
@@ -157,6 +159,7 @@ class DatasetSpec(BaseModel):
 
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
+        data = copy.deepcopy(data)
         if isinstance(data, dict):
             files = data.pop("files")
             # promote files list to dict if necessary
@@ -240,6 +243,7 @@ class FilesetSpec(RootModel[dict[str, DatasetSpec]], DictMethodsMixin):
 
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
+        data = copy.deepcopy(data)
         if isinstance(data, FilesetSpec):
             return data.model_dump()
         return data
