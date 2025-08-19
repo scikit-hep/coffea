@@ -235,25 +235,26 @@ def filter_files(
             out[name]["files"] = updated
     return out
 
-
 def get_failed_steps_for_dataset(
-    dataset: DatasetSpec, report: awkward.Array
-) -> DatasetSpec:
+    dataset: dict | DatasetSpec, report: awkward.Array
+) -> dict | DatasetSpec:
     """
     Modify the input dataset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
 
     Parameters
     ----------
-        dataset: DatasetSpec
+        dataset: DatasetSpec | dict
             The dataset to be reduced to only contain files and row-ranges that have previously encountered failed file access.
         report: awkward.Array
             The computed file-access error report from dask-awkward.
 
     Returns
     -------
-        out : DatasetSpec
+        out : DatasetSpec | dict
             The reduced dataset with only the row-ranges and files that failed processing, according to the input report.
     """
+    is_datasetspec = isinstance(dataset, DatasetSpec)
+    dataset = dataset.model_dump() if is_datasetspec else dataset
     failed_dataset = copy.deepcopy(dataset)
     failed_dataset["files"] = {}
     failures = report[~awkward.is_none(report.exception)]
@@ -290,7 +291,7 @@ def get_failed_steps_for_dataset(
             failed_dataset["files"][fname] = copy.deepcopy(dataset["files"][fname])
             failed_dataset["files"][fname]["steps"] = [[start, stop]]
 
-    return failed_dataset
+    return DatasetSpec(**failed_dataset) if is_datasetspec else failed_dataset
 
 
 def get_failed_steps_for_fileset(
@@ -312,8 +313,15 @@ def get_failed_steps_for_fileset(
             The reduced dataset with only the row-ranges and files that failed processing, according to the input report.
     """
     failed_fileset = {}
-    for name, dataset in fileset.items():
-        failed_dataset = get_failed_steps_for_dataset(dataset, report_dict[name])
-        if len(failed_dataset["files"]) > 0:
-            failed_fileset[name] = failed_dataset
-    return failed_fileset
+    if isinstance(fileset, FilesetSpec):
+        for name, dataset in fileset.items():
+            failed_dataset = get_failed_steps_for_dataset(dataset, report_dict[name])
+            if len(failed_dataset.files) > 0:
+                failed_fileset[name] = failed_dataset
+        return FilesetSpec(failed_fileset)
+    else:
+        for name, dataset in fileset.items():
+            failed_dataset = get_failed_steps_for_dataset(dataset, report_dict[name])
+            if len(failed_dataset["files"]) > 0:
+                failed_fileset[name] = failed_dataset
+        return failed_fileset
