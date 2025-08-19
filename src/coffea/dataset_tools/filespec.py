@@ -4,6 +4,7 @@ import copy
 import re
 from collections.abc import Hashable, Iterable
 from typing import Annotated, Any, Literal
+
 try:
     from typing import Self
 except ImportError:
