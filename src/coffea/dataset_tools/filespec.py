@@ -294,7 +294,6 @@ class IOFactory:
             | FilesetSpec
         ),
     ):
-        print("promoting newstyle:", input)
         try:
             if isinstance(input, (CoffeaUprootFileSpec, CoffeaUprootFileSpecOptional)):
                 return CoffeaUprootFileSpec(**input.model_dump())
