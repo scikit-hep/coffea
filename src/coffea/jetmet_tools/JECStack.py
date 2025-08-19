@@ -14,7 +14,7 @@ class JECStack:
 
     jec, junc, etc. can be explicitly set by passing in the appropriate corrector class
     (eg: FactorizedJetCorrector). If they are not set, correctors will be created, using
-    the info in `corrections` as input.
+    the info in ``corrections`` as input.
 
     Parameters
     ---------
@@ -23,16 +23,16 @@ class JECStack:
             of correction (eg: for JEC, should be jme_standard_function). We expect JEC
             names to be formatted as their filenames.
         jec: FactorizedJetCorrector, optional
-            If provided, overrides the jec that would be created from `corrections` in
+            If provided, overrides the jec that would be created from ``corrections`` in
             the stack.
         junc: JetCorrectionUncertainty, optional
-            If provided, overrides the junc that would be created from `corrections` in
+            If provided, overrides the junc that would be created from ``corrections`` in
             the stack.
         jer: JetResolution, optional
-            If provided, overrides the jer that would be created from `corrections` in
+            If provided, overrides the jer that would be created from ``corrections`` in
             the stack.
         jersf: JetResolutionScaleFactor, optional
-            If provided, overrides the jersf that would be created from `corrections` in
+            If provided, overrides the jersf that would be created from ``corrections`` in
             the stack.
     """
 
@@ -123,7 +123,7 @@ class JECStack:
     @property
     def blank_name_map(self):
         """
-        A dictionary in the form of the `name_map` input parameter for
+        A dictionary in the form of the ``name_map`` input parameter for
         `CorrectedJetsFactory`, with all keys mapped to None.
         """
         out = {
