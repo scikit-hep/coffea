@@ -103,10 +103,15 @@ class CoffeaFileDict(
     def format(self) -> str:
         """Identify the format of the files in the dictionary."""
         union = set()
-        formats_by_name = {
-            k: set(identify_file_format(k), v.format) for k, v in self.root.items()
+        identified_formats_by_name = {
+            k: identify_file_format(k) for k, v in self.root.items()
         }
-        union.update(formats_by_name.values())
+        stored_formats_by_name = {k: v.format for k, v in self.root.items() if hasattr(v, "format")}
+        assert all(
+            k in identified_formats_by_name and identified_formats_by_name[k] == v
+            for k, v in stored_formats_by_name.items()
+        ), f"identified formats and stored formats do not match: identified formats: {identified_formats_by_name}, stored formats: {stored_formats_by_name}"
+        union.update(identified_formats_by_name.values())
         if len(union) == 1:
             return union.pop()
         return "|".join(union)
