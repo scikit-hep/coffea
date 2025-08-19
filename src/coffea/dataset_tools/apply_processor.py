@@ -32,7 +32,7 @@ GenericHEPAnalysis = Callable[[dask_awkward.Array], DaskOutputType]
 
 def apply_to_dataset(
     data_manipulation: ProcessorABC | GenericHEPAnalysis,
-    dataset: DatasetSpec,
+    dataset: DatasetSpec | dict,
     schemaclass: BaseSchema = NanoAODSchema,
     metadata: dict[Hashable, Any] = {},
     uproot_options: dict[str, Any] = {},
@@ -44,7 +44,7 @@ def apply_to_dataset(
     ----------
         data_manipulation : ProcessorABC or GenericHEPAnalysis
             The user analysis code to run on the input dataset
-        dataset: DatasetSpec
+        dataset: DatasetSpec | dict
             The data to be acted upon by the data manipulation passed in.
         schemaclass: BaseSchema, default NanoAODSchema
             The nanoevents schema to interpret the input dataset with.
@@ -60,6 +60,8 @@ def apply_to_dataset(
         report : dask_awkward.Array, optional
             The file access report for running the analysis on the input dataset. Needs to be computed in simultaneously with the analysis to be accurate.
     """
+    if isinstance(dataset, DatasetSpec):
+        dataset = dataset.model_dump()
     maybe_base_form = dataset.get("form", None)
     if maybe_base_form is not None:
         maybe_base_form = awkward.forms.from_json(decompress_form(maybe_base_form))
@@ -92,7 +94,7 @@ def apply_to_dataset(
 
 def apply_to_fileset(
     data_manipulation: ProcessorABC | GenericHEPAnalysis,
-    fileset: FilesetSpec,
+    fileset: FilesetSpec | dict,
     schemaclass: BaseSchema = NanoAODSchema,
     uproot_options: dict[str, Any] = {},
 ) -> dict[str, DaskOutputType] | tuple[dict[str, DaskOutputType], dask_awkward.Array]:
@@ -117,6 +119,8 @@ def apply_to_fileset(
         report : dask_awkward.Array, optional
             The file access report for running the analysis on the input dataset. Needs to be computed in simultaneously with the analysis to be accurate.
     """
+    if isinstance(fileset, FilesetSpec):
+        fileset = fileset.model_dump()
     out = {}
     report = {}
     for name, dataset in fileset.items():
