@@ -734,7 +734,7 @@ def test_recover_failed_chunks(the_fileset):
     with Client() as _:
         to_compute = apply_to_fileset(
             NanoEventsProcessor(),
-            _starting_fileset_with_steps,
+            the_fileset,
             schemaclass=NanoAODSchema,
             uproot_options={"allow_read_errors_with_report": True},
         )
