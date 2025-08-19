@@ -154,17 +154,21 @@ def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpe
 
     out = copy.deepcopy(fileset)
     for name, entry in fileset.items():
-        fnames = list(entry["files"].keys())[theslice]
-        finfos = list(entry["files"].values())[theslice]
-
-        out[name]["files"] = {fname: finfo for fname, finfo in zip(fnames, finfos)}
+        files = entry.files if hasattr(entry, "files") else entry["files"]
+        fnames = list(files.keys())[theslice]
+        finfos = list(files.values())[theslice]
+        updated = {fname: finfo for fname, finfo in zip(fnames, finfos)}
+        if hasattr(out[name], "files"):
+            out[name].files = CoffeaFileDict(updated)
+        else:
+            out[name]["files"] = updated
 
     return out
 
 
 def _default_filter(name_and_spec):
     name, spec = name_and_spec
-    num_entries = spec["num_entries"]
+    num_entries = spec.num_entries if hasattr(spec, "num_entries") else spec["num_entries"]
     return num_entries is not None and num_entries > 0
 
 
@@ -192,7 +196,12 @@ def filter_files(
     """
     out = copy.deepcopy(fileset)
     for name, entry in fileset.items():
-        out[name]["files"] = dict(filter(thefilter, out[name]["files"].items()))
+        to_apply_to = getattr(entry, "files") if hasattr(entry, "files") else entry["files"]
+        updated = dict(filter(thefilter, to_apply_to.items()))
+        if hasattr(out[name], "files"):
+            out[name].files = CoffeaFileDict(updated)
+        else:
+            out[name]["files"] = updated
     return out
 
 
