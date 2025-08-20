@@ -285,8 +285,11 @@ def preprocess(
 
     all_ak_norm_files = {}
     files_to_preprocess = {}
+    is_filesetspec = isinstance(fileset, FilesetSpec)
     for name, info in fileset.items():
         is_datasetspec = isinstance(info, DatasetSpec)
+        if is_datasetspec:
+            is_filesetspec = True
         norm_files = _normalize_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
         ak_norm_files = awkward.from_iter(norm_files)
@@ -497,7 +500,7 @@ def preprocess(
             out_updated[name]["metadata"] = None
             out_available[name]["metadata"] = None
 
-    if is_datasetspec:
+    if is_filesetspec:
         out_available = FilesetSpec(out_available)
         out_updated = FilesetSpec(out_updated)
     return out_available, out_updated
