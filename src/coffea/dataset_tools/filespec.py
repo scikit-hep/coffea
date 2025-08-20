@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import re
 from collections.abc import Hashable, Iterable
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Union
 
 try:
     from typing import Self
@@ -91,10 +91,12 @@ class CoffeaFileDict(
     RootModel[
         dict[
             str,
-            CoffeaUprootFileSpec
-            | CoffeaParquetFileSpec
-            | CoffeaUprootFileSpecOptional
-            | CoffeaParquetFileSpecOptional,
+            Union[
+                CoffeaUprootFileSpec,
+                CoffeaParquetFileSpec,
+                CoffeaUprootFileSpecOptional,
+                CoffeaParquetFileSpecOptional,
+            ]
         ]
     ],
     DictMethodsMixin,
