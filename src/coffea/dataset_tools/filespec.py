@@ -96,7 +96,7 @@ class CoffeaFileDict(
                 CoffeaParquetFileSpec,
                 CoffeaUprootFileSpecOptional,
                 CoffeaParquetFileSpecOptional,
-            ]
+            ],
         ]
     ],
     DictMethodsMixin,
