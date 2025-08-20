@@ -16,6 +16,7 @@ from coffea.dataset_tools import (
     slice_files,
 )
 from coffea.dataset_tools.filespec import (
+    DatasetSpec,
     FilesetSpec,
 )
 from coffea.nanoevents import BaseSchema, NanoAODSchema
@@ -364,6 +365,43 @@ def test_preprocess(the_fileset):
 
         assert dataset_runnable == _runnable_result
         assert dataset_updated == _updated_result
+
+
+@pytest.mark.dask_client
+@pytest.mark.parametrize("the_fileset", [{}, FilesetSpec({})])
+def test_preprocess_empty(the_fileset):
+    with Client() as _:
+        dataset_runnable, dataset_updated = preprocess(
+            the_fileset,
+            step_size=7,
+            align_clusters=False,
+            files_per_batch=10,
+            skip_bad_files=True,
+        )
+    if isinstance(the_fileset, FilesetSpec):
+        assert isinstance(dataset_runnable, FilesetSpec)
+        assert isinstance(dataset_updated, FilesetSpec)
+    else:
+        assert dataset_runnable == {}
+        assert dataset_updated == {}
+
+
+@pytest.mark.dask_client
+def test_preprocess_filesetspec_mixed():
+    fileset = FilesetSpec(_starting_fileset)
+    # Create a mixed filesetspec
+    fileset["Data"] = fileset["Data"].model_dump()
+
+    with Client() as _:
+        dataset_runnable, dataset_updated = preprocess(
+            fileset,
+            step_size=7,
+            align_clusters=False,
+            files_per_batch=10,
+            skip_bad_files=True,
+        )
+    assert len(dataset_runnable) == 2
+    assert isinstance(dataset_runnable["Data"], DatasetSpec)
 
 
 @pytest.mark.dask_client
