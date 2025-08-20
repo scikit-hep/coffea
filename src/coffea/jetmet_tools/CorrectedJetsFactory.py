@@ -469,7 +469,7 @@ class CorrectedJetsFactory:
                     {"up": up, "down": down}, depth_limit=1, with_name="JetSystematic"
                 )
 
-            template = dask_awkward.zip(in_dict)
+            template = dask_awkward.zip(in_dict, depth_limit=1)
             for name, func in juncs:
                 out_dict[f"jet_energy_uncertainty_{name}"] = func
                 out_dict[f"JES_{name}"] = dask_awkward.map_partitions(
