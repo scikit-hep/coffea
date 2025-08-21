@@ -65,12 +65,15 @@ class FileMeta:
         return f"FileMeta({self.filename}:{self.treename})"
 
     def __hash__(self):
-        # As used to lookup metadata, no need for dataset
-        return _hash((self.filename, self.treename))
+        return _hash((self.dataset, self.filename, self.treename))
 
     def __eq__(self, other):
         # In case of hash collisions
-        return self.filename == other.filename and self.treename == other.treename
+        return (
+            self.dataset == other.dataset
+            and self.filename == other.filename
+            and self.treename == other.treename
+        )
 
     def maybe_populate(self, cache):
         if cache and self in cache:
