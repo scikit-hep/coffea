@@ -62,7 +62,7 @@ class FileMeta:
         self.metadata = metadata
 
     def __str__(self):
-        return f"FileMeta({self.filename}:{self.treename})"
+        return f"FileMeta({self.dataset}:{self.filename}:{self.treename})"
 
     def __hash__(self):
         return _hash((self.dataset, self.filename, self.treename))
