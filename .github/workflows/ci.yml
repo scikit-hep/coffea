@@ -26,7 +26,7 @@ jobs:
     name: pre-commit
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - uses: actions/setup-python@v5
       with:
         python-version: "3.13"
@@ -48,7 +48,7 @@ jobs:
     name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}, JDK${{ matrix.java-version }}, ${{ matrix.dask-client }} dask
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
@@ -152,7 +152,7 @@ jobs:
         python-version: ["3.13"]
     name: test coffea-taskvine
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Conda
       uses: conda-incubator/setup-miniconda@v3
       env:
@@ -212,7 +212,7 @@ jobs:
     name: deploy release
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
