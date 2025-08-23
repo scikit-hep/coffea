@@ -446,7 +446,6 @@ class NanoEventsFactory:
     def from_parquet(
         cls,
         file,
-        treepath=uproot._util.unset,
         entry_start=None,
         entry_stop=None,
         runtime_cache=None,
@@ -463,9 +462,7 @@ class NanoEventsFactory:
         Parameters
         ----------
             file : str, pathlib.Path, pyarrow.NativeFile, or python file-like
-                The filename or already opened file using e.g. ``uproot.open()``
-            treepath : str, optional
-                Name of the tree to read in the file
+                The filename or already opened file using e.g. ``pyarrow.NativeFile()``.
             entry_start : int, optional
                 Start at this entry offset in the tree (default 0)
             entry_stop : int, optional
@@ -520,20 +517,27 @@ class NanoEventsFactory:
                 metadata=metadata,
                 version="latest",
             )
-
-            if isinstance(file, ftypes + (str,)):
+            if isinstance(file, ftypes + (str,)) or (
+                isinstance(file, list)
+                and all(isinstance(f, ftypes + (str,)) for f in file)
+            ):
                 opener = partial(
                     dask_awkward.from_parquet,
                     file,
                 )
             else:
-                raise TypeError("Invalid file type (%s)" % (str(type(file))))
+                raise TypeError(
+                    f"Invalid file type ({str(type(file))}) for file {file}"
+                )
+            # Form should be applied appropriately, but this requires a hook into dask-awkward or new schema-builder
+            raise NotImplementedError(
+                "Dask-awkward does not yet support lazy loading of parquet files with a schema"
+            )
             return cls(map_schema, opener, None, cache=None, mode="dask")
         elif mode == "dask" and not schemaclass.__dask_capable__:
             warnings.warn(
                 f"{schemaclass} is not dask capable despite allowing dask, generating non-dask nanoevents"
             )
-
         if isinstance(file, ftypes):
             table_file = pyarrow.parquet.ParquetFile(file, **parquet_options)
         elif isinstance(file, str):

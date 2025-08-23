@@ -204,11 +204,35 @@ class ParquetSourceMapping(BaseSourceMapping):
         key = self.key_root() + tuple_to_key((uuid, path_in_source))
         self._cache[key] = source
 
-    def get_column_handle(self, columnsource, name):
+    def get_column_handle(self, columnsource, name, allow_missing):
+        if allow_missing:
+            return (
+                ParquetSourceMapping.UprootLikeShim(columnsource, name)
+                if name in columnsource.file.schema_arrow.names
+                else None
+            )
         return ParquetSourceMapping.UprootLikeShim(columnsource, name)
 
-    def extract_column(self, columnhandle, start, stop, **kwargs):
-        return columnhandle.array(entry_start=start, entry_stop=stop)
+    def extract_column(self, columnhandle, start, stop, allow_missing, **kwargs):
+        if allow_missing and columnhandle is None:
+            return awkward.contents.IndexedOptionArray(
+                awkward.index.Index64(numpy.full(stop - start, -1, dtype=numpy.int64)),
+                awkward.contents.NumpyArray(numpy.array([], dtype=bool)),
+            )
+        elif not allow_missing and columnhandle is None:
+            raise RuntimeError(
+                "Received columnhandle of None when missing column in file is not allowed!"
+            )
+
+        the_array = columnhandle.array(entry_start=start, entry_stop=stop)
+
+        if allow_missing:
+            the_array = awkward.contents.IndexedOptionArray(
+                awkward.index.Index64(numpy.arange(stop - start, dtype=numpy.int64)),
+                awkward.contents.NumpyArray(the_array),
+            )
+
+        return the_array
 
     def __len__(self):
         return self._stop - self._start
