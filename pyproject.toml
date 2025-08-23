@@ -58,6 +58,8 @@ dependencies = [
   "mplhep>=0.1.18",
   "packaging",
   "pandas",
+  "pydantic",
+  "eval_type_backport; python_version < '3.10'", #TODO: remove after python 3.9 EOL (filespec.py type Unions)
   "hist>=2",
   "cachetools",
   "requests",
