@@ -624,17 +624,30 @@ class NminusOneToNpz:
             and excludes them otherwise.
     """
 
-    def __init__(self, file, labels, nev, masks, saver):
-        self._file = file
-        self._labels = labels
-        self._nev = nev
-        self._masks = masks
-        self._saver = saver
+    def __init__(
+        self,
+        file,
+        labels,
+        nev,
+        masks,
+        saver,
         commonmask=None,
         wgtev=None,
         weights=None,
         weightsmodifier=None,
         includeweights=None,
+    ):
+        self._file = file
+        self._labels = labels
+        self._nev = nev
+        self._masks = masks
+        self._saver = saver
+        self._commonmask = commonmask
+        self._wgtev = wgtev
+        self._weights = weights if includeweights is not False else None
+        self._weightsmodifier = weightsmodifier
+        self._commonmasked = self.commonmask is not None
+        self._weighted = self._wgtev is not None
 
     def __repr__(self):
         return f"NminusOneToNpz(file={self._file}), labels={self._labels}, commonmasked={self._commonmasked}, weighted={self._weighted}, weightsmodifier={self._weightsmodifier})"
@@ -856,11 +869,17 @@ class CutflowToNpz:
 class NminusOne:
     """Object to be returned by PackedSelection.nminusone()"""
 
-    def __init__(self, names, nev, masks, delayed_mode,
+    def __init__(
+        self,
+        names,
+        nev,
+        masks,
+        delayed_mode,
         commonmask=None,
         wgtev=None,
         weights=None,
-        weightsmodifier=None,):
+        weightsmodifier=None,
+    ):
         self._names = names
         self._nev = nev
         self._masks = masks
@@ -875,7 +894,7 @@ class NminusOne:
     def __repr__(self):
         return f"NminusOne(selections={self._names}, commonmasked={self._commonmasked}, weighted={self._weighted}, weightsmodifier={self._weightsmodifier})"
 
-    def result(self):
+    def result(self, includeweights=None):
         """Returns the results of the N-1 selection as a namedtuple
 
         Parameters
@@ -1037,7 +1056,7 @@ class NminusOne:
             header += " (weighted)"
         if do_scaled:
             header += f" (scaled by {scale})"
-            xevonecut = [x * scale for x in xev]
+            xev = [x * scale for x in xev]
         for i, name in enumerate(self._names):
             stats = (
                 f"Ignoring {name:<20}"
@@ -1131,9 +1150,7 @@ class NminusOne:
                 )
                 if do_scaled:
                     weight = weight * scale
-                h.fill(
-                    dask_awkward.full_like(weight, i, dtype=int), weight=weight
-                )
+                h.fill(dask_awkward.full_like(weight, i, dtype=int), weight=weight)
             weight = (
                 self._weights.weight(self._weightsmodifier)
                 if do_weighted
@@ -1320,7 +1337,10 @@ class NminusOne:
             )
 
         for (name, var), axis in zip(vars.items(), axes):
-            constructor_args = [axis, hist.axis.Integer(0, len(labels), name="nminusone")]
+            constructor_args = [
+                axis,
+                hist.axis.Integer(0, len(labels), name="nminusone"),
+            ]
             fill_args = {name: var}
             if do_categorical:
                 constructor_args.append(catax)
