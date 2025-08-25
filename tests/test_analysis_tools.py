@@ -574,7 +574,7 @@ def test_packed_selection_nminusone():
 
     assert hlabels == ["initial", "N - twoElectron", "N - noMuon", "N - leadPt20", "N"]
 
-    assert np.all(h.axes["N-1"].edges == np.arange(0, 6))
+    assert np.all(h.axes["nminusone"].edges == np.arange(0, 6))
 
     assert np.all(h.counts() == nev)
 
@@ -1235,7 +1235,7 @@ def test_packed_selection_nminusone_dak(optimization_enabled):
             "N",
         ]
 
-        assert np.all(h.axes["N-1"].edges == np.arange(0, 6))
+        assert np.all(h.axes["nminusone"].edges == np.arange(0, 6))
 
         assert np.all(h.counts() == list(dask.compute(*nev)))
 
@@ -1939,7 +1939,7 @@ def test_packed_selection_nminusone_dak_uproot_only(optimization_enabled):
             "N",
         ]
 
-        assert np.all(h.axes["N-1"].edges == np.arange(0, 6))
+        assert np.all(h.axes["nminusone"].edges == np.arange(0, 6))
 
         assert np.all(h.counts() == list(dask.compute(*nev)))
 
