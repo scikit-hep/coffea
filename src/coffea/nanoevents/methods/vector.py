@@ -619,36 +619,65 @@ TwoVectorArray.ProjectionClass2D = TwoVectorArray  # noqa: F821
 TwoVectorArray.ProjectionClass3D = ThreeVectorArray  # noqa: F821
 TwoVectorArray.ProjectionClass4D = LorentzVectorArray  # noqa: F821
 TwoVectorArray.MomentumClass = PolarTwoVectorArray  # noqa: F821
+TwoVectorRecord.ProjectionClass2D = TwoVectorRecord  # noqa: F821
+TwoVectorRecord.ProjectionClass3D = ThreeVectorRecord  # noqa: F821
+TwoVectorRecord.ProjectionClass4D = LorentzVectorRecord  # noqa: F821
+TwoVectorRecord.MomentumClass = PolarTwoVectorRecord  # noqa: F821
 
 PolarTwoVectorArray.ProjectionClass2D = PolarTwoVectorArray  # noqa: F821
 PolarTwoVectorArray.ProjectionClass3D = SphericalThreeVectorArray  # noqa: F821
 PolarTwoVectorArray.ProjectionClass4D = LorentzVectorArray  # noqa: F821
 PolarTwoVectorArray.MomentumClass = PolarTwoVectorArray  # noqa: F821
+PolarTwoVectorRecord.ProjectionClass2D = PolarTwoVectorRecord  # noqa: F821
+PolarTwoVectorRecord.ProjectionClass3D = SphericalThreeVectorRecord  # noqa: F821
+PolarTwoVectorRecord.ProjectionClass4D = LorentzVectorRecord  # noqa: F821
+PolarTwoVectorRecord.MomentumClass = PolarTwoVectorRecord  # noqa: F821
 
 ThreeVectorArray.ProjectionClass2D = TwoVectorArray  # noqa: F821
 ThreeVectorArray.ProjectionClass3D = ThreeVectorArray  # noqa: F821
 ThreeVectorArray.ProjectionClass4D = LorentzVectorArray  # noqa: F821
 ThreeVectorArray.MomentumClass = SphericalThreeVectorArray  # noqa: F821
+ThreeVectorRecord.ProjectionClass2D = TwoVectorRecord  # noqa: F821
+ThreeVectorRecord.ProjectionClass3D = ThreeVectorRecord  # noqa: F821
+ThreeVectorRecord.ProjectionClass4D = LorentzVectorRecord  # noqa: F821
+ThreeVectorRecord.MomentumClass = SphericalThreeVectorRecord  # noqa: F821
 
 SphericalThreeVectorArray.ProjectionClass2D = PolarTwoVectorArray  # noqa: F821
 SphericalThreeVectorArray.ProjectionClass3D = SphericalThreeVectorArray  # noqa: F821
 SphericalThreeVectorArray.ProjectionClass4D = LorentzVectorArray  # noqa: F821
 SphericalThreeVectorArray.MomentumClass = SphericalThreeVectorArray  # noqa: F821
+SphericalThreeVectorRecord.ProjectionClass2D = PolarTwoVectorRecord  # noqa: F821
+SphericalThreeVectorRecord.ProjectionClass3D = SphericalThreeVectorRecord  # noqa: F821
+SphericalThreeVectorRecord.ProjectionClass4D = LorentzVectorRecord  # noqa: F821
+SphericalThreeVectorRecord.MomentumClass = SphericalThreeVectorRecord  # noqa: F821
 
 LorentzVectorArray.ProjectionClass2D = TwoVectorArray  # noqa: F821
 LorentzVectorArray.ProjectionClass3D = ThreeVectorArray  # noqa: F821
 LorentzVectorArray.ProjectionClass4D = LorentzVectorArray  # noqa: F821
 LorentzVectorArray.MomentumClass = LorentzVectorArray  # noqa: F821
+LorentzVectorRecord.ProjectionClass2D = TwoVectorRecord  # noqa: F821
+LorentzVectorRecord.ProjectionClass3D = ThreeVectorRecord  # noqa: F821
+LorentzVectorRecord.ProjectionClass4D = LorentzVectorRecord  # noqa: F821
+LorentzVectorRecord.MomentumClass = LorentzVectorRecord  # noqa: F821
 
 PtEtaPhiMLorentzVectorArray.ProjectionClass2D = TwoVectorArray  # noqa: F821
 PtEtaPhiMLorentzVectorArray.ProjectionClass3D = ThreeVectorArray  # noqa: F821
 PtEtaPhiMLorentzVectorArray.ProjectionClass4D = LorentzVectorArray  # noqa: F821
 PtEtaPhiMLorentzVectorArray.MomentumClass = LorentzVectorArray  # noqa: F821
+PtEtaPhiMLorentzVectorRecord.ProjectionClass2D = TwoVectorRecord  # noqa: F821
+PtEtaPhiMLorentzVectorRecord.ProjectionClass3D = ThreeVectorRecord  # noqa: F821
+PtEtaPhiMLorentzVectorRecord.ProjectionClass4D = LorentzVectorRecord  # noqa: F821
+PtEtaPhiMLorentzVectorRecord.MomentumClass = LorentzVectorRecord  # noqa: F821
 
 PtEtaPhiELorentzVectorArray.ProjectionClass2D = TwoVectorArray  # noqa: F821
 PtEtaPhiELorentzVectorArray.ProjectionClass3D = ThreeVectorArray  # noqa: F821
 PtEtaPhiELorentzVectorArray.ProjectionClass4D = LorentzVectorArray  # noqa: F821
 PtEtaPhiELorentzVectorArray.MomentumClass = LorentzVectorArray  # noqa: F821
+PtEtaPhiELorentzVectorRecord.ProjectionClass2D = TwoVectorRecord  # noqa: F821
+PtEtaPhiELorentzVectorRecord.ProjectionClass3D = ThreeVectorRecord  # noqa: F821
+PtEtaPhiELorentzVectorRecord.ProjectionClass4D = LorentzVectorRecord  # noqa: F821
+PtEtaPhiELorentzVectorRecord.MomentumClass = LorentzVectorRecord  # noqa: F821
+
 
 __all__ = [
     "TwoVector",
