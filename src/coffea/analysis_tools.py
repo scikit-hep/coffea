@@ -1086,6 +1086,7 @@ class Cutflow:
                 A namedtuple with the CutflowResult properties and additionally the following:
 
                 commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array object, or None if no common mask was provided
+                    The eventwise mask for the for the cutflow.
                 wgtevonecut : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
                     The weighted number of events that survive each cut alone as a list of floats or delayed floats
                 wgtevcutflow : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
@@ -1294,6 +1295,7 @@ class Cutflow:
                         The array to be filled in the categorical axis, must be the same length as the masks
                     labels : list
                         The labels corresponding to the values in the categorical axis
+
                 Default is None, which does not apply any categorical axis.
 
         Returns
