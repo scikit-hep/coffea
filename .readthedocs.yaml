@@ -14,8 +14,8 @@ build:
     - graphviz
   jobs:
     post_checkout:
-      - 'sed s/docs\\\/source\\\/// -i.bak README.md'
-      - diff README.md.bak README.md || true
+      - 'sed s/docs\\\/source\\\/// -i.bak README.rst'
+      - diff README.rst.bak README.rst || true
     post_install:
       - echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
       - PIP_CONSTRAINT="$(pwd)/ruciospark_constraints.txt" python -m pip install '.[dev]' rucio-clients
