@@ -263,7 +263,7 @@ class FilesetSpec(RootModel[dict[str, DatasetSpec]], DictMethodsMixin):
 
 def identify_file_format(name_or_directory: str) -> str:
     root_expression = re.compile(r"\.root")
-    parquet_expression = re.compile(r"\.parq(?:uet)?$")
+    parquet_expression = re.compile(r"\.(?:parq(?:uet)?|pq)")
     if root_expression.search(name_or_directory):
         return "root"
     elif parquet_expression.search(name_or_directory):

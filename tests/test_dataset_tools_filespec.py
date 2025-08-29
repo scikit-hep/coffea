@@ -60,8 +60,13 @@ _starting_fileset = {
 def test_identify_format():
     """Test identify_format method"""
     assert identify_file_format("file.root") == "root"
+    assert identify_file_format("file.root.0") == "root"
+    assert identify_file_format("root:file.root.strange") == "root"
     assert identify_file_format("file.parquet") == "parquet"
     assert identify_file_format("file.parq") == "parquet"
+    assert identify_file_format("root://file.parq") == "parquet"
+    assert identify_file_format("file.pq") == "parquet"
+    assert identify_file_format("file.parq.part00") == "parquet"
     assert identify_file_format("directory") == "parquet"
 
     with pytest.raises(RuntimeError):
