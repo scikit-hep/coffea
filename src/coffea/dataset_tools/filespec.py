@@ -198,10 +198,8 @@ class DatasetSpec(BaseModel):
             )
         return data
 
-    @model_validator(mode="after")
-    def check_form(self) -> Self:
-        """Check the form can be decompressed, validate the format if manually specified, and then ."""
-        # check_form
+    def check_form(self) -> bool | None:
+        """Check the form can be decompressed into an awkward form, if present"""
         if self.form is not None:
             # If there's a form, validate we can decompress it into an awkward form
             try:
@@ -210,13 +208,15 @@ class DatasetSpec(BaseModel):
                 from coffea.util import decompress_form
 
                 _ = awkward.forms.from_json(decompress_form(self.form))
-            except Exception as e:
-                raise ValueError(
-                    "form: was not able to decompress_form into an awkward form"
-                ) from e
+                return True
+            except Exception:
+                return False
+        else:
+            return None
 
+    def set_check_format(self) -> bool:
+        """Set and/or alidate the format if manually specified"""
         if self.format is None:
-
             # set the format if not already set
             union = set()
             formats_by_name = {k: v.format for k, v in self.files.items()}
@@ -225,10 +225,22 @@ class DatasetSpec(BaseModel):
                 self.format = union.pop()
             else:
                 self.format = "|".join(union)
-        else:
-            # validate the format, if present
-            if not IOFactory.valid_format(self.format):
-                raise ValueError(f"format: format must be one of {IOFactory._formats}")
+
+        # validate the format, if present
+        if not IOFactory.valid_format(self.format):
+            return False
+        return True
+
+    @model_validator(mode="after")
+    def post_validate(self) -> Self:
+        # check_form
+        if self.check_form() is False:  # None indicates no form to check
+            raise ValueError(
+                "form: was not able to decompress_form into an awkward form"
+            )
+        # set (if necessary) and check the format
+        if not self.set_check_format():
+            raise ValueError(f"format: format must be one of {IOFactory._formats}")
 
         return self
 
@@ -236,17 +248,8 @@ class DatasetSpec(BaseModel):
     # @property
     def joinable(self) -> bool:
         """Identify DatasetSpec criteria to be pre-joined for typetracing (necessary) and column-joining (sufficient)"""
-        if not IOFactory.valid_format(self.format):
-            return False
-        try:
-            import awkward
-
-            from coffea.util import decompress_form
-
-            _ = awkward.forms.from_json(decompress_form(self.form))
+        if self.check_form() and self.set_check_format():
             return True
-        except Exception:
-            return False
 
 
 class FilesetSpec(RootModel[dict[str, DatasetSpec]], DictMethodsMixin):
@@ -286,10 +289,12 @@ class IOFactory:
     @classmethod
     def valid_format(cls, format: str | DatasetSpec) -> bool:
         if isinstance(format, DatasetSpec):
-            return format.format in cls._formats or all(
-                fmt in cls._formats for fmt in format.format.split("|")
-            )
-        return format in cls._formats
+            test_format = format.format
+        else:
+            test_format = format
+        return test_format in cls._formats or all(
+            fmt in cls._formats for fmt in test_format.split("|")
+        )
 
     @classmethod
     def attempt_promotion(
