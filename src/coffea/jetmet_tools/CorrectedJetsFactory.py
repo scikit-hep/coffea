@@ -141,8 +141,8 @@ class CorrectedJetsFactory:
     Parameters
     ----------
         name_map: dict[str,str]
-            Keys are argument names in the various corrections' signatures (eg: the `signature`
-            attribute of a `FactorizedJJetCorrector` object). Values are the names of the
+            Keys are argument names in the various corrections' signatures (eg: the ``signature``
+            attribute of a ``FactorizedJetCorrector`` object). Values are the names of the
             corresponding fields as they would appear in the jet array passed to the `build`
             method.
         jec_stack: JECStack
@@ -220,7 +220,7 @@ class CorrectedJetsFactory:
         Returns
         -------
             Awkward array of jets, representing the corrected jets, with shape matching
-            `injets`.
+            ``injets``.
         """
         if not isinstance(injets, (awkward.highlevel.Array, dask_awkward.Array)):
             raise Exception("input jets must be an (dask_)awkward array of some kind!")

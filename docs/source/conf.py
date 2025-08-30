@@ -36,13 +36,14 @@ language = "en"
 
 # -- General configuration ---------------------------------------------------
 
-source_suffix = ".rst"
+source_suffix = [".rst", ".md"]
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "nbsphinx",
+    "myst_nb",
+    # "nbsphinx",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.graphviz",
@@ -63,6 +64,7 @@ copybutton_here_doc_delimiter = "EOF"
 numpydoc_show_class_members = False
 nbsphinx_execute = "never"
 autosummary_generate = True
+autosummary_imported_members = True
 
 
 def linkcode_resolve(domain, info):
@@ -115,11 +117,22 @@ default_role = "any"
 # a list of builtin themes.
 #
 pygments_style = "sphinx"
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
 todo_include_todos = False
 htmlhelp_basename = "coffeadoc"
 html_logo = "logo/coffea_favicon.png"
 html_favicon = "logo/coffea_favicon.png"
+
+# -- MyST configuration -------------------------------------------------
+myst_enable_extensions = ["colon_fence", "deflist"]
+myst_heading_anchors = 3
+
+# exclude for now
+nb_execution_excludepatterns = ["notebooks/*"]
+
+nb_execution_mode = "cache"
+nb_execution_raise_on_error = True
+nb_execution_show_tb = True
 
 
 # Add any paths that contain custom static files (such as style sheets) here,
