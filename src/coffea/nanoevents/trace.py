@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from functools import partial
 from typing import Callable
 
@@ -84,7 +85,7 @@ def trace(
         Default is 'typetracer'.
     throw : bool, optional
         If True, exceptions during function execution will be raised; otherwise, they will be caught and
-        printed. Default is True.
+        a warning will be issued. Default is True.
 
     Returns
     -------
@@ -116,7 +117,7 @@ def trace(
         if throw:
             raise e
         else:
-            print(f"Exception during function tracing: {e}")
+            warnings.warn(f"Exception during function tracing: {e}")
 
     touched = report.data_touched if mode == "typetracer" else report
     # translate the touched buffer keys to branch names
