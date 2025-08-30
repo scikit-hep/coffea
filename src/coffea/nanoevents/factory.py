@@ -267,6 +267,7 @@ class NanoEventsFactory:
         decompression_executor=None,
         interpretation_executor=None,
         delayed=uproot._util.unset,
+        preload=None,
     ):
         """Quickly build NanoEvents from a root file
 
@@ -310,6 +311,9 @@ class NanoEventsFactory:
                 see: https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L109
             interpretation_executor (None or Executor with a ``submit`` method):
                 see: https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L113
+            preload (None or Callable):
+                A function to call to preload specific branches/columns in bulk. Only works in eager and virtual mode.
+                Passed to ``tree.arrays`` as the ``filter_branch`` argument to filter branches to be preloaded.
 
         Returns
         -------
@@ -415,6 +419,24 @@ class NanoEventsFactory:
             f"{entry_start}-{entry_stop}",
         )
         uuidpfn = {partition_key[0]: tree.file.file_path}
+
+        preloaded_arrays = None
+        if preload is not None:
+            preloaded_arrays = tree.arrays(
+                filter_branch=preload,
+                entry_start=entry_start,
+                entry_stop=entry_stop,
+                ak_add_doc=True,
+                decompression_executor=decompression_executor,
+                interpretation_executor=interpretation_executor,
+                how=dict,
+            )
+            # this ensures that the preloaded arrays are only sliced as they are supposed to be
+            preloaded_arrays = {
+                k: _OnlySliceableAs(v, slice(entry_start, entry_stop))
+                for k, v in preloaded_arrays.items()
+            }
+
         mapping = UprootSourceMapping(
             TrivialUprootOpener(uuidpfn, uproot_options),
             entry_start,
@@ -423,6 +445,7 @@ class NanoEventsFactory:
             access_log=access_log,
             use_ak_forth=use_ak_forth,
             virtual=mode == "virtual",
+            preloaded_arrays=preloaded_arrays,
         )
         mapping.preload_column_source(partition_key[0], partition_key[1], tree)
 

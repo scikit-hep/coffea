@@ -122,6 +122,7 @@ class UprootSourceMapping(BaseSourceMapping):
         virtual=False,
         decompression_executor=None,
         interpretation_executor=None,
+        preloaded_arrays=None,
     ):
         super().__init__(
             fileopener=fileopener,
@@ -138,6 +139,7 @@ class UprootSourceMapping(BaseSourceMapping):
         self.interpretation_executor = (
             interpretation_executor or uproot.source.futures.TrivialExecutor()
         )
+        self.preloaded_arrays = preloaded_arrays
 
     @classmethod
     def _extract_base_form(cls, tree, iteritems_options={}):
@@ -211,16 +213,22 @@ class UprootSourceMapping(BaseSourceMapping):
                 "Received columnhandle of None when missing column in file is not allowed!"
             )
 
-        interp = columnhandle.interpretation
-        interp._forth = use_ak_forth
+        if (
+            self.preloaded_arrays is not None
+            and columnhandle.name in self.preloaded_arrays
+        ):
+            the_array = self.preloaded_arrays[columnhandle.name][start:stop]
+        else:
+            interp = columnhandle.interpretation
+            interp._forth = use_ak_forth
 
-        the_array = columnhandle.array(
-            interp,
-            entry_start=start,
-            entry_stop=stop,
-            decompression_executor=self.decompression_executor,
-            interpretation_executor=self.interpretation_executor,
-        )
+            the_array = columnhandle.array(
+                interp,
+                entry_start=start,
+                entry_stop=stop,
+                decompression_executor=self.decompression_executor,
+                interpretation_executor=self.interpretation_executor,
+            )
         if isinstance(the_array.layout, awkward.contents.ListOffsetArray):
             the_array = awkward.Array(the_array.layout.to_ListOffsetArray64(True))
 
