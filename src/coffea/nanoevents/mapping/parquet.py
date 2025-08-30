@@ -72,11 +72,11 @@ def arrow_schema_to_awkward_form(schema):
     import pyarrow as pa
     from awkward._connect.pyarrow import to_awkwardarrow_storage_types
 
-    final_schema = to_awkwardarrow_storage_types(schema)[1]
+    schema = to_awkwardarrow_storage_types(schema)[1]
 
-    if isinstance(final_schema, (pa.lib.ListType, pa.lib.LargeListType)):
-        final_value_type = to_awkwardarrow_storage_types(final_schema.value_type)[1]
-        dtype = final_value_type.to_pandas_dtype()()
+    if isinstance(schema, (pa.lib.ListType, pa.lib.LargeListType)):
+        value_type = to_awkwardarrow_storage_types(schema.value_type)[1]
+        dtype = value_type.to_pandas_dtype()()
         return awkward.forms.ListOffsetForm(
             offsets="i64",
             content=awkward.forms.NumpyForm(
@@ -84,8 +84,8 @@ def arrow_schema_to_awkward_form(schema):
                 primitive=dtype.dtype.name,
             ),
         )
-    elif isinstance(final_schema, pa.lib.DataType):
-        dtype = final_schema.to_pandas_dtype()()
+    elif isinstance(schema, pa.lib.DataType):
+        dtype = schema.to_pandas_dtype()()
         return awkward.forms.NumpyForm(
             inner_shape=[],
             primitive=dtype.dtype.name,
