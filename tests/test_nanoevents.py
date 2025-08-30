@@ -65,6 +65,7 @@ def crossref(events):
 suffixes = [
     "root",
     "parquet",
+    "extensionarray.parquet",
 ]
 
 
@@ -73,7 +74,9 @@ def test_read_nanomc(tests_directory, suffix):
     path = f"{tests_directory}/samples/nano_dy.{suffix}"
     # parquet files were converted from even older nanoaod
     nanoversion = NanoAODSchema
-    factory = getattr(NanoEventsFactory, f"from_{suffix}")(
+    factory = getattr(
+        NanoEventsFactory, f"from_{suffix.removeprefix('extensionarray.')}"
+    )(
         {path: "Events"} if suffix == "root" else path,
         schemaclass=nanoversion,
         mode="eager",
@@ -103,30 +106,17 @@ def test_read_nanomc(tests_directory, suffix):
     # test issue 409
     assert ak.to_list(events[[]].Photon.mass) == []
 
-    if suffix == "root":
-        assert ak.any(events.Photon.isTight, axis=1).tolist()[:9] == [
-            False,
-            True,
-            True,
-            True,
-            False,
-            False,
-            False,
-            False,
-            False,
-        ]
-    if suffix == "parquet":
-        assert ak.any(events.Photon.isTight, axis=1).tolist()[:9] == [
-            False,
-            True,
-            True,
-            True,
-            False,
-            False,
-            False,
-            False,
-            False,
-        ]
+    assert ak.any(events.Photon.isTight, axis=1).tolist()[:9] == [
+        False,
+        True,
+        True,
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+    ]
 
 
 @pytest.mark.parametrize("suffix", suffixes)
@@ -135,7 +125,9 @@ def test_read_from_uri(tests_directory, suffix):
     path = Path(f"{tests_directory}/samples/nano_dy.{suffix}").as_uri()
 
     nanoversion = NanoAODSchema
-    factory = getattr(NanoEventsFactory, f"from_{suffix}")(
+    factory = getattr(
+        NanoEventsFactory, f"from_{suffix.removeprefix('extensionarray.')}"
+    )(
         {path: "Events"} if suffix == "root" else path,
         schemaclass=nanoversion,
         mode="eager",
@@ -150,7 +142,9 @@ def test_read_nanodata(tests_directory, suffix):
     path = f"{tests_directory}/samples/nano_dimuon.{suffix}"
     # parquet files were converted from even older nanoaod
     nanoversion = NanoAODSchema
-    factory = getattr(NanoEventsFactory, f"from_{suffix}")(
+    factory = getattr(
+        NanoEventsFactory, f"from_{suffix.removeprefix('extensionarray.')}"
+    )(
         {path: "Events"} if suffix == "root" else path,
         schemaclass=nanoversion,
         mode="eager",

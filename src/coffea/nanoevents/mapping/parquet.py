@@ -70,9 +70,21 @@ class TrivialParquetOpener(UUIDOpener):
 
 def arrow_schema_to_awkward_form(schema):
     import pyarrow as pa
+    from awkward._connect.pyarrow import to_awkwardarrow_storage_types
 
-    if isinstance(schema, (pa.lib.ListType, pa.lib.LargeListType)):
-        dtype = schema.value_type.to_pandas_dtype()()
+    def get_final_type(arrowtype):
+        current_type = arrowtype
+        while True:
+            awkward_type, storage_type = to_awkwardarrow_storage_types(current_type)
+            if awkward_type is None:
+                return current_type
+            current_type = storage_type
+
+    final_schema = get_final_type(schema)
+
+    if isinstance(final_schema, (pa.lib.ListType, pa.lib.LargeListType)):
+        final_value_type = get_final_type(final_schema.value_type)
+        dtype = final_value_type.to_pandas_dtype()()
         return awkward.forms.ListOffsetForm(
             offsets="i64",
             content=awkward.forms.NumpyForm(
@@ -80,8 +92,8 @@ def arrow_schema_to_awkward_form(schema):
                 primitive=dtype.dtype.name,
             ),
         )
-    elif isinstance(schema, pa.lib.DataType):
-        dtype = schema.to_pandas_dtype()()
+    elif isinstance(final_schema, pa.lib.DataType):
+        dtype = final_schema.to_pandas_dtype()()
         return awkward.forms.NumpyForm(
             inner_shape=[],
             primitive=dtype.dtype.name,
@@ -103,6 +115,9 @@ class ParquetSourceMapping(BaseSourceMapping):
             import pyarrow as pa
 
             aspa = self.source.read(self.column)[entry_start:entry_stop][0].chunk(0)
+            if isinstance(aspa, awkward._connect.pyarrow.AwkwardArrowArray):
+                aspa = aspa.storage
+
             out = None
             if isinstance(aspa, (pa.lib.ListArray, pa.lib.LargeListArray)):
                 value_type = aspa.type.value_type
