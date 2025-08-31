@@ -9,7 +9,9 @@ import awkward as ak
 from coffea.nanoevents.util import unquote
 
 
-def _make_typetracer(events):
+def _make_typetracer(
+    events: ak.Array,
+) -> tuple[ak.Array, ak._nplikes.typetracer.TypeTracerReport]:
     tracer, report = ak.typetracer.typetracer_with_report(
         form=events.attrs["@form"],
         buffer_key=events.attrs["@buffer_key"],
@@ -22,7 +24,9 @@ def _make_typetracer(events):
     return tracer, report
 
 
-def _make_length_zero_one_tracer(events, length):
+def _make_length_zero_one_tracer(
+    events: ak.Array, length: int
+) -> tuple[ak.Array, list]:
     form = ak.forms.from_dict(events.attrs["@form"])
     buffer_key = events.attrs["@buffer_key"]
     buffer_keys = form.expected_from_buffers(buffer_key=buffer_key).keys()
@@ -81,7 +85,7 @@ def trace(
     mode : str, optional
         Can be 'typetracer', 'length_zero_array', or 'length_one_array'.
         The tracing mode to use. 'typetracer' uses Awkward's typetracer, while 'length_zero_array' and
-        'length_one_array' create arrays of length-zero or length-one, respectively, to trace actual data access.
+        'length_one_array' create length-zero and length-one arrays respectively, to trace actual data access.
         Default is 'typetracer'.
     throw : bool, optional
         If True, exceptions during function execution will be raised; otherwise, they will be caught and
