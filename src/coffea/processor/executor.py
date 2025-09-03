@@ -163,7 +163,7 @@ def _compress(item, compression):
     else:
         with BytesIO() as bf:
             with lz4f.open(bf, mode="wb", compression_level=compression) as f:
-                pickle.dump(item, f, protocol=_PICKLE_PROTOCOL)
+                cloudpickle.dump(item, f, protocol=_PICKLE_PROTOCOL)
             result = bf.getvalue()
         return result
 
@@ -174,7 +174,7 @@ def _decompress(item):
         # make a copy of it, increasing the memory usage.
         with BytesIO(item) as bf:
             with lz4f.open(bf, mode="rb") as f:
-                return pickle.load(f)
+                return cloudpickle.load(f)
     else:
         return item
 
