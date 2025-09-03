@@ -226,6 +226,7 @@ def trace(fun: Callable, events: ak.Array) -> frozenset[str]:
 
     try:
         touched |= trace_with_typetracer(fun, events)
+        return frozenset(touched)
     except Exception as e1:
         warnings.warn(
             f"Exception during typetracer tracing: {e1}",
@@ -234,6 +235,7 @@ def trace(fun: Callable, events: ak.Array) -> frozenset[str]:
         )
     try:
         touched |= trace_with_length_zero_array(fun, events)
+        return frozenset(touched)
     except Exception as e2:
         warnings.warn(
             f"Exception during length-zero array tracing: {e2}",
@@ -242,6 +244,7 @@ def trace(fun: Callable, events: ak.Array) -> frozenset[str]:
         )
     try:
         touched |= trace_with_length_one_array(fun, events)
+        return frozenset(touched)
     except Exception as e3:
         warnings.warn(
             f"Exception during length-one array tracing: {e3}",
