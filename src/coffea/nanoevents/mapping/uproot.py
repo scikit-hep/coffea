@@ -150,6 +150,11 @@ class UprootSourceMapping(BaseSourceMapping):
                     f"Found duplicate branch {key} in {tree}, taking first instance"
                 )
                 continue
+            if isinstance(branch, uproot.behaviors.RNTuple.HasFields):
+                form = branch.to_akform()
+                form = json.loads(form.to_json())
+                branch_forms[key] = form
+                continue
             if "," in key or "!" in key:
                 warnings.warn(
                     f"Skipping {key} because it contains characters that NanoEvents cannot accept [,!]"
