@@ -6,7 +6,6 @@ import dask_awkward
 import numpy
 
 from coffea.lookup_tools.jme_standard_function import jme_standard_function
-from coffea.util import maybe_map_partitions
 
 
 def _checkConsistency(against, tocheck):
@@ -180,7 +179,7 @@ class FactorizedJetCorrector:
                 behavior=zl_out.behavior,
             )
 
-            return maybe_map_partitions(
+            return dask_awkward.map_partitions(
                 func,
                 *tuple(kwargs.values()),
                 label=f"{self._campaign}-{self._dataera}-{self._datatype}-{levels}-{self._jettype}",
