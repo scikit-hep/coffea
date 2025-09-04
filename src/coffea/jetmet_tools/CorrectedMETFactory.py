@@ -2,6 +2,8 @@ import awkward
 import dask_awkward
 import numpy
 
+from coffea.util import maybe_map_partitions
+
 
 def corrected_polar_met(
     met_pt, met_phi, jet_pt, jet_phi, jet_pt_orig, positive=None, dx=None, dy=None
@@ -86,12 +88,7 @@ class CorrectedMETFactory:
             )
 
         MET = in_MET
-        if isinstance(in_MET, awkward.highlevel.Array):
-            MET = dask_awkward.from_awkward(in_MET, 1)
-
         corrected_jets = in_corrected_jets
-        if isinstance(in_corrected_jets, awkward.highlevel.Array):
-            corrected_jets = dask_awkward.from_awkward(in_corrected_jets, 1)
 
         def switch_properties(raw_met, corrected_jets, dx, dy, positive, save_orig):
             variation = corrected_polar_met(
@@ -168,7 +165,7 @@ class CorrectedMETFactory:
                     with_name="METSystematic",
                 )
 
-        out = dask_awkward.map_partitions(
+        out = maybe_map_partitions(
             switch_properties,
             MET,
             corrected_jets,
@@ -179,9 +176,9 @@ class CorrectedMETFactory:
             label="nominal_corrected_met",
         )
 
-        out_dict = {field: out[field] for field in dask_awkward.fields(out)}
+        out_dict = {field: out[field] for field in awkward.fields(out)}
 
-        out_dict["MET_UnclusteredEnergy"] = dask_awkward.map_partitions(
+        out_dict["MET_UnclusteredEnergy"] = maybe_map_partitions(
             create_variants,
             MET,
             corrected_jets,
@@ -191,9 +188,9 @@ class CorrectedMETFactory:
         )
 
         for unc in filter(
-            lambda x: x.startswith(("JER", "JES")), dask_awkward.fields(corrected_jets)
+            lambda x: x.startswith(("JER", "JES")), awkward.fields(corrected_jets)
         ):
-            out_dict[unc] = dask_awkward.map_partitions(
+            out_dict[unc] = maybe_map_partitions(
                 create_variants,
                 MET,
                 corrected_jets[unc],
@@ -202,8 +199,8 @@ class CorrectedMETFactory:
                 label=f"{unc}_met",
             )
 
-        out_parms = out._meta.layout.parameters
-        out = dask_awkward.zip(
+        out_parms = out.layout.parameters
+        out = awkward.zip(
             out_dict, depth_limit=1, parameters=out_parms, behavior=out.behavior
         )
 

@@ -5,6 +5,8 @@ import awkward
 import dask_awkward
 import numpy
 
+from coffea.util import awkward_rewrap, maybe_map_partitions, rewrap_recordarray
+
 _stack_parts = ["jec", "junc", "jer", "jersf"]
 _MIN_JET_ENERGY = numpy.float32(1e-2)
 _ONE_F32 = numpy.float32(1.0)
@@ -16,18 +18,6 @@ _JERSF_FORM = {
     "format": "f",
     "primitive": "float32",
 }
-
-
-# we're gonna assume that the first record array we encounter is the flattened data
-def rewrap_recordarray(layout, depth, data, **kwargs):
-    if isinstance(layout, awkward.contents.RecordArray):
-        return data
-    return None
-
-
-def awkward_rewrap(arr, like_what, gfunc):
-    func = partial(gfunc, data=arr.layout)
-    return awkward.transform(func, like_what, behavior=like_what.behavior)
 
 
 class _AwkwardRewrapFn:
@@ -225,19 +215,18 @@ class CorrectedJetsFactory:
         if not isinstance(injets, (awkward.highlevel.Array, dask_awkward.Array)):
             raise Exception("input jets must be an (dask_)awkward array of some kind!")
 
-        jets = (
-            injets
-            if isinstance(injets, dask_awkward.Array)
-            else dask_awkward.from_awkward(injets, 1)
-        )
-
-        fields = dask_awkward.fields(jets)
+        jets = injets
+        fields = awkward.fields(jets)
         if len(fields) == 0:
             raise Exception(
                 "Empty record, please pass a jet object with at least {self.real_sig} defined!"
             )
-        out = dask_awkward.flatten(jets)
-        wrap = partial(awkward_rewrap, like_what=jets._meta, gfunc=rewrap_recordarray)
+        out = awkward.flatten(jets)
+        wrap = partial(
+            awkward_rewrap,
+            like_what=jets._meta if isinstance(jets, dask_awkward.Array) else jets,
+            gfunc=rewrap_recordarray,
+        )
 
         in_dict = {field: out[field] for field in fields}
         # always forward the original (likely corrected) pt/mass
@@ -261,8 +250,8 @@ class CorrectedJetsFactory:
                 **jec_args
             )
         else:
-            out_dict["jet_energy_correction"] = dask_awkward.without_parameters(
-                dask_awkward.ones_like(out_dict[self.name_map["JetPt"]])
+            out_dict["jet_energy_correction"] = awkward.without_parameters(
+                awkward.ones_like(out_dict[self.name_map["JetPt"]])
             )
 
         # finally the lazy binding to the JEC
@@ -299,12 +288,12 @@ class CorrectedJetsFactory:
                 self.jec_stack.jersf.getScaleFactor(**jersfargs)
             )
 
-            out_dict["jet_resolution_rand_gauss"] = dask_awkward.map_partitions(
+            out_dict["jet_resolution_rand_gauss"] = maybe_map_partitions(
                 rand_gauss,
                 out_dict[self.name_map["JetPt"] + "_orig"],
             )
 
-            init_jerc = dask_awkward.map_partitions(
+            init_jerc = maybe_map_partitions(
                 jer_smear,
                 out_dict[jer_name_map["ptGenJet"]],
                 out_dict[jer_name_map["JetPt"]],
@@ -335,7 +324,7 @@ class CorrectedJetsFactory:
             ]
 
             # JER systematics
-            jerc_up = dask_awkward.map_partitions(
+            jerc_up = maybe_map_partitions(
                 jer_smear,
                 out_dict[jer_name_map["ptGenJet"]],
                 out_dict[jer_name_map["JetPt"]],
@@ -346,17 +335,17 @@ class CorrectedJetsFactory:
                 1,
                 self.forceStochastic,
             )
-            up = dask_awkward.flatten(jets)
+            up = awkward.flatten(jets)
             # always forward the original (likely corrected) pt/mass
-            up = dask_awkward.with_field(
+            up = awkward.with_field(
                 up, up[self.name_map["JetPt"]], where=self.name_map["JetPt"] + "_orig"
             )
-            up = dask_awkward.with_field(
+            up = awkward.with_field(
                 up,
                 up[self.name_map["JetMass"]],
                 where=self.name_map["JetMass"] + "_orig",
             )
-            up = dask_awkward.with_field(
+            up = awkward.with_field(
                 up, jerc_up, where="jet_energy_resolution_correction"
             )
 
@@ -368,12 +357,10 @@ class CorrectedJetsFactory:
                 * out_dict[jer_name_map["JetMass"]]
             )
 
-            up = dask_awkward.with_field(up, init_pt_jer, where=self.name_map["JetPt"])
-            up = dask_awkward.with_field(
-                up, init_mass_jer, where=self.name_map["JetMass"]
-            )
+            up = awkward.with_field(up, init_pt_jer, where=self.name_map["JetPt"])
+            up = awkward.with_field(up, init_mass_jer, where=self.name_map["JetMass"])
 
-            jerc_down = dask_awkward.map_partitions(
+            jerc_down = maybe_map_partitions(
                 jer_smear,
                 out_dict[jer_name_map["ptGenJet"]],
                 out_dict[jer_name_map["JetPt"]],
@@ -384,17 +371,17 @@ class CorrectedJetsFactory:
                 2,
                 self.forceStochastic,
             )
-            down = dask_awkward.flatten(jets)
+            down = awkward.flatten(jets)
             # always forward the original (likely corrected) pt/mass
-            down = dask_awkward.with_field(
+            down = awkward.with_field(
                 up, down[self.name_map["JetPt"]], where=self.name_map["JetPt"] + "_orig"
             )
-            down = dask_awkward.with_field(
+            down = awkward.with_field(
                 up,
                 down[self.name_map["JetMass"]],
                 where=self.name_map["JetMass"] + "_orig",
             )
-            down = dask_awkward.with_field(
+            down = awkward.with_field(
                 down, jerc_down, where="jet_energy_resolution_correction"
             )
 
@@ -407,14 +394,12 @@ class CorrectedJetsFactory:
                 * out_dict[jer_name_map["JetMass"]]
             )
 
-            down = dask_awkward.with_field(
-                down, init_pt_jer, where=self.name_map["JetPt"]
-            )
-            down = dask_awkward.with_field(
+            down = awkward.with_field(down, init_pt_jer, where=self.name_map["JetPt"])
+            down = awkward.with_field(
                 down, init_mass_jer, where=self.name_map["JetMass"]
             )
 
-            out_dict["JER"] = dask_awkward.zip(
+            out_dict["JER"] = awkward.zip(
                 {"up": up, "down": down}, depth_limit=1, with_name="JetSystematic"
             )
 
@@ -469,15 +454,15 @@ class CorrectedJetsFactory:
                     {"up": up, "down": down}, depth_limit=1, with_name="JetSystematic"
                 )
 
-            template = dask_awkward.zip(
+            template = awkward.zip(
                 in_dict,
                 depth_limit=1,
-                parameters=out._meta.layout.parameters,
+                parameters=out.layout.parameters,
                 behavior=out.behavior,
             )
             for name, func in juncs:
                 out_dict[f"jet_energy_uncertainty_{name}"] = func
-                out_dict[f"JES_{name}"] = dask_awkward.map_partitions(
+                out_dict[f"JES_{name}"] = maybe_map_partitions(
                     build_variant,
                     func,
                     template,
@@ -488,18 +473,20 @@ class CorrectedJetsFactory:
                     label=f"{name}",
                 )
 
-        out_parms = out._meta.layout.parameters
+        out_parms = out.layout.parameters
         out_parms["corrected"] = True
-        out = dask_awkward.zip(
+        out = awkward.zip(
             out_dict, depth_limit=1, parameters=out_parms, behavior=out.behavior
         )
 
-        out_meta = wrap(out._meta)
+        if isinstance(jets, dask_awkward.Array):
+            out_meta = wrap(out._meta)
 
-        return dask_awkward.map_partitions(
-            _AwkwardRewrapFn(gfunc=rewrap_recordarray),
-            out,
-            jets,
-            label="corrected_jets",
-            meta=out_meta,
-        )
+            return maybe_map_partitions(
+                _AwkwardRewrapFn(gfunc=rewrap_recordarray),
+                out,
+                jets,
+                label="corrected_jets",
+                meta=out_meta,
+            )
+        return wrap(out)
