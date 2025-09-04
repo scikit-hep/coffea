@@ -114,3 +114,5 @@ dask-worker-space/
 
 # VCS versioning
 src/coffea/_version.py
+
+.DS_Store

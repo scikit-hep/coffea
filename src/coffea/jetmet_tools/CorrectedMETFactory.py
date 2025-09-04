@@ -24,7 +24,7 @@ class CorrectedMETFactory:
     of MET. This includes organizing different variations associated with uncertainties
     in MET from unclustered energy.
 
-    Once the `CorrectedMETFactory` is constructed, an array of corrected MET values and
+    Once the ``CorrectedMETFactory`` is constructed, an array of corrected MET values and
     variations can be produced with the `build` method, which requires an array of
     uncorrected MET and an array of corrected jets.
 
@@ -40,7 +40,7 @@ class CorrectedMETFactory:
                 - UnClusteredEnergyDeltaX
                 - UnClusteredEnergyDeltaY
             and each of those must be mapped to the corresponding field name of the input
-            arrays `in_MET` and `in_corrected_jets` for the `build` method.
+            arrays ``in_MET`` and ``in_corrected_jets`` for the ``build`` method.
     """
 
     def __init__(self, name_map):
@@ -74,7 +74,7 @@ class CorrectedMETFactory:
 
         Returns
         -------
-            Awkward array of corrected MET values, with shape matching `in_MET`.
+            Awkward array of corrected MET values, with shape matching ``in_MET``.
         """
         if not isinstance(
             in_MET, (awkward.highlevel.Array, dask_awkward.Array)
