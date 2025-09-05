@@ -151,8 +151,10 @@ class UprootSourceMapping(BaseSourceMapping):
                 )
                 continue
             if isinstance(branch, uproot.behaviors.RNTuple.HasFields):
-                form = branch.to_akform()
-                form = json.loads(form.to_json())
+                form = branch.to_akform()[0].contents[0]
+                form = json.loads(
+                    form.to_json()
+                )  # TODO: Not sure why this fixes something
                 branch_forms[key] = form
                 continue
             if "," in key or "!" in key:
@@ -186,7 +188,13 @@ class UprootSourceMapping(BaseSourceMapping):
             "class": "RecordArray",
             "contents": [item for item in branch_forms.values()],
             "fields": [key for key in branch_forms.keys()],
-            "parameters": {"__doc__": tree.title},
+            "parameters": {
+                "__doc__": (
+                    tree.description
+                    if isinstance(tree, uproot.behaviors.RNTuple.HasFields)
+                    else tree.title
+                )
+            },
             "form_key": None,
         }
 
