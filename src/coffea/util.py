@@ -229,6 +229,8 @@ def decompress_form(form_compressedb64):
 
 
 def _is_interpretable(branch, emit_warning=True):
+    if isinstance(branch, uproot.behaviors.RNTuple.HasFields):
+        return True
     if isinstance(
         branch.interpretation, uproot.interpretation.identify.uproot.AsGrouped
     ):
