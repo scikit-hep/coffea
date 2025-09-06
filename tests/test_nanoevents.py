@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import awkward as ak
@@ -526,6 +527,10 @@ def _untypetracable_analysis(events):
     return events.MET.sumEt.to_numpy()
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="Windows materialization problems, related to https://github.com/scikit-hep/coffea/issues/1364",
+)
 def test_tracing():
     from coffea.nanoevents.trace import (
         trace,
