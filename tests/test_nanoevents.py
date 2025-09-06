@@ -593,7 +593,7 @@ def test_tracing():
         "nMuon",
     ]
 
-    necessary_columns = trace(_analysis, events)
+    necessary_columns = trace(_analysis, events)  # this will succeed with typetracer
     assert sorted(list(necessary_columns)) == [
         "Electron_eta",
         "Electron_jetIdx",
