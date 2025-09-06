@@ -523,7 +523,7 @@ def _analysis(events):
 
 
 def _untypetracable_analysis(events):
-    events.MET.sumEt.to_numpy()
+    return events.MET.sumEt.to_numpy()
 
 
 def test_tracing():
