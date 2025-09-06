@@ -39,7 +39,7 @@ classifiers = [
   "Topic :: Utilities",
 ]
 dependencies = [
-  "awkward>=2.8.6",
+  "awkward>=2.8.8",
   "uproot>=5.6.0",
   "dask[array]>=2024.3.0",
   "dask-awkward>=2025.5.0",
