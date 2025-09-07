@@ -544,7 +544,7 @@ def test_tracing():
     assert sorted(list(necessary_columns)) == [
         "Electron_eta",
         "Electron_jetIdx",
-        "Electron_phi",  # actual typetracer overtouching
+        "Electron_phi",  # actual typetracer "overtouching", see https://github.com/scikit-hep/vector/pull/542
         "Electron_pt",
         "Jet_btagDeepFlavB",
         "Jet_eta",
@@ -552,7 +552,7 @@ def test_tracing():
         "Jet_phi",
         "Jet_pt",
         "Muon_eta",
-        "Muon_phi",  # actual typetracer overtouching
+        "Muon_phi",  # actual typetracer "overtouching", see https://github.com/scikit-hep/vector/pull/542
         "Muon_pt",
         "nElectron",
         "nJet",
@@ -597,7 +597,7 @@ def test_tracing():
     assert sorted(list(necessary_columns)) == [
         "Electron_eta",
         "Electron_jetIdx",
-        "Electron_phi",  # actual typetracer overtouching
+        "Electron_phi",  # actual typetracer "overtouchng", see https://github.com/scikit-hep/vector/pull/542
         "Electron_pt",
         "Jet_btagDeepFlavB",
         "Jet_eta",
@@ -605,7 +605,7 @@ def test_tracing():
         "Jet_phi",
         "Jet_pt",
         "Muon_eta",
-        "Muon_phi",  # actual typetracer overtouching
+        "Muon_phi",  # actual typetracer "overtouching", see https://github.com/scikit-hep/vector/pull/542
         "Muon_pt",
         "nElectron",
         "nJet",
