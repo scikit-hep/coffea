@@ -11,6 +11,7 @@ import hist
 import numba
 import numpy
 import uproot
+from dask.base import unpack_collections
 from rich.progress import (
     BarColumn,
     Column,
@@ -216,6 +217,26 @@ def rewrap_recordarray(layout, depth, data, **kwargs):
     if isinstance(layout, awkward.contents.RecordArray):
         return data
     return None
+
+
+def maybe_map_partitions(func, *args, **kwargs):
+    _MP_ONLY = {
+        "label",
+        "token",
+        "meta",
+        "output_divisions",
+        "traverse",
+        "opt_touch_all",
+    }
+    traverse = kwargs.pop("traverse", True)
+
+    func_kwargs = {k: v for k, v in kwargs.items() if k not in _MP_ONLY}
+    deps, _ = unpack_collections(*args, *func_kwargs.values(), traverse=traverse)
+
+    if len(deps) > 0:
+        return dask_awkward.map_partitions(func, *args, traverse=traverse, **kwargs)
+
+    return func(*args, **func_kwargs)
 
 
 # shorthand for compressing forms
