@@ -715,7 +715,8 @@ def test_jet_resolution_sf_2d(optimization_enabled):
         )
 
 
-def test_corrected_jets_factory():
+@pytest.mark.parametrize("mode", ["virtual", "dask"])
+def test_corrected_jets_factory(mode):
     import os
 
     from coffea.jetmet_tools import CorrectedJetsFactory, CorrectedMETFactory, JECStack
@@ -724,7 +725,7 @@ def test_corrected_jets_factory():
     events = NanoEventsFactory.from_root(
         {os.path.abspath("tests/samples/nano_dy.root"): "Events"},
         metadata={},
-        mode="virtual",
+        mode=mode,
     ).events()
 
     jec_stack_names = [
