@@ -70,9 +70,13 @@ class TrivialParquetOpener(UUIDOpener):
 
 def arrow_schema_to_awkward_form(schema):
     import pyarrow as pa
+    from awkward._connect.pyarrow import to_awkwardarrow_storage_types
+
+    schema = to_awkwardarrow_storage_types(schema)[1]
 
     if isinstance(schema, (pa.lib.ListType, pa.lib.LargeListType)):
-        dtype = schema.value_type.to_pandas_dtype()()
+        value_type = to_awkwardarrow_storage_types(schema.value_type)[1]
+        dtype = value_type.to_pandas_dtype()()
         return awkward.forms.ListOffsetForm(
             offsets="i64",
             content=awkward.forms.NumpyForm(
@@ -103,6 +107,9 @@ class ParquetSourceMapping(BaseSourceMapping):
             import pyarrow as pa
 
             aspa = self.source.read(self.column)[entry_start:entry_stop][0].chunk(0)
+            if isinstance(aspa, awkward._connect.pyarrow.AwkwardArrowArray):
+                aspa = aspa.storage
+
             out = None
             if isinstance(aspa, (pa.lib.ListArray, pa.lib.LargeListArray)):
                 value_type = aspa.type.value_type
@@ -204,11 +211,35 @@ class ParquetSourceMapping(BaseSourceMapping):
         key = self.key_root() + tuple_to_key((uuid, path_in_source))
         self._cache[key] = source
 
-    def get_column_handle(self, columnsource, name):
+    def get_column_handle(self, columnsource, name, allow_missing):
+        if allow_missing:
+            return (
+                ParquetSourceMapping.UprootLikeShim(columnsource, name)
+                if name in columnsource.file.schema_arrow.names
+                else None
+            )
         return ParquetSourceMapping.UprootLikeShim(columnsource, name)
 
-    def extract_column(self, columnhandle, start, stop, **kwargs):
-        return columnhandle.array(entry_start=start, entry_stop=stop)
+    def extract_column(self, columnhandle, start, stop, allow_missing, **kwargs):
+        if allow_missing and columnhandle is None:
+            return awkward.contents.IndexedOptionArray(
+                awkward.index.Index64(numpy.full(stop - start, -1, dtype=numpy.int64)),
+                awkward.contents.NumpyArray(numpy.array([], dtype=bool)),
+            )
+        elif not allow_missing and columnhandle is None:
+            raise RuntimeError(
+                "Received columnhandle of None when missing column in file is not allowed!"
+            )
+
+        the_array = columnhandle.array(entry_start=start, entry_stop=stop)
+
+        if allow_missing:
+            the_array = awkward.contents.IndexedOptionArray(
+                awkward.index.Index64(numpy.arange(stop - start, dtype=numpy.int64)),
+                awkward.contents.NumpyArray(the_array),
+            )
+
+        return the_array
 
     def __len__(self):
         return self._stop - self._start
