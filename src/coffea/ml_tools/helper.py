@@ -150,7 +150,7 @@ class numpy_call_wrapper(abc.ABC):
     - validate_numpy_input: makes sure the computation routine understand the
       input.
     - postprocess_awkward: Additional translation to convert numpy outputs to
-      awkward (defaults to a simple `awkward.from_numpy` conversion)
+      awkward (defaults to a simple ``awkward.from_numpy`` conversion)
     """
 
     # Commonly used helper classes so defining as static method
@@ -225,7 +225,7 @@ class numpy_call_wrapper(abc.ABC):
         the unformatted awkward-like inputs are also passed to this function.
 
         For the base method, we will simply iterate over the containers and call
-        the default `awkward.from_numpy` conversion
+        the default ``awkward.from_numpy`` conversion
         """
         return return_array
 
