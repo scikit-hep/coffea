@@ -6,7 +6,13 @@ from typing import Any, Callable
 import awkward
 import numpy
 
-from coffea.dataset_tools.preprocess import CoffeaFileSpec, DatasetSpec, FilesetSpec
+from coffea.dataset_tools.filespec import (
+    CoffeaFileDict,
+    CoffeaParquetFileSpec,
+    CoffeaUprootFileSpec,
+    DatasetSpec,
+    FilesetSpec,
+)
 
 
 def max_chunks(fileset: FilesetSpec, maxchunks: int | None = None) -> FilesetSpec:
@@ -76,34 +82,66 @@ def slice_chunks(
 
     if not bydataset:
         for dname, d in fileset.items():
-            for fname, finfo in d["files"].items():
-                out[dname]["files"][fname]["steps"] = finfo["steps"][theslice]
+            is_datasetspec = isinstance(d, DatasetSpec)
+            datasetspec = d.files if is_datasetspec else d["files"]
+            for fname, finfo in datasetspec.items():
+                if is_datasetspec:
+                    out[dname].files[fname].steps = finfo.steps[theslice]
+                else:
+                    out[dname]["files"][fname]["steps"] = finfo["steps"][theslice]
         return out
 
     for dname, d in fileset.items():
-        # 1) build a flat list of (fname, step)
-        flat: list[tuple[str, Any]] = []
-        for fname, finfo in d["files"].items():
-            for step in finfo["steps"]:
-                flat.append((fname, step))
+        if isinstance(d, DatasetSpec):
+            # 1) build a flat list of (fname, step)
+            flat: list[tuple[str, Any]] = []
+            for fname, finfo in d.files.items():
+                for step in finfo.steps:
+                    flat.append((fname, step))
 
-        # 2) slice that flat list
-        kept = flat[theslice]
+            # 2) slice that flat list
+            kept = flat[theslice]
 
-        # 3) zero-out all steps in the output
-        for fname in out[dname]["files"]:
-            out[dname]["files"][fname]["steps"] = []
+            # 3) zero-out all steps in the output
+            for fname in out[dname].files:
+                out[dname].files[fname].steps = []
 
-        # 4) repopulate in order, up to maxchunks total
-        for fname, step in kept:
-            out[dname]["files"][fname]["steps"].append(step)
+            # 4) repopulate in order, up to maxchunks total
+            for fname, step in kept:
+                out[dname].files[fname].steps.append(step)
 
-        # 5) drop files with no steps
-        out[dname]["files"] = {
-            fname: finfo
-            for fname, finfo in out[dname]["files"].items()
-            if finfo["steps"]
-        }
+            # 5) drop files with no steps
+            out[dname].files = CoffeaFileDict(
+                {
+                    fname: finfo
+                    for fname, finfo in out[dname].files.items()
+                    if finfo.steps
+                }
+            )
+        else:
+            # 1) build a flat list of (fname, step)
+            flat: list[tuple[str, Any]] = []
+            for fname, finfo in d["files"].items():
+                for step in finfo["steps"]:
+                    flat.append((fname, step))
+
+            # 2) slice that flat list
+            kept = flat[theslice]
+
+            # 3) zero-out all steps in the output
+            for fname in out[dname]["files"]:
+                out[dname]["files"][fname]["steps"] = []
+
+            # 4) repopulate in order, up to maxchunks total
+            for fname, step in kept:
+                out[dname]["files"][fname]["steps"].append(step)
+
+            # 5) drop files with no steps
+            out[dname]["files"] = {
+                fname: finfo
+                for fname, finfo in out[dname]["files"].items()
+                if finfo["steps"]
+            }
 
     return out
 
@@ -148,23 +186,33 @@ def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpe
 
     out = copy.deepcopy(fileset)
     for name, entry in fileset.items():
-        fnames = list(entry["files"].keys())[theslice]
-        finfos = list(entry["files"].values())[theslice]
-
-        out[name]["files"] = {fname: finfo for fname, finfo in zip(fnames, finfos)}
+        is_datasetspec = isinstance(entry, DatasetSpec)
+        files = entry.files if is_datasetspec else entry["files"]
+        fnames = list(files.keys())[theslice]
+        finfos = list(files.values())[theslice]
+        updated = {fname: finfo for fname, finfo in zip(fnames, finfos)}
+        if is_datasetspec:
+            out[name].files = CoffeaFileDict(updated)
+        else:
+            out[name]["files"] = updated
 
     return out
 
 
 def _default_filter(name_and_spec):
     name, spec = name_and_spec
-    num_entries = spec["num_entries"]
+    num_entries = (
+        spec.num_entries if hasattr(spec, "num_entries") else spec["num_entries"]
+    )
     return num_entries is not None and num_entries > 0
 
 
 def filter_files(
     fileset: FilesetSpec,
-    thefilter: Callable[[tuple[str, CoffeaFileSpec]], bool] = _default_filter,
+    thefilter: Callable[
+        [tuple[str, CoffeaUprootFileSpec | CoffeaParquetFileSpec] | CoffeaFileDict],
+        bool,
+    ] = _default_filter,
 ) -> FilesetSpec:
     """
     Modify the input fileset so that only the files of each dataset that pass the filter remain.
@@ -173,7 +221,7 @@ def filter_files(
     ----------
         fileset: FilesetSpec
             The set of datasets to be sliced.
-        thefilter: Callable[[tuple[str, CoffeaFileSpec]], bool], default filters empty files
+        thefilter: Callable[[tuple[str, CoffeaUprootFileSpec | CoffeaParquetFileSpec] | CoffeaFileDict], bool], default filters empty files
             How to filter the files in the each dataset.
 
     Returns
@@ -183,28 +231,36 @@ def filter_files(
     """
     out = copy.deepcopy(fileset)
     for name, entry in fileset.items():
-        out[name]["files"] = dict(filter(thefilter, out[name]["files"].items()))
+        is_datasetspec = isinstance(entry, DatasetSpec)
+        to_apply_to = getattr(entry, "files") if is_datasetspec else entry["files"]
+        updated = dict(filter(thefilter, to_apply_to.items()))
+        if is_datasetspec:
+            out[name].files = CoffeaFileDict(updated)
+        else:
+            out[name]["files"] = updated
     return out
 
 
 def get_failed_steps_for_dataset(
-    dataset: DatasetSpec, report: awkward.Array
-) -> DatasetSpec:
+    dataset: dict | DatasetSpec, report: awkward.Array
+) -> dict | DatasetSpec:
     """
     Modify the input dataset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
 
     Parameters
     ----------
-        dataset: DatasetSpec
+        dataset: DatasetSpec | dict
             The dataset to be reduced to only contain files and row-ranges that have previously encountered failed file access.
         report: awkward.Array
             The computed file-access error report from dask-awkward.
 
     Returns
     -------
-        out : DatasetSpec
+        out : DatasetSpec | dict
             The reduced dataset with only the row-ranges and files that failed processing, according to the input report.
     """
+    is_datasetspec = isinstance(dataset, DatasetSpec)
+    dataset = dataset.model_dump() if is_datasetspec else dataset
     failed_dataset = copy.deepcopy(dataset)
     failed_dataset["files"] = {}
     failures = report[~awkward.is_none(report.exception)]
@@ -241,7 +297,7 @@ def get_failed_steps_for_dataset(
             failed_dataset["files"][fname] = copy.deepcopy(dataset["files"][fname])
             failed_dataset["files"][fname]["steps"] = [[start, stop]]
 
-    return failed_dataset
+    return DatasetSpec(**failed_dataset) if is_datasetspec else failed_dataset
 
 
 def get_failed_steps_for_fileset(
@@ -263,8 +319,15 @@ def get_failed_steps_for_fileset(
             The reduced dataset with only the row-ranges and files that failed processing, according to the input report.
     """
     failed_fileset = {}
-    for name, dataset in fileset.items():
-        failed_dataset = get_failed_steps_for_dataset(dataset, report_dict[name])
-        if len(failed_dataset["files"]) > 0:
-            failed_fileset[name] = failed_dataset
-    return failed_fileset
+    if isinstance(fileset, FilesetSpec):
+        for name, dataset in fileset.items():
+            failed_dataset = get_failed_steps_for_dataset(dataset, report_dict[name])
+            if len(failed_dataset.files) > 0:
+                failed_fileset[name] = failed_dataset
+        return FilesetSpec(failed_fileset)
+    else:
+        for name, dataset in fileset.items():
+            failed_dataset = get_failed_steps_for_dataset(dataset, report_dict[name])
+            if len(failed_dataset["files"]) > 0:
+                failed_fileset[name] = failed_dataset
+        return failed_fileset
