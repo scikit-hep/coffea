@@ -94,10 +94,10 @@ class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):
 
     def numpy_call(self, *args: numpy.array, **kwargs: numpy.array) -> numpy.array:
         """
-        Evaluating the numpy inputs via the `model.__call__` method. With a
+        Evaluating the numpy inputs via the ``model.__call__`` method. With a
         trivial conversion for tensors for the numpy inputs.
 
-        TODO: Do we need to evaluate using `predict` [1]? Since array batching
+        TODO: Do we need to evaluate using ``predict`` [1]? Since array batching
         is already handled by dask.
 
         [1]
