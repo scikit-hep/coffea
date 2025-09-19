@@ -1180,7 +1180,7 @@ class NminusOne:
             else:
                 to_broadcast = {
                     "nminusone": boolean_masks_to_categorical_integers(
-                        self._masksonecut, insert_unmasked_as_zeros=True
+                        self._masks, insert_unmasked_as_zeros=True
                     )
                 }
             if do_categorical:
@@ -2313,7 +2313,7 @@ class PackedSelection:
             consider |= 1 << idx
         return (self._data & self._dtype.type(consider)) != 0
 
-    def nminusone(self, *names):
+    def nminusone(self, *names, commonmask=None, weights=None, weightsmodifier=None):
         """Compute the "N-1" style selection for a set of selections
 
         The N-1 style selection for a set of selections, returns an object which can return a list of the number of events
@@ -2329,6 +2329,12 @@ class PackedSelection:
         ----------
             ``*names`` : args
                 The named selections to use, need to be a subset of the selections already added
+            ``commonmask`` : boolean numpy.ndarray or dask_awkward.lib.core.Array, optional
+                A common mask which is applied for all the selections, including the initial one. Default is None.
+            ``weights`` : coffea.analysis_tools.Weights instance, optional
+                The Weights object to use for the cutflow. If not provided, the cutflow will be unweighted.
+            ``modifier`` : str, optional
+                The modifier to use for the weights. Default is None which results in Weights.weight() being called without a modifier.
 
         Returns
         -------
@@ -2342,21 +2348,60 @@ class PackedSelection:
                 )
 
         masks = []
+        if weights is not None:
+            wgts, wgtev = [], []
+        else:
+            wgts, wgtev = (
+                None,
+                None,
+            )
         for i, cut in enumerate(names):
             mask = self.all(*(names[:i] + names[i + 1 :]))
+            if commonmask is not None:
+                mask = mask & commonmask
             masks.append(mask)
+            if weights is not None:
+                wgts.append(weights.weight(weightsmodifier)[mask])
         mask = self.all(*names)
         masks.append(mask)
 
         if not self.delayed_mode:
-            nev = [len(self._data)]
+            nev = [numpy.sum(commonmask) if commonmask is not None else len(self._data)]
             nev.extend(numpy.sum(masks, axis=1))
+            if weights is not None:
+                if commonmask is not None:
+                    wgtev = [numpy.sum(weights.weight(weightsmodifier)[commonmask])]
+                else:
+                    wgtev = [numpy.sum(weights.weight(weightsmodifier))]
+                wgtev.extend([numpy.sum(wgt) for wgt in wgts])
 
         else:
-            nev = [dask_awkward.count(self._data, axis=0)]
+            nev = [
+                (
+                    dask_awkward.sum(commonmask)
+                    if commonmask is not None
+                    else dask_awkward.count(self._data, axis=0)
+                )
+            ]
             nev.extend([dask_awkward.sum(mask) for mask in masks])
+            if weights is not None:
+                if commonmask is not None:
+                    wgtev = [
+                        dask_awkward.sum(weights.weight(weightsmodifier)[commonmask])
+                    ]
+                else:
+                    wgtev = [dask_awkward.sum(weights.weight(weightsmodifier))]
+                wgtev.extend([dask_awkward.sum(wgt) for wgt in wgts])
 
-        return NminusOne(names, nev, masks, self.delayed_mode)
+        return NminusOne(names,
+                         nev,
+                         masks,
+                         self.delayed_mode,
+                         commonmask,
+                         wgtev,
+                         weights,
+                         weightsmodifier,
+                         )
 
     def cutflow(self, *names, commonmask=None, weights=None, weightsmodifier=None):
         """Compute the cutflow for a set of selections
@@ -2373,11 +2418,11 @@ class PackedSelection:
         ----------
             ``*names`` : args
                 The named selections to use, need to be a subset of the selections already added
-            commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array, optional
+            ``commonmask`` : boolean numpy.ndarray or dask_awkward.lib.core.Array, optional
                 A common mask which is applied for all the selections, including the initial one. Default is None.
-            weights : coffea.analysis_tools.Weights instance, optional
+            ``weights`` : coffea.analysis_tools.Weights instance, optional
                 The Weights object to use for the cutflow. If not provided, the cutflow will be unweighted.
-            modifier : str, optional
+            ``modifier`` : str, optional
                 The modifier to use for the weights. Default is None which results in Weights.weight() being called without a modifier.
 
         Returns
