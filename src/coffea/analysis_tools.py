@@ -2363,7 +2363,11 @@ class PackedSelection:
             if weights is not None:
                 wgts.append(weights.weight(weightsmodifier)[mask])
         mask = self.all(*names)
+        if commonmask is not None:
+            mask = mask & commonmask
         masks.append(mask)
+        if weights is not None:
+            wgts.append(weights.weight(weightsmodifier)[mask])
 
         if not self.delayed_mode:
             nev = [numpy.sum(commonmask) if commonmask is not None else len(self._data)]
