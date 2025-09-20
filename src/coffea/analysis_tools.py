@@ -2397,15 +2397,16 @@ class PackedSelection:
                     wgtev = [dask_awkward.sum(weights.weight(weightsmodifier))]
                 wgtev.extend([dask_awkward.sum(wgt) for wgt in wgts])
 
-        return NminusOne(names,
-                         nev,
-                         masks,
-                         self.delayed_mode,
-                         commonmask,
-                         wgtev,
-                         weights,
-                         weightsmodifier,
-                         )
+        return NminusOne(
+            names,
+            nev,
+            masks,
+            self.delayed_mode,
+            commonmask,
+            wgtev,
+            weights,
+            weightsmodifier,
+        )
 
     def cutflow(self, *names, commonmask=None, weights=None, weightsmodifier=None):
         """Compute the cutflow for a set of selections
