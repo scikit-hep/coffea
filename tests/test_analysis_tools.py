@@ -1276,11 +1276,17 @@ def test_packed_selection_nminusone_dak(optimization_enabled):
 
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
-def test_packed_selection_cutflow_dak(optimization_enabled):
+@pytest.mark.parametrize("weighted", [True, False])
+@pytest.mark.parametrize("commonmasked", [True, False])
+@pytest.mark.parametrize("withcategorical", [True, False])
+def test_packed_selection_nminusone_extended_dak(
+    optimization_enabled, weighted, commonmasked, withcategorical
+):
+    import awkward as ak
     import dask
     import dask_awkward as dak
 
-    from coffea.analysis_tools import PackedSelection
+    from coffea.analysis_tools import PackedSelection, Weights
 
     events = dakevents
 
@@ -1303,109 +1309,306 @@ def test_packed_selection_cutflow_dak(optimization_enabled):
 
         assert selection.names == ["twoElectron", "noMuon", "leadPt20"]
 
+        commonmask = (dak.num(events.Electron.eta) >= 1) & (dak.num(events.Muon) <= 1)
+
+        categorical = {
+            "axis": hist.axis.IntCategory(
+                [0, 41, 43], name="genTtbarId", growth=False, flow=True
+            ),
+            "values": events.genTtbarId,
+            "labels": ["0", "41", "43"],
+        }
+
+        weight = Weights(None)
+        weight.add(
+            "test",
+            dak.ones_like(events.genWeight),
+            weightUp=1.25 * dak.ones_like(events.genWeight),
+            weightDown=0.5 * dak.ones_like(events.genWeight),
+        )
+
         with pytest.raises(
             ValueError,
             match="All arguments must be strings that refer to the names of existing selections",
         ):
-            selection.cutflow("twoElectron", "nonexistent")
-        cutflow = selection.cutflow("noMuon", "twoElectron", "leadPt20")
-
-        labels, nevonecut, nevcutflow, masksonecut, maskscutflow = cutflow.result()
-
-        assert labels == ["initial", "noMuon", "twoElectron", "leadPt20"]
-
-        assert list(dask.compute(*nevonecut)) == [
-            dak.num(events, axis=0).compute(),
-            dak.num(events[nomuon], axis=0).compute(),
-            dak.num(events[twoelectron], axis=0).compute(),
-            dak.num(events[leadpt20], axis=0).compute(),
-        ]
-
-        assert list(dask.compute(*nevcutflow)) == [
-            dak.num(events, axis=0).compute(),
-            dak.num(events[nomuon], axis=0).compute(),
-            dak.num(events[nomuon & twoelectron], axis=0).compute(),
-            dak.num(events[nomuon & twoelectron & leadpt20], axis=0).compute(),
-        ]
-
-        for mask, truth in zip(masksonecut, [nomuon, twoelectron, leadpt20]):
-            assert np.all(mask.compute() == truth.compute())
-
-        for mask, truth in zip(
-            maskscutflow,
-            [nomuon, nomuon & twoelectron, nomuon & twoelectron & leadpt20],
-        ):
-            assert np.all(mask.compute() == truth.compute())
-
-        with tempfile.TemporaryDirectory() as tmp:
-            cutflow_uncompressed = os.path.join(tmp, "cutflow_uncompressed.npz")
-            cutflow.to_npz(cutflow_uncompressed, compressed=False).compute()
-            with np.load(cutflow_uncompressed) as file:
-                assert np.all(file["labels"] == labels)
-                assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
-                assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
-                assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
-                assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
-
-            cutflow_compressed = os.path.join(tmp, "cutflow_compressed.npz")
-            cutflow.to_npz(cutflow_compressed, compressed=True).compute()
-            with np.load(cutflow_compressed) as file:
-                assert np.all(file["labels"] == labels)
-                assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
-                assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
-                assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
-                assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
-
-        honecut, hcutflow, hlabels = dask.compute(*cutflow.yieldhist())
-
-        assert hlabels == ["initial", "noMuon", "twoElectron", "leadPt20"]
-
-        assert np.all(honecut.axes["onecut"].edges == np.arange(0, 5))
-        assert np.all(hcutflow.axes["cutflow"].edges == np.arange(0, 5))
-
-        assert np.all(honecut.counts() == list(dask.compute(*nevonecut)))
-        assert np.all(hcutflow.counts() == list(dask.compute(*nevcutflow)))
-
-        # with pytest.raises(IncompatiblePartitions):
-        #     cutflow.plot_vars(
-        #         {"Ept": events.Electron.pt, "Ephi": events[:20].Electron.phi}
-        #     )
-        honecuts, hcutflows, hslabels = dask.compute(
-            *cutflow.plot_vars({"ept": events.Electron.pt, "ephi": events.Electron.phi})
+            selection.nminusone("twoElectron", "nonexistent")
+        nminusone = selection.nminusone(
+            "twoElectron",
+            "noMuon",
+            "leadPt20",
+            commonmask=commonmask if commonmasked else None,
+            weights=weight if weighted else None,
+            weightsmodifier="testUp" if weighted else None,
         )
 
-        assert hslabels == ["initial", "noMuon", "twoElectron", "leadPt20"]
+        labels, nev, masks, *packed = nminusone.result()
 
-        for h, array in zip(honecuts, [events.Electron.pt, events.Electron.phi]):
+        if commonmasked or weighted:
+            (
+                r_commonmask,
+                r_wgtev,
+                r_weights,
+                r_weightsmodifier,
+            ) = packed
+        else:
+            (
+                r_commonmask,
+                r_wgtev,
+                r_weights,
+                r_weightsmodifier,
+            ) = (None, None, None, None)
+
+        truths = [
+            nomuon & leadpt20,
+            twoelectron & leadpt20,
+            twoelectron & nomuon,
+            twoelectron & nomuon & leadpt20,
+        ]
+        hs_truths = [np.ones(40, dtype=bool)] + [truth for truth in truths]
+        if commonmasked:
+            truths = [truth & commonmask for truth in truths]
+            hs_truths = [truth & commonmask for truth in hs_truths]
+
+        h, hlabel, *catlabel = nminusone.yieldhist(
+            weighted=weighted,
+            categorical=categorical if withcategorical else None,
+        )
+
+        h_fill_arrays = {"ept": [], "ephi": []}
+        h_fill_weights = {"ept": [], "ephi": []}
+        array_dict = {"ept": events.Electron.pt, "ephi": events.Electron.phi}
+        hs, hslabels, *catlabels = nminusone.plot_vars(
+            array_dict,
+            weighted=weighted,
+            categorical=categorical if withcategorical else None,
+        )
+
+        for varname, array in array_dict.items():
+            for i, truth in enumerate(hs_truths):
+                fill_array, fill_weights = dak.broadcast_arrays(
+                    array[truth], weight.weight(r_weightsmodifier)[truth]
+                )
+                h_fill_arrays[varname].append(dak.flatten(fill_array))
+                h_fill_weights[varname].append(dak.flatten(fill_weights))
+
+        # Ensure key alignment
+        assert array_dict.keys() == h_fill_arrays.keys()
+        assert array_dict.keys() == h_fill_weights.keys()
+
+        # Compute all the values for comparisons and assertions at once
+        to_compute = {
+            "nev": nev,
+            "masks": masks,
+            "r_commonmask": r_commonmask,
+            "r_wgtev": r_wgtev,
+            "r_weights_wmodifier": (
+                r_weights.weight(r_weightsmodifier) if weighted else None
+            ),
+            "r_weightsmodifier": r_weightsmodifier,
+            "nev_comparison": [
+                (
+                    dak.num(events, axis=0)
+                    if not commonmasked
+                    else dak.num(events[commonmask], axis=0)
+                ),
+                (
+                    dak.num(events[nomuon & leadpt20], axis=0)
+                    if not commonmasked
+                    else dak.num(events[nomuon & leadpt20 & commonmask], axis=0)
+                ),
+                (
+                    dak.num(events[twoelectron & leadpt20], axis=0)
+                    if not commonmasked
+                    else dak.num(events[twoelectron & leadpt20 & commonmask], axis=0)
+                ),
+                (
+                    dak.num(events[twoelectron & nomuon], axis=0)
+                    if not commonmasked
+                    else dak.num(events[twoelectron & nomuon & commonmask], axis=0)
+                ),
+                (
+                    dak.num(events[twoelectron & nomuon & leadpt20], axis=0)
+                    if not commonmasked
+                    else dak.num(
+                        events[twoelectron & nomuon & leadpt20 & commonmask], axis=0
+                    )
+                ),
+            ],
+            "truths": truths,
+            "hs_truths": hs_truths,
+            "h": h,
+            "hlabel": hlabel,
+            "catlabel": catlabel,
+            "hs": hs,
+            "hslabels": hslabels,
+            "catlabels": catlabels,
+            "h_fill_arrays": h_fill_arrays,
+            "h_fill_weights": h_fill_weights,
+        }
+        computed = dask.compute(to_compute)[0]
+        computed_nev = computed["nev"]
+        computed_masks = computed["masks"]
+        computed_r_commonmask = computed["r_commonmask"]
+        computed_r_wgtev = computed["r_wgtev"]
+        computed_r_weights_wmodifier = computed["r_weights_wmodifier"]
+        computed_nev_comparison = computed["nev_comparison"]
+        computed_truths = computed["truths"]
+        computed_hs_truths = computed["hs_truths"]
+        computed_h = computed["h"]
+        computed_hlabel = computed["hlabel"]
+        computed_catlabel = computed["catlabel"]
+        computed_hs = computed["hs"]
+        computed_hslabels = computed["hslabels"]
+        computed_catlabels = computed["catlabels"]
+        computed_h_fill_arrays = computed["h_fill_arrays"]
+        computed_h_fill_weights = computed["h_fill_weights"]
+
+        assert labels == [
+            "initial",
+            "N - twoElectron",
+            "N - noMuon",
+            "N - leadPt20",
+            "N",
+        ]
+        assert computed_nev == computed_nev_comparison
+
+        if weighted:
+            if commonmasked:
+                assert np.isclose(
+                    computed_r_wgtev[0],
+                    ak.sum(computed_r_weights_wmodifier[computed_r_commonmask]),
+                )
+            else:
+                assert np.isclose(
+                    computed_r_wgtev[0],
+                    ak.sum(computed_r_weights_wmodifier),
+                )
+        for i, (mask, truth) in enumerate(zip(computed_masks, computed_truths), 1):
+            assert ak.all(mask == truth)
+            if weighted:
+                assert np.isclose(
+                    computed_r_wgtev[i],
+                    ak.sum(computed_r_weights_wmodifier[truth]),
+                )
+
+        # npz comparisons
+        with tempfile.TemporaryDirectory() as tmp:
+            nminusone_uncompressed = os.path.join(tmp, "nminusone_uncompresssed.npz")
+            nminusone_compressed = os.path.join(tmp, "nminusone_compresssed.npz")
+            nminusone_compressed_weighted = os.path.join(
+                tmp, "nminusone_compresssed_weighted.npz"
+            )
+            nminusone.to_npz(
+                nminusone_uncompressed, compressed=False, includeweights=False
+            ).compute()
+            nminusone.to_npz(nminusone_compressed, compressed=True).compute()
+            nminusone.to_npz(
+                nminusone_compressed_weighted, compressed=True, includeweights=True
+            ).compute()
+            with np.load(nminusone_uncompressed) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nev"] == list(computed_nev))
+                assert np.all(file["masks"] == list(computed_masks))
+                if commonmasked:
+                    assert np.all(file["commonmask"] == computed_r_commonmask)
+                else:
+                    assert "commonmask" not in file
+                if weighted:
+                    assert np.all(file["wgtev"] == list(computed_r_wgtev))
+                else:
+                    assert "wgtev" not in file
+                assert "weights" not in file
+
+            with np.load(nminusone_compressed) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nev"] == list(computed_nev))
+                assert np.all(file["masks"] == list(computed_masks))
+                if commonmasked:
+                    assert np.all(file["commonmask"] == computed_r_commonmask)
+                else:
+                    assert "commonmask" not in file
+                if weighted:
+                    assert np.all(file["wgtev"] == list(computed_r_wgtev))
+                    assert np.all(file["weights"] == computed_r_weights_wmodifier)
+                else:
+                    assert "wgtev" not in file
+                    assert "weights" not in file
+
+            with np.load(nminusone_compressed_weighted) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nev"] == list(computed_nev))
+                assert np.all(file["masks"] == list(computed_masks))
+                if commonmasked:
+                    assert np.all(file["commonmask"] == computed_r_commonmask)
+                else:
+                    assert "commonmask" not in file
+                if weighted:
+                    assert np.all(file["wgtev"] == list(computed_r_wgtev))
+                    assert np.all(file["weights"] == computed_r_weights_wmodifier)
+                else:
+                    assert "wgtev" not in file
+                    assert "weights" not in file
+
+        # yieldhist comparisons
+        assert computed_hlabel == [
+            "initial",
+            "N - twoElectron",
+            "N - noMuon",
+            "N - leadPt20",
+            "N",
+        ]
+        if withcategorical:
+            assert computed_catlabel[0] == ["0", "41", "43"]
+        assert np.all(computed_h.axes["nminusone"].edges == np.arange(0, 6))
+        if withcategorical:
+            assert np.all(computed_h.axes["genTtbarId"].edges == np.array([0, 1, 2, 3]))
+        firstcatentry = 36 if not commonmasked else 15
+        if weighted:
+            assert np.all(computed_h.project("nminusone").counts() == computed_r_wgtev)
+            if withcategorical:
+                assert np.all(
+                    np.isclose(
+                        computed_h[0, :].project("genTtbarId").counts(),
+                        1.25 * np.array([firstcatentry, 3, 1]),
+                    )
+                )
+        else:
+            assert np.all(computed_h.project("nminusone").counts() == computed_nev)
+            if withcategorical:
+                assert np.all(
+                    np.isclose(
+                        computed_h[0, :].project("genTtbarId").counts(),
+                        np.array([firstcatentry, 3, 1]),
+                    )
+                )
+
+        # plot_vars comparisons
+        assert computed_hslabels == [
+            "initial",
+            "N - twoElectron",
+            "N - noMuon",
+            "N - leadPt20",
+            "N",
+        ]
+        if withcategorical:
+            assert computed_catlabels[0] == ["0", "41", "43"]
+
+        # override histogram 'h' here
+        for h, computed_fill_arrays, computed_fill_weights in zip(
+            computed_hs,
+            computed_h_fill_arrays.values(),
+            computed_h_fill_weights.values(),
+        ):
             edges = h.axes[0].edges
-            for i, truth in enumerate(
-                [
-                    np.ones(40, dtype=bool),
-                    nomuon.compute(),
-                    twoelectron.compute(),
-                    leadpt20.compute(),
-                ]
-            ):
-                counts = h[:, i].counts(flow=True)
+            for i, truth in enumerate(computed_hs_truths):
+                counts = h.project(h.axes.name[0], "nminusone")[:, i].counts(flow=True)
                 counts[1] += counts[0]
                 counts[-2] += counts[-1]
-                c, e = np.histogram(dak.flatten(array[truth]).compute(), bins=edges)
-                assert np.all(np.isclose(counts[1:-1], c))
-
-        for h, array in zip(hcutflows, [events.Electron.pt, events.Electron.phi]):
-            edges = h.axes[0].edges
-            for i, truth in enumerate(
-                [
-                    np.ones(40, dtype=bool),
-                    nomuon.compute(),
-                    (nomuon & twoelectron).compute(),
-                    (nomuon & twoelectron & leadpt20).compute(),
-                ]
-            ):
-                counts = h[:, i].counts(flow=True)
-                counts[1] += counts[0]
-                counts[-2] += counts[-1]
-                c, e = np.histogram(dak.flatten(array[truth]).compute(), bins=edges)
+                c, e = np.histogram(
+                    computed_fill_arrays[i],
+                    bins=edges,
+                    weights=computed_fill_weights[i] if weighted else None,
+                )
                 assert np.all(np.isclose(counts[1:-1], c))
 
 
