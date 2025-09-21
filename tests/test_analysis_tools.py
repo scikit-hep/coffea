@@ -16,6 +16,12 @@ eagerevents = NanoEventsFactory.from_root(
     metadata={"dataset": "DYJets"},
     mode="eager",
 ).events()
+virtualevents = NanoEventsFactory.from_root(
+    {os.path.abspath(fname): "Events"},
+    schemaclass=NanoAODSchema,
+    metadata={"dataset": "DYJets"},
+    mode="virtual",
+).events()
 dakevents = NanoEventsFactory.from_root(
     {os.path.abspath(fname): "Events"},
     schemaclass=NanoAODSchema,
@@ -1275,27 +1281,44 @@ def test_packed_selection_nminusone_dak(optimization_enabled):
                 assert np.all(np.isclose(counts[1:-1], c))
 
 
+@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 @pytest.mark.parametrize("weighted", [True, False])
 @pytest.mark.parametrize("commonmasked", [True, False])
 @pytest.mark.parametrize("withcategorical", [True, False])
-def test_packed_selection_nminusone_extended_dak(
-    optimization_enabled, weighted, commonmasked, withcategorical
+def test_packed_selection_nminusone_extended_by_mode(
+    mode, optimization_enabled, weighted, commonmasked, withcategorical
 ):
     import awkward as ak
     import dask
     import dask_awkward as dak
 
+    ak_or_dak = dak if mode == "dask" else ak
+
     from coffea.analysis_tools import PackedSelection, Weights
 
-    events = dakevents
+    if mode == "dask":
+        events = dakevents
+        weight = Weights(None)
+    elif mode == "eager":
+        if optimization_enabled:
+            pytest.skip("eager mode test redundant with optimization enabled")
+        events = eagerevents
+        weight = Weights(len(events))
+    elif mode == "virtual":
+        if optimization_enabled:
+            pytest.skip("virtual mode test redundant with optimization enabled")
+        events = virtualevents
+        weight = Weights(len(events))
+    else:
+        raise ValueError(f"Mode {mode} not recognized")
 
     selection = PackedSelection()
 
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
-        twoelectron = dak.num(events.Electron) == 2
-        nomuon = dak.num(events.Muon) == 0
-        leadpt20 = dak.any(events.Electron.pt >= 20.0, axis=1) | dak.any(
+        twoelectron = ak_or_dak.num(events.Electron) == 2
+        nomuon = ak_or_dak.num(events.Muon) == 0
+        leadpt20 = ak_or_dak.any(events.Electron.pt >= 20.0, axis=1) | ak_or_dak.any(
             events.Muon.pt >= 20.0, axis=1
         )
 
@@ -1309,7 +1332,9 @@ def test_packed_selection_nminusone_extended_dak(
 
         assert selection.names == ["twoElectron", "noMuon", "leadPt20"]
 
-        commonmask = (dak.num(events.Electron.eta) >= 1) & (dak.num(events.Muon) <= 1)
+        commonmask = (ak_or_dak.num(events.Electron.eta) >= 1) & (
+            ak_or_dak.num(events.Muon) <= 1
+        )
 
         categorical = {
             "axis": hist.axis.IntCategory(
@@ -1319,12 +1344,11 @@ def test_packed_selection_nminusone_extended_dak(
             "labels": ["0", "41", "43"],
         }
 
-        weight = Weights(None)
         weight.add(
             "test",
-            dak.ones_like(events.genWeight),
-            weightUp=1.25 * dak.ones_like(events.genWeight),
-            weightDown=0.5 * dak.ones_like(events.genWeight),
+            ak_or_dak.ones_like(events.genWeight),
+            weightUp=1.25 * ak_or_dak.ones_like(events.genWeight),
+            weightDown=0.5 * ak_or_dak.ones_like(events.genWeight),
         )
 
         with pytest.raises(
@@ -1385,11 +1409,11 @@ def test_packed_selection_nminusone_extended_dak(
 
         for varname, array in array_dict.items():
             for i, truth in enumerate(hs_truths):
-                fill_array, fill_weights = dak.broadcast_arrays(
+                fill_array, fill_weights = ak_or_dak.broadcast_arrays(
                     array[truth], weight.weight(r_weightsmodifier)[truth]
                 )
-                h_fill_arrays[varname].append(dak.flatten(fill_array))
-                h_fill_weights[varname].append(dak.flatten(fill_weights))
+                h_fill_arrays[varname].append(ak_or_dak.flatten(fill_array))
+                h_fill_weights[varname].append(ak_or_dak.flatten(fill_weights))
 
         # Ensure key alignment
         assert array_dict.keys() == h_fill_arrays.keys()
@@ -1407,29 +1431,33 @@ def test_packed_selection_nminusone_extended_dak(
             "r_weightsmodifier": r_weightsmodifier,
             "nev_comparison": [
                 (
-                    dak.num(events, axis=0)
+                    ak_or_dak.num(events, axis=0)
                     if not commonmasked
-                    else dak.num(events[commonmask], axis=0)
+                    else ak_or_dak.num(events[commonmask], axis=0)
                 ),
                 (
-                    dak.num(events[nomuon & leadpt20], axis=0)
+                    ak_or_dak.num(events[nomuon & leadpt20], axis=0)
                     if not commonmasked
-                    else dak.num(events[nomuon & leadpt20 & commonmask], axis=0)
+                    else ak_or_dak.num(events[nomuon & leadpt20 & commonmask], axis=0)
                 ),
                 (
-                    dak.num(events[twoelectron & leadpt20], axis=0)
+                    ak_or_dak.num(events[twoelectron & leadpt20], axis=0)
                     if not commonmasked
-                    else dak.num(events[twoelectron & leadpt20 & commonmask], axis=0)
+                    else ak_or_dak.num(
+                        events[twoelectron & leadpt20 & commonmask], axis=0
+                    )
                 ),
                 (
-                    dak.num(events[twoelectron & nomuon], axis=0)
+                    ak_or_dak.num(events[twoelectron & nomuon], axis=0)
                     if not commonmasked
-                    else dak.num(events[twoelectron & nomuon & commonmask], axis=0)
+                    else ak_or_dak.num(
+                        events[twoelectron & nomuon & commonmask], axis=0
+                    )
                 ),
                 (
-                    dak.num(events[twoelectron & nomuon & leadpt20], axis=0)
+                    ak_or_dak.num(events[twoelectron & nomuon & leadpt20], axis=0)
                     if not commonmasked
-                    else dak.num(
+                    else ak_or_dak.num(
                         events[twoelectron & nomuon & leadpt20 & commonmask], axis=0
                     )
                 ),
@@ -1612,28 +1640,44 @@ def test_packed_selection_nminusone_extended_dak(
                 assert np.all(np.isclose(counts[1:-1], c))
 
 
+@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 @pytest.mark.parametrize("weighted", [True, False])
 @pytest.mark.parametrize("commonmasked", [True, False])
 @pytest.mark.parametrize("withcategorical", [True, False])
-def test_packed_selection_cutflow_extended_dak(
-    optimization_enabled, weighted, commonmasked, withcategorical
+def test_packed_selection_cutflow_extended_by_mode(
+    mode, optimization_enabled, weighted, commonmasked, withcategorical
 ):
 
     import awkward as ak
     import dask
     import dask_awkward as dak
 
+    ak_or_dak = dak if mode == "dask" else ak
+
     from coffea.analysis_tools import PackedSelection, Weights
 
-    events = dakevents
-
+    if mode == "dask":
+        events = dakevents
+        weight = Weights(None)
+    elif mode == "eager":
+        if optimization_enabled:
+            pytest.skip("eager mode test redundant with optimization enabled")
+        events = eagerevents
+        weight = Weights(len(events))
+    elif mode == "virtual":
+        if optimization_enabled:
+            pytest.skip("virtual mode test redundant with optimization enabled")
+        events = virtualevents
+        weight = Weights(len(events))
+    else:
+        raise ValueError(f"Mode {mode} not recognized")
     selection = PackedSelection()
 
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
-        twoelectron = dak.num(events.Electron) == 2
-        nomuon = dak.num(events.Muon) == 0
-        leadpt20 = dak.any(events.Electron.pt >= 20.0, axis=1) | dak.any(
+        twoelectron = ak_or_dak.num(events.Electron) == 2
+        nomuon = ak_or_dak.num(events.Muon) == 0
+        leadpt20 = ak_or_dak.any(events.Electron.pt >= 20.0, axis=1) | ak_or_dak.any(
             events.Muon.pt >= 20.0, axis=1
         )
         selection.add_multiple(
@@ -1646,7 +1690,9 @@ def test_packed_selection_cutflow_extended_dak(
 
         assert selection.names == ["twoElectron", "noMuon", "leadPt20"]
 
-        commonmask = (dak.num(events.Electron) >= 1) & (dak.num(events.Muon) <= 1)
+        commonmask = (ak_or_dak.num(events.Electron) >= 1) & (
+            ak_or_dak.num(events.Muon) <= 1
+        )
 
         categorical = {
             "axis": hist.axis.IntCategory(
@@ -1656,12 +1702,11 @@ def test_packed_selection_cutflow_extended_dak(
             "labels": ["0", "41", "43"],
         }
 
-        weight = Weights(None)
         weight.add(
             "test",
-            dak.ones_like(events.genWeight),
-            weightUp=1.25 * dak.ones_like(events.genWeight),
-            weightDown=0.5 * dak.ones_like(events.genWeight),
+            ak_or_dak.ones_like(events.genWeight),
+            weightUp=1.25 * ak_or_dak.ones_like(events.genWeight),
+            weightDown=0.5 * ak_or_dak.ones_like(events.genWeight),
         )
 
         with pytest.raises(
@@ -1732,19 +1777,19 @@ def test_packed_selection_cutflow_extended_dak(
 
         for varname, array in array_dict.items():
             for i, truth in enumerate(honecuts_truths):
-                fill_array, fill_weights = dak.broadcast_arrays(
+                fill_array, fill_weights = ak_or_dak.broadcast_arrays(
                     array[truth], weight.weight(r_weightsmodifier)[truth]
                 )
-                honecuts_fill_arrays[varname].append(dak.flatten(fill_array))
-                honecuts_fill_weights[varname].append(dak.flatten(fill_weights))
+                honecuts_fill_arrays[varname].append(ak_or_dak.flatten(fill_array))
+                honecuts_fill_weights[varname].append(ak_or_dak.flatten(fill_weights))
 
         for varname, array in array_dict.items():
             for i, truth in enumerate(hcutflows_truths):
-                fill_array, fill_weights = dak.broadcast_arrays(
+                fill_array, fill_weights = ak_or_dak.broadcast_arrays(
                     array[truth], weight.weight(r_weightsmodifier)[truth]
                 )
-                hcutflows_fill_arrays[varname].append(dak.flatten(fill_array))
-                hcutflows_fill_weights[varname].append(dak.flatten(fill_weights))
+                hcutflows_fill_arrays[varname].append(ak_or_dak.flatten(fill_array))
+                hcutflows_fill_weights[varname].append(ak_or_dak.flatten(fill_weights))
 
         # Ensure key alignment
         assert array_dict.keys() == honecuts_fill_arrays.keys()
@@ -1767,46 +1812,48 @@ def test_packed_selection_cutflow_extended_dak(
             "r_weightsmodifier": r_weightsmodifier,
             "nevonecut_comparison": [
                 (
-                    dak.num(events, axis=0)
+                    ak_or_dak.num(events, axis=0)
                     if not commonmasked
-                    else dak.num(events[commonmask], axis=0)
+                    else ak_or_dak.num(events[commonmask], axis=0)
                 ),
                 (
-                    dak.num(events[nomuon], axis=0)
+                    ak_or_dak.num(events[nomuon], axis=0)
                     if not commonmasked
-                    else dak.num(events[nomuon & commonmask], axis=0)
+                    else ak_or_dak.num(events[nomuon & commonmask], axis=0)
                 ),
                 (
-                    dak.num(events[twoelectron], axis=0)
+                    ak_or_dak.num(events[twoelectron], axis=0)
                     if not commonmasked
-                    else dak.num(events[twoelectron & commonmask], axis=0)
+                    else ak_or_dak.num(events[twoelectron & commonmask], axis=0)
                 ),
                 (
-                    dak.num(events[leadpt20], axis=0)
+                    ak_or_dak.num(events[leadpt20], axis=0)
                     if not commonmasked
-                    else dak.num(events[leadpt20 & commonmask], axis=0)
+                    else ak_or_dak.num(events[leadpt20 & commonmask], axis=0)
                 ),
             ],
             "nevcutflow_comparison": [
                 (
-                    dak.num(events, axis=0)
+                    ak_or_dak.num(events, axis=0)
                     if not commonmasked
-                    else dak.num(events[commonmask], axis=0)
+                    else ak_or_dak.num(events[commonmask], axis=0)
                 ),
                 (
-                    dak.num(events[nomuon], axis=0)
+                    ak_or_dak.num(events[nomuon], axis=0)
                     if not commonmasked
-                    else dak.num(events[nomuon & commonmask], axis=0)
+                    else ak_or_dak.num(events[nomuon & commonmask], axis=0)
                 ),
                 (
-                    dak.num(events[nomuon & twoelectron], axis=0)
+                    ak_or_dak.num(events[nomuon & twoelectron], axis=0)
                     if not commonmasked
-                    else dak.num(events[nomuon & twoelectron & commonmask], axis=0)
+                    else ak_or_dak.num(
+                        events[nomuon & twoelectron & commonmask], axis=0
+                    )
                 ),
                 (
-                    dak.num(events[nomuon & twoelectron & leadpt20], axis=0)
+                    ak_or_dak.num(events[nomuon & twoelectron & leadpt20], axis=0)
                     if not commonmasked
-                    else dak.num(
+                    else ak_or_dak.num(
                         events[nomuon & twoelectron & leadpt20 & commonmask], axis=0
                     )
                 ),
