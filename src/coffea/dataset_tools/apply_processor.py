@@ -60,14 +60,14 @@ def apply_to_dataset(
         report : dask_awkward.Array, optional
             The file access report for running the analysis on the input dataset. Needs to be computed in simultaneously with the analysis to be accurate.
     """
-    if isinstance(dataset, DatasetSpec):
-        dataset = dataset.model_dump()
-    maybe_base_form = dataset.get("form", None)
+    if isinstance(dataset, dict):
+        dataset = DatasetSpec.model_validate(dataset)
+    maybe_base_form = dataset.form
     if maybe_base_form is not None:
         maybe_base_form = awkward.forms.from_json(decompress_form(maybe_base_form))
-    files = dataset["files"]
+    files = dataset.files
     events = NanoEventsFactory.from_root(
-        files,
+        files.model_dump(),
         metadata=metadata,
         schemaclass=schemaclass,
         known_base_form=maybe_base_form,
@@ -119,12 +119,12 @@ def apply_to_fileset(
         report : dask_awkward.Array, optional
             The file access report for running the analysis on the input dataset. Needs to be computed in simultaneously with the analysis to be accurate.
     """
-    if isinstance(fileset, FilesetSpec):
-        fileset = fileset.model_dump()
+    if isinstance(fileset, dict):
+        fileset = FilesetSpec.model_validate(fileset)
     out = {}
     report = {}
     for name, dataset in fileset.items():
-        metadata = copy.deepcopy(dataset.get("metadata", {}))
+        metadata = copy.deepcopy(dataset.metadata)
         if metadata is None:
             metadata = {}
         metadata.setdefault("dataset", name)
