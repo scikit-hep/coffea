@@ -29,6 +29,7 @@ from cachetools import LRUCache
 from ..nanoevents import NanoEventsFactory, schemas
 from ..util import _exception_chain, _hash, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
+from .checkpointer import CheckpointerABC
 from .processor import ProcessorABC
 
 _PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
@@ -1023,6 +1024,8 @@ class Runner:
             determine chunking.  Defaults to a in-memory LRU cache that holds 100k entries
             (about 1MB depending on the length of filenames, etc.)  If you edit an input file
             (please don't) during a session, the session can be restarted to clear the cache.
+        checkpointer : CheckpointerABC, optional
+            A CheckpointerABC instance to manage checkpointing of each chunk output
     """
 
     executor: ExecutorBase
@@ -1039,6 +1042,7 @@ class Runner:
     use_skyhook: Optional[bool] = False
     skyhook_options: Optional[dict] = field(default_factory=dict)
     format: str = "root"
+    checkpointer: Optional[CheckpointerABC] = None
 
     @staticmethod
     def read_coffea_config():
@@ -1384,6 +1388,7 @@ class Runner:
         processor_instance: ProcessorABC,
         uproot_options: dict,
         iteritems_options: dict,
+        checkpointer=None,
     ) -> dict:
         if "timeout" in uproot_options:
             xrootdtimeout = uproot_options["timeout"]
@@ -1391,6 +1396,28 @@ class Runner:
             item, processor_instance = item
         if not isinstance(processor_instance, ProcessorABC):
             processor_instance = cloudpickle.loads(lz4f.decompress(processor_instance))
+
+        metadata = {
+            "dataset": item.dataset,
+            "filename": item.filename,
+            "treename": item.treename,
+            "entrystart": item.entrystart,
+            "entrystop": item.entrystop,
+            "fileuuid": (
+                str(uuid.UUID(bytes=item.fileuuid)) if len(item.fileuuid) > 0 else ""
+            ),
+        }
+        if item.usermeta is not None:
+            metadata.update(item.usermeta)
+
+        if checkpointer is not None:
+            if not isinstance(checkpointer, CheckpointerABC):
+                raise TypeError("Expected checkpointer to derive from CheckpointerABC")
+            # try to load from checkpoint
+            out = checkpointer.load(metadata, processor_instance)
+            # if we got something, return it
+            if out is not None:
+                return out
 
         try:
             if format == "root":
@@ -1405,19 +1432,6 @@ class Runner:
             raise Exception(
                 f"Failed to open file: {item!r}. The error was: {e!r}."
             ) from e
-
-        metadata = {
-            "dataset": item.dataset,
-            "filename": item.filename,
-            "treename": item.treename,
-            "entrystart": item.entrystart,
-            "entrystop": item.entrystop,
-            "fileuuid": (
-                str(uuid.UUID(bytes=item.fileuuid)) if len(item.fileuuid) > 0 else ""
-            ),
-        }
-        if item.usermeta is not None:
-            metadata.update(item.usermeta)
 
         with filecontext as file:
             if schema is None:
@@ -1464,9 +1478,7 @@ class Runner:
                     "Output of process() should not be None. Make sure your processor's process() function returns an accumulator."
                 )
             toc = time.time()
-            if use_dataframes:
-                return out
-            else:
+            if not use_dataframes:
                 if savemetrics:
                     metrics = {}
                     if isinstance(file, uproot.ReadOnlyDirectory):
@@ -1475,8 +1487,13 @@ class Runner:
                         metrics["columns"] = set(materialized)
                         metrics["entries"] = len(events)
                     metrics["processtime"] = toc - tic
-                    return {"out": out, "metrics": metrics, "processed": {item}}
-                return {"out": out, "processed": {item}}
+                    out = {"out": out, "metrics": metrics, "processed": {item}}
+                out = {"out": out, "processed": {item}}
+
+            if checkpointer is not None:
+                # save the output
+                checkpointer.save(out, metadata, processor_instance)
+            return out
 
     def __call__(
         self,
@@ -1622,6 +1639,7 @@ class Runner:
                 processor_instance="heavy",
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
+                checkpointer=self.checkpointer,
             )
         else:
             closure = partial(
@@ -1634,6 +1652,7 @@ class Runner:
                 processor_instance=pi_to_send,
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
+                checkpointer=self.checkpointer,
             )
 
         chunks = list(chunks)
