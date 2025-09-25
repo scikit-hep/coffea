@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import fsspec
+from rich import print
 
 from coffea.util import load, save
 
