@@ -117,7 +117,7 @@ def _attempt_tracing(fun: Callable, tracer: ak.Array, throw: bool) -> None:
 
 
 def trace_with_typetracer(
-    fun: Callable, events: ak.Array, throw: bool = True
+    fun: Callable, events: ak.Array, throw: bool = False
 ) -> frozenset[str]:
     """
     Trace the execution of a function on NanoEvents using Awkward's typetracer to determine which buffers are touched.
@@ -145,7 +145,7 @@ def trace_with_typetracer(
 
 
 def trace_with_length_zero_array(
-    fun: Callable, events: ak.Array, throw: bool = True
+    fun: Callable, events: ak.Array, throw: bool = False
 ) -> frozenset[str]:
     """
     Trace the execution of a function on NanoEvents using a length-zero array to determine which buffers are touched.
@@ -173,7 +173,7 @@ def trace_with_length_zero_array(
 
 
 def trace_with_length_one_array(
-    fun: Callable, events: ak.Array, throw: bool = True
+    fun: Callable, events: ak.Array, throw: bool = False
 ) -> frozenset[str]:
     """
     Trace the execution of a function on NanoEvents using a length-one array to determine which buffers are touched.
@@ -225,7 +225,7 @@ def trace(fun: Callable, events: ak.Array) -> frozenset[str]:
     touched = set()
 
     try:
-        touched |= trace_with_typetracer(fun, events)
+        touched |= trace_with_typetracer(fun, events, throw=True)
         return frozenset(touched)
     except Exception as e1:
         warnings.warn(
@@ -234,7 +234,7 @@ def trace(fun: Callable, events: ak.Array) -> frozenset[str]:
             stacklevel=2,
         )
     try:
-        touched |= trace_with_length_zero_array(fun, events)
+        touched |= trace_with_length_zero_array(fun, events, throw=True)
         return frozenset(touched)
     except Exception as e2:
         warnings.warn(
@@ -243,7 +243,7 @@ def trace(fun: Callable, events: ak.Array) -> frozenset[str]:
             stacklevel=2,
         )
     try:
-        touched |= trace_with_length_one_array(fun, events)
+        touched |= trace_with_length_one_array(fun, events, throw=True)
         return frozenset(touched)
     except Exception as e3:
         warnings.warn(
