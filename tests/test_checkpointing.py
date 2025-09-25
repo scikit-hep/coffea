@@ -46,7 +46,7 @@ def test_checkpointing():
 
     executor = processor.IterativeExecutor()
 
-    checkpointer = processor.LocalCheckpointer(
+    checkpointer = processor.SimpleCheckpointer(
         path := (Path(__file__).parent / "test_checkpointing")
     )
     run = processor.Runner(

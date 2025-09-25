@@ -21,12 +21,12 @@ class CheckpointerABC(metaclass=ABCMeta):
 
     >>> from datetime import datetime
     >>> from coffea import processor
-    >>> from coffea.processor import LocalCheckpointer
+    >>> from coffea.processor import SimpleCheckpointer
 
     # create a checkpointer that stores checkpoints in a directory with the current date/time
     # (you may want to use a more specific directory in practice)
     >>> datestring = datetime.now().strftime("%Y%m%d%H")
-    >>> checkpointer = LocalCheckpointer(checkpoint_dir=f"checkpoints/{datestring}", verbose=True)
+    >>> checkpointer = SimpleCheckpointer(checkpoint_dir=f"checkpoints/{datestring}", verbose=True)
 
     # pass the checkpointer to a Runner
     >>> run = processor.Runner(..., checkpointer=checkpointer)
@@ -48,7 +48,7 @@ class CheckpointerABC(metaclass=ABCMeta):
     ) -> None: ...
 
 
-class LocalCheckpointer(CheckpointerABC):
+class SimpleCheckpointer(CheckpointerABC):
     def __init__(
         self,
         checkpoint_dir: str | Path,

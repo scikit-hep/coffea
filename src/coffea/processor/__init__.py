@@ -11,7 +11,7 @@ from .accumulator import (
     set_accumulator,
     value_accumulator,
 )
-from .checkpointer import CheckpointerABC, LocalCheckpointer
+from .checkpointer import CheckpointerABC, SimpleCheckpointer
 from .executor import (
     DaskExecutor,
     FuturesExecutor,
@@ -31,7 +31,7 @@ __all__ = [
     "TaskVineExecutor",
     "Runner",
     "CheckpointerABC",
-    "LocalCheckpointer",
+    "SimpleCheckpointer",
     "accumulate",
     "Accumulatable",
     "AccumulatorABC",
