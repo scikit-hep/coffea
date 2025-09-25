@@ -1384,6 +1384,7 @@ class Runner:
         processor_instance: ProcessorABC,
         uproot_options: dict,
         iteritems_options: dict,
+        preload_columns: dict,
     ) -> dict:
         if "timeout" in uproot_options:
             xrootdtimeout = uproot_options["timeout"]
@@ -1419,6 +1420,18 @@ class Runner:
         if item.usermeta is not None:
             metadata.update(item.usermeta)
 
+        # preload logic
+        # Important: same hash as in the TraceProcessor cls, so we use a common method
+        hashed = _hash_for_tracing(metadata)
+        needed = None
+        if preload_columns is not None:
+            needed = preload_columns.get(hashed, None)
+
+        if needed is not None:
+            preload = lambda b: b.name in needed  # noqa
+        else:
+            preload = None
+
         with filecontext as file:
             if schema is None:
                 raise ValueError("Schema must be set")
@@ -1437,6 +1450,7 @@ class Runner:
                             entry_start=item.entrystart,
                             entry_stop=item.entrystop,
                             iteritems_options=iteritems_options,
+                            preload=preload,
                         )
                         events = factory.events()
                     elif format == "parquet":
@@ -1485,6 +1499,7 @@ class Runner:
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
         iteritems_options: Optional[dict] = {},
+        preload_columns: Optional[dict] = None,
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
 
@@ -1503,9 +1518,16 @@ class Runner:
                 Any options to pass to ``uproot.open``
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
+            preload_columns : dict, optional
+                A mapping of fileset metadata to columns to preload
         """
         wrapped_out = self.run(
-            fileset, processor_instance, treename, uproot_options, iteritems_options
+            fileset,
+            processor_instance,
+            treename,
+            uproot_options,
+            iteritems_options,
+            preload_columns,
         )
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
@@ -1553,6 +1575,46 @@ class Runner:
 
         return self._chunk_generator(fileset, treename)
 
+    def trace_needed_columns(
+        self,
+        fileset: Union[dict, str, list[WorkItem], Generator],
+        processor_instance=ProcessorABC,
+        treename="Events",
+    ) -> Generator[WorkItem]:
+        class TraceProcessor(ProcessorABC):
+            """Wraps a processor to trace which columns are accessed during processing."""
+
+            def __init__(self, processor: ProcessorABC):
+                self.processor = processor
+
+            @property
+            def accumulator(self):
+                return {}
+
+            def process(self, events):
+                from coffea.nanoevents.trace import trace
+
+                accum = self.accumulator
+                hashed = _hash_for_tracing(events.metadata)
+                accum[hashed] = set()
+                columns = trace(self.processor.process, events)
+                accum[hashed] |= columns
+                return accum
+
+            def postprocess(self, accumulator):
+                return accumulator
+
+        # wrap
+        trace_processor_instance = TraceProcessor(processor_instance)
+        return self(
+            fileset,
+            trace_processor_instance,
+            treename,
+            uproot_options={},
+            iteritems_options={},
+            preload_columns=None,
+        )
+
     def run(
         self,
         fileset: Union[dict, str, list[WorkItem], Generator],
@@ -1560,6 +1622,7 @@ class Runner:
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
         iteritems_options: Optional[dict] = {},
+        preload_columns: Optional[dict] = None,
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
 
@@ -1584,6 +1647,8 @@ class Runner:
                 Any options to pass to ``uproot.open``
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
+            preload_columns: dict, optional
+                A mapping of fileset metadata to columns to preload
         """
 
         meta = False
@@ -1622,6 +1687,7 @@ class Runner:
                 processor_instance="heavy",
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
+                preload_columns=preload_columns,
             )
         else:
             closure = partial(
@@ -1634,6 +1700,7 @@ class Runner:
                 processor_instance=pi_to_send,
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
+                preload_columns=preload_columns,
             )
 
         chunks = list(chunks)
@@ -1668,3 +1735,16 @@ class Runner:
             return wrapped_out["out"]
         else:
             return wrapped_out
+
+
+def _hash_for_tracing(metadata):
+    return _hash(
+        (
+            metadata["dataset"],
+            metadata["filename"],
+            metadata["treename"],
+            metadata["entrystart"],
+            metadata["entrystop"],
+            metadata["fileuuid"],
+        )
+    )
