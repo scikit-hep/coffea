@@ -1580,7 +1580,34 @@ class Runner:
         fileset: Union[dict, str, list[WorkItem], Generator],
         processor_instance=ProcessorABC,
         treename="Events",
+        uproot_options: Optional[dict] = {},
+        iteritems_options: Optional[dict] = {},
     ) -> Generator[WorkItem]:
+        """Trace the processor_instance on a given fileset
+
+        Parameters
+        ----------
+            fileset : dict | str | List[WorkItem] | Generator
+                - A dictionary ``{dataset: [file, file], }``
+                  Optionally, if some files' tree name differ, the dictionary can be specified:
+                  ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
+                  You can also define a different tree name per file in the dictionary:
+                ``{dataset: {'files': {file: 'name'}}, }``
+                - A single file name
+                - File chunks for self.preprocess()
+                - Chunk generator
+            processor_instance : ProcessorABC
+                An instance of a class deriving from ProcessorABC
+            treename : str, optional
+                name of tree inside each root file, can be ``None``;
+                treename can also be defined in fileset, which will override the passed treename
+                Not needed if processing premade chunks
+            uproot_options : dict, optional
+                Any options to pass to ``uproot.open``
+            iteritems_options : dict, optional
+                Any options to pass to ``tree.iteritems``
+        """
+
         class TraceProcessor(ProcessorABC):
             """Wraps a processor to trace which columns are accessed during processing."""
 
@@ -1610,8 +1637,8 @@ class Runner:
             fileset,
             trace_processor_instance,
             treename,
-            uproot_options={},
-            iteritems_options={},
+            uproot_options=uproot_options,
+            iteritems_options=iteritems_options,
             preload_columns=None,
         )
 
