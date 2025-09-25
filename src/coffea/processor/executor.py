@@ -1388,7 +1388,7 @@ class Runner:
         processor_instance: ProcessorABC,
         uproot_options: dict,
         iteritems_options: dict,
-        checkpointer=None,
+        checkpointer: CheckpointerABC,
     ) -> dict:
         if "timeout" in uproot_options:
             xrootdtimeout = uproot_options["timeout"]
