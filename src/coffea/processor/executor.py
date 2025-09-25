@@ -1491,6 +1491,10 @@ class Runner:
                 out = {"out": out, "processed": {item}}
 
             if checkpointer is not None:
+                if not isinstance(checkpointer, CheckpointerABC):
+                    raise TypeError(
+                        "Expected checkpointer to derive from CheckpointerABC"
+                    )
                 # save the output
                 checkpointer.save(out, metadata, processor_instance)
             return out
