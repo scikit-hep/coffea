@@ -1506,7 +1506,11 @@ class Runner:
                 Any options to pass to ``tree.iteritems``
         """
         wrapped_out = self.run(
-            fileset, processor_instance, treename, uproot_options, iteritems_options
+            fileset=fileset,
+            processor_instance=processor_instance,
+            treename=treename,
+            uproot_options=uproot_options,
+            iteritems_options=iteritems_options,
         )
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
