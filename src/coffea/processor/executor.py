@@ -1581,7 +1581,6 @@ class Runner:
         self,
         fileset: Union[dict, str, list[WorkItem], Generator],
         processor_instance=ProcessorABC,
-        *,
         treename="Events",
         uproot_options: Optional[dict] = {},
         iteritems_options: Optional[dict] = {},
@@ -1610,6 +1609,10 @@ class Runner:
                 Any options to pass to ``uproot.open``
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
+            trace_method : Callable, Optional
+                A callable that takes a function and a NanoEventsArray and returns
+                the set of columns accessed during the function call.
+                Default is ``coffea.nanoevents.trace.trace``
         """
 
         class TraceProcessor(ProcessorABC):
