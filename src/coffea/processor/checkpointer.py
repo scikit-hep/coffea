@@ -4,6 +4,8 @@ from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import fsspec
+
 from coffea.util import load, save
 
 if TYPE_CHECKING:
@@ -51,11 +53,14 @@ class CheckpointerABC(metaclass=ABCMeta):
 class SimpleCheckpointer(CheckpointerABC):
     def __init__(
         self,
-        checkpoint_dir: str | Path,
+        checkpoint_dir: str,
         verbose: bool = False,
         overwrite: bool = True,
     ) -> None:
-        self.checkpoint_dir = Path(checkpoint_dir)
+        fs, token, paths = fsspec.get_fs_token_paths(checkpoint_dir)
+        assert len(paths) == 1, "Checkpoint directory must be a single path"
+        self.fs = fs
+        self.checkpoint_dir = paths[0]
         self.verbose = verbose
         self.overwrite = overwrite
 
@@ -63,18 +68,19 @@ class SimpleCheckpointer(CheckpointerABC):
         del processor_instance  # not used here, but could be in subclasses
 
         # build a path from metadata, how to include 'metadata["filename"]'? Is it needed?
-        path = self.checkpoint_dir
+        path = Path(self.checkpoint_dir)
         path /= metadata["dataset"]
         path /= metadata["fileuuid"]
         path /= metadata["treename"]
         path /= f"{metadata['entrystart']}-{metadata['entrystop']}.coffea"
-        return path
+        return str(path)
 
     def load(
         self, metadata: Any, processor_instance: ProcessorABC
     ) -> Accumulatable | None:
+        fs = self.fs
         fpath = self.filepath(metadata, processor_instance)
-        if not fpath.exists():
+        if not fs.exists(fpath):
             if self.verbose:
                 print(
                     f"Checkpoint file {fpath} does not exist. May be the first run..."
@@ -82,7 +88,7 @@ class SimpleCheckpointer(CheckpointerABC):
             return None
         # else:
         try:
-            return load(fpath)
+            return load(fs.unstrip_protocol(fpath))
         except Exception as e:
             if self.verbose:
                 print(f"Could not load checkpoint: {e}.")
@@ -91,16 +97,17 @@ class SimpleCheckpointer(CheckpointerABC):
     def save(
         self, output: Accumulatable, metadata: Any, processor_instance: ProcessorABC
     ) -> None:
+        fs = self.fs
         fpath = self.filepath(metadata, processor_instance)
         # ensure directory exists
-        fpath.parent.mkdir(parents=True, exist_ok=True)
-        if fpath.exists() and not self.overwrite:
+        fs.mkdirs(str(Path(fpath).parent), exist_ok=True)
+        if fs.exists(fpath) and not self.overwrite:
             if self.verbose:
                 print(f"Checkpoint file {fpath} already exists. Not overwriting...")
             return None
         # else:
         try:
-            save(output, fpath)
+            save(output, fs.unstrip_protocol(fpath))
         except Exception as e:
             if self.verbose:
                 print(
