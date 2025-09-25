@@ -56,23 +56,28 @@ def test_checkpointing():
         format="root",
         checkpointer=checkpointer,
     )
+    # use the chunk generator to not re-run the preprocessing step
+    chunks = list(run.preprocess(filelist, "Events"))
+
+    def chunk_gen():
+        yield from chunks
 
     # number of WorkItems
-    expected_checkpoints = len(list(run.preprocess(filelist, "Events")))
+    n_expected_checkpoints = len(chunks)
     is_file = operator.methodcaller("is_file")
     ntries = 0
 
     # keep trying until we have as many checkpoints as WorkItems
-    while len(list(filter(is_file, path.rglob("*")))) != expected_checkpoints:
+    while len(list(filter(is_file, path.rglob("*")))) != n_expected_checkpoints:
         ntries += 1
         try:
-            out = run(filelist, UnstableNanoEventsProcessor(), "Events")
+            out = run(chunk_gen(), UnstableNanoEventsProcessor(), "Events")
         except Exception:
             print(f"Run failed, trying again, try number {ntries}...")
             continue
 
     # make sure we have as many checkpoints as WorkItems
-    assert len(list(filter(is_file, path.rglob("*")))) == expected_checkpoints
+    assert len(list(filter(is_file, path.rglob("*")))) == n_expected_checkpoints
 
     # make sure we got the right answer
     assert out == {"cutflow": {"Data_pt": np.int64(84), "ZJets_pt": np.int64(18)}}
