@@ -9,7 +9,7 @@ import numpy
 from coffea.dataset_tools.filespec import (
     CoffeaFileDict,
     CoffeaParquetFileSpec,
-    CoffeaUprootFileSpec,
+    CoffeaROOTFileSpec,
     DatasetSpec,
     FilesetSpec,
 )
@@ -210,7 +210,7 @@ def _default_filter(name_and_spec):
 def filter_files(
     fileset: FilesetSpec,
     thefilter: Callable[
-        [tuple[str, CoffeaUprootFileSpec | CoffeaParquetFileSpec] | CoffeaFileDict],
+        [tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | CoffeaFileDict],
         bool,
     ] = _default_filter,
 ) -> FilesetSpec:
@@ -221,7 +221,7 @@ def filter_files(
     ----------
         fileset: FilesetSpec
             The set of datasets to be sliced.
-        thefilter: Callable[[tuple[str, CoffeaUprootFileSpec | CoffeaParquetFileSpec] | CoffeaFileDict], bool], default filters empty files
+        thefilter: Callable[[tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | CoffeaFileDict], bool], default filters empty files
             How to filter the files in the each dataset.
 
     Returns

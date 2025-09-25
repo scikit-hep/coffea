@@ -13,13 +13,13 @@ from coffea.dataset_tools.filespec import (
     CoffeaFileDict,
     CoffeaParquetFileSpec,
     CoffeaParquetFileSpecOptional,
-    CoffeaUprootFileSpec,
-    CoffeaUprootFileSpecOptional,
+    CoffeaROOTFileSpec,
+    CoffeaROOTFileSpecOptional,
     DatasetSpec,
     FilesetSpec,
     IOFactory,
     ParquetFileSpec,
-    UprootFileSpec,
+    ROOTFileSpec,
     identify_file_format,
 )
 from coffea.util import compress_form
@@ -78,46 +78,46 @@ class TestStepPair:
 
     def test_valid_simple_step_pair(self):
         """Test that valid step pairs are accepted"""
-        spec = UprootFileSpec(object_path="Events", steps=[0, 10])
+        spec = ROOTFileSpec(object_path="Events", steps=[0, 10])
         assert spec.steps == [0, 10]
 
     def test_valid_step_pair(self):
         """Test that valid step pairs are accepted"""
-        spec = UprootFileSpec(object_path="Events", steps=[[0, 10]])
+        spec = ROOTFileSpec(object_path="Events", steps=[[0, 10]])
         assert spec.steps == [[0, 10]]
 
     def test_invalid_step_pair_negative(self):
         """Test that negative values in step pairs are rejected"""
         with pytest.raises(ValueError):
-            UprootFileSpec(object_path="Events", steps=[[-1, 10]])
+            ROOTFileSpec(object_path="Events", steps=[[-1, 10]])
 
     def test_invalid_step_pair_length(self):
         """Test that step pairs with wrong length are rejected"""
         with pytest.raises(ValueError):
-            UprootFileSpec(object_path="Events", steps=[[0, 10, 20]])
+            ROOTFileSpec(object_path="Events", steps=[[0, 10, 20]])
 
         with pytest.raises(ValueError):
-            UprootFileSpec(object_path="Events", steps=[[0]])
+            ROOTFileSpec(object_path="Events", steps=[[0]])
 
 
-class TestUprootFileSpec:
-    """Test UprootFileSpec class"""
+class TestROOTFileSpec:
+    """Test ROOTFileSpec class"""
 
     def test_creation_basic(self):
-        """Test basic creation of UprootFileSpec"""
-        spec = UprootFileSpec(object_path="Events")
+        """Test basic creation of ROOTFileSpec"""
+        spec = ROOTFileSpec(object_path="Events")
         assert spec.object_path == "Events"
         assert spec.steps is None
 
     def test_creation_with_steps(self):
         """Test creation with steps"""
-        spec = UprootFileSpec(object_path="Events", steps=[[0, 10], [10, 20]])
+        spec = ROOTFileSpec(object_path="Events", steps=[[0, 10], [10, 20]])
         assert spec.object_path == "Events"
         assert spec.steps == [[0, 10], [10, 20]]
 
     def test_creation_with_single_step(self):
         """Test creation with single step pair"""
-        spec = UprootFileSpec(object_path="Events", steps=[0, 10])
+        spec = ROOTFileSpec(object_path="Events", steps=[0, 10])
         assert spec.object_path == "Events"
         assert spec.steps == [0, 10]
 
@@ -128,7 +128,7 @@ class TestUprootFileSpec:
 
         for steps in steps_options:
             try:
-                spec = UprootFileSpec(object_path="example_path", steps=steps)
+                spec = ROOTFileSpec(object_path="example_path", steps=steps)
                 assert spec.object_path == "example_path"
                 assert spec.steps == steps
             except Exception as e:
@@ -137,21 +137,21 @@ class TestUprootFileSpec:
 
     def test_json_serialization(self):
         """Test JSON serialization/deserialization"""
-        spec = UprootFileSpec(object_path="Events", steps=[[0, 10]])
+        spec = ROOTFileSpec(object_path="Events", steps=[[0, 10]])
         json_str = spec.model_dump_json()
-        restored = UprootFileSpec.model_validate_json(json_str)
+        restored = ROOTFileSpec.model_validate_json(json_str)
         assert restored.object_path == spec.object_path
         assert restored.steps == spec.steps
 
     def test_json_file_serialization(self):
         """Test JSON serialization with file path"""
-        spec = UprootFileSpec(object_path="Events", steps=[[0, 10]])
+        spec = ROOTFileSpec(object_path="Events", steps=[[0, 10]])
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
                 fout.write(spec.model_dump_json(exclude_unset=False))
             with gzip.open(fname, "rt") as fin:
-                restored = UprootFileSpec.model_validate_json(fin.read())
+                restored = ROOTFileSpec.model_validate_json(fin.read())
 
                 assert restored.object_path == "Events"
                 assert restored.steps == [[0, 10]]
@@ -191,12 +191,12 @@ class TestParquetFileSpec:
                 assert restored.steps == [[0, 10]]
 
 
-class TestCoffeaUprootFileSpecOptional:
-    """Test CoffeaUprootFileSpecOptional class"""
+class TestCoffeaROOTFileSpecOptional:
+    """Test CoffeaROOTFileSpecOptional class"""
 
     def test_creation_minimal(self):
         """Test creation with minimal required fields"""
-        spec = CoffeaUprootFileSpecOptional(object_path="Events")
+        spec = CoffeaROOTFileSpecOptional(object_path="Events")
         assert spec.object_path == "Events"
         assert spec.steps is None
         assert spec.num_entries is None
@@ -204,7 +204,7 @@ class TestCoffeaUprootFileSpecOptional:
 
     def test_creation_complete(self):
         """Test creation with all fields"""
-        spec = CoffeaUprootFileSpecOptional(
+        spec = CoffeaROOTFileSpecOptional(
             object_path="Events", steps=[[0, 10]], num_entries=100, uuid="test-uuid"
         )
         assert spec.object_path == "Events"
@@ -221,7 +221,7 @@ class TestCoffeaUprootFileSpecOptional:
         for steps in steps_options:
             for num_entries in num_entries_options:
                 try:
-                    spec = CoffeaUprootFileSpecOptional(
+                    spec = CoffeaROOTFileSpecOptional(
                         object_path="example_path",
                         steps=steps,
                         num_entries=num_entries,
@@ -235,7 +235,7 @@ class TestCoffeaUprootFileSpecOptional:
 
             for uuid in uuid_options:
                 try:
-                    spec = CoffeaUprootFileSpecOptional(
+                    spec = CoffeaROOTFileSpecOptional(
                         object_path="example_path",
                         steps=steps,
                         uuid=uuid,
@@ -250,17 +250,17 @@ class TestCoffeaUprootFileSpecOptional:
     def test_negative_num_entries_rejected(self):
         """Test that negative num_entries are rejected"""
         with pytest.raises(ValueError):
-            CoffeaUprootFileSpecOptional(object_path="Events", num_entries=-1)
+            CoffeaROOTFileSpecOptional(object_path="Events", num_entries=-1)
 
     def test_json_file_serialization(self):
         """Test JSON serialization with file path"""
-        spec = CoffeaUprootFileSpecOptional(object_path="Events", steps=[[0, 10]])
+        spec = CoffeaROOTFileSpecOptional(object_path="Events", steps=[[0, 10]])
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
                 fout.write(spec.model_dump_json(exclude_unset=False))
             with gzip.open(fname, "rt") as fin:
-                restored = CoffeaUprootFileSpecOptional.model_validate_json(fin.read())
+                restored = CoffeaROOTFileSpecOptional.model_validate_json(fin.read())
 
                 assert restored.object_path == "Events"
                 assert restored.steps == [[0, 10]]
@@ -269,12 +269,12 @@ class TestCoffeaUprootFileSpecOptional:
                 assert restored.uuid is None
 
 
-class TestCoffeaUprootFileSpec:
-    """Test CoffeaUprootFileSpec class"""
+class TestCoffeaROOTFileSpec:
+    """Test CoffeaROOTFileSpec class"""
 
     def test_creation_complete(self):
         """Test creation with all required fields"""
-        spec = CoffeaUprootFileSpec(
+        spec = CoffeaROOTFileSpec(
             object_path="Events", steps=[[0, 10]], num_entries=100, uuid="test-uuid"
         )
         assert spec.object_path == "Events"
@@ -289,7 +289,7 @@ class TestCoffeaUprootFileSpec:
         for steps in steps_options:
             num_entries, uuid = 100, "hello-there"
             try:
-                spec = CoffeaUprootFileSpec(
+                spec = CoffeaROOTFileSpec(
                     object_path="example_path",
                     steps=steps,
                     num_entries=num_entries,
@@ -302,7 +302,7 @@ class TestCoffeaUprootFileSpec:
                     assert spec.num_entries == num_entries
                     assert spec.uuid == uuid
             except Exception as e:
-                # Steps=None should fail for CoffeaUprootFileSpec
+                # Steps=None should fail for CoffeaROOTFileSpec
                 assert isinstance(e, ValueError)
                 if steps is None:
                     # This is expected for required steps field
@@ -311,20 +311,20 @@ class TestCoffeaUprootFileSpec:
     def test_missing_required_fields(self):
         """Test that missing required fields raise errors"""
         with pytest.raises(ValueError):
-            CoffeaUprootFileSpec(
+            CoffeaROOTFileSpec(
                 object_path="Events"
             )  # Missing steps, num_entries, uuid
 
     def test_steps_required(self):
         """Test that steps are required (not None)"""
         with pytest.raises(ValueError):
-            CoffeaUprootFileSpec(
+            CoffeaROOTFileSpec(
                 object_path="Events", steps=None, num_entries=100, uuid="test-uuid"
             )
 
     def test_json_file_serialization(self):
         """Test JSON serialization with file path"""
-        spec = CoffeaUprootFileSpec(
+        spec = CoffeaROOTFileSpec(
             object_path="Events", steps=[[0, 10]], num_entries=100, uuid="test-uuid"
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -332,7 +332,7 @@ class TestCoffeaUprootFileSpec:
             with gzip.open(fname, "wt") as fout:
                 fout.write(spec.model_dump_json(exclude_unset=False))
             with gzip.open(fname, "rt") as fin:
-                restored = CoffeaUprootFileSpec.model_validate_json(fin.read())
+                restored = CoffeaROOTFileSpec.model_validate_json(fin.read())
 
                 assert restored.object_path == "Events"
                 assert restored.steps == [[0, 10]]
@@ -465,13 +465,13 @@ class TestCoffeaFileDict:
 
     def get_files(self):
         return {
-            "file1.root": CoffeaUprootFileSpec(
+            "file1.root": CoffeaROOTFileSpec(
                 object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
             ),
             "file1.parquet": CoffeaParquetFileSpec(
                 steps=[[0, 100]], num_entries=100, uuid="uuid2"
             ),
-            "file2.root": CoffeaUprootFileSpecOptional(
+            "file2.root": CoffeaROOTFileSpecOptional(
                 object_path="Events", steps=[[10, 20]], num_entries=None, uuid=None
             ),
         }
@@ -508,9 +508,9 @@ class TestCoffeaFileDict:
         assert file_dict.get("nonexistent", "default") == "default"
 
     def test_creation_valid(self):
-        """Test creation with valid CoffeaUprootFileSpec instances"""
+        """Test creation with valid CoffeaROOTFileSpec instances"""
         files = {
-            "file1.root": CoffeaUprootFileSpec(
+            "file1.root": CoffeaROOTFileSpec(
                 object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
             )
         }
@@ -520,7 +520,7 @@ class TestCoffeaFileDict:
 
     def test_dict_file_format(self):
         """Test that invalid file types are rejected"""
-        files = {"file1.txt": CoffeaUprootFileSpecOptional(object_path="Events")}
+        files = {"file1.txt": CoffeaROOTFileSpecOptional(object_path="Events")}
         # with pytest.raises(ValidationError):
         fdict = CoffeaFileDict(files)
         with pytest.raises(
@@ -535,15 +535,15 @@ class TestCoffeaFileDict:
 
     def test_attempt_promotion(self):
         """Test attempt_promotion method"""
-        # Test with valid UprootFileSpec
+        # Test with valid ROOTFileSpec
         spec = CoffeaFileDict(self.get_files())
-        assert isinstance(spec["file2.root"], CoffeaUprootFileSpecOptional)
+        assert isinstance(spec["file2.root"], CoffeaROOTFileSpecOptional)
         spec["file2.root"].num_entries = 20
         spec["file2.root"].uuid = "test-uuid"
         promoted = IOFactory.attempt_promotion(spec)
         assert all(
             [
-                isinstance(v, (CoffeaUprootFileSpec, CoffeaParquetFileSpec))
+                isinstance(v, (CoffeaROOTFileSpec, CoffeaParquetFileSpec))
                 for v in promoted.values()
             ]
         )
@@ -620,7 +620,7 @@ class TestDatasetSpec:
         """Test creation with valid concrete file specs"""
         files = CoffeaFileDict(
             {
-                "file1.root": CoffeaUprootFileSpec(
+                "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
                 )
             }
@@ -660,15 +660,15 @@ class TestDatasetSpec:
 
         # Test that a mixture of concrete and optional FileSpecs are in the datasetspec
         assert isinstance(
-            test["ZJets1"].files["tests/samples/nano_dy.root"], CoffeaUprootFileSpec
+            test["ZJets1"].files["tests/samples/nano_dy.root"], CoffeaROOTFileSpec
         )
         assert isinstance(
             test["ZJets1"].files["tests/samples/nano_dy_2.root"],
-            CoffeaUprootFileSpecOptional,
+            CoffeaROOTFileSpecOptional,
         )
         assert all(
             [
-                isinstance(v, CoffeaUprootFileSpecOptional)
+                isinstance(v, CoffeaROOTFileSpecOptional)
                 for k, v in test["ZJets2"].files.items()
             ]
         )
@@ -679,10 +679,10 @@ class TestDatasetSpec:
 
     def test_attempt_promotion(self):
         """Test attempt_promotion method"""
-        # Test with valid UprootFileSpec
+        # Test with valid ROOTFileSpec
         spec = DatasetSpec(**self.get_test_input()["ZJets2"])
         assert isinstance(
-            spec.files["tests/samples/nano_dy.root"], CoffeaUprootFileSpecOptional
+            spec.files["tests/samples/nano_dy.root"], CoffeaROOTFileSpecOptional
         )
         spec.files["tests/samples/nano_dy.root"].steps = [[0, 10], [10, 20]]
         spec.files["tests/samples/nano_dy.root"].num_entries = 20
@@ -693,7 +693,7 @@ class TestDatasetSpec:
         promoted = IOFactory.attempt_promotion(spec)
         assert all(
             [
-                isinstance(v, (CoffeaUprootFileSpec, CoffeaParquetFileSpec))
+                isinstance(v, (CoffeaROOTFileSpec, CoffeaParquetFileSpec))
                 for v in promoted.files.values()
             ]
         )
@@ -721,7 +721,7 @@ class TestDatasetJoinableSpec:
         """Test creation with valid form and format"""
         files = CoffeaFileDict(
             {
-                "file1.root": CoffeaUprootFileSpec(
+                "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
                 )
             }
@@ -748,7 +748,7 @@ class TestDatasetJoinableSpec:
         """Test that invalid formats are rejected"""
         files = CoffeaFileDict(
             {
-                "file1.root": CoffeaUprootFileSpec(
+                "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
                 )
             }
@@ -769,7 +769,7 @@ class TestDatasetJoinableSpec:
         """Test that invalid forms are rejected"""
         files = CoffeaFileDict(
             {
-                "file1.root": CoffeaUprootFileSpec(
+                "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
                 )
             }
@@ -805,14 +805,14 @@ class TestIOFactory:
         result = IOFactory.dict_to_uprootfilespec(input_dict)
         if "steps" in input_dict:
             # Test complete spec
-            assert isinstance(result, CoffeaUprootFileSpec)
+            assert isinstance(result, CoffeaROOTFileSpec)
             assert result.object_path == "Events"
             assert result.steps == [[0, 10]]
             assert result.num_entries == 10
             assert result.uuid == "uproot-uuid"
         else:
             # Test optional spec
-            assert isinstance(result, CoffeaUprootFileSpecOptional)
+            assert isinstance(result, CoffeaROOTFileSpecOptional)
             assert result.object_path == "Events"
             assert result.steps is None
 
@@ -850,7 +850,7 @@ class TestIOFactory:
                     "num_entries": 10,
                     "uuid": "test-uuid",
                 },
-                CoffeaUprootFileSpec,
+                CoffeaROOTFileSpec,
             ),
             (
                 {
@@ -861,13 +861,13 @@ class TestIOFactory:
                 },
                 CoffeaParquetFileSpec,
             ),
-            ({"object_path": "Events"}, CoffeaUprootFileSpecOptional),
+            ({"object_path": "Events"}, CoffeaROOTFileSpecOptional),
             ({"object_path": None}, CoffeaParquetFileSpecOptional),
         ],
     )
     def test_filespec_to_dict(self, input_dict, expected_type):
         """Test filespec_to_dict method"""
-        # spec = CoffeaUprootFileSpec(
+        # spec = CoffeaROOTFileSpec(
         #    object_path="Events", steps=[[0, 10]], num_entries=10, uuid="test-uuid"
         # )
         spec = expected_type(**input_dict)
@@ -913,7 +913,7 @@ class TestIOFactory:
         """Test datasetspec_to_dict method"""
         files = CoffeaFileDict(
             {
-                "file1.root": CoffeaUprootFileSpec(
+                "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
                 )
             }
@@ -940,13 +940,13 @@ class TestIOFactory:
 
     def test_attempt_promotion(self):
         """Test attempt_promotion method"""
-        # Test with valid UprootFileSpec
-        spec = CoffeaUprootFileSpecOptional(object_path="Events")
+        # Test with valid ROOTFileSpec
+        spec = CoffeaROOTFileSpecOptional(object_path="Events")
         spec.steps = [[0, 100]]
         spec.num_entries = 100
         spec.uuid = "test-uuid"
         promoted = IOFactory.attempt_promotion(spec)
-        assert isinstance(promoted, CoffeaUprootFileSpec)
+        assert isinstance(promoted, CoffeaROOTFileSpec)
 
         # Test with valid ParquetFileSpec
         spec_parquet = CoffeaParquetFileSpecOptional()
@@ -961,20 +961,20 @@ class TestJSONSerialization:
     """Test JSON serialization/deserialization for all classes"""
 
     def test_uprootfilespec_json_roundtrip(self):
-        """Test JSON roundtrip for UprootFileSpec"""
-        spec = UprootFileSpec(object_path="Events", steps=[[0, 10]])
+        """Test JSON roundtrip for ROOTFileSpec"""
+        spec = ROOTFileSpec(object_path="Events", steps=[[0, 10]])
         json_str = spec.model_dump_json()
-        restored = UprootFileSpec.model_validate_json(json_str)
+        restored = ROOTFileSpec.model_validate_json(json_str)
         assert restored.object_path == spec.object_path
         assert restored.steps == spec.steps
 
     def test_coffeefilespec_json_roundtrip(self):
-        """Test JSON roundtrip for CoffeaUprootFileSpec"""
-        spec = CoffeaUprootFileSpec(
+        """Test JSON roundtrip for CoffeaROOTFileSpec"""
+        spec = CoffeaROOTFileSpec(
             object_path="Events", steps=[[0, 10]], num_entries=10, uuid="test-uuid"
         )
         json_str = spec.model_dump_json()
-        restored = CoffeaUprootFileSpec.model_validate_json(json_str)
+        restored = CoffeaROOTFileSpec.model_validate_json(json_str)
         assert restored.object_path == spec.object_path
         assert restored.steps == spec.steps
         assert restored.num_entries == spec.num_entries
@@ -984,7 +984,7 @@ class TestJSONSerialization:
         """Test JSON roundtrip for DatasetSpec"""
         files = CoffeaFileDict(
             {
-                "file1.root": CoffeaUprootFileSpec(
+                "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
                 )
             }
@@ -1005,7 +1005,7 @@ class TestFilesetSpec:
         """Test creation with valid concrete dataset specs"""
         files = CoffeaFileDict(
             {
-                "file1.root": CoffeaUprootFileSpec(
+                "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
                 )
             }
@@ -1103,21 +1103,21 @@ class TestFilesetSpec:
 
     def test_attempt_promotion(self):
         """Test attempt_promotion method"""
-        # Test with valid UprootFileSpec
+        # Test with valid ROOTFileSpec
         spec = FilesetSpec(copy.deepcopy(_starting_fileset))
         assert isinstance(
             spec["Data"].files["tests/samples/nano_dimuon.root"],
-            CoffeaUprootFileSpecOptional,
+            CoffeaROOTFileSpecOptional,
         )
         for k, v in spec["Data"].files.items():
-            if isinstance(v, CoffeaUprootFileSpecOptional):
+            if isinstance(v, CoffeaROOTFileSpecOptional):
                 v.steps = [[0, 10], [10, 20]]
                 v.num_entries = 20
                 v.uuid = "test-uuid"
         promoted = IOFactory.attempt_promotion(spec)
         assert all(
             [
-                isinstance(v, (CoffeaUprootFileSpec, CoffeaParquetFileSpec))
+                isinstance(v, (CoffeaROOTFileSpec, CoffeaParquetFileSpec))
                 for v in promoted["Data"].files.values()
             ]
         )
@@ -1131,9 +1131,9 @@ class TestMainMethodScenarios:
         steps_options = [None, [0, 100], [[0, 1], [2, 3]]]
 
         for steps in steps_options:
-            # Test UprootFileSpec
+            # Test ROOTFileSpec
             try:
-                spec = UprootFileSpec(object_path="example_path", steps=steps)
+                spec = ROOTFileSpec(object_path="example_path", steps=steps)
                 assert spec.object_path == "example_path"
             except ValueError:
                 # Some combinations may be invalid
@@ -1142,7 +1142,7 @@ class TestMainMethodScenarios:
             # Test with num_entries
             for num_entries in [None, 100]:
                 try:
-                    spec = CoffeaUprootFileSpecOptional(
+                    spec = CoffeaROOTFileSpecOptional(
                         object_path="example_path",
                         steps=steps,
                         num_entries=num_entries,
@@ -1154,7 +1154,7 @@ class TestMainMethodScenarios:
             # Test with uuid
             for uuid in [None, "hello-there"]:
                 try:
-                    spec1 = CoffeaUprootFileSpecOptional(
+                    spec1 = CoffeaROOTFileSpecOptional(
                         object_path="example_path",
                         steps=steps,
                         uuid=uuid,
@@ -1176,7 +1176,7 @@ class TestMainMethodScenarios:
             # Test concrete specs
             num_entries, uuid = 100, "hello-there"
             try:
-                spec1 = CoffeaUprootFileSpec(
+                spec1 = CoffeaROOTFileSpec(
                     object_path="example_path",
                     steps=steps,
                     num_entries=num_entries,
@@ -1235,7 +1235,7 @@ class TestComplexScenarios:
         """Test handling datasets with mixed file formats"""
         spec = DatasetSpec(
             files={
-                "file1.root": CoffeaUprootFileSpec(
+                "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
                 ),
                 "file1.parquet": CoffeaParquetFileSpec(
@@ -1254,7 +1254,7 @@ class TestComplexScenarios:
     def test_error_handling_invalid_steps(self):
         """Test error handling for invalid step configurations, effectively nesting the StepPair tests"""
         with pytest.raises(ValueError):
-            CoffeaUprootFileSpec(
+            CoffeaROOTFileSpec(
                 object_path="Events",
                 steps=[[-1, 10]],  # Negative start
                 num_entries=10,
@@ -1262,7 +1262,7 @@ class TestComplexScenarios:
             )
 
         with pytest.raises(ValueError):
-            CoffeaUprootFileSpec(
+            CoffeaROOTFileSpec(
                 object_path="Events",
                 steps=[[0, 10, 20]],  # Too many elements in step
                 num_entries=10,

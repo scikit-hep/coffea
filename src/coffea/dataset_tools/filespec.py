@@ -17,18 +17,18 @@ StepPair = Annotated[
 ]
 
 
-class UprootFileSpec(BaseModel):
+class ROOTFileSpec(BaseModel):
     object_path: str
     steps: Annotated[list[StepPair], Field(min_length=1)] | StepPair | None = None
     format: Literal["root"] = "root"
 
 
-class CoffeaUprootFileSpecOptional(UprootFileSpec):
+class CoffeaROOTFileSpecOptional(ROOTFileSpec):
     num_entries: Annotated[int, Field(ge=0)] | None = None
     uuid: str | None = None
 
 
-class CoffeaUprootFileSpec(CoffeaUprootFileSpecOptional):
+class CoffeaROOTFileSpec(CoffeaROOTFileSpecOptional):
     steps: Annotated[list[StepPair], Field(min_length=1)] | StepPair
     num_entries: Annotated[int, Field(ge=0)]
     uuid: str
@@ -92,9 +92,9 @@ class CoffeaFileDict(
         dict[
             str,
             Union[
-                CoffeaUprootFileSpec,
+                CoffeaROOTFileSpec,
                 CoffeaParquetFileSpec,
-                CoffeaUprootFileSpecOptional,
+                CoffeaROOTFileSpecOptional,
                 CoffeaParquetFileSpecOptional,
             ],
         ]
@@ -154,8 +154,8 @@ class CoffeaFileDict(
     def promote_and_check_files(self) -> Self:
         for k, v in self.root.items():
             try:
-                if type(v) in [CoffeaUprootFileSpecOptional]:
-                    self.root[k] = CoffeaUprootFileSpec(v)
+                if type(v) in [CoffeaROOTFileSpecOptional]:
+                    self.root[k] = CoffeaROOTFileSpec(v)
                 if type(v) in [CoffeaParquetFileSpecOptional]:
                     self.root[k] = CoffeaParquetFileSpec(v)
             except Exception:
@@ -300,8 +300,8 @@ class IOFactory:
     def attempt_promotion(
         cls,
         input: (
-            CoffeaUprootFileSpec
-            | CoffeaUprootFileSpecOptional
+            CoffeaROOTFileSpec
+            | CoffeaROOTFileSpecOptional
             | CoffeaParquetFileSpec
             | CoffeaParquetFileSpecOptional
             | DatasetSpec
@@ -309,8 +309,8 @@ class IOFactory:
         ),
     ):
         try:
-            if isinstance(input, (CoffeaUprootFileSpec, CoffeaUprootFileSpecOptional)):
-                return CoffeaUprootFileSpec(**input.model_dump())
+            if isinstance(input, (CoffeaROOTFileSpec, CoffeaROOTFileSpecOptional)):
+                return CoffeaROOTFileSpec(**input.model_dump())
             elif isinstance(
                 input, (CoffeaParquetFileSpec, CoffeaParquetFileSpecOptional)
             ):
@@ -333,9 +333,9 @@ class IOFactory:
         """Convert a dictionary to a CoffeaFileSpec or CoffeaFileSpecOptional."""
         assert isinstance(input, dict), f"{input} is not a dictionary"
         try:
-            return CoffeaUprootFileSpec(**input)
+            return CoffeaROOTFileSpec(**input)
         except Exception:
-            return CoffeaUprootFileSpecOptional(**input)
+            return CoffeaROOTFileSpecOptional(**input)
 
     @classmethod
     def dict_to_parquetfilespec(cls, input):
@@ -350,19 +350,19 @@ class IOFactory:
     def filespec_to_dict(
         cls,
         input: (
-            CoffeaUprootFileSpec
-            | CoffeaUprootFileSpecOptional
+            CoffeaROOTFileSpec
+            | CoffeaROOTFileSpecOptional
             | CoffeaParquetFileSpec
             | CoffeaParquetFileSpecOptional
         ),
     ):
-        if type(input) in [UprootFileSpec, ParquetFileSpec]:
+        if type(input) in [ROOTFileSpec, ParquetFileSpec]:
             raise ValueError(
-                f"{cls.__name__}.filespec_to_dict expects the fields provided by Coffea(Parquet)FileSpec(Optional), UprootFileSpec and ParquetFileSpec should be promoted"
+                f"{cls.__name__}.filespec_to_dict expects the fields provided by Coffea(Parquet)FileSpec(Optional), ROOTFileSpec and ParquetFileSpec should be promoted"
             )
         if type(input) not in [
-            CoffeaUprootFileSpec,
-            CoffeaUprootFileSpecOptional,
+            CoffeaROOTFileSpec,
+            CoffeaROOTFileSpecOptional,
             CoffeaParquetFileSpec,
             CoffeaParquetFileSpecOptional,
         ]:
