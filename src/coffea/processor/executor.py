@@ -26,6 +26,8 @@ import toml
 import uproot
 from cachetools import LRUCache
 
+from coffea.nanoevents.trace import trace
+
 from ..nanoevents import NanoEventsFactory, schemas
 from ..util import _exception_chain, _hash, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
@@ -1579,9 +1581,11 @@ class Runner:
         self,
         fileset: Union[dict, str, list[WorkItem], Generator],
         processor_instance=ProcessorABC,
+        *,
         treename="Events",
         uproot_options: Optional[dict] = {},
         iteritems_options: Optional[dict] = {},
+        trace_method: Callable = trace,
     ) -> Generator[WorkItem]:
         """Trace the processor_instance on a given fileset
 
@@ -1619,12 +1623,10 @@ class Runner:
                 return {}
 
             def process(self, events):
-                from coffea.nanoevents.trace import trace
-
                 accum = self.accumulator
                 hashed = _hash_for_tracing(events.metadata)
                 accum[hashed] = set()
-                columns = trace(self.processor.process, events)
+                columns = trace_method(self.processor.process, events)
                 accum[hashed] |= columns
                 return accum
 
