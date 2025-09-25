@@ -1482,6 +1482,7 @@ class Runner:
         self,
         fileset: dict,
         processor_instance: ProcessorABC,
+        *,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
         iteritems_options: Optional[dict] = {},
@@ -1516,6 +1517,7 @@ class Runner:
     def preprocess(
         self,
         fileset: dict,
+        *,
         treename: Optional[str] = None,
     ) -> Generator:
         """Run the processor_instance on a given fileset
@@ -1600,7 +1602,7 @@ class Runner:
         if meta:
             chunks = fileset
         else:
-            chunks = self.preprocess(fileset, treename)
+            chunks = self.preprocess(fileset, treename=treename)
 
         if self.processor_compression is None:
             pi_to_send = processor_instance

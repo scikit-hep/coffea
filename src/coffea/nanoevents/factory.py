@@ -250,6 +250,7 @@ class NanoEventsFactory:
     def from_root(
         cls,
         file,
+        *,
         treepath=uproot._util.unset,
         entry_start=None,
         entry_stop=None,
@@ -469,6 +470,7 @@ class NanoEventsFactory:
     def from_parquet(
         cls,
         file,
+        *,
         entry_start=None,
         entry_stop=None,
         runtime_cache=None,
@@ -631,6 +633,7 @@ class NanoEventsFactory:
     def from_preloaded(
         cls,
         array_source,
+        *,
         entry_start=None,
         entry_stop=None,
         runtime_cache=None,
