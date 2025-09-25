@@ -32,12 +32,12 @@ import warnings
 from functools import partial
 
 import cloudpickle
-import lz4.frame
+import fsspec
 
 
 def load(filename):
     """Load a coffea file from disk"""
-    with lz4.frame.open(filename) as fin:
+    with fsspec.open(filename, "rb", compression="lz4") as fin:
         output = cloudpickle.load(fin)
     return output
 
@@ -54,7 +54,7 @@ def save(output, filename, fast=True):
     care should be taken.
     """
     try:
-        with lz4.frame.open(filename, "wb") as fout:
+        with fsspec.open(filename, "wb", compression="lz4") as fout:
             p = cloudpickle.Pickler(fout)
             p.fast = fast
             p.dump(output)
