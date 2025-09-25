@@ -251,10 +251,12 @@ class NanoEventsFactory:
         cls,
         file,
         *,
+        mode="virtual",
         treepath=uproot._util.unset,
         entry_start=None,
         entry_stop=None,
         steps_per_file=uproot._util.unset,
+        preload=None,
         runtime_cache=None,
         persistent_cache=None,
         schemaclass=NanoAODSchema,
@@ -263,12 +265,10 @@ class NanoEventsFactory:
         iteritems_options={},
         access_log=None,
         use_ak_forth=True,
-        mode="virtual",
         known_base_form=None,
         decompression_executor=None,
         interpretation_executor=None,
         delayed=uproot._util.unset,
-        preload=None,
     ):
         """Quickly build NanoEvents from a root file
 
@@ -277,6 +277,8 @@ class NanoEventsFactory:
             file : a string or dict input to ``uproot.open()`` or ``uproot.dask()`` or a ``uproot.reading.ReadOnlyDirectory``
                 The filename or dict of filenames including the treepath (as it would be passed directly to ``uproot.open()``
                 or ``uproot.dask()``) already opened file using e.g. ``uproot.open()``.
+            mode:
+                Nanoevents will use "eager", "virtual", or "dask" as a backend.
             treepath : str, optional
                 Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``.
             entry_start : int, optional (eager and virtual mode only)
@@ -304,8 +306,6 @@ class NanoEventsFactory:
                 Pass a list instance to record which branches were lazily accessed by this instance
             use_ak_forth:
                 Toggle using awkward_forth to interpret branches in root file.
-            mode:
-                Nanoevents will use "eager", "virtual", or "dask" as a backend.
             known_base_form:
                 If the base form of the input file is known ahead of time we can skip opening a single file and parsing metadata.
             decompression_executor (None or Executor with a ``submit`` method):
@@ -471,6 +471,7 @@ class NanoEventsFactory:
         cls,
         file,
         *,
+        mode="virtual",
         entry_start=None,
         entry_stop=None,
         runtime_cache=None,
@@ -480,7 +481,6 @@ class NanoEventsFactory:
         parquet_options={},
         skyhook_options={},
         access_log=None,
-        mode="virtual",
     ):
         """Quickly build NanoEvents from a parquet file
 
@@ -488,6 +488,8 @@ class NanoEventsFactory:
         ----------
             file : str, pathlib.Path, pyarrow.NativeFile, or python file-like
                 The filename or already opened file using e.g. ``pyarrow.NativeFile()``.
+            mode:
+                Nanoevents will use "eager", "virtual", or "dask" as a backend.
             entry_start : int, optional
                 Start at this entry offset in the tree (default 0)
             entry_stop : int, optional
@@ -507,8 +509,6 @@ class NanoEventsFactory:
                 Any options to pass to ``pyarrow.parquet.ParquetFile``
             access_log : list, optional
                 Pass a list instance to record which branches were lazily accessed by this instance
-            mode:
-                Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
         Returns
         -------
