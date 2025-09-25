@@ -1,10 +1,9 @@
-import operator
 import os.path as osp
 import random
-import shutil
 from pathlib import Path
 
 import awkward as ak
+import fsspec
 import numpy as np
 
 from coffea import processor
@@ -46,9 +45,9 @@ def test_checkpointing():
 
     executor = processor.IterativeExecutor()
 
-    checkpointer = processor.SimpleCheckpointer(
-        path := (Path(__file__).parent / "test_checkpointing")
-    )
+    checkpoint_dir = str(Path(__file__).parent / "test_checkpointing")
+    # checkpoint_dir = "root://cmseos.fnal.gov//store/user/ikrommyd/test"
+    checkpointer = processor.SimpleCheckpointer(checkpoint_dir)
     run = processor.Runner(
         executor=executor,
         schema=schemas.NanoAODSchema,
@@ -64,11 +63,15 @@ def test_checkpointing():
 
     # number of WorkItems
     n_expected_checkpoints = len(chunks)
-    is_file = operator.methodcaller("is_file")
     ntries = 0
+    fs, token, paths = fsspec.get_fs_token_paths(checkpoint_dir)
 
     # keep trying until we have as many checkpoints as WorkItems
-    while len(list(filter(is_file, path.rglob("*")))) != n_expected_checkpoints:
+    while (
+        len(list(filter(fs.isfile, fs.glob(f"{paths[0]}/**"))))
+        != n_expected_checkpoints
+    ):
+        fs.invalidate_cache()
         ntries += 1
         try:
             out = run(chunk_gen(), UnstableNanoEventsProcessor(), "Events")
@@ -77,10 +80,14 @@ def test_checkpointing():
             continue
 
     # make sure we have as many checkpoints as WorkItems
-    assert len(list(filter(is_file, path.rglob("*")))) == n_expected_checkpoints
+    fs.invalidate_cache()
+    assert (
+        len(list(filter(fs.isfile, fs.glob(f"{paths[0]}/**"))))
+        == n_expected_checkpoints
+    )
 
     # make sure we got the right answer
     assert out == {"cutflow": {"Data_pt": np.int64(84), "ZJets_pt": np.int64(18)}}
 
     # cleanup
-    shutil.rmtree(path)
+    fs.rm(paths[0], recursive=True)
