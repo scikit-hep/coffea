@@ -49,44 +49,58 @@ class CheckpointerABC(metaclass=ABCMeta):
 
 
 class LocalCheckpointer(CheckpointerABC):
-    def __init__(self, checkpoint_dir: str | Path, verbose: bool = False) -> None:
+    def __init__(
+        self,
+        checkpoint_dir: str | Path,
+        verbose: bool = False,
+        overwrite: bool = True,
+    ) -> None:
         self.checkpoint_dir = Path(checkpoint_dir)
         self.verbose = verbose
+        self.overwrite = overwrite
 
     def filepath(self, metadata: Any, processor_instance: ProcessorABC) -> str:
         del processor_instance  # not used here, but could be in subclasses
 
-        # build a path from metadata
+        # build a path from metadata, how to include 'metadata["filename"]'? Is it needed?
         path = self.checkpoint_dir
         path /= metadata["dataset"]
         path /= metadata["fileuuid"]
         path /= metadata["treename"]
-        path /= f"{metadata['entrystart']}-{metadata['entrystop']}"
-
-        # ensure directory exists
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        # add .coffea
-        suffix = ".coffea"
-        return str(path) + suffix
+        path /= f"{metadata['entrystart']}-{metadata['entrystop']}.coffea"
+        return path
 
     def load(
         self, metadata: Any, processor_instance: ProcessorABC
     ) -> Accumulatable | None:
+        fpath = self.filepath(metadata, processor_instance)
+        if not fpath.exists():
+            if self.verbose:
+                print(
+                    f"Checkpoint file {fpath} does not exist. May be the first run..."
+                )
+            return None
+        # else:
         try:
-            fname = self.filepath(metadata, processor_instance)
-            return load(fname)
+            return load(fpath)
         except Exception as e:
             if self.verbose:
-                print(f"Could not load checkpoint: {e}. May be the first run...")
+                print(f"Could not load checkpoint: {e}.")
             return None
 
     def save(
         self, output: Accumulatable, metadata: Any, processor_instance: ProcessorABC
     ) -> None:
+        fpath = self.filepath(metadata, processor_instance)
+        # ensure directory exists
+        fpath.parent.mkdir(parents=True, exist_ok=True)
+        if fpath.exists() and not self.overwrite:
+            if self.verbose:
+                print(f"Checkpoint file {fpath} already exists. Not overwriting...")
+            return None
+        # else:
         try:
-            fname = self.filepath(metadata, processor_instance)
-            save(output, fname)
+            save(output, fpath)
         except Exception as e:
             if self.verbose:
                 print(
