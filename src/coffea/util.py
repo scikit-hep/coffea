@@ -12,6 +12,7 @@ import numba
 import numpy
 import uproot
 from dask.base import unpack_collections
+from rich.console import Console
 from rich.progress import (
     BarColumn,
     Column,
@@ -162,6 +163,14 @@ class SpeedColumn(ProgressColumn):
         return Text(f"{speed:{self.fmt}}", style="progress.data.speed")
 
 
+coffea_console = Console()
+coffea_console.__doc__ += """
+\nA `rich.console.Console` for coffea. Used through-out coffea for consistent logging and
+progress bars. May be used by users for their own logging. Using the same console
+ensures that output is nicely integrated with coffea's progress bars.
+"""
+
+
 def rich_bar():
     return Progress(
         TextColumn("[bold blue]{task.description}", justify="right"),
@@ -180,6 +189,7 @@ def rich_bar():
         TextColumn("[progress.data.speed]{task.fields[unit]}/s", justify="right"),
         "]",
         auto_refresh=False,
+        console=coffea_console,
     )
 
 
