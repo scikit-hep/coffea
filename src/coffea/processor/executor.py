@@ -52,6 +52,17 @@ class UprootMissTreeError(uproot.exceptions.KeyInFileError):
     pass
 
 
+def _deprecate_args(args, names):
+    if len(names) > 1:
+        printable = ", ".join(names[:-1]) + ", and " + names[-1]
+        singular_or_plural = "arguments"
+    else:
+        printable = names[0]
+        singular_or_plural = "argument"
+    msg = f"The {singular_or_plural} {printable} will need to be passed as keyword {singular_or_plural} in the future."
+    warnings.warn(msg, DeprecationWarning, stacklevel=3)
+
+
 class FileMeta:
     __slots__ = ["dataset", "filename", "treename", "metadata"]
 
@@ -1482,6 +1493,7 @@ class Runner:
         self,
         fileset: dict,
         processor_instance: ProcessorABC,
+        *args,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
         iteritems_options: Optional[dict] = {},
@@ -1504,6 +1516,15 @@ class Runner:
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
         """
+        if args:
+            _deprecate_args(args, ["treename", "uproot_options", "iteritems_options"])
+            if len(args) > 0:
+                treename = args[0]
+            if len(args) > 1:
+                uproot_options = args[1]
+            if len(args) > 2:
+                iteritems_options = args[2]
+
         wrapped_out = self.run(
             fileset=fileset,
             processor_instance=processor_instance,
@@ -1520,6 +1541,7 @@ class Runner:
     def preprocess(
         self,
         fileset: dict,
+        *args,
         treename: Optional[str] = None,
     ) -> Generator:
         """Run the processor_instance on a given fileset
@@ -1536,6 +1558,10 @@ class Runner:
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
         """
+        if args:
+            _deprecate_args(args, ["treename"])
+            if len(args) > 0:
+                treename = args[0]
 
         if not isinstance(fileset, (Mapping, str)):
             raise ValueError(
@@ -1561,6 +1587,7 @@ class Runner:
         self,
         fileset: Union[dict, str, list[WorkItem], Generator],
         processor_instance: ProcessorABC,
+        *args,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
         iteritems_options: Optional[dict] = {},
@@ -1589,6 +1616,14 @@ class Runner:
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
         """
+        if args:
+            _deprecate_args(args, ["treename", "uproot_options", "iteritems_options"])
+            if len(args) > 0:
+                treename = args[0]
+            if len(args) > 1:
+                uproot_options = args[1]
+            if len(args) > 2:
+                iteritems_options = args[2]
 
         meta = False
         if not isinstance(fileset, (Mapping, str)):
