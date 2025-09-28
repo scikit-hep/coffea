@@ -287,6 +287,9 @@ class NanoEventsFactory:
                 Stop at this entry offset in the tree (default end of tree)
             steps_per_file: int, optional
                 Partition files into this many steps (previously "chunks")
+            preload (None or Callable):
+                A function to call to preload specific branches/columns in bulk. Only works in eager and virtual mode.
+                Passed to ``tree.arrays`` as the ``filter_branch`` argument to filter branches to be preloaded.
             runtime_cache : dict, optional
                 A dict-like interface to a cache object. This cache is expected to last the
                 duration of the program only, and will be used to hold references to materialized
@@ -312,9 +315,6 @@ class NanoEventsFactory:
                 see: https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L109
             interpretation_executor (None or Executor with a ``submit`` method):
                 see: https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L113
-            preload (None or Callable):
-                A function to call to preload specific branches/columns in bulk. Only works in eager and virtual mode.
-                Passed to ``tree.arrays`` as the ``filter_branch`` argument to filter branches to be preloaded.
 
         Returns
         -------
