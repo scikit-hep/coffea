@@ -311,9 +311,7 @@ class TestCoffeaROOTFileSpec:
     def test_missing_required_fields(self):
         """Test that missing required fields raise errors"""
         with pytest.raises(ValueError):
-            CoffeaROOTFileSpec(
-                object_path="Events"
-            )  # Missing steps, num_entries, uuid
+            CoffeaROOTFileSpec(object_path="Events")  # Missing steps, num_entries, uuid
 
     def test_steps_required(self):
         """Test that steps are required (not None)"""

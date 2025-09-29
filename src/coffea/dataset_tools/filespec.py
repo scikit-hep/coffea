@@ -17,9 +17,14 @@ StepPair = Annotated[
 ]
 
 
-class ROOTFileSpec(BaseModel):
-    object_path: str
+class GenericFileSpec(BaseModel):
+    object_path: str | None = None
     steps: Annotated[list[StepPair], Field(min_length=1)] | StepPair | None = None
+    format: str | None = None
+
+
+class ROOTFileSpec(GenericFileSpec):
+    object_path: str
     format: Literal["root"] = "root"
 
 
@@ -34,9 +39,8 @@ class CoffeaROOTFileSpec(CoffeaROOTFileSpecOptional):
     uuid: str
 
 
-class ParquetFileSpec(BaseModel):
+class ParquetFileSpec(GenericFileSpec):
     object_path: None = None
-    steps: Annotated[list[StepPair], Field(min_length=1)] | StepPair | None = None
     format: Literal["parquet"] = "parquet"
 
 
@@ -49,7 +53,7 @@ class CoffeaParquetFileSpec(CoffeaParquetFileSpecOptional):
     steps: Annotated[list[StepPair], Field(min_length=1)] | StepPair
     num_entries: Annotated[int, Field(ge=0)]
     uuid: str
-    # directory: Literal[True, False] #identify whether it's a directory of parquet files or a single parquet file, may be useful or necessary to distinguish
+    # is_directory: Literal[True, False] #identify whether it's a directory of parquet files or a single parquet file, may be useful or necessary to distinguish
 
 
 class DictMethodsMixin:
@@ -116,10 +120,13 @@ class CoffeaFileDict(
         stored_formats_by_name = {
             k: v.format for k, v in self.root.items() if hasattr(v, "format")
         }
-        assert all(
+        if not all(
             k in identified_formats_by_name and identified_formats_by_name[k] == v
             for k, v in stored_formats_by_name.items()
-        ), f"identified formats and stored formats do not match: identified formats: {identified_formats_by_name}, stored formats: {stored_formats_by_name}"
+        ):
+            raise ValueError(
+                f"identified formats and stored formats do not match: identified formats: {identified_formats_by_name}, stored formats: {stored_formats_by_name}"
+            )
         union.update(identified_formats_by_name.values())
         if len(union) == 1:
             return union.pop()
