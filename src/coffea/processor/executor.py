@@ -1574,10 +1574,6 @@ class Runner:
 
             self._preprocess_fileset_root(fileset)
             fileset = self._filter_badfiles(fileset)
-
-            # reverse fileset list to match the order of files as presented in version
-            # v0.7.4. This fixes tests using maxchunks.
-            fileset.reverse()
         elif self.format == "parquet":
             raise NotImplementedError("Parquet format is not supported yet.")
 
