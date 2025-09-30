@@ -55,6 +55,7 @@ class RichProgressBar(ProgressBar):
 
         if not remaining:
             self.pbar.update(self.task, total=all, completed=all)
+            self.pbar.stop()
 
     def _draw_bar(self, remaining, all, **kwargs):
         del kwargs
