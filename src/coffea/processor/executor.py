@@ -763,10 +763,9 @@ class DaskExecutor(ExecutorBase):
             work = work[0]
             try:
                 if self.status:
-                    from distributed import progress
+                    from ._dask import progress
 
-                    # FIXME: fancy widget doesn't appear, have to live with boring pbar
-                    progress(work, multi=True, notebook=False)
+                    progress(work, description=f"[green]{self.function_name}")
                 return (
                     accumulate(
                         [
