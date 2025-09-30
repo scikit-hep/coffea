@@ -7,12 +7,12 @@ import awkward
 import numpy
 
 from coffea.dataset_tools.filespec import (
-    InputFiles,
-    PreprocessedFiles,
     CoffeaParquetFileSpec,
     CoffeaROOTFileSpec,
     DatasetSpec,
     FilesetSpec,
+    InputFiles,
+    PreprocessedFiles,
 )
 
 
@@ -211,7 +211,11 @@ def _default_filter(name_and_spec):
 def filter_files(
     fileset: FilesetSpec,
     thefilter: Callable[
-        [tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | InputFiles | PreprocessedFiles],
+        [
+            tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec]
+            | InputFiles
+            | PreprocessedFiles
+        ],
         bool,
     ] = _default_filter,
 ) -> FilesetSpec:

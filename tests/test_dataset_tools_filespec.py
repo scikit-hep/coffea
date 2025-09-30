@@ -10,14 +10,13 @@ import pytest
 from pydantic import ValidationError
 
 from coffea.dataset_tools.filespec import (
-    InputFiles,
-    PreprocessedFiles,
     CoffeaParquetFileSpec,
     CoffeaParquetFileSpecOptional,
     CoffeaROOTFileSpec,
     CoffeaROOTFileSpecOptional,
     DatasetSpec,
     FilesetSpec,
+    InputFiles,
     IOFactory,
     ParquetFileSpec,
     ROOTFileSpec,

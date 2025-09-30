@@ -16,11 +16,11 @@ import uproot
 from uproot._util import no_filter
 
 from coffea.dataset_tools.filespec import (
-    InputFiles,
-    PreprocessedFiles,
     DatasetSpec,
     FilesetSpec,
+    InputFiles,
     IOFactory,
+    PreprocessedFiles,
 )
 from coffea.util import _is_interpretable, compress_form, decompress_form
 

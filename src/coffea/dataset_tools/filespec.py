@@ -90,6 +90,7 @@ class DictMethodsMixin:
     def update(self, other=None, **kwargs):
         self.root.update(other, **kwargs)
 
+
 class InputFilesMixin:
     @computed_field
     @property
@@ -139,6 +140,7 @@ class InputFilesMixin:
                         ), f"Expected 'format' to be 'parquet', got {v['format']} for {k}"
         return data
 
+
 class InputFiles(
     RootModel[
         dict[
@@ -177,6 +179,7 @@ class InputFiles(
                 pass
         return self
 
+
 class PreprocessedFiles(
     RootModel[
         dict[
@@ -208,7 +211,6 @@ class PreprocessedFiles(
                 pass
         if all(preprocessed.values()):
             return self
-
 
 
 class DatasetSpec(BaseModel):

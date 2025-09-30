@@ -1,15 +1,15 @@
 from coffea.dataset_tools.apply_processor import apply_to_dataset, apply_to_fileset
 from coffea.dataset_tools.filespec import (
-    InputFiles,
-    PreprocessedFiles,
     CoffeaParquetFileSpec,
     CoffeaParquetFileSpecOptional,
     CoffeaROOTFileSpec,
     CoffeaROOTFileSpecOptional,
     DatasetSpec,
     FilesetSpec,
+    InputFiles,
     IOFactory,
     ParquetFileSpec,
+    PreprocessedFiles,
     ROOTFileSpec,
 )
 from coffea.dataset_tools.manipulations import (
