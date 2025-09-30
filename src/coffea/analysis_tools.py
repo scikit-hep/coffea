@@ -1113,7 +1113,6 @@ class NminusOne:
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
         Hist = hist.Hist if not self._delayed_mode else hist.dask.Hist
-        ak_or_dak = awkward if not self._delayed_mode else dask_awkward
         labels = ["initial"] + [f"N - {i}" for i in self._names] + ["N"]
         axes = [hist.axis.Integer(0, len(labels), name="nminusone", label="N-1")]
         if do_categorical:
@@ -1167,7 +1166,7 @@ class NminusOne:
             weight = (
                 self._weights.weight(self._weightsmodifier)
                 if do_weighted
-                else ak_or_dak.ones_like(self._masks[0], dtype=numpy.float32)
+                else awkward.ones_like(self._masks[0], dtype=numpy.float32)
             )
             if do_scaled:
                 weight = weight * scale
@@ -1188,10 +1187,10 @@ class NminusOne:
             to_broadcast["weight"] = weight
             to_broadcast = zip(
                 to_broadcast.keys(),
-                ak_or_dak.broadcast_arrays(*to_broadcast.values()),
+                awkward.broadcast_arrays(*to_broadcast.values()),
             )
             nminusoneargs = {
-                k: ak_or_dak.flatten(arr, axis=None) for k, arr in to_broadcast
+                k: awkward.flatten(arr, axis=None) for k, arr in to_broadcast
             }
             h.fill(**nminusoneargs)
 
@@ -1286,7 +1285,6 @@ class NminusOne:
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
         Hist = hist.dask.Hist if self._delayed_mode else hist.Hist
-        ak_or_dak = dask_awkward if self._delayed_mode else awkward
         if do_categorical:
             catax = categorical.get("axis")
             catvar = categorical.get("values")
@@ -1350,7 +1348,7 @@ class NminusOne:
             fill_args["weight"] = (
                 self._weights.weight(self._weightsmodifier)
                 if do_weighted
-                else ak_or_dak.ones_like(self._masks[0], dtype=numpy.float32)
+                else awkward.ones_like(self._masks[0], dtype=numpy.float32)
             )
             if do_scaled:
                 fill_args["weight"] = fill_args["weight"] * scale
@@ -1366,13 +1364,13 @@ class NminusOne:
                 zip(
                     to_fill_initial.keys(),
                     [
-                        ak_or_dak.flatten(arr)
-                        for arr in ak_or_dak.broadcast_arrays(*to_fill_initial.values())
+                        awkward.flatten(arr)
+                        for arr in awkward.broadcast_arrays(*to_fill_initial.values())
                     ],
                 )
             )
             h.fill(
-                nminusone=ak_or_dak.zeros_like(to_fill_initial[name], dtype=int),
+                nminusone=awkward.zeros_like(to_fill_initial[name], dtype=int),
                 **to_fill_initial,
             )
 
@@ -1382,15 +1380,13 @@ class NminusOne:
                     zip(
                         to_fill_iter.keys(),
                         [
-                            ak_or_dak.flatten(arr)
-                            for arr in ak_or_dak.broadcast_arrays(
-                                *to_fill_iter.values()
-                            )
+                            awkward.flatten(arr)
+                            for arr in awkward.broadcast_arrays(*to_fill_iter.values())
                         ],
                     )
                 )
                 h.fill(
-                    nminusone=ak_or_dak.full_like(to_fill_iter[name], i, dtype=int),
+                    nminusone=awkward.full_like(to_fill_iter[name], i, dtype=int),
                     **to_fill_iter,
                 )
             hists.append(h)
@@ -1697,7 +1693,6 @@ class Cutflow:
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
         Hist = hist.Hist if not self._delayed_mode else hist.dask.Hist
-        ak_or_dak = awkward if not self._delayed_mode else dask_awkward
         labels = ["initial"] + list(self._names)
         axes = [hist.axis.Integer(0, len(labels), name="onecut")]
         if do_categorical:
@@ -1784,7 +1779,7 @@ class Cutflow:
             weight = (
                 self._weights.weight(self._weightsmodifier)
                 if do_weighted
-                else ak_or_dak.ones_like(self._masksonecut[0], dtype=numpy.float32)
+                else awkward.ones_like(self._masksonecut[0], dtype=numpy.float32)
             )
             if do_scaled:
                 weight = weight * scale
@@ -1817,17 +1812,17 @@ class Cutflow:
             to_broadcastcutflow["weight"] = weight
             broadcastedonecut = zip(
                 to_broadcastonecut.keys(),
-                ak_or_dak.broadcast_arrays(*to_broadcastonecut.values()),
+                awkward.broadcast_arrays(*to_broadcastonecut.values()),
             )
             broadcastedcutflow = zip(
                 to_broadcastcutflow.keys(),
-                ak_or_dak.broadcast_arrays(*to_broadcastcutflow.values()),
+                awkward.broadcast_arrays(*to_broadcastcutflow.values()),
             )
             onecutargs = {
-                k: ak_or_dak.flatten(arr, axis=None) for k, arr in broadcastedonecut
+                k: awkward.flatten(arr, axis=None) for k, arr in broadcastedonecut
             }
             cutflowargs = {
-                k: ak_or_dak.flatten(arr, axis=None) for k, arr in broadcastedcutflow
+                k: awkward.flatten(arr, axis=None) for k, arr in broadcastedcutflow
             }
             honecut.fill(**onecutargs)
             hcutflow.fill(**cutflowargs)
@@ -1915,7 +1910,6 @@ class Cutflow:
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
         Hist = hist.dask.Hist if self._delayed_mode else hist.Hist
-        ak_or_dak = dask_awkward if self._delayed_mode else awkward
         if do_categorical:
             catax = categorical.get("axis")
             catvar = categorical.get("values")
@@ -1976,7 +1970,7 @@ class Cutflow:
             fill_args["weight"] = (
                 self._weights.weight(self._weightsmodifier)
                 if do_weighted
-                else ak_or_dak.ones_like(self._masksonecut[0], dtype=numpy.float32)
+                else awkward.ones_like(self._masksonecut[0], dtype=numpy.float32)
             )
             if do_scaled:
                 fill_args["weight"] = fill_args["weight"] * scale
@@ -1994,13 +1988,13 @@ class Cutflow:
                 zip(
                     to_fill_initial.keys(),
                     [
-                        ak_or_dak.flatten(arr)
-                        for arr in ak_or_dak.broadcast_arrays(*to_fill_initial.values())
+                        awkward.flatten(arr)
+                        for arr in awkward.broadcast_arrays(*to_fill_initial.values())
                     ],
                 )
             )
             honecut.fill(
-                onecut=ak_or_dak.zeros_like(to_fill_initial[name], dtype=int),
+                onecut=awkward.zeros_like(to_fill_initial[name], dtype=int),
                 **to_fill_initial,
             )
 
@@ -2010,21 +2004,19 @@ class Cutflow:
                     zip(
                         to_fill_iter.keys(),
                         [
-                            ak_or_dak.flatten(arr)
-                            for arr in ak_or_dak.broadcast_arrays(
-                                *to_fill_iter.values()
-                            )
+                            awkward.flatten(arr)
+                            for arr in awkward.broadcast_arrays(*to_fill_iter.values())
                         ],
                     )
                 )
                 honecut.fill(
-                    onecut=ak_or_dak.full_like(to_fill_iter[name], i, dtype=int),
+                    onecut=awkward.full_like(to_fill_iter[name], i, dtype=int),
                     **to_fill_iter,
                 )
             histsonecut.append(honecut)
 
             hcutflow.fill(
-                cutflow=ak_or_dak.zeros_like(to_fill_initial[name], dtype=int),
+                cutflow=awkward.zeros_like(to_fill_initial[name], dtype=int),
                 **to_fill_initial,
             )
             for i, mask in enumerate(self.result().maskscutflow, 1):
@@ -2033,15 +2025,13 @@ class Cutflow:
                     zip(
                         to_fill_iter.keys(),
                         [
-                            ak_or_dak.flatten(arr)
-                            for arr in ak_or_dak.broadcast_arrays(
-                                *to_fill_iter.values()
-                            )
+                            awkward.flatten(arr)
+                            for arr in awkward.broadcast_arrays(*to_fill_iter.values())
                         ],
                     )
                 )
                 hcutflow.fill(
-                    cutflow=ak_or_dak.full_like(to_fill_iter[name], i, dtype=int),
+                    cutflow=awkward.full_like(to_fill_iter[name], i, dtype=int),
                     **to_fill_iter,
                 )
             histscutflow.append(hcutflow)
