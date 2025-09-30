@@ -1,6 +1,7 @@
 from coffea.dataset_tools.apply_processor import apply_to_dataset, apply_to_fileset
 from coffea.dataset_tools.filespec import (
-    CoffeaFileDict,
+    InputFiles,
+    PreprocessedFiles,
     CoffeaParquetFileSpec,
     CoffeaParquetFileSpecOptional,
     CoffeaROOTFileSpec,
@@ -41,7 +42,8 @@ __all__ = [
     "CoffeaROOTFileSpecOptional",
     "CoffeaParquetFileSpec",
     "CoffeaParquetFileSpecOptional",
-    "CoffeaFileDict",
+    "InputFiles",
+    "PreprocessedFiles",
     "DatasetSpec",
     "FilesetSpec",
     "IOFactory",

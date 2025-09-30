@@ -7,7 +7,8 @@ import awkward
 import numpy
 
 from coffea.dataset_tools.filespec import (
-    CoffeaFileDict,
+    InputFiles,
+    PreprocessedFiles,
     CoffeaParquetFileSpec,
     CoffeaROOTFileSpec,
     DatasetSpec,
@@ -111,7 +112,8 @@ def slice_chunks(
                 out[dname].files[fname].steps.append(step)
 
             # 5) drop files with no steps
-            out[dname].files = CoffeaFileDict(
+            # InputFiles has automatic promotion to PreprocessedFiles if conditions met
+            out[dname].files = InputFiles(
                 {
                     fname: finfo
                     for fname, finfo in out[dname].files.items()
@@ -142,7 +144,6 @@ def slice_chunks(
                 for fname, finfo in out[dname]["files"].items()
                 if finfo["steps"]
             }
-
     return out
 
 
@@ -192,7 +193,7 @@ def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpe
         finfos = list(files.values())[theslice]
         updated = {fname: finfo for fname, finfo in zip(fnames, finfos)}
         if is_datasetspec:
-            out[name].files = CoffeaFileDict(updated)
+            out[name].files = InputFiles(updated)
         else:
             out[name]["files"] = updated
 
@@ -210,7 +211,7 @@ def _default_filter(name_and_spec):
 def filter_files(
     fileset: FilesetSpec,
     thefilter: Callable[
-        [tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | CoffeaFileDict],
+        [tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | InputFiles | PreprocessedFiles],
         bool,
     ] = _default_filter,
 ) -> FilesetSpec:
@@ -221,7 +222,7 @@ def filter_files(
     ----------
         fileset: FilesetSpec
             The set of datasets to be sliced.
-        thefilter: Callable[[tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | CoffeaFileDict], bool], default filters empty files
+        thefilter: Callable[[tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | InputFiles | PreprocessedFiles], bool], default filters empty files
             How to filter the files in the each dataset.
 
     Returns
@@ -235,7 +236,7 @@ def filter_files(
         to_apply_to = getattr(entry, "files") if is_datasetspec else entry["files"]
         updated = dict(filter(thefilter, to_apply_to.items()))
         if is_datasetspec:
-            out[name].files = CoffeaFileDict(updated)
+            out[name].files = InputFiles(updated)
         else:
             out[name]["files"] = updated
     return out

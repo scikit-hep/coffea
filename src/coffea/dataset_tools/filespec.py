@@ -90,25 +90,7 @@ class DictMethodsMixin:
     def update(self, other=None, **kwargs):
         self.root.update(other, **kwargs)
 
-
-class CoffeaFileDict(
-    RootModel[
-        dict[
-            str,
-            Union[
-                CoffeaROOTFileSpec,
-                CoffeaParquetFileSpec,
-                CoffeaROOTFileSpecOptional,
-                CoffeaParquetFileSpecOptional,
-            ],
-        ]
-    ],
-    DictMethodsMixin,
-):
-
-    def __iter__(self) -> Iterable[str]:
-        return iter(self.root)
-
+class InputFilesMixin:
     @computed_field
     @property
     def format(self) -> str:
@@ -157,21 +139,80 @@ class CoffeaFileDict(
                         ), f"Expected 'format' to be 'parquet', got {v['format']} for {k}"
         return data
 
+class InputFiles(
+    RootModel[
+        dict[
+            str,
+            Union[
+                CoffeaROOTFileSpec,
+                CoffeaParquetFileSpec,
+                CoffeaROOTFileSpecOptional,
+                CoffeaParquetFileSpecOptional,
+            ],
+        ]
+    ],
+    DictMethodsMixin,
+    InputFilesMixin,
+):
+
+    def __iter__(self) -> Iterable[str]:
+        return iter(self.root)
+
     @model_validator(mode="after")
     def promote_and_check_files(self) -> Self:
+        preprocessed = {k: False for k in self.root}
         for k, v in self.root.items():
             try:
                 if type(v) in [CoffeaROOTFileSpecOptional]:
                     self.root[k] = CoffeaROOTFileSpec(v)
                 if type(v) in [CoffeaParquetFileSpecOptional]:
                     self.root[k] = CoffeaParquetFileSpec(v)
+                preprocessed[k] = True
+            except Exception:
+                pass
+        if all(preprocessed.values()):
+            try:
+                self.root = PreprocessedFiles(self.root).root
             except Exception:
                 pass
         return self
 
+class PreprocessedFiles(
+    RootModel[
+        dict[
+            str,
+            Union[
+                CoffeaROOTFileSpec,
+                CoffeaParquetFileSpec,
+            ],
+        ]
+    ],
+    DictMethodsMixin,
+    InputFilesMixin,
+):
+
+    def __iter__(self) -> Iterable[str]:
+        return iter(self.root)
+
+    @model_validator(mode="after")
+    def promote_and_check_files(self) -> Self:
+        preprocessed = {k: False for k in self.root}
+        for k, v in self.root.items():
+            try:
+                if type(v) in [CoffeaROOTFileSpecOptional]:
+                    self.root[k] = CoffeaROOTFileSpec(v)
+                if type(v) in [CoffeaParquetFileSpecOptional]:
+                    self.root[k] = CoffeaParquetFileSpec(v)
+                preprocessed[k] = True
+            except Exception:
+                pass
+        if all(preprocessed.values()):
+            return self
+
+
 
 class DatasetSpec(BaseModel):
-    files: CoffeaFileDict
+    files: InputFiles
     metadata: dict[Hashable, Any] | None = None
     format: str | None = None
     form: str | None = None
@@ -311,6 +352,7 @@ class IOFactory:
             | CoffeaROOTFileSpecOptional
             | CoffeaParquetFileSpec
             | CoffeaParquetFileSpecOptional
+            | InputFiles
             | DatasetSpec
             | FilesetSpec
         ),
@@ -322,8 +364,8 @@ class IOFactory:
                 input, (CoffeaParquetFileSpec, CoffeaParquetFileSpecOptional)
             ):
                 return CoffeaParquetFileSpec(**input.model_dump())
-            elif isinstance(input, CoffeaFileDict):
-                return CoffeaFileDict(input.model_dump())
+            elif isinstance(input, InputFiles):
+                return InputFiles(input.model_dump())
             elif isinstance(input, DatasetSpec):
                 return DatasetSpec(**input.model_dump())
             elif isinstance(input, FilesetSpec):

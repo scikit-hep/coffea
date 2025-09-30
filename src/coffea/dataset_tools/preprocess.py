@@ -16,7 +16,8 @@ import uproot
 from uproot._util import no_filter
 
 from coffea.dataset_tools.filespec import (
-    CoffeaFileDict,
+    InputFiles,
+    PreprocessedFiles,
     DatasetSpec,
     FilesetSpec,
     IOFactory,
@@ -464,8 +465,8 @@ def preprocess(
             }
 
         if is_datasetspec:
-            out_updated[name].files = CoffeaFileDict(files_out)
-            out_available[name].files = CoffeaFileDict(files_available)
+            out_updated[name].files = InputFiles(files_out)
+            out_available[name].files = PreprocessedFiles(files_available)
         elif "files" in out_updated[name]:
             out_updated[name]["files"] = files_out
             out_available[name]["files"] = files_available
