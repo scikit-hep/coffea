@@ -10,7 +10,8 @@ import pytest
 from pydantic import ValidationError
 
 from coffea.dataset_tools.filespec import (
-    CoffeaFileDict,
+    InputFiles,
+    PreprocessedFiles,
     CoffeaParquetFileSpec,
     CoffeaParquetFileSpecOptional,
     CoffeaROOTFileSpec,
@@ -458,8 +459,8 @@ class TestCoffeaParquetFileSpec:
                 assert restored.uuid == "test-uuid"
 
 
-class TestCoffeaFileDict:
-    """Test CoffeaFileDict class"""
+class TestInputFiles:
+    """Test InputFiles class"""
 
     def get_files(self):
         return {
@@ -476,7 +477,7 @@ class TestCoffeaFileDict:
 
     def test_dict_methods(self):
         """Test that dict methods work properly"""
-        file_dict = CoffeaFileDict(self.get_files())
+        file_dict = InputFiles(self.get_files())
 
         # Test __getitem__
         assert file_dict["file1.root"].uuid == "uuid1"
@@ -512,7 +513,7 @@ class TestCoffeaFileDict:
                 object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
             )
         }
-        file_dict = CoffeaFileDict(files)
+        file_dict = InputFiles(files)
         assert len(file_dict) == 1
         assert file_dict["file1.root"].uuid == "uuid1"
 
@@ -520,7 +521,7 @@ class TestCoffeaFileDict:
         """Test that invalid file types are rejected"""
         files = {"file1.txt": CoffeaROOTFileSpecOptional(object_path="Events")}
         # with pytest.raises(ValidationError):
-        fdict = CoffeaFileDict(files)
+        fdict = InputFiles(files)
         with pytest.raises(
             RuntimeError, match="identify_file_format couldn't identify"
         ):
@@ -528,13 +529,13 @@ class TestCoffeaFileDict:
 
     def test_mixed_root_and_parquet(self):
         """Test creation with mixed root and parquet files"""
-        file_dict = CoffeaFileDict(self.get_files())
+        file_dict = InputFiles(self.get_files())
         assert len(file_dict) == 3
 
     def test_attempt_promotion(self):
         """Test attempt_promotion method"""
         # Test with valid ROOTFileSpec
-        spec = CoffeaFileDict(self.get_files())
+        spec = InputFiles(self.get_files())
         assert isinstance(spec["file2.root"], CoffeaROOTFileSpecOptional)
         spec["file2.root"].num_entries = 20
         spec["file2.root"].uuid = "test-uuid"
@@ -548,13 +549,13 @@ class TestCoffeaFileDict:
 
     def test_json_file_serialization(self):
         """Test JSON serialization with file path"""
-        spec = CoffeaFileDict(self.get_files())
+        spec = InputFiles(self.get_files())
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
                 fout.write(spec.model_dump_json(exclude_unset=False))
             with gzip.open(fname, "rt") as fin:
-                restored = CoffeaFileDict.model_validate_json(fin.read())
+                restored = InputFiles.model_validate_json(fin.read())
                 assert len(restored) == 3
                 assert restored == spec
 
@@ -616,7 +617,7 @@ class TestDatasetSpec:
 
     def test_creation_valid(self):
         """Test creation with valid concrete file specs"""
-        files = CoffeaFileDict(
+        files = InputFiles(
             {
                 "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
@@ -717,7 +718,7 @@ class TestDatasetJoinableSpec:
 
     def test_creation_valid(self):
         """Test creation with valid form and format"""
-        files = CoffeaFileDict(
+        files = InputFiles(
             {
                 "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
@@ -744,7 +745,7 @@ class TestDatasetJoinableSpec:
 
     def test_invalid_format(self):
         """Test that invalid formats are rejected"""
-        files = CoffeaFileDict(
+        files = InputFiles(
             {
                 "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
@@ -765,7 +766,7 @@ class TestDatasetJoinableSpec:
 
     def test_invalid_form(self):
         """Test that invalid forms are rejected"""
-        files = CoffeaFileDict(
+        files = InputFiles(
             {
                 "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
@@ -909,7 +910,7 @@ class TestIOFactory:
 
     def test_datasetspec_to_dict(self):
         """Test datasetspec_to_dict method"""
-        files = CoffeaFileDict(
+        files = InputFiles(
             {
                 "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
@@ -980,7 +981,7 @@ class TestJSONSerialization:
 
     def test_datasetspec_json_roundtrip(self):
         """Test JSON roundtrip for DatasetSpec"""
-        files = CoffeaFileDict(
+        files = InputFiles(
             {
                 "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
@@ -1001,7 +1002,7 @@ class TestFilesetSpec:
 
     def test_creation_valid(self):
         """Test creation with valid concrete dataset specs"""
-        files = CoffeaFileDict(
+        files = InputFiles(
             {
                 "file1.root": CoffeaROOTFileSpec(
                     object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
