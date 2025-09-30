@@ -1392,14 +1392,19 @@ class Runner:
         if not isinstance(processor_instance, ProcessorABC):
             processor_instance = cloudpickle.loads(lz4f.decompress(processor_instance))
 
-        if format == "root":
-            filecontext = uproot.open(
-                {item.filename: None},
-                timeout=xrootdtimeout,
-                **uproot_options,
-            )
-        elif format == "parquet":
-            raise NotImplementedError("Parquet format is not supported yet.")
+        try:
+            if format == "root":
+                filecontext = uproot.open(
+                    {item.filename: None},
+                    timeout=xrootdtimeout,
+                    **uproot_options,
+                )
+            elif format == "parquet":
+                raise NotImplementedError("Parquet format is not supported yet.")
+        except Exception as e:
+            raise Exception(
+                f"Failed to open file: {item!r}. The error was: {e!r}."
+            ) from e
 
         metadata = {
             "dataset": item.dataset,
@@ -1418,23 +1423,30 @@ class Runner:
             if schema is None:
                 raise ValueError("Schema must be set")
             elif issubclass(schema, schemas.BaseSchema):
-                # change here
-                if format == "root":
-                    materialized = []
-                    factory = NanoEventsFactory.from_root(
-                        file=file,
-                        treepath=item.treename,
-                        schemaclass=schema,
-                        metadata=metadata,
-                        access_log=materialized,
-                        mode="virtual",
-                        entry_start=item.entrystart,
-                        entry_stop=item.entrystop,
-                        iteritems_options=iteritems_options,
-                    )
-                    events = factory.events()
-                elif format == "parquet":
-                    raise NotImplementedError("Parquet format is not supported yet.")
+                try:
+                    # change here
+                    if format == "root":
+                        materialized = []
+                        factory = NanoEventsFactory.from_root(
+                            file=file,
+                            treepath=item.treename,
+                            schemaclass=schema,
+                            metadata=metadata,
+                            access_log=materialized,
+                            mode="virtual",
+                            entry_start=item.entrystart,
+                            entry_stop=item.entrystop,
+                            iteritems_options=iteritems_options,
+                        )
+                        events = factory.events()
+                    elif format == "parquet":
+                        raise NotImplementedError(
+                            "Parquet format is not supported yet."
+                        )
+                except Exception as e:
+                    raise Exception(
+                        f"Failed creating nanoevents: {item!r}. The error was: {e!r}."
+                    ) from e
             else:
                 raise ValueError(
                     "Expected schema to derive from nanoevents.BaseSchema, instead got %r"
@@ -1532,10 +1544,6 @@ class Runner:
 
             self._preprocess_fileset_root(fileset)
             fileset = self._filter_badfiles(fileset)
-
-            # reverse fileset list to match the order of files as presented in version
-            # v0.7.4. This fixes tests using maxchunks.
-            fileset.reverse()
         elif self.format == "parquet":
             raise NotImplementedError("Parquet format is not supported yet.")
 
