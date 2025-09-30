@@ -36,40 +36,30 @@ import cloudpickle
 import fsspec
 
 
-def load(filename):
-    """Load a coffea file from disk"""
-    with fsspec.open(filename, "rb", compression="lz4") as fin:
+def load(filename, compression="lz4"):
+    """Load a coffea file from disk
+
+    ``compression`` specified the algorithm to use to decompress the file.
+    It must be one of the ``fsspec`` supported compression string names.
+    These compression algorithms may have dependencies that need to be installed separately.
+    If it is ``None``, it means no compression.
+    """
+    with fsspec.open(filename, "rb", compression=compression) as fin:
         output = cloudpickle.load(fin)
     return output
 
 
-def save(output, filename, fast=True):
+def save(output, filename, compression="lz4"):
     """Save a coffea object or collection thereof to disk.
 
     This function can accept any picklable object.  Suggested suffix: ``.coffea``
 
-    If `fast` is set to `True`, it will use fast mode of the python pickler
-    (see https://docs.python.org/3/library/pickle.html).
-    This has no memory overhead, while the default creates a copy in memory.
-    However, it could in principle cause issues with recursive objects, so
-    care should be taken.
+    ``compression` can be one of the ``fsspec`` supported compression string names.
+    These compression algorithms may have dependencies that need to be installed separately.
+    if it is ``None``, it means no compression.
     """
-    try:
-        with fsspec.open(filename, "wb", compression="lz4") as fout:
-            p = cloudpickle.Pickler(fout)
-            p.fast = fast
-            p.dump(output)
-    except ValueError as e:
-        if fast:
-            # Try again without fast on a cyclic error
-            save(output, filename, fast=False)
-            warnings.warn(
-                f"Could not save object to path '{filename}' "
-                "in fast mode due to possible recursion in object. "
-                "Falling back to default saving."
-            )
-        else:
-            raise e
+    with fsspec.open(filename, "wb", compression=compression) as fout:
+        cloudpickle.dump(output, fout)
 
 
 def _hex(string):
