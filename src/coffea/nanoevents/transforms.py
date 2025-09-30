@@ -630,7 +630,7 @@ def get_index_ranges(begin, end):
     return ranges
 
 
-@numba.jit
+@numba.njit
 def get_array_from_indices_kernel(indices, target, builder):
     for ev in range(len(indices)):
         builder.begin_list()
@@ -643,7 +643,7 @@ def get_array_from_indices_kernel(indices, target, builder):
     return builder
 
 
-@numba.jit
+@numba.njit
 def get_array_from_indices_nested_target_kernel(indices, target, builder):
     for ev in range(len(indices)):
         builder.begin_list()
@@ -770,7 +770,7 @@ def begin_end_mapping_nested_target_form(begin_form, end_form, target_form):
 
 
 # begin_end_mapping_with_xyzrecord
-@numba.jit
+@numba.njit
 def get_array_from_indices_xyzrecord_target_kernel(indices, target, builder):
     for ev in range(len(indices)):
         builder.begin_list()
