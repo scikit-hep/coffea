@@ -6,7 +6,7 @@ from rich.progress import Progress
 from rich.traceback import Traceback
 from tornado.ioloop import IOLoop
 
-from coffea.util import coffea_console
+from coffea.util import rich_bar
 
 
 class RichProgressBar(ProgressBar):
@@ -18,13 +18,22 @@ class RichProgressBar(ProgressBar):
         scheduler=None,
         interval="100ms",
         complete=False,
+        progress_bar=None,
         description="Processing",
+        unit="tasks",
     ):
         super().__init__(keys, scheduler, interval, complete)
-        self.pbar = Progress(console=coffea_console)
+        if progress_bar is not None:
+            if not isinstance(progress_bar, Progress):
+                raise ValueError(
+                    "progress_bar must be a rich.progress.Progress instance"
+                )
+            self.pbar = progress_bar
+        else:
+            self.pbar = rich_bar()
         self.pbar.start()
 
-        self.task = self.pbar.add_task(description, total=len(keys))
+        self.task = self.pbar.add_task(description, total=len(keys), unit=unit)
 
         self._loop_runner = LoopRunner(loop=None)
         self._loop_runner.run_sync(self.listen)
@@ -59,7 +68,7 @@ class RichProgressBar(ProgressBar):
 
     def _draw_bar(self, remaining, all, **kwargs):
         del kwargs
-        self.pbar.update(self.task, total=all, completed=all - remaining)
+        self.pbar.update(self.task, total=all, completed=all - remaining, refresh=True)
 
 
 def progress(*futures, complete=True, **kwargs):

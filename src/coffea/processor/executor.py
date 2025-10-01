@@ -765,7 +765,9 @@ class DaskExecutor(ExecutorBase):
                 if self.status:
                     from ._dask import progress
 
-                    progress(work, description=f"[green]{self.function_name}")
+                    progress(
+                        work, description=f"[green]{self.function_name}", unit=self.unit
+                    )
                 return (
                     accumulate(
                         [
