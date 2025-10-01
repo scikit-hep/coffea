@@ -1682,7 +1682,11 @@ class Runner:
 
         # wrap
         trace_processor_instance = TraceProcessor(processor_instance)
-        return self(
+
+        # patch the executor description
+        old_desc = self.executor.desc
+        self.executor.desc = "Tracing"
+        needed = self(
             chunks,
             trace_processor_instance,
             treename,
@@ -1690,6 +1694,9 @@ class Runner:
             iteritems_options=iteritems_options,
             preload_columns=None,
         )
+        # restore the old description
+        self.executor.desc = old_desc
+        return needed
 
     def run(
         self,
