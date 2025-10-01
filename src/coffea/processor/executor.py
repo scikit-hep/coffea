@@ -27,7 +27,7 @@ import uproot
 from cachetools import LRUCache
 
 from ..nanoevents import NanoEventsFactory, schemas
-from ..util import _exception_chain, _hash, rich_bar
+from ..util import _exception_chain, _hash, deprecate, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .processor import ProcessorABC
 
@@ -50,6 +50,22 @@ _PROTECTED_NAMES = {
 
 class UprootMissTreeError(uproot.exceptions.KeyInFileError):
     pass
+
+
+def _deprecate_args(args, names):
+    if not args and not names:
+        return
+    names = [f"'{name}'" for name in names]
+    argument_token = "argument"
+    printable = names[0]
+    if len(names) == 2:
+        printable = " and ".join(names)
+        argument_token += "s"
+    elif len(names) > 2:
+        printable = ", ".join(names[:-1]) + ", and " + names[-1]
+        argument_token += "s"
+    msg = f"The {argument_token} {printable} will need to be passed as keyword {argument_token} in the future"
+    deprecate(msg, "2026.1.0", stacklevel=3)
 
 
 class FileMeta:
@@ -1481,6 +1497,7 @@ class Runner:
         self,
         fileset: dict,
         processor_instance: ProcessorABC,
+        *args,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
         iteritems_options: Optional[dict] = {},
@@ -1503,8 +1520,21 @@ class Runner:
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
         """
+        if args:
+            _deprecate_args(args, ["treename", "uproot_options", "iteritems_options"])
+            if len(args) > 0:
+                treename = args[0]
+            if len(args) > 1:
+                uproot_options = args[1]
+            if len(args) > 2:
+                iteritems_options = args[2]
+
         wrapped_out = self.run(
-            fileset, processor_instance, treename, uproot_options, iteritems_options
+            fileset=fileset,
+            processor_instance=processor_instance,
+            treename=treename,
+            uproot_options=uproot_options,
+            iteritems_options=iteritems_options,
         )
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
@@ -1515,6 +1545,7 @@ class Runner:
     def preprocess(
         self,
         fileset: dict,
+        *args,
         treename: Optional[str] = None,
     ) -> Generator:
         """Run the processor_instance on a given fileset
@@ -1531,6 +1562,10 @@ class Runner:
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
         """
+        if args:
+            _deprecate_args(args, ["treename"])
+            if len(args) > 0:
+                treename = args[0]
 
         if not isinstance(fileset, (Mapping, str)):
             raise ValueError(
@@ -1552,6 +1587,7 @@ class Runner:
         self,
         fileset: Union[dict, str, list[WorkItem], Generator],
         processor_instance: ProcessorABC,
+        *args,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
         iteritems_options: Optional[dict] = {},
@@ -1580,6 +1616,14 @@ class Runner:
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
         """
+        if args:
+            _deprecate_args(args, ["treename", "uproot_options", "iteritems_options"])
+            if len(args) > 0:
+                treename = args[0]
+            if len(args) > 1:
+                uproot_options = args[1]
+            if len(args) > 2:
+                iteritems_options = args[2]
 
         meta = False
         if not isinstance(fileset, (Mapping, str)):
@@ -1595,7 +1639,7 @@ class Runner:
         if meta:
             chunks = fileset
         else:
-            chunks = self.preprocess(fileset, treename)
+            chunks = self.preprocess(fileset, treename=treename)
 
         if self.processor_compression is None:
             pi_to_send = processor_instance
