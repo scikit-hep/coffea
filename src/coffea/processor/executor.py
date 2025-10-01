@@ -1424,10 +1424,10 @@ class Runner:
 
         # preload logic
         # Important: same hash as in the TraceProcessor cls, so we use a common method
-        hashed = _hash_for_tracing(metadata)
+        _key = _key_for_tracing(metadata)
         needed = None
         if preload_columns is not None:
-            needed = preload_columns.get(hashed, None)
+            needed = preload_columns.get(_key, None)
 
         if needed is not None:
             preload = lambda b: b.name in needed  # noqa
@@ -1573,6 +1573,44 @@ class Runner:
 
         return self._chunk_generator(fileset, treename)
 
+    def maybe_preprocess(
+        self,
+        fileset: dict,
+        treename: Optional[str] = None,
+    ) -> Generator:
+        """Run the processor_instance on a given fileset if needed
+
+        Parameters
+        ----------
+            fileset : dict | str | List[WorkItem] | Generator
+                - A dictionary ``{dataset: [file, file], }``
+                  Optionally, if some files' tree name differ, the dictionary can be specified:
+                  ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
+                  You can also define a different tree name per file in the dictionary:
+                ``{dataset: {'files': {file: 'name'}}, }``
+                - A single file name
+                - File chunks for self.preprocess()
+                - Chunk generator
+            treename : str, optional
+                name of tree inside each root file, can be ``None``;
+                treename can also be defined in fileset, which will override the passed treename
+                Not needed if processing premade chunks
+        """
+        meta = False
+        if not isinstance(fileset, (Mapping, str)):
+            if isinstance(fileset, Generator) or isinstance(fileset[0], WorkItem):
+                meta = True
+            else:
+                raise ValueError(
+                    "Expected fileset to be a mapping dataset: list(files) or filename"
+                )
+
+        if meta:
+            chunks = fileset
+        else:
+            chunks = self.preprocess(fileset, treename)
+        return chunks
+
     def trace_needed_columns(
         self,
         fileset: Union[dict, str, list[WorkItem], Generator],
@@ -1623,19 +1661,29 @@ class Runner:
 
             def process(self, events):
                 accum = self.accumulator
-                hashed = _hash_for_tracing(events.metadata)
-                accum[hashed] = set()
+                key = _key_for_tracing(events.metadata)
+                accum[key] = set()
                 columns = trace_method(self.processor.process, events)
-                accum[hashed] |= columns
+                accum[key] |= columns
                 return accum
 
             def postprocess(self, accumulator):
                 return accumulator
 
+        # only trace first chunk per dataset
+        def _first_item_per_dataset(gen: Generator) -> Generator:
+            seen = set()
+            for item in gen:
+                if item.dataset not in seen:
+                    seen.add(item.dataset)
+                    yield item
+
+        chunks = _first_item_per_dataset(self.maybe_preprocess(fileset, treename))
+
         # wrap
         trace_processor_instance = TraceProcessor(processor_instance)
         return self(
-            fileset,
+            chunks,
             trace_processor_instance,
             treename,
             uproot_options=uproot_options,
@@ -1678,22 +1726,10 @@ class Runner:
             preload_columns: dict, optional
                 A mapping of fileset metadata to columns to preload
         """
-
-        meta = False
-        if not isinstance(fileset, (Mapping, str)):
-            if isinstance(fileset, Generator) or isinstance(fileset[0], WorkItem):
-                meta = True
-            else:
-                raise ValueError(
-                    "Expected fileset to be a mapping dataset: list(files) or filename"
-                )
         if not isinstance(processor_instance, ProcessorABC):
             raise ValueError("Expected processor_instance to derive from ProcessorABC")
 
-        if meta:
-            chunks = fileset
-        else:
-            chunks = self.preprocess(fileset, treename)
+        chunks = self.maybe_preprocess(fileset, treename)
 
         if self.processor_compression is None:
             pi_to_send = processor_instance
@@ -1765,14 +1801,5 @@ class Runner:
             return wrapped_out
 
 
-def _hash_for_tracing(metadata):
-    return _hash(
-        (
-            metadata["dataset"],
-            metadata["filename"],
-            metadata["treename"],
-            metadata["entrystart"],
-            metadata["entrystop"],
-            metadata["fileuuid"],
-        )
-    )
+def _key_for_tracing(metadata):
+    return (metadata["dataset"], metadata["treename"])
