@@ -55,6 +55,7 @@ class UprootMissTreeError(uproot.exceptions.KeyInFileError):
 def _deprecate_args(args, names):
     if not args and not names:
         return
+    names = [f"'{name}'" for name in names]
     argument_token = "argument"
     printable = names[0]
     if len(names) == 2:
