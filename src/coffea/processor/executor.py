@@ -27,7 +27,7 @@ import uproot
 from cachetools import LRUCache
 
 from ..nanoevents import NanoEventsFactory, schemas
-from ..util import _exception_chain, _hash, rich_bar
+from ..util import _exception_chain, _hash, deprecate, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .processor import ProcessorABC
 
@@ -53,14 +53,18 @@ class UprootMissTreeError(uproot.exceptions.KeyInFileError):
 
 
 def _deprecate_args(args, names):
-    if len(names) > 1:
+    if not args and not names:
+        return
+    argument_token = "argument"
+    printable = names[0]
+    if len(names) == 2:
+        printable = " and ".join(names)
+        argument_token += "s"
+    elif len(names) > 2:
         printable = ", ".join(names[:-1]) + ", and " + names[-1]
-        singular_or_plural = "arguments"
-    else:
-        printable = names[0]
-        singular_or_plural = "argument"
-    msg = f"The {singular_or_plural} {printable} will need to be passed as keyword {singular_or_plural} in the future."
-    warnings.warn(msg, DeprecationWarning, stacklevel=3)
+        argument_token += "s"
+    msg = f"The {argument_token} {printable} will need to be passed as keyword {argument_token} in the future"
+    deprecate(msg, "2026.1.0", stacklevel=3)
 
 
 class FileMeta:
