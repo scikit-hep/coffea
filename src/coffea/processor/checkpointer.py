@@ -4,10 +4,9 @@ from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import cloudpickle
 import fsspec
 from rich import print
-
-from coffea.util import load, save
 
 if TYPE_CHECKING:
     from coffea.processor import Accumulatable, ProcessorABC
@@ -89,7 +88,10 @@ class SimpleCheckpointer(CheckpointerABC):
             return None
         # else:
         try:
-            return load(fs.unstrip_protocol(fpath))
+            with fs.open(fpath, "rb", compression="lz4") as fin:
+                output = cloudpickle.load(fin)
+            return output
+
         except Exception as e:
             if self.verbose:
                 print(f"Could not load checkpoint: {e}.")
@@ -108,7 +110,8 @@ class SimpleCheckpointer(CheckpointerABC):
             return None
         # else:
         try:
-            save(output, fs.unstrip_protocol(fpath))
+            with fs.open(fpath, "wb", compression="lz4") as fout:
+                output = cloudpickle.dump(output, fout)
         except Exception as e:
             if self.verbose:
                 print(
