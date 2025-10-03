@@ -1252,17 +1252,6 @@ class NminusOne:
                     labels : list
                         The labels corresponding to the values in the categorical axis
                 Default is None, which does not apply any categorical axis.
-            scale: float, optional
-                A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
-            categorical : dict, optional
-                A dictionary with the following keys:
-                    axis : hist.axis object
-                        The axis to be used as a categorical axis
-                    values : list
-                        The array to be filled in the categorical axis, must be the same length as the masks
-                    labels : list
-                        The labels corresponding to the values in the categorical axis
-                Default is None, which does not apply any categorical axis.
 
         Returns
         -------
