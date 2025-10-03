@@ -19,6 +19,21 @@ from dask_awkward.utils import IncompatiblePartitions
 
 import coffea.processor
 import coffea.util
+from coffea.util import coffea_console
+
+# rich colors for console output
+# from https://mk.bcgsc.ca/colorblind/palettes.mhtml
+_rcol = {
+    0: "#000000", # black
+    1: "#2271B2", # honolulu blue
+    2: "#3DB7E9", # summer sky
+    3: "#F748A5", # barbie pink
+    4: "#359B73", # ocean green
+    5: "#D55E00", # bamboo
+    6: "#E69F00", # gambage
+    7: "#F0E442", # paris daisy
+
+}
 
 
 def _generate_slices(array_length, max_elements=128):
@@ -1051,28 +1066,29 @@ class NminusOne:
             (self._nev, self._wgtev) = dask.compute(self._nev, self._wgtev)
 
         xev = self._nev if not do_weighted else self._wgtev
-        header = "N-1 selection stats:"
+        header = f"\n[{_rcol[6]}]N-1 selection stats:[/{_rcol[6]}]"
         if do_weighted:
-            header += " (weighted)"
+            header += f" [{_rcol[3]} bold underline](weighted)[/{_rcol[3]} bold underline]"
         if do_scaled:
-            header += f" (scaled by {scale})"
+            header += f" ([{_rcol[4]} bold underline]scaled[/{_rcol[4]} bold underline] by {scale})"
             xev = [x * scale for x in xev]
+        coffea_console.print(header)
         for i, name in enumerate(self._names):
             stats = (
-                f"Ignoring {name:<20}"
+                f"Ignoring [{_rcol[5]}]{name:<20}[/{_rcol[5]}]"
                 f"pass = {xev[i+1]:<20}"
                 f"all = {xev[0]:<20}"
                 f"-- eff = {xev[i+1]*100/xev[0]:.1f} %"
             )
-            print(stats)
+            coffea_console.print(stats)
 
         stats_all = (
-            f"All cuts {'':<20}"
+            f"[{_rcol[6]}]All cuts[/{_rcol[6]}] {'':<20}"
             f"pass = {xev[-1]:<20}"
             f"all = {xev[0]:<20}"
             f"-- eff = {xev[-1]*100/xev[0]:.1f} %"
         )
-        print(stats_all)
+        coffea_console.print(stats_all)
 
     def yieldhist(self, weighted=None, scale=None, categorical=None):
         """Returns the N-1 selection yields as a ``hist.Hist`` object
@@ -1620,24 +1636,24 @@ class Cutflow:
         xevonecut = self._nevonecut if not do_weighted else self._wgtevonecut
         xevcutflow = self._nevcutflow if not do_weighted else self._wgtevcutflow
 
-        header = "Cutflow stats:"
+        header = f"\n[{_rcol[6]}]Cutflow selection stats:[/{_rcol[6]}]"
         if do_weighted:
-            header += " (weighted)"
+            header += f" [{_rcol[3]} bold underline](weighted)[/{_rcol[3]} bold underline]"
         if do_scaled:
-            header += f" (scaled by {scale})"
+            header += f" ([{_rcol[4]} bold underline]scaled[/{_rcol[4]} bold underline] by {scale})"
             xevonecut = [x * scale for x in xevonecut]
             xevcutflow = [x * scale for x in xevcutflow]
-        print(header)
+        coffea_console.print(header)
         for i, name in enumerate(self._names):
             stats = (
-                f"Cut {name:<20}:"
+                f"Cut [{_rcol[5]}]{name:<20}[/{_rcol[5]}]:"
                 f"pass = {xevonecut[i+1]:<20}"
                 f"cumulative pass = {xevcutflow[i+1]:<20}"
                 f"all = {xevonecut[0]:<20}"
                 f"-- eff = {xevonecut[i+1]*100/xevonecut[0]:.1f} %{'':<20}"
                 f"-- cumulative eff = {xevcutflow[i+1]*100/xevcutflow[0]:.1f} %"
             )
-            print(stats)
+            coffea_console.print(stats)
 
     def yieldhist(self, weighted=None, scale=None, categorical=None):
         """Returns the cutflow yields as ``hist.Hist`` objects
