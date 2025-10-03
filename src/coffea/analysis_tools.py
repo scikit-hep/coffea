@@ -24,15 +24,14 @@ from coffea.util import coffea_console
 # rich colors for console output
 # from https://mk.bcgsc.ca/colorblind/palettes.mhtml
 _rcol = {
-    0: "#000000", # black
-    1: "#2271B2", # honolulu blue
-    2: "#3DB7E9", # summer sky
-    3: "#F748A5", # barbie pink
-    4: "#359B73", # ocean green
-    5: "#D55E00", # bamboo
-    6: "#E69F00", # gambage
-    7: "#F0E442", # paris daisy
-
+    0: "#000000",  # black
+    1: "#2271B2",  # honolulu blue
+    2: "#3DB7E9",  # summer sky
+    3: "#F748A5",  # barbie pink
+    4: "#359B73",  # ocean green
+    5: "#D55E00",  # bamboo
+    6: "#E69F00",  # gambage
+    7: "#F0E442",  # paris daisy
 }
 
 
@@ -1068,7 +1067,9 @@ class NminusOne:
         xev = self._nev if not do_weighted else self._wgtev
         header = f"\n[{_rcol[6]}]N-1 selection stats:[/{_rcol[6]}]"
         if do_weighted:
-            header += f" [{_rcol[3]} bold underline](weighted)[/{_rcol[3]} bold underline]"
+            header += (
+                f" [{_rcol[3]} bold underline](weighted)[/{_rcol[3]} bold underline]"
+            )
         if do_scaled:
             header += f" ([{_rcol[4]} bold underline]scaled[/{_rcol[4]} bold underline] by {scale})"
             xev = [x * scale for x in xev]
@@ -1638,7 +1639,9 @@ class Cutflow:
 
         header = f"\n[{_rcol[6]}]Cutflow selection stats:[/{_rcol[6]}]"
         if do_weighted:
-            header += f" [{_rcol[3]} bold underline](weighted)[/{_rcol[3]} bold underline]"
+            header += (
+                f" [{_rcol[3]} bold underline](weighted)[/{_rcol[3]} bold underline]"
+            )
         if do_scaled:
             header += f" ([{_rcol[4]} bold underline]scaled[/{_rcol[4]} bold underline] by {scale})"
             xevonecut = [x * scale for x in xevonecut]
