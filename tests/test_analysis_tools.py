@@ -1236,6 +1236,9 @@ def test_packed_selection_nminusone_extended_by_mode(
             weightsmodifier="testUp" if weighted else None,
         )
 
+        for scale in [None, 1.25]:
+            nminusone.print(scale=scale)
+
         labels, nev, masks, *packed = nminusone.result()
 
         if commonmasked or weighted:
@@ -1593,6 +1596,9 @@ def test_packed_selection_cutflow_extended_by_mode(
             weights=weight if weighted else None,
             weightsmodifier="testUp" if weighted else None,
         )
+
+        for scale in [None, 1.25]:
+            cutflow.print(scale=scale)
 
         labels, nevonecut, nevcutflow, masksonecut, maskscutflow, *packed = (
             cutflow.result()
