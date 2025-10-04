@@ -57,10 +57,9 @@ class SimpleCheckpointer(CheckpointerABC):
         verbose: bool = False,
         overwrite: bool = True,
     ) -> None:
-        fs, token, paths = fsspec.get_fs_token_paths(checkpoint_dir)
-        assert len(paths) == 1, "Checkpoint directory must be a single path"
+        fs, path = fsspec.url_to_fs(checkpoint_dir)
         self.fs = fs
-        self.checkpoint_dir = paths[0]
+        self.checkpoint_dir = path
         self.verbose = verbose
         self.overwrite = overwrite
 

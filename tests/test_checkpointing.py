@@ -64,13 +64,10 @@ def test_checkpointing():
     # number of WorkItems
     n_expected_checkpoints = len(chunks)
     ntries = 0
-    fs, token, paths = fsspec.get_fs_token_paths(checkpoint_dir)
+    fs, path = fsspec.url_to_fs(checkpoint_dir)
 
     # keep trying until we have as many checkpoints as WorkItems
-    while (
-        len(list(filter(fs.isfile, fs.glob(f"{paths[0]}/**"))))
-        != n_expected_checkpoints
-    ):
+    while len(list(filter(fs.isfile, fs.glob(f"{path}/**")))) != n_expected_checkpoints:
         fs.invalidate_cache()
         ntries += 1
         try:
@@ -81,13 +78,10 @@ def test_checkpointing():
 
     # make sure we have as many checkpoints as WorkItems
     fs.invalidate_cache()
-    assert (
-        len(list(filter(fs.isfile, fs.glob(f"{paths[0]}/**"))))
-        == n_expected_checkpoints
-    )
+    assert len(list(filter(fs.isfile, fs.glob(f"{path}/**")))) == n_expected_checkpoints
 
     # make sure we got the right answer
     assert out == {"cutflow": {"Data_pt": np.int64(84), "ZJets_pt": np.int64(18)}}
 
     # cleanup
-    fs.rm(paths[0], recursive=True)
+    fs.rm(path, recursive=True)
