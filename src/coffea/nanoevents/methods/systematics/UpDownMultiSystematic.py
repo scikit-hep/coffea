@@ -3,7 +3,7 @@ from copy import copy
 import awkward
 
 from coffea.nanoevents.methods.base import behavior
-from coffea.nanoevnets.methods.systematics import UpDownSystematic
+from coffea.nanoevents.methods.systematics import UpDownSystematic
 
 
 @awkward.behaviors.mixins.mixin_class(behavior)
