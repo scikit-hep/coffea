@@ -1400,7 +1400,7 @@ class Runner:
         use_dataframes: bool,
         savemetrics: bool,
         item: WorkItem,
-        processor_instance: ProcessorABC,
+        processor_instance: ProcessorABC | Callable,
         uproot_options: dict,
         iteritems_options: dict,
         checkpointer: CheckpointerABC,
@@ -1409,7 +1409,9 @@ class Runner:
             xrootdtimeout = uproot_options["timeout"]
         if processor_instance == "heavy":
             item, processor_instance = item
-        if not isinstance(processor_instance, ProcessorABC):
+        if not isinstance(processor_instance, ProcessorABC) or not callable(
+            processor_instance
+        ):
             processor_instance = cloudpickle.loads(lz4f.decompress(processor_instance))
 
         metadata = {
@@ -1483,7 +1485,10 @@ class Runner:
                 )
             tic = time.time()
             try:
-                out = processor_instance.process(events)
+                if isinstance(processor_instance, ProcessorABC):
+                    out = processor_instance.process(events)
+                else:
+                    out = processor_instance(events)
             except Exception as e:
                 raise Exception(
                     f"Failed processing file: {item!r}. The error was: {e!r}."
@@ -1517,7 +1522,7 @@ class Runner:
     def __call__(
         self,
         fileset: dict,
-        processor_instance: ProcessorABC,
+        processor_instance: ProcessorABC | Callable,
         *args,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
@@ -1531,8 +1536,8 @@ class Runner:
                 A dictionary ``{dataset: [file, file], }``
                 Optionally, if some files' tree name differ, the dictionary can be specified:
                 ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
-            processor_instance : ProcessorABC
-                An instance of a class deriving from ProcessorABC
+            processor_instance : ProcessorABC or Callable
+                An instance of a class deriving from ProcessorABC or a single-argument callable
             treename : str
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
@@ -1569,7 +1574,7 @@ class Runner:
         *args,
         treename: Optional[str] = None,
     ) -> Generator:
-        """Run the processor_instance on a given fileset
+        """Preprocess the fileset and generate work items
 
         Parameters
         ----------
@@ -1607,7 +1612,7 @@ class Runner:
     def run(
         self,
         fileset: Union[dict, str, list[WorkItem], Generator],
-        processor_instance: ProcessorABC,
+        processor_instance: ProcessorABC | Callable,
         *args,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
@@ -1626,8 +1631,8 @@ class Runner:
                 - A single file name
                 - File chunks for self.preprocess()
                 - Chunk generator
-            processor_instance : ProcessorABC
-                An instance of a class deriving from ProcessorABC
+            processor_instance : ProcessorABC or Callable
+                An instance of a class deriving from ProcessorABC or a single-argument callable
             treename : str, optional
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
@@ -1654,8 +1659,12 @@ class Runner:
                 raise ValueError(
                     "Expected fileset to be a mapping dataset: list(files) or filename"
                 )
-        if not isinstance(processor_instance, ProcessorABC):
-            raise ValueError("Expected processor_instance to derive from ProcessorABC")
+        if not isinstance(processor_instance, ProcessorABC) and not callable(
+            processor_instance
+        ):
+            raise ValueError(
+                "Expected processor_instance to derive from ProcessorABC or be a single-argument callable"
+            )
 
         if meta:
             chunks = fileset
