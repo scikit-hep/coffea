@@ -1718,7 +1718,11 @@ class Runner:
             )
         wrapped_out["exception"] = e
 
-        if not self.use_dataframes:
+        if (
+            not self.use_dataframes
+            and hasattr(processor_instance, "postprocess")
+            and callable(processor_instance.postprocess)
+        ):
             postprocess_out = processor_instance.postprocess(wrapped_out["out"])
             if postprocess_out is not None:
                 wrapped_out["out"] = postprocess_out
