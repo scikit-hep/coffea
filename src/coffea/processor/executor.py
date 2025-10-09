@@ -1719,7 +1719,9 @@ class Runner:
         wrapped_out["exception"] = e
 
         if not self.use_dataframes:
-            processor_instance.postprocess(wrapped_out["out"])
+            postprocess_out = processor_instance.postprocess(wrapped_out["out"])
+            if postprocess_out is not None:
+                wrapped_out["out"] = postprocess_out
 
         if "metrics" in wrapped_out.keys():
             wrapped_out["metrics"]["chunks"] = len(chunks)
