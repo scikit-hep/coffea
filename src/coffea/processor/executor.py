@@ -15,11 +15,13 @@ from functools import partial
 from io import BytesIO
 from itertools import repeat
 from typing import (
+    Any,
     Callable,
     Optional,
     Union,
 )
 
+import awkward
 import cloudpickle
 import lz4.frame as lz4f
 import toml
@@ -1400,7 +1402,9 @@ class Runner:
         use_dataframes: bool,
         savemetrics: bool,
         item: WorkItem,
-        processor_instance: ProcessorABC | Callable,
+        processor_instance: Union[
+            ProcessorABC, Callable[[awkward.highlevel.Array], Any]
+        ],
         uproot_options: dict,
         iteritems_options: dict,
         checkpointer: CheckpointerABC,
@@ -1522,7 +1526,9 @@ class Runner:
     def __call__(
         self,
         fileset: dict,
-        processor_instance: ProcessorABC | Callable,
+        processor_instance: Union[
+            ProcessorABC, Callable[[awkward.highlevel.Array], Any]
+        ],
         *args,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
@@ -1612,7 +1618,9 @@ class Runner:
     def run(
         self,
         fileset: Union[dict, str, list[WorkItem], Generator],
-        processor_instance: ProcessorABC | Callable,
+        processor_instance: Union[
+            ProcessorABC, Callable[[awkward.highlevel.Array], Any]
+        ],
         *args,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
