@@ -786,6 +786,7 @@ class NanoEventsFactory:
                 array of the events.
         """
         if self._mode == "dask":
+            dask_awkward.lib.core.dak_cache.clear()
             events = self._mapping(form_mapping=self._schema)
             report = None
             if isinstance(events, tuple):

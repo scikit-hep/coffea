@@ -13,7 +13,7 @@ class UpDownMultiSystematic(UpDownSystematic):
             whatarray = self["__systematics__", "__ones__"]
         elif isinstance(what, str):
             whatarray = self[what]
-        elif isinstance(what, list) or isinstance(what, tuple) and len(what) == 1:
+        elif (isinstance(what, list) or isinstance(what, tuple)) and len(what) == 1:
             whatarray = self[what[0]]
         else:
             whatarray = awkward.zip({w: self[w] for w in what}, depth_limit=1)
@@ -36,7 +36,7 @@ class UpDownMultiSystematic(UpDownSystematic):
             out[f"weight_{name}"] = varied
         elif isinstance(what, str):
             out[what] = varied
-        elif isinstance(what, list) or isinstance(what, tuple) and len(what) == 1:
+        elif (isinstance(what, list) or isinstance(what, tuple)) and len(what) == 1:
             out[what[0]] = varied
         else:
             for w in what:
