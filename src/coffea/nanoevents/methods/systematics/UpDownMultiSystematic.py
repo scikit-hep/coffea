@@ -33,7 +33,7 @@ class UpDownMultiSystematic(UpDownSystematic):
 
         out = {field: self[field] for field in fields}
         if what == "weight":
-            out["__weights__"] = varied
+            out[f"weight_{name}"] = varied
         elif isinstance(what, str):
             out[what] = varied
         elif isinstance(what, list) or isinstance(what, tuple) and len(what) == 1:
