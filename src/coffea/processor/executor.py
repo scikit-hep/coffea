@@ -27,8 +27,9 @@ import uproot
 from cachetools import LRUCache
 
 from ..nanoevents import NanoEventsFactory, schemas
-from ..util import _exception_chain, _hash, rich_bar
+from ..util import _exception_chain, _hash, deprecate, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
+from .checkpointer import CheckpointerABC
 from .processor import ProcessorABC
 
 _PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
@@ -50,6 +51,22 @@ _PROTECTED_NAMES = {
 
 class UprootMissTreeError(uproot.exceptions.KeyInFileError):
     pass
+
+
+def _deprecate_args(args, names):
+    if not args and not names:
+        return
+    names = [f"'{name}'" for name in names]
+    argument_token = "argument"
+    printable = names[0]
+    if len(names) == 2:
+        printable = " and ".join(names)
+        argument_token += "s"
+    elif len(names) > 2:
+        printable = ", ".join(names[:-1]) + ", and " + names[-1]
+        argument_token += "s"
+    msg = f"The {argument_token} {printable} will need to be passed as keyword {argument_token} in the future"
+    deprecate(msg, "2026.1.0", stacklevel=3)
 
 
 class FileMeta:
@@ -763,10 +780,9 @@ class DaskExecutor(ExecutorBase):
             work = work[0]
             try:
                 if self.status:
-                    from distributed import progress
+                    from ._dask import progress
 
-                    # FIXME: fancy widget doesn't appear, have to live with boring pbar
-                    progress(work, multi=True, notebook=False)
+                    progress(work, description=f"[green]{self.desc}", unit=self.unit)
                 return (
                     accumulate(
                         [
@@ -1023,6 +1039,8 @@ class Runner:
             determine chunking.  Defaults to a in-memory LRU cache that holds 100k entries
             (about 1MB depending on the length of filenames, etc.)  If you edit an input file
             (please don't) during a session, the session can be restarted to clear the cache.
+        checkpointer : CheckpointerABC, optional
+            A CheckpointerABC instance to manage checkpointing of each chunk output
     """
 
     executor: ExecutorBase
@@ -1039,6 +1057,7 @@ class Runner:
     use_skyhook: Optional[bool] = False
     skyhook_options: Optional[dict] = field(default_factory=dict)
     format: str = "root"
+    checkpointer: Optional[CheckpointerABC] = None
 
     @staticmethod
     def read_coffea_config():
@@ -1384,6 +1403,7 @@ class Runner:
         processor_instance: ProcessorABC,
         uproot_options: dict,
         iteritems_options: dict,
+        checkpointer: CheckpointerABC,
     ) -> dict:
         if "timeout" in uproot_options:
             xrootdtimeout = uproot_options["timeout"]
@@ -1391,15 +1411,6 @@ class Runner:
             item, processor_instance = item
         if not isinstance(processor_instance, ProcessorABC):
             processor_instance = cloudpickle.loads(lz4f.decompress(processor_instance))
-
-        if format == "root":
-            filecontext = uproot.open(
-                {item.filename: None},
-                timeout=xrootdtimeout,
-                **uproot_options,
-            )
-        elif format == "parquet":
-            raise NotImplementedError("Parquet format is not supported yet.")
 
         metadata = {
             "dataset": item.dataset,
@@ -1414,27 +1425,57 @@ class Runner:
         if item.usermeta is not None:
             metadata.update(item.usermeta)
 
+        if checkpointer is not None:
+            if not isinstance(checkpointer, CheckpointerABC):
+                raise TypeError("Expected checkpointer to derive from CheckpointerABC")
+            # try to load from checkpoint
+            out = checkpointer.load(metadata, processor_instance)
+            # if we got something, return it
+            if out is not None:
+                return out
+
+        try:
+            if format == "root":
+                filecontext = uproot.open(
+                    {item.filename: None},
+                    timeout=xrootdtimeout,
+                    **uproot_options,
+                )
+            elif format == "parquet":
+                raise NotImplementedError("Parquet format is not supported yet.")
+        except Exception as e:
+            raise Exception(
+                f"Failed to open file: {item!r}. The error was: {e!r}."
+            ) from e
+
         with filecontext as file:
             if schema is None:
                 raise ValueError("Schema must be set")
             elif issubclass(schema, schemas.BaseSchema):
-                # change here
-                if format == "root":
-                    materialized = []
-                    factory = NanoEventsFactory.from_root(
-                        file=file,
-                        treepath=item.treename,
-                        schemaclass=schema,
-                        metadata=metadata,
-                        access_log=materialized,
-                        mode="virtual",
-                        entry_start=item.entrystart,
-                        entry_stop=item.entrystop,
-                        iteritems_options=iteritems_options,
-                    )
-                    events = factory.events()
-                elif format == "parquet":
-                    raise NotImplementedError("Parquet format is not supported yet.")
+                try:
+                    # change here
+                    if format == "root":
+                        materialized = []
+                        factory = NanoEventsFactory.from_root(
+                            file=file,
+                            treepath=item.treename,
+                            schemaclass=schema,
+                            metadata=metadata,
+                            access_log=materialized,
+                            mode="virtual",
+                            entry_start=item.entrystart,
+                            entry_stop=item.entrystop,
+                            iteritems_options=iteritems_options,
+                        )
+                        events = factory.events()
+                    elif format == "parquet":
+                        raise NotImplementedError(
+                            "Parquet format is not supported yet."
+                        )
+                except Exception as e:
+                    raise Exception(
+                        f"Failed creating nanoevents: {item!r}. The error was: {e!r}."
+                    ) from e
             else:
                 raise ValueError(
                     "Expected schema to derive from nanoevents.BaseSchema, instead got %r"
@@ -1452,9 +1493,7 @@ class Runner:
                     "Output of process() should not be None. Make sure your processor's process() function returns an accumulator."
                 )
             toc = time.time()
-            if use_dataframes:
-                return out
-            else:
+            if not use_dataframes:
                 if savemetrics:
                     metrics = {}
                     if isinstance(file, uproot.ReadOnlyDirectory):
@@ -1463,13 +1502,23 @@ class Runner:
                         metrics["columns"] = set(materialized)
                         metrics["entries"] = len(events)
                     metrics["processtime"] = toc - tic
-                    return {"out": out, "metrics": metrics, "processed": {item}}
-                return {"out": out, "processed": {item}}
+                    out = {"out": out, "metrics": metrics, "processed": {item}}
+                out = {"out": out, "processed": {item}}
+
+            if checkpointer is not None:
+                if not isinstance(checkpointer, CheckpointerABC):
+                    raise TypeError(
+                        "Expected checkpointer to derive from CheckpointerABC"
+                    )
+                # save the output
+                checkpointer.save(out, metadata, processor_instance)
+            return out
 
     def __call__(
         self,
         fileset: dict,
         processor_instance: ProcessorABC,
+        *args,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
         iteritems_options: Optional[dict] = {},
@@ -1492,8 +1541,21 @@ class Runner:
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
         """
+        if args:
+            _deprecate_args(args, ["treename", "uproot_options", "iteritems_options"])
+            if len(args) > 0:
+                treename = args[0]
+            if len(args) > 1:
+                uproot_options = args[1]
+            if len(args) > 2:
+                iteritems_options = args[2]
+
         wrapped_out = self.run(
-            fileset, processor_instance, treename, uproot_options, iteritems_options
+            fileset=fileset,
+            processor_instance=processor_instance,
+            treename=treename,
+            uproot_options=uproot_options,
+            iteritems_options=iteritems_options,
         )
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
@@ -1504,6 +1566,7 @@ class Runner:
     def preprocess(
         self,
         fileset: dict,
+        *args,
         treename: Optional[str] = None,
     ) -> Generator:
         """Run the processor_instance on a given fileset
@@ -1520,6 +1583,10 @@ class Runner:
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
         """
+        if args:
+            _deprecate_args(args, ["treename"])
+            if len(args) > 0:
+                treename = args[0]
 
         if not isinstance(fileset, (Mapping, str)):
             raise ValueError(
@@ -1532,10 +1599,6 @@ class Runner:
 
             self._preprocess_fileset_root(fileset)
             fileset = self._filter_badfiles(fileset)
-
-            # reverse fileset list to match the order of files as presented in version
-            # v0.7.4. This fixes tests using maxchunks.
-            fileset.reverse()
         elif self.format == "parquet":
             raise NotImplementedError("Parquet format is not supported yet.")
 
@@ -1545,6 +1608,7 @@ class Runner:
         self,
         fileset: Union[dict, str, list[WorkItem], Generator],
         processor_instance: ProcessorABC,
+        *args,
         treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
         iteritems_options: Optional[dict] = {},
@@ -1573,6 +1637,14 @@ class Runner:
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
         """
+        if args:
+            _deprecate_args(args, ["treename", "uproot_options", "iteritems_options"])
+            if len(args) > 0:
+                treename = args[0]
+            if len(args) > 1:
+                uproot_options = args[1]
+            if len(args) > 2:
+                iteritems_options = args[2]
 
         meta = False
         if not isinstance(fileset, (Mapping, str)):
@@ -1588,7 +1660,7 @@ class Runner:
         if meta:
             chunks = fileset
         else:
-            chunks = self.preprocess(fileset, treename)
+            chunks = self.preprocess(fileset, treename=treename)
 
         if self.processor_compression is None:
             pi_to_send = processor_instance
@@ -1610,6 +1682,7 @@ class Runner:
                 processor_instance="heavy",
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
+                checkpointer=self.checkpointer,
             )
         else:
             closure = partial(
@@ -1622,6 +1695,7 @@ class Runner:
                 processor_instance=pi_to_send,
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
+                checkpointer=self.checkpointer,
             )
 
         chunks = list(chunks)

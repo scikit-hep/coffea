@@ -168,7 +168,7 @@ class FactorizedJetCorrector:
             zl_out = func(
                 *tuple(
                     awkward.Array(
-                        arg._meta.layout.form.length_zero_array(highlevel=False),
+                        arg.layout.form.length_zero_array(highlevel=False),
                         behavior=arg.behavior,
                     )
                     for arg in kwargs.values()

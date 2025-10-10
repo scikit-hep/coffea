@@ -11,6 +11,7 @@ from .accumulator import (
     set_accumulator,
     value_accumulator,
 )
+from .checkpointer import CheckpointerABC, SimpleCheckpointer
 from .executor import (
     DaskExecutor,
     FuturesExecutor,
@@ -29,6 +30,8 @@ __all__ = [
     "ParslExecutor",
     "TaskVineExecutor",
     "Runner",
+    "CheckpointerABC",
+    "SimpleCheckpointer",
     "accumulate",
     "Accumulatable",
     "AccumulatorABC",

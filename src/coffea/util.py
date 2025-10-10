@@ -11,6 +11,8 @@ import hist
 import numba
 import numpy
 import uproot
+from dask.base import unpack_collections
+from rich.console import Console
 from rich.progress import (
     BarColumn,
     Column,
@@ -31,43 +33,33 @@ import warnings
 from functools import partial
 
 import cloudpickle
-import lz4.frame
+import fsspec
 
 
-def load(filename):
-    """Load a coffea file from disk"""
-    with lz4.frame.open(filename) as fin:
+def load(filename, compression="lz4"):
+    """Load a coffea file from disk
+
+    ``compression`` specified the algorithm to use to decompress the file.
+    It must be one of the ``fsspec`` supported compression string names.
+    These compression algorithms may have dependencies that need to be installed separately.
+    If it is ``None``, it means no compression.
+    """
+    with fsspec.open(filename, "rb", compression=compression) as fin:
         output = cloudpickle.load(fin)
     return output
 
 
-def save(output, filename, fast=True):
+def save(output, filename, compression="lz4"):
     """Save a coffea object or collection thereof to disk.
 
     This function can accept any picklable object.  Suggested suffix: ``.coffea``
 
-    If `fast` is set to `True`, it will use fast mode of the python pickler
-    (see https://docs.python.org/3/library/pickle.html).
-    This has no memory overhead, while the default creates a copy in memory.
-    However, it could in principle cause issues with recursive objects, so
-    care should be taken.
+    ``compression` can be one of the ``fsspec`` supported compression string names.
+    These compression algorithms may have dependencies that need to be installed separately.
+    if it is ``None``, it means no compression.
     """
-    try:
-        with lz4.frame.open(filename, "wb") as fout:
-            p = cloudpickle.Pickler(fout)
-            p.fast = fast
-            p.dump(output)
-    except ValueError as e:
-        if fast:
-            # Try again without fast on a cyclic error
-            save(output, filename, fast=False)
-            warnings.warn(
-                f"Could not save object to path '{filename}' "
-                "in fast mode due to possible recursion in object. "
-                "Falling back to default saving."
-            )
-        else:
-            raise e
+    with fsspec.open(filename, "wb", compression=compression) as fout:
+        cloudpickle.dump(output, fout)
 
 
 def _hex(string):
@@ -161,6 +153,14 @@ class SpeedColumn(ProgressColumn):
         return Text(f"{speed:{self.fmt}}", style="progress.data.speed")
 
 
+coffea_console = Console()
+coffea_console.__doc__ += """
+\nA `rich.console.Console` for coffea. Used through-out coffea for consistent logging and
+progress bars. May be used by users for their own logging. Using the same console
+ensures that output is nicely integrated with coffea's progress bars.
+"""
+
+
 def rich_bar():
     return Progress(
         TextColumn("[bold blue]{task.description}", justify="right"),
@@ -179,6 +179,7 @@ def rich_bar():
         TextColumn("[progress.data.speed]{task.fields[unit]}/s", justify="right"),
         "]",
         auto_refresh=False,
+        console=coffea_console,
     )
 
 
@@ -216,6 +217,26 @@ def rewrap_recordarray(layout, depth, data, **kwargs):
     if isinstance(layout, awkward.contents.RecordArray):
         return data
     return None
+
+
+def maybe_map_partitions(func, *args, **kwargs):
+    _MP_ONLY = {
+        "label",
+        "token",
+        "meta",
+        "output_divisions",
+        "traverse",
+        "opt_touch_all",
+    }
+    traverse = kwargs.pop("traverse", True)
+
+    func_kwargs = {k: v for k, v in kwargs.items() if k not in _MP_ONLY}
+    deps, _ = unpack_collections(*args, *func_kwargs.values(), traverse=traverse)
+
+    if len(deps) > 0:
+        return dask_awkward.map_partitions(func, *args, traverse=traverse, **kwargs)
+
+    return func(*args, **func_kwargs)
 
 
 # shorthand for compressing forms
