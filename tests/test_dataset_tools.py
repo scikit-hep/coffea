@@ -15,6 +15,10 @@ from coffea.dataset_tools import (
     slice_chunks,
     slice_files,
 )
+from coffea.dataset_tools.filespec import (
+    DatasetSpec,
+    FilesetSpec,
+)
 from coffea.nanoevents import BaseSchema, NanoAODSchema
 from coffea.processor.test_items import NanoEventsProcessor, NanoTestProcessor
 from coffea.util import decompress_form
@@ -318,10 +322,14 @@ def test_apply_to_fileset(proc_and_schema):
 
 
 @pytest.mark.dask_client
-def test_apply_to_fileset_hinted_form():
+@pytest.mark.parametrize(
+    "the_fileset",
+    [_starting_fileset, FilesetSpec(_starting_fileset)],
+)
+def test_apply_to_fileset_hinted_form(the_fileset):
     with Client() as _:
         dataset_runnable, dataset_updated = preprocess(
-            _starting_fileset,
+            the_fileset,
             step_size=7,
             align_clusters=False,
             files_per_batch=10,
@@ -335,7 +343,6 @@ def test_apply_to_fileset_hinted_form():
             schemaclass=NanoAODSchema,
         )
         out = dask.compute(to_compute)[0]
-
         assert out["ZJets"]["cutflow"]["ZJets_pt"] == 18
         assert out["ZJets"]["cutflow"]["ZJets_mass"] == 6
         assert out["Data"]["cutflow"]["Data_pt"] == 84
@@ -358,6 +365,43 @@ def test_preprocess(the_fileset):
 
         assert dataset_runnable == _runnable_result
         assert dataset_updated == _updated_result
+
+
+@pytest.mark.dask_client
+@pytest.mark.parametrize("the_fileset", [{}, FilesetSpec({})])
+def test_preprocess_empty(the_fileset):
+    with Client() as _:
+        dataset_runnable, dataset_updated = preprocess(
+            the_fileset,
+            step_size=7,
+            align_clusters=False,
+            files_per_batch=10,
+            skip_bad_files=True,
+        )
+    if isinstance(the_fileset, FilesetSpec):
+        assert isinstance(dataset_runnable, FilesetSpec)
+        assert isinstance(dataset_updated, FilesetSpec)
+    else:
+        assert dataset_runnable == {}
+        assert dataset_updated == {}
+
+
+@pytest.mark.dask_client
+def test_preprocess_filesetspec_mixed():
+    fileset = FilesetSpec(_starting_fileset)
+    # Create a mixed filesetspec
+    fileset["Data"] = fileset["Data"].model_dump()
+
+    with Client() as _:
+        dataset_runnable, dataset_updated = preprocess(
+            fileset,
+            step_size=7,
+            align_clusters=False,
+            files_per_batch=10,
+            skip_bad_files=True,
+        )
+    assert len(dataset_runnable) == 2
+    assert isinstance(dataset_runnable["Data"], DatasetSpec)
 
 
 @pytest.mark.dask_client
@@ -449,10 +493,11 @@ def test_preprocess_with_file_exceptions():
     }
 
 
-def test_filter_files():
-    filtered_files = filter_files(_updated_result)
+@pytest.mark.parametrize("the_fileset", [_updated_result, FilesetSpec(_updated_result)])
+def test_filter_files(the_fileset):
+    filtered_files = filter_files(the_fileset)
 
-    assert filtered_files == {
+    target = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -478,12 +523,17 @@ def test_filter_files():
             "form": None,
         },
     }
+    if isinstance(filtered_files, FilesetSpec):
+        assert filtered_files == FilesetSpec(target)
+    else:
+        assert filtered_files == target
 
 
-def test_max_files():
-    maxed_files = max_files(_updated_result, 1)
+@pytest.mark.parametrize("the_fileset", [_updated_result, FilesetSpec(_updated_result)])
+def test_max_files(the_fileset):
+    maxed_files = max_files(the_fileset, 1)
 
-    assert maxed_files == {
+    target = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -509,12 +559,17 @@ def test_max_files():
             "form": None,
         },
     }
+    if isinstance(the_fileset, FilesetSpec):
+        assert maxed_files == FilesetSpec(target)
+    else:
+        assert maxed_files == target
 
 
-def test_slice_files():
-    sliced_files = slice_files(_updated_result, slice(1, None, 2))
+@pytest.mark.parametrize("the_fileset", [_updated_result, FilesetSpec(_updated_result)])
+def test_slice_files(the_fileset):
+    sliced_files = slice_files(the_fileset, slice(1, None, 2))
 
-    assert sliced_files == {
+    target = {
         "ZJets": {"files": {}, "metadata": None, "form": None},
         "Data": {
             "files": {
@@ -529,12 +584,20 @@ def test_slice_files():
             "form": None,
         },
     }
+    if isinstance(the_fileset, FilesetSpec):
+        target["ZJets"]["format"] = "root"
+        assert sliced_files == FilesetSpec(target)
+    else:
+        assert sliced_files == target
 
 
-def test_max_chunks():
-    max_chunked = max_chunks(_runnable_result, 3)
+@pytest.mark.parametrize(
+    "the_fileset", [_runnable_result, FilesetSpec(_runnable_result)]
+)
+def test_max_chunks(the_fileset):
+    max_chunked = max_chunks(the_fileset, 3)
 
-    assert max_chunked == {
+    target = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -561,9 +624,12 @@ def test_max_chunks():
         },
     }
 
-    max_chunked = max_chunks(_starting_fileset_with_steps, 10)
+    if isinstance(the_fileset, FilesetSpec):
+        assert max_chunked == FilesetSpec(target)
+    else:
+        assert max_chunked == target
 
-    assert max_chunked == {
+    target2 = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -606,10 +672,14 @@ def test_max_chunks():
             }
         },
     }
+    if isinstance(the_fileset, FilesetSpec):
+        max_chunked = max_chunks(FilesetSpec(_starting_fileset_with_steps), 10)
+        assert max_chunked == FilesetSpec(target2)
+    else:
+        max_chunked = max_chunks(_starting_fileset_with_steps, 10)
+        assert max_chunked == target2
 
-    max_chunked = max_chunks_per_file(_starting_fileset_with_steps, 3)
-
-    assert max_chunked == {
+    target3 = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -643,12 +713,21 @@ def test_max_chunks():
             }
         },
     }
+    if isinstance(the_fileset, FilesetSpec):
+        max_chunked = max_chunks_per_file(FilesetSpec(_starting_fileset_with_steps), 3)
+        assert max_chunked == FilesetSpec(target3)
+    else:
+        max_chunked = max_chunks_per_file(_starting_fileset_with_steps, 3)
+        assert max_chunked == target3
 
 
-def test_slice_chunks():
-    slice_chunked = slice_chunks(_runnable_result, slice(None, None, 2))
+@pytest.mark.parametrize(
+    "the_fileset", [_runnable_result, FilesetSpec(_runnable_result)]
+)
+def test_slice_chunks(the_fileset):
+    slice_chunked = slice_chunks(the_fileset, slice(None, None, 2))
 
-    assert slice_chunked == {
+    target = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -674,21 +753,29 @@ def test_slice_chunks():
             "form": None,
         },
     }
+    if isinstance(the_fileset, FilesetSpec):
+        assert slice_chunked == FilesetSpec(target)
+    else:
+        assert slice_chunked == target
 
 
+@pytest.mark.parametrize(
+    "the_fileset",
+    [_starting_fileset_with_steps, FilesetSpec(_starting_fileset_with_steps)],
+)
 @pytest.mark.dask_client
-def test_recover_failed_chunks():
+def test_recover_failed_chunks(the_fileset):
     with Client() as _:
         to_compute = apply_to_fileset(
             NanoEventsProcessor(),
-            _starting_fileset_with_steps,
+            the_fileset,
             schemaclass=NanoAODSchema,
             uproot_options={"allow_read_errors_with_report": True},
         )
         out, reports = dask.compute(*to_compute)
 
-    failed_fset = get_failed_steps_for_fileset(_starting_fileset_with_steps, reports)
-    assert failed_fset == {
+    failed_fset = get_failed_steps_for_fileset(the_fileset, reports)
+    target = {
         "Data": {
             "files": {
                 "tests/samples/nano_dimuon_not_there.root": {
@@ -707,3 +794,7 @@ def test_recover_failed_chunks():
             }
         }
     }
+    if isinstance(failed_fset, FilesetSpec):
+        assert failed_fset == FilesetSpec(target)
+    else:
+        assert failed_fset == target
