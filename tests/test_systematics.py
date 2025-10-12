@@ -12,8 +12,11 @@ def test_single_field_variation(tests_directory, mode, kind):
     def get_array(array):
         return array.compute() if mode == "dask" else array
 
+    access_log = []
     events = NanoEventsFactory.from_root(
-        {f"{tests_directory}/samples/nano_dy.root": "Events"}, mode=mode
+        {f"{tests_directory}/samples/nano_dy.root": "Events"},
+        mode=mode,
+        access_log=access_log,
     ).events()
     expected_muon_pt = ak.flatten(events.Muon.pt)
     expected_jet_pt = ak.flatten(events.Jet.pt)
@@ -95,14 +98,20 @@ def test_single_field_variation(tests_directory, mode, kind):
     assert ak.all(ak.isclose(get_array(met_PtScale_up_pt), expected_met_pt * 1.03))
     assert ak.all(ak.isclose(get_array(met_PtScale_down_pt), expected_met_pt * 0.97))
 
+    if mode == "virtual":
+        assert sorted(access_log) == ["Jet_pt", "MET_pt", "Muon_pt", "nJet", "nMuon"]
+
 
 @pytest.mark.parametrize("mode", ["eager", "dask", "virtual"])
 def test_multi_field_variation(tests_directory, mode):
     def get_array(array):
         return array.compute() if mode == "dask" else array
 
+    access_log = []
     events = NanoEventsFactory.from_root(
-        {f"{tests_directory}/samples/nano_dy.root": "Events"}, mode=mode
+        {f"{tests_directory}/samples/nano_dy.root": "Events"},
+        mode=mode,
+        access_log=access_log,
     ).events()
     expected_muon_pt = ak.flatten(events.Muon.pt)
     expected_jet_pt = ak.flatten(events.Jet.pt)
@@ -218,14 +227,29 @@ def test_multi_field_variation(tests_directory, mode):
         ak.isclose(get_array(met_PtPhiSystematic_down_phi), expected_met_phi * 0.95)
     )
 
+    if mode == "virtual":
+        assert sorted(access_log) == [
+            "Jet_phi",
+            "Jet_pt",
+            "MET_phi",
+            "MET_pt",
+            "Muon_phi",
+            "Muon_pt",
+            "nJet",
+            "nMuon",
+        ]
+
 
 @pytest.mark.parametrize("mode", ["eager", "dask", "virtual"])
 def test_single_and_multi_field_variation(tests_directory, mode):
     def get_array(array):
         return array.compute() if mode == "dask" else array
 
+    access_log = []
     events = NanoEventsFactory.from_root(
-        {f"{tests_directory}/samples/nano_dy.root": "Events"}, mode=mode
+        {f"{tests_directory}/samples/nano_dy.root": "Events"},
+        mode=mode,
+        access_log=access_log,
     ).events()
     expected_muon_pt = ak.flatten(events.Muon.pt)
     expected_jet_pt = ak.flatten(events.Jet.pt)
@@ -320,6 +344,10 @@ def test_single_and_multi_field_variation(tests_directory, mode):
     muons_PtPhiSystematic_down_pt = ak.flatten(
         muons.systematics.PtPhiSystematic.down.pt
     )
+    muons_PtPhiSystematic_up_phi = ak.flatten(muons.systematics.PtPhiSystematic.up.phi)
+    muons_PtPhiSystematic_down_phi = ak.flatten(
+        muons.systematics.PtPhiSystematic.down.phi
+    )
     assert ak.all(ak.isclose(get_array(muons_PtScale_up_pt), expected_muon_pt * 1.05))
     assert ak.all(ak.isclose(get_array(muons_PtScale_down_pt), expected_muon_pt * 0.95))
     assert ak.all(
@@ -327,6 +355,12 @@ def test_single_and_multi_field_variation(tests_directory, mode):
     )
     assert ak.all(
         ak.isclose(get_array(muons_PtPhiSystematic_down_pt), expected_muon_pt * 0.95)
+    )
+    assert ak.all(
+        ak.isclose(get_array(muons_PtPhiSystematic_up_phi), expected_muon_phi * 1.10)
+    )
+    assert ak.all(
+        ak.isclose(get_array(muons_PtPhiSystematic_down_phi), expected_muon_phi * 0.90)
     )
 
     jets_PtScale_up_pt = ak.flatten(jets.systematics.PtScale.up.pt)
@@ -372,3 +406,15 @@ def test_single_and_multi_field_variation(tests_directory, mode):
     assert ak.all(
         ak.isclose(get_array(met_PtPhiSystematic_down_phi), expected_met_phi * 0.95)
     )
+
+    if mode == "virtual":
+        assert sorted(access_log) == [
+            "Jet_phi",
+            "Jet_pt",
+            "MET_phi",
+            "MET_pt",
+            "Muon_phi",
+            "Muon_pt",
+            "nJet",
+            "nMuon",
+        ]
