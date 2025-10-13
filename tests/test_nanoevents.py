@@ -123,7 +123,6 @@ def test_read_nanomc(tests_directory, suffix):
 def test_read_from_uri(tests_directory, suffix):
     """Make sure we can properly open the file when a uri is used"""
     path = Path(f"{tests_directory}/samples/nano_dy.{suffix}").as_uri()
-    print(path)
     nanoversion = NanoAODSchema
     factory = getattr(
         NanoEventsFactory, f"from_{suffix.removeprefix('extensionarray.')}"
@@ -133,8 +132,7 @@ def test_read_from_uri(tests_directory, suffix):
         mode="eager",
     )
     events = factory.events()
-    # is this assertion correct? syntax wrong and 40 in all files
-    assert len(events) == 40 if suffix == "root" else 10
+    assert len(events) == 40
 
     # Test storage_options for parquet files
     if suffix == "parquet":
