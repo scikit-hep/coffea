@@ -123,7 +123,7 @@ def test_read_nanomc(tests_directory, suffix):
 def test_read_from_uri(tests_directory, suffix):
     """Make sure we can properly open the file when a uri is used"""
     path = Path(f"{tests_directory}/samples/nano_dy.{suffix}").as_uri()
-
+    print(path)
     nanoversion = NanoAODSchema
     factory = getattr(
         NanoEventsFactory, f"from_{suffix.removeprefix('extensionarray.')}"
@@ -133,8 +133,34 @@ def test_read_from_uri(tests_directory, suffix):
         mode="eager",
     )
     events = factory.events()
-
+    # is this assertion correct? syntax wrong and 40 in all files
     assert len(events) == 40 if suffix == "root" else 10
+
+    # Test storage_options for parquet files
+    if suffix == "parquet":
+        from unittest.mock import patch
+
+        import fsspec
+
+        path_str = f"{tests_directory}/samples/nano_dy.{suffix}"
+        storage_opts = {"some_option": "some_value"}
+
+        original_open = fsspec.open
+
+        def mock_open(file, mode, **kwargs):
+            assert kwargs == storage_opts
+            return original_open(file, mode)
+
+        with patch("fsspec.open", side_effect=mock_open) as mock_fsspec_open:
+            factory = NanoEventsFactory.from_parquet(
+                path_str,
+                schemaclass=nanoversion,
+                storage_options=storage_opts,
+                mode="eager",
+            )
+            events = factory.events()
+            assert len(events) == 40
+            mock_fsspec_open.assert_called_once()
 
 
 @pytest.mark.parametrize("suffix", suffixes)
