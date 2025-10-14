@@ -150,13 +150,6 @@ class UprootSourceMapping(BaseSourceMapping):
                     f"Found duplicate branch {key} in {tree}, taking first instance"
                 )
                 continue
-            if isinstance(branch, uproot.behaviors.RNTuple.HasFields):
-                form = branch.to_akform()[0].contents[0]
-                form = json.loads(
-                    form.to_json()
-                )  # TODO: Not sure why this fixes something
-                branch_forms[key] = form
-                continue
             if "," in key or "!" in key:
                 warnings.warn(
                     f"Skipping {key} because it contains characters that NanoEvents cannot accept [,!]"
@@ -164,7 +157,10 @@ class UprootSourceMapping(BaseSourceMapping):
                 continue
             if not _is_interpretable(branch):
                 continue
-            form = branch.interpretation.awkward_form(None)
+            if isinstance(branch, uproot.behaviors.RNTuple.HasFields):
+                form = branch.to_akform()[0].contents[0]
+            else:
+                form = branch.interpretation.awkward_form(None)
             # until awkward-forth is available, this fixer is necessary
             if cls._fix_awkward_form_of_iter:
                 form = uproot._util.recursively_fix_awkward_form_of_iter(
@@ -175,7 +171,14 @@ class UprootSourceMapping(BaseSourceMapping):
             )  # normalizes form (expand NumpyArray classes)
             try:
                 form = _lazify_form(
-                    form, f"{key},!load", docstr=branch.title, typestr=branch.typename
+                    form,
+                    f"{key},!load",
+                    docstr=(
+                        branch.description
+                        if isinstance(branch, uproot.behaviors.RNTuple.HasFields)
+                        else branch.title
+                    ),
+                    typestr=branch.typename,
                 )
             except CannotBeNanoEvents as ex:
                 warnings.warn(
@@ -232,16 +235,24 @@ class UprootSourceMapping(BaseSourceMapping):
         ):
             the_array = self.preloaded_arrays[columnhandle.name][start:stop]
         else:
-            interp = columnhandle.interpretation
-            interp._forth = use_ak_forth
+            if isinstance(columnhandle, uproot.behaviors.RNTuple.HasFields):
+                the_array = columnhandle.array(
+                    entry_start=start,
+                    entry_stop=stop,
+                    decompression_executor=self.decompression_executor,
+                    interpretation_executor=self.interpretation_executor,
+                )
+            else:
+                interp = columnhandle.interpretation
+                interp._forth = use_ak_forth
 
-            the_array = columnhandle.array(
-                interp,
-                entry_start=start,
-                entry_stop=stop,
-                decompression_executor=self.decompression_executor,
-                interpretation_executor=self.interpretation_executor,
-            )
+                the_array = columnhandle.array(
+                    interp,
+                    entry_start=start,
+                    entry_stop=stop,
+                    decompression_executor=self.decompression_executor,
+                    interpretation_executor=self.interpretation_executor,
+                )
         if isinstance(the_array.layout, awkward.contents.ListOffsetArray):
             the_array = awkward.Array(the_array.layout.to_ListOffsetArray64(True))
 
