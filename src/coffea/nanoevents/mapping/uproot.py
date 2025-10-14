@@ -73,7 +73,12 @@ def _lazify_form(form, prefix, docstr=None, typestr=None):
             form["parameters"] = parameters
     elif form["class"] == "RecordArray":
         newfields, newcontents = [], []
-        for field, value in zip(form["fields"], form["contents"]):
+        fields = (
+            form["fields"]
+            if form["fields"] is not None
+            else [str(i) for i in range(len(form["contents"]))]
+        )
+        for field, value in zip(fields, form["contents"]):
             if "," in field or "!" in field:
                 # Could also skip here
                 raise CannotBeNanoEvents(
