@@ -479,6 +479,7 @@ class NanoEventsFactory:
         schemaclass=NanoAODSchema,
         metadata=None,
         parquet_options={},
+        storage_options=None,
         skyhook_options={},
         access_log=None,
     ):
@@ -507,6 +508,8 @@ class NanoEventsFactory:
                 Arbitrary metadata to add to the `base.NanoEvents` object
             parquet_options : dict, optional
                 Any options to pass to ``pyarrow.parquet.ParquetFile``
+            storage_options : dict, optional
+                Options to pass to ``fsspec`` when opening the file. Only used when ``file`` is a string path.
             access_log : list, optional
                 Pass a list instance to record which branches were lazily accessed by this instance
 
@@ -567,7 +570,7 @@ class NanoEventsFactory:
             table_file = pyarrow.parquet.ParquetFile(file, **parquet_options)
         elif isinstance(file, str):
             fs_file = fsspec.open(
-                file, "rb"
+                file, "rb", **(storage_options or {})
             ).open()  # Call open to materialize the file
             table_file = pyarrow.parquet.ParquetFile(fs_file, **parquet_options)
         elif isinstance(file, pyarrow.parquet.ParquetFile):
