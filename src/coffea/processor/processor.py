@@ -43,10 +43,9 @@ class ProcessorABC(metaclass=ABCMeta):
         """
         pass
 
-    @abstractmethod
     def postprocess(self, accumulator):
         """Final processing on aggregated accumulator
 
-        Do any final processing on the resulting accumulator object, it should be modified in-place
+        Do any final processing on the resulting accumulator object
         """
         pass

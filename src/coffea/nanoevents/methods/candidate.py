@@ -76,15 +76,27 @@ CandidateArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 CandidateArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 CandidateArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
 CandidateArray.MomentumClass = CandidateArray  # noqa: F821
+CandidateRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+CandidateRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+CandidateRecord.ProjectionClass4D = vector.LorentzVectorRecord  # noqa: F821
+CandidateRecord.MomentumClass = CandidateRecord  # noqa: F821
 
 PtEtaPhiMCandidateArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 PtEtaPhiMCandidateArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 PtEtaPhiMCandidateArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
 PtEtaPhiMCandidateArray.MomentumClass = PtEtaPhiMCandidateArray  # noqa: F821
+PtEtaPhiMCandidateRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+PtEtaPhiMCandidateRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+PtEtaPhiMCandidateRecord.ProjectionClass4D = vector.LorentzVectorRecord  # noqa: F821
+PtEtaPhiMCandidateRecord.MomentumClass = PtEtaPhiMCandidateRecord  # noqa: F821
 
 PtEtaPhiECandidateArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 PtEtaPhiECandidateArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 PtEtaPhiECandidateArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
 PtEtaPhiECandidateArray.MomentumClass = PtEtaPhiECandidateArray  # noqa: F821
+PtEtaPhiECandidateRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+PtEtaPhiECandidateRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+PtEtaPhiECandidateRecord.ProjectionClass4D = vector.LorentzVectorRecord  # noqa: F821
+PtEtaPhiECandidateRecord.MomentumClass = PtEtaPhiECandidateRecord  # noqa: F821
 
 __all__ = ["Candidate", "PtEtaPhiMCandidate", "PtEtaPhiECandidate"]

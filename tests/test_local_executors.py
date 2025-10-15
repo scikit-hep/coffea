@@ -5,6 +5,7 @@ import pytest
 from coffea import processor
 from coffea.nanoevents import schemas
 from coffea.processor.executor import UprootMissTreeError
+from coffea.processor.test_items import NanoEventsProcessor
 
 
 @pytest.mark.parametrize("filetype", ["root", "parquet"])
@@ -15,10 +16,14 @@ from coffea.processor.executor import UprootMissTreeError
     "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
 )
 @pytest.mark.parametrize("mode", ["eager", "virtual"])
+@pytest.mark.parametrize("processor_type", ["ProcessorABC", "Callable"])
 def test_nanoevents_analysis(
-    executor, compression, maxchunks, skipbadfiles, filetype, mode
+    executor, compression, maxchunks, skipbadfiles, filetype, mode, processor_type
 ):
-    from coffea.processor.test_items import NanoEventsProcessor
+    if processor_type == "Callable":
+        processor_instance = NanoEventsProcessor(mode=mode)
+    else:
+        processor_instance = NanoEventsProcessor(mode=mode).process
 
     if filetype == "parquet":
         pytest.xfail("parquet nanoevents not supported yet")
@@ -63,7 +68,7 @@ def test_nanoevents_analysis(
     if skipbadfiles:
         hists = run(
             filelist,
-            processor_instance=NanoEventsProcessor(mode=mode),
+            processor_instance=processor_instance,
             treename="Events",
         )
         assert hists["cutflow"]["ZJets_pt"] == 18
@@ -78,12 +83,12 @@ def test_nanoevents_analysis(
         with pytest.raises(LookForError):
             hists = run(
                 filelist,
-                processor_instance=NanoEventsProcessor(mode=mode),
+                processor_instance=processor_instance,
                 treename="Events",
             )
         with pytest.raises(LookForError):
             hists = run(
                 filelist,
-                processor_instance=NanoEventsProcessor(mode=mode),
+                processor_instance=processor_instance,
                 treename="NotEvents",
             )

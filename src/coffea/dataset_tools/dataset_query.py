@@ -13,6 +13,8 @@ from rich.prompt import Confirm, FloatPrompt, IntPrompt, Prompt
 from rich.table import Table
 from rich.tree import Tree
 
+from coffea.util import coffea_console
+
 from . import rucio_utils
 from .preprocess import preprocess
 
@@ -20,7 +22,7 @@ from .preprocess import preprocess
 def print_dataset_query(
     query: str,
     dataset_list: dict[str, dict[str, list[str]]],
-    console: Console,
+    console: Console = coffea_console,
     selected: list[str] = [],
 ) -> None:
     """
@@ -113,7 +115,7 @@ class DataDiscoveryCLI:
     """
 
     def __init__(self):
-        self.console = Console()
+        self.console = coffea_console
         self.rucio_client = None
         self.selected_datasets = []
         self.selected_datasets_metadata = []

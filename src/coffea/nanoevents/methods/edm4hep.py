@@ -256,6 +256,10 @@ MomentumCandidateArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 MomentumCandidateArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 MomentumCandidateArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
 MomentumCandidateArray.MomentumClass = MomentumCandidateArray  # noqa: F821
+MomentumCandidateRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+MomentumCandidateRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+MomentumCandidateRecord.ProjectionClass4D = vector.LorentzVectorRecord  # noqa: F821
+MomentumCandidateRecord.MomentumClass = MomentumCandidateRecord  # noqa: F821
 
 
 #########################################################################################
@@ -271,6 +275,10 @@ TrackState.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 TrackState.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 TrackState.ProjectionClass4D = TrackState  # noqa: F821
 TrackState.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+TrackStateRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+TrackStateRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+TrackStateRecord.ProjectionClass4D = TrackStateRecord  # noqa: F821
+TrackStateRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
 
 
 @awkward.mixin_class(behavior)
@@ -311,6 +319,10 @@ MCParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 MCParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 MCParticleArray.ProjectionClass4D = MCParticleArray  # noqa: F821
 MCParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+MCParticleRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+MCParticleRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+MCParticleRecord.ProjectionClass4D = MCParticleRecord  # noqa: F821
+MCParticleRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
 
 
 @awkward.mixin_class(behavior)
@@ -422,6 +434,12 @@ ReconstructedParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F8
 ReconstructedParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 ReconstructedParticleArray.ProjectionClass4D = ReconstructedParticleArray  # noqa: F821
 ReconstructedParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+ReconstructedParticleRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+ReconstructedParticleRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+ReconstructedParticleRecord.ProjectionClass4D = (  # noqa: F821
+    ReconstructedParticleRecord  # noqa: F821
+)
+ReconstructedParticleRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
 
 
 @awkward.mixin_class(behavior)
@@ -453,6 +471,10 @@ RecoMCParticleLinkArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 RecoMCParticleLinkArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 RecoMCParticleLinkArray.ProjectionClass4D = RecoMCParticleLinkArray  # noqa: F821
 RecoMCParticleLinkArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+RecoMCParticleLinkRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+RecoMCParticleLinkRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+RecoMCParticleLinkRecord.ProjectionClass4D = RecoMCParticleLinkRecord  # noqa: F821
+RecoMCParticleLinkRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
 
 
 #########################################################################################

@@ -250,10 +250,13 @@ class NanoEventsFactory:
     def from_root(
         cls,
         file,
+        *,
+        mode="virtual",
         treepath=uproot._util.unset,
         entry_start=None,
         entry_stop=None,
         steps_per_file=uproot._util.unset,
+        preload=None,
         runtime_cache=None,
         persistent_cache=None,
         schemaclass=NanoAODSchema,
@@ -262,7 +265,6 @@ class NanoEventsFactory:
         iteritems_options={},
         access_log=None,
         use_ak_forth=True,
-        mode="virtual",
         known_base_form=None,
         decompression_executor=None,
         interpretation_executor=None,
@@ -275,6 +277,8 @@ class NanoEventsFactory:
             file : a string or dict input to ``uproot.open()`` or ``uproot.dask()`` or a ``uproot.reading.ReadOnlyDirectory``
                 The filename or dict of filenames including the treepath (as it would be passed directly to ``uproot.open()``
                 or ``uproot.dask()``) already opened file using e.g. ``uproot.open()``.
+            mode:
+                Nanoevents will use "eager", "virtual", or "dask" as a backend.
             treepath : str, optional
                 Name of the tree to read in the file. Used only if ```file``` is a ``uproot.reading.ReadOnlyDirectory``.
             entry_start : int, optional (eager and virtual mode only)
@@ -283,6 +287,9 @@ class NanoEventsFactory:
                 Stop at this entry offset in the tree (default end of tree)
             steps_per_file: int, optional
                 Partition files into this many steps (previously "chunks")
+            preload (None or Callable):
+                A function to call to preload specific branches/columns in bulk. Only works in eager and virtual mode.
+                Passed to ``tree.arrays`` as the ``filter_branch`` argument to filter branches to be preloaded.
             runtime_cache : dict, optional
                 A dict-like interface to a cache object. This cache is expected to last the
                 duration of the program only, and will be used to hold references to materialized
@@ -302,8 +309,6 @@ class NanoEventsFactory:
                 Pass a list instance to record which branches were lazily accessed by this instance
             use_ak_forth:
                 Toggle using awkward_forth to interpret branches in root file.
-            mode:
-                Nanoevents will use "eager", "virtual", or "dask" as a backend.
             known_base_form:
                 If the base form of the input file is known ahead of time we can skip opening a single file and parsing metadata.
             decompression_executor (None or Executor with a ``submit`` method):
@@ -415,6 +420,24 @@ class NanoEventsFactory:
             f"{entry_start}-{entry_stop}",
         )
         uuidpfn = {partition_key[0]: tree.file.file_path}
+
+        preloaded_arrays = None
+        if preload is not None:
+            preloaded_arrays = tree.arrays(
+                filter_branch=preload,
+                entry_start=entry_start,
+                entry_stop=entry_stop,
+                ak_add_doc=True,
+                decompression_executor=decompression_executor,
+                interpretation_executor=interpretation_executor,
+                how=dict,
+            )
+            # this ensures that the preloaded arrays are only sliced as they are supposed to be
+            preloaded_arrays = {
+                k: _OnlySliceableAs(v, slice(entry_start, entry_stop))
+                for k, v in preloaded_arrays.items()
+            }
+
         mapping = UprootSourceMapping(
             TrivialUprootOpener(uuidpfn, uproot_options),
             entry_start,
@@ -423,6 +446,7 @@ class NanoEventsFactory:
             access_log=access_log,
             use_ak_forth=use_ak_forth,
             virtual=mode == "virtual",
+            preloaded_arrays=preloaded_arrays,
         )
         mapping.preload_column_source(partition_key[0], partition_key[1], tree)
 
@@ -446,7 +470,8 @@ class NanoEventsFactory:
     def from_parquet(
         cls,
         file,
-        treepath=uproot._util.unset,
+        *,
+        mode="virtual",
         entry_start=None,
         entry_stop=None,
         runtime_cache=None,
@@ -454,18 +479,18 @@ class NanoEventsFactory:
         schemaclass=NanoAODSchema,
         metadata=None,
         parquet_options={},
+        storage_options=None,
         skyhook_options={},
         access_log=None,
-        mode="virtual",
     ):
         """Quickly build NanoEvents from a parquet file
 
         Parameters
         ----------
             file : str, pathlib.Path, pyarrow.NativeFile, or python file-like
-                The filename or already opened file using e.g. ``uproot.open()``
-            treepath : str, optional
-                Name of the tree to read in the file
+                The filename or already opened file using e.g. ``pyarrow.NativeFile()``.
+            mode:
+                Nanoevents will use "eager", "virtual", or "dask" as a backend.
             entry_start : int, optional
                 Start at this entry offset in the tree (default 0)
             entry_stop : int, optional
@@ -483,10 +508,10 @@ class NanoEventsFactory:
                 Arbitrary metadata to add to the `base.NanoEvents` object
             parquet_options : dict, optional
                 Any options to pass to ``pyarrow.parquet.ParquetFile``
+            storage_options : dict, optional
+                Options to pass to ``fsspec`` when opening the file. Only used when ``file`` is a string path.
             access_log : list, optional
                 Pass a list instance to record which branches were lazily accessed by this instance
-            mode:
-                Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
         Returns
         -------
@@ -520,25 +545,32 @@ class NanoEventsFactory:
                 metadata=metadata,
                 version="latest",
             )
-
-            if isinstance(file, ftypes + (str,)):
+            if isinstance(file, ftypes + (str,)) or (
+                isinstance(file, list)
+                and all(isinstance(f, ftypes + (str,)) for f in file)
+            ):
                 opener = partial(
                     dask_awkward.from_parquet,
                     file,
                 )
             else:
-                raise TypeError("Invalid file type (%s)" % (str(type(file))))
+                raise TypeError(
+                    f"Invalid file type ({str(type(file))}) for file {file}"
+                )
+            # Form should be applied appropriately, but this requires a hook into dask-awkward or new schema-builder
+            raise NotImplementedError(
+                "Dask-awkward does not yet support lazy loading of parquet files with a schema"
+            )
             return cls(map_schema, opener, None, cache=None, mode="dask")
         elif mode == "dask" and not schemaclass.__dask_capable__:
             warnings.warn(
                 f"{schemaclass} is not dask capable despite allowing dask, generating non-dask nanoevents"
             )
-
         if isinstance(file, ftypes):
             table_file = pyarrow.parquet.ParquetFile(file, **parquet_options)
         elif isinstance(file, str):
             fs_file = fsspec.open(
-                file, "rb"
+                file, "rb", **(storage_options or {})
             ).open()  # Call open to materialize the file
             table_file = pyarrow.parquet.ParquetFile(fs_file, **parquet_options)
         elif isinstance(file, pyarrow.parquet.ParquetFile):
@@ -604,6 +636,7 @@ class NanoEventsFactory:
     def from_preloaded(
         cls,
         array_source,
+        *,
         entry_start=None,
         entry_stop=None,
         runtime_cache=None,
@@ -767,15 +800,19 @@ class NanoEventsFactory:
 
         events = self._events()
         if events is None:
+            form = self._schema.form
+            buffer_key = partial(_key_formatter, self._partition_key)
             events = awkward.from_buffers(
-                self._schema.form,
+                form,
                 len(self),
                 self._mapping,
-                buffer_key=partial(_key_formatter, self._partition_key),
+                buffer_key=buffer_key,
                 behavior=self._schema.behavior(),
                 attrs={"@events_factory": self},
                 allow_noncanonical_form=True,
             )
+            events.attrs["@form"] = form
+            events.attrs["@buffer_key"] = buffer_key
             self._events = weakref.ref(events)
 
         return events

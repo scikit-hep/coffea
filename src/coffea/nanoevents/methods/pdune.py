@@ -100,6 +100,10 @@ ParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 ParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 ParticleArray.ProjectionClass4D = ParticleArray  # noqa: F821
 ParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+ParticleRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+ParticleRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+ParticleRecord.ProjectionClass4D = ParticleRecord  # noqa: F821
+ParticleRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
 
 behavior.update(
     awkward._util.copy_behaviors("LorentzVector", "TrackParticle", behavior)
@@ -147,6 +151,10 @@ TrackParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 TrackParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 TrackParticleArray.ProjectionClass4D = TrackParticleArray  # noqa: F821
 TrackParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+TrackParticleRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+TrackParticleRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+TrackParticleRecord.ProjectionClass4D = TrackParticleRecord  # noqa: F821
+TrackParticleRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
 
 behavior.update(awkward._util.copy_behaviors("Particle", "Muon", behavior))
 
@@ -173,6 +181,10 @@ MuonArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 MuonArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 MuonArray.ProjectionClass4D = MuonArray  # noqa: F821
 MuonArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+MuonRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+MuonRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+MuonRecord.ProjectionClass4D = MuonRecord  # noqa: F821
+MuonRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
 
 behavior.update(awkward._util.copy_behaviors("Particle", "Electron", behavior))
 
@@ -207,6 +219,10 @@ ElectronArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 ElectronArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 ElectronArray.ProjectionClass4D = ElectronArray  # noqa: F821
 ElectronArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+ElectronRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+ElectronRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+ElectronRecord.ProjectionClass4D = ElectronRecord  # noqa: F821
+ElectronRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
 
 behavior.update(
     awkward._util.copy_behaviors("LorentzVector", "TruthParticle", behavior)
@@ -258,3 +274,7 @@ TruthParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 TruthParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 TruthParticleArray.ProjectionClass4D = TruthParticleArray  # noqa: F821
 TruthParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+TruthParticleRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+TruthParticleRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+TruthParticleRecord.ProjectionClass4D = TruthParticleRecord  # noqa: F821
+TruthParticleRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
