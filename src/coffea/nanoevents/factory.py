@@ -804,16 +804,21 @@ class NanoEventsFactory:
             form = self._schema.form
             buffer_key = partial(_key_formatter, self._partition_key)
             events = awkward.from_buffers(
-                form,
-                len(self),
-                self._mapping,
+                form=form,
+                length=len(self),
+                container=self._mapping,
                 buffer_key=buffer_key,
+                backend="cpu",
+                byteorder=awkward._util.native_byteorder,
+                allow_noncanonical_form=False,
+                highlevel=True,
                 behavior=self._schema.behavior(),
-                attrs={"@events_factory": self},
-                allow_noncanonical_form=True,
+                attrs={
+                    "@events_factory": self,
+                    "@form": form,
+                    "@buffer_key": buffer_key,
+                },
             )
-            events.attrs["@form"] = form
-            events.attrs["@buffer_key"] = buffer_key
             self._events = weakref.ref(events)
 
         return events
