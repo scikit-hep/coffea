@@ -1,39 +1,102 @@
 import awkward as ak
-import numpy as np
+import pytest
 
-from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
-
-
-def test_base_schema(tests_directory):
-    path = f"{tests_directory}/samples/nano_dimuon_rntuple.root"
-    factory = NanoEventsFactory.from_root({path: "Events"}, schemaclass=BaseSchema)
-    events = factory.events()
-
-    assert all(f in events.fields for f in ["Electron_pt", "Muon_eta", "Tau_phi"])
-
-    array = events.Electron_pt
-    assert np.isclose(array[0, 0], 17.627574920654297)
-
-    ak.materialize(events)
-
-    assert "_collection1" not in events.fields
+from coffea.nanoevents import (
+    BaseSchema,
+    NanoAODSchema,
+    NanoEventsFactory,
+    PFNanoAODSchema,
+    TreeMakerSchema,
+)
 
 
-def test_nanoaod_schema(tests_directory):
-    path = f"{tests_directory}/samples/nano_dimuon_rntuple.root"
-    factory = NanoEventsFactory.from_root({path: "Events"}, schemaclass=NanoAODSchema)
-    events = factory.events()
-
-    assert all(
-        f in events.Electron.fields for f in ["pt", "eta", "phi", "mass", "charge"]
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
+@pytest.mark.parametrize(
+    "file", ["nano_dy", "nano_dimuon", "nano_tree", "pfnano", "treemaker"]
+)
+@pytest.mark.xfail(
+    condition=lambda file: file == "treemaker",
+    reason="RNTuple version of the treemaker sample has different fields",
+)
+def test_base_schema(tests_directory, file, mode):
+    key = "PreSelection" if file == "treemaker" else "Events"
+    file = f"{tests_directory}/samples/{file}"
+    ttree = NanoEventsFactory.from_root(
+        {f"{file}.root": key}, schemaclass=BaseSchema, mode=mode
+    ).events()
+    rntuple = NanoEventsFactory.from_root(
+        {f"{file}_rntuple.root": key}, schemaclass=BaseSchema, mode=mode
+    ).events()
+    if mode == "virtual":
+        assert not ttree.layout.is_any_materialized
+        assert not rntuple.layout.is_any_materialized
+    elif mode == "eager":
+        assert ttree.layout.is_all_materialized
+        assert rntuple.layout.is_all_materialized
+    assert ak.array_equal(
+        rntuple, ttree, dtype_exact=False, check_parameters=False, equal_nan=True
     )
-    assert all(f in events.Muon.fields for f in ["pt", "eta", "phi", "mass", "charge"])
-    assert all(f in events.Tau.fields for f in ["pt", "eta", "phi", "mass", "charge"])
-    assert all(f in events.Photon.fields for f in ["pt", "eta", "phi"])
-    assert all(f in events.Jet.fields for f in ["pt", "eta", "phi", "mass"])
 
-    assert np.isclose(events.Electron.pt[0, 0], 17.627574920654297)
 
-    ak.materialize(events)
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
+@pytest.mark.parametrize("file", ["nano_dy", "nano_dimuon", "nano_tree"])
+def test_nanoaod_schema(tests_directory, file, mode):
+    file = f"{tests_directory}/samples/{file}"
+    ttree = NanoEventsFactory.from_root(
+        {f"{file}.root": "Events"}, schemaclass=NanoAODSchema, mode=mode
+    ).events()
+    rntuple = NanoEventsFactory.from_root(
+        {f"{file}_rntuple.root": "Events"}, schemaclass=NanoAODSchema, mode=mode
+    ).events()
+    if mode == "virtual":
+        assert not ttree.layout.is_any_materialized
+        assert not rntuple.layout.is_any_materialized
+    elif mode == "eager":
+        assert ttree.layout.is_all_materialized
+        assert rntuple.layout.is_all_materialized
+    assert ak.array_equal(
+        rntuple, ttree, dtype_exact=False, check_parameters=False, equal_nan=True
+    )
 
-    assert "" not in events.fields
+
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
+def test_pfnano_schema(tests_directory, mode):
+    file = f"{tests_directory}/samples/pfnano"
+    ttree = NanoEventsFactory.from_root(
+        {f"{file}.root": "Events"}, schemaclass=PFNanoAODSchema, mode=mode
+    ).events()
+    rntuple = NanoEventsFactory.from_root(
+        {f"{file}_rntuple.root": "Events"}, schemaclass=PFNanoAODSchema, mode=mode
+    ).events()
+    if mode == "virtual":
+        assert not ttree.layout.is_any_materialized
+        assert not rntuple.layout.is_any_materialized
+    elif mode == "eager":
+        assert ttree.layout.is_all_materialized
+        assert rntuple.layout.is_all_materialized
+    assert ak.array_equal(
+        rntuple, ttree, dtype_exact=False, check_parameters=False, equal_nan=True
+    )
+
+
+@pytest.mark.xfail(
+    reason="RNTuple version of the treemaker sample has different fields"
+)
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
+def test_treemaker_schema(tests_directory, mode):
+    file = f"{tests_directory}/samples/treemaker"
+    ttree = NanoEventsFactory.from_root(
+        {f"{file}.root": "PreSelection"}, schemaclass=TreeMakerSchema, mode=mode
+    ).events()
+    rntuple = NanoEventsFactory.from_root(
+        {f"{file}_rntuple.root": "PreSelection"}, schemaclass=TreeMakerSchema, mode=mode
+    ).events()
+    if mode == "virtual":
+        assert not ttree.layout.is_any_materialized
+        assert not rntuple.layout.is_any_materialized
+    elif mode == "eager":
+        assert ttree.layout.is_all_materialized
+        assert rntuple.layout.is_all_materialized
+    assert ak.array_equal(
+        rntuple, ttree, dtype_exact=False, check_parameters=False, equal_nan=True
+    )
