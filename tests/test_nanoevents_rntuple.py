@@ -15,10 +15,6 @@ from coffea.nanoevents import (
     "file", ["nano_dy", "nano_dimuon", "nano_tree", "pfnano", "treemaker"]
 )
 def test_base_schema(tests_directory, file, mode):
-    if file == "treemaker":
-        pytest.xfail(
-            reason="RNTuple version of the treemaker sample has different fields"
-        )
     key = "PreSelection" if file == "treemaker" else "Events"
     file = f"{tests_directory}/samples/{file}"
     ttree = NanoEventsFactory.from_root(
@@ -33,9 +29,37 @@ def test_base_schema(tests_directory, file, mode):
     elif mode == "eager":
         assert ttree.layout.is_all_materialized
         assert rntuple.layout.is_all_materialized
-    assert ak.array_equal(
-        rntuple, ttree, dtype_exact=False, check_parameters=False, equal_nan=True
-    )
+    if key == "PreSelection":
+        for field in rntuple.fields:
+            subfields = rntuple[field].fields
+            if subfields != []:
+                assert len(subfields) == 1
+                subfield = subfields[0]
+                subsubfields = rntuple[field][subfield].fields
+                for i in subsubfields:
+                    left = rntuple[field][subfield][i]
+                    right = ttree[field][f"{field}.{subfield}.{i}"]
+                    assert ak.array_equal(
+                        left,
+                        right,
+                        dtype_exact=False,
+                        check_parameters=False,
+                        equal_nan=True,
+                    )
+            else:
+                left = rntuple[field]
+                right = ttree[field]
+                assert ak.array_equal(
+                    left,
+                    right,
+                    dtype_exact=False,
+                    check_parameters=False,
+                    equal_nan=True,
+                )
+    else:
+        assert ak.array_equal(
+            rntuple, ttree, dtype_exact=False, check_parameters=False, equal_nan=True
+        )
 
 
 @pytest.mark.parametrize("mode", ["eager", "virtual"])
@@ -80,7 +104,7 @@ def test_pfnano_schema(tests_directory, mode):
 
 
 @pytest.mark.xfail(
-    reason="RNTuple version of the treemaker sample has different fields"
+    reason="RNTuple version of the treemaker sample has different field structure"
 )
 @pytest.mark.parametrize("mode", ["eager", "virtual"])
 def test_treemaker_schema(tests_directory, mode):
