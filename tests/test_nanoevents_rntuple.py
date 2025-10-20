@@ -36,9 +36,9 @@ def test_base_schema(tests_directory, file, mode):
                 assert len(subfields) == 1
                 subfield = subfields[0]
                 subsubfields = rntuple[field][subfield].fields
-                for i in subsubfields:
-                    left = rntuple[field][subfield][i]
-                    right = ttree[field][f"{field}.{subfield}.{i}"]
+                for subsubfield in subsubfields:
+                    left = rntuple[field][subfield][subsubfield]
+                    right = ttree[field][f"{field}.{subfield}.{subsubfield}"]
                     assert ak.array_equal(
                         left,
                         right,
