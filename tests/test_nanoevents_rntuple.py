@@ -14,11 +14,11 @@ from coffea.nanoevents import (
 @pytest.mark.parametrize(
     "file", ["nano_dy", "nano_dimuon", "nano_tree", "pfnano", "treemaker"]
 )
-@pytest.mark.xfail(
-    condition=lambda file: file == "treemaker",
-    reason="RNTuple version of the treemaker sample has different fields",
-)
 def test_base_schema(tests_directory, file, mode):
+    if file == "treemaker":
+        pytest.xfail(
+            reason="RNTuple version of the treemaker sample has different fields"
+        )
     key = "PreSelection" if file == "treemaker" else "Events"
     file = f"{tests_directory}/samples/{file}"
     ttree = NanoEventsFactory.from_root(
