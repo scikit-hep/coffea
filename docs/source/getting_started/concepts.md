@@ -6,24 +6,21 @@ jupytext:
     format_name: myst
 ---
 
-
 # Coffea concepts
-
 
 This page explains concepts and terminology used within the coffea package.
 It is intended to provide a high-level overview, while details can be found in other sections of the documentation.
-
 
 (columnar-analysis)=
 ## Columnar analysis
 
 Columnar analysis is a paradigm that describes the way the user writes the analysis application that is best described
-in contrast to the the traditional paradigm in high-energy particle physics (HEP) of using an event loop.  In an event loop, the analysis operates row-wise
+in contrast to the traditional paradigm in high-energy particle physics (HEP) of using an event loop. In an event loop, the analysis operates row-wise
 on the input data (in HEP, one row usually corresponds to one reconstructed particle collision event.) Each row
 is a structure containing several fields, such as the properties of the visible outgoing particles
 that were reconstructed in a collision event. The analysis code manipulates this structure to either output derived
 quantities or summary statistics in the form of histograms. In contrast, columnar analysis operates on individual
-columns of data spanning a *chunk* (partition, batch) of rows using [array programming](https://en.wikipedia.org/wiki/Array_programming>)
+columns of data spanning a *chunk* (partition, batch) of rows using [array programming](https://en.wikipedia.org/wiki/Array_programming)
 primitives in turn, to compute derived quantities and summary statistics. Array programming is widely used within
 the [scientific python ecosystem](https://www.scipy.org/about.html), supported by the [numpy](https://numpy.org/) library.
 However, although the existing scientific python stack is fully capable of analyzing rectangular arrays (i.e.
@@ -36,47 +33,65 @@ extending array programming capabilities to the complexity of HEP data.
 :align: center
 :::
 
-
 (processor)=
 ## Coffea processor
--
-In almost all HEP analyses, each row corresponds to an independent event, and it is exceptionally rare
-to need to compute inter-row derived quantities. Due to this, horizontal scale-out is almost trivial:
-each chunk of rows can be operated on independently. Further, if the output of an analysis is restricted
-to reducible accumulators such as histograms (abstracted by `dask`, `dask-awkward`, and `dask-histogram`),
-then outputs can even be merged via tree reduction. The `ProcessorABC` class is an abstraction to encapsulate
-analysis code so that it can be easily scaled out, leaving the delivery of input columns and reduction of
-output accumulators to the coffea framework. However it is not an absolute requirement, and mere a useful
-organizational framework.
 
+In almost all HEP analyses, each row corresponds to an independent event, and it is exceptionally rare
+to need to compute inter-row derived quantities. This makes horizontal scale-out straightforward: each chunk of rows can be processed independently.
+Coffea wraps this pattern with the {class}`coffea.processor.ProcessorABC`, which defines a `process` method returning an accumulator.
+The {class}`coffea.processor.Runner` helper bundles the dataset chunking, NanoEvents creation, and reduction of per-chunk results so that you can focus on analysis code.
+
+A processor instance can be executed with the same interface regardless of the executor in use:
+
+```python
+from coffea import processor
+from coffea.nanoevents import NanoAODSchema
+
+# Assume ``my_processor`` is an instance of a subclass of ProcessorABC.
+fileset = {
+    "ZJets": {"treename": "Events", "files": ["/data/nano_dy.root"]},
+    "Data": {"treename": "Events", "files": ["/data/nano_dimuon.root"]},
+}
+
+runner = processor.Runner(
+    executor=processor.FuturesExecutor(workers=4, status=True),
+    schema=NanoAODSchema,
+)
+
+result = runner(
+    fileset,
+    processor_instance=my_processor,
+    treename="Events",
+)
+```
+
+Changing the executor is all that is required to scale from a laptop to a cluster. See {doc}`../user_guide/executors` for a practical overview.
 
 (scale-out)=
 ## Scale-out
 
 Often, the computation requirements of a HEP data analysis exceed the resources of a single thread of execution.
-To facilitate parallelization and allow the user to access more compute resources, coffea employs dask,
-dask-distributed, and taskvine to ease the transition between a local analysis on a small set of test data to a
-full-scale analysis. Dask provides local schedulers and distributed schedulers, and taskvine supplies an additional
-distributed scheduler.
-
+To facilitate parallelization and allow the user to access more compute resources, coffea ships several executors
+that all implement the same interface. The local options cover quick iteration and debugging, while the distributed
+options connect to clusters and grid-style resources. Switching between them does not require changes to the processor itself.
 
 (#local-executors)=
 ### Local executors
 
-Currently, four local executors exist: `sync`, `threads`, `processes`, and `local distributed client`.
-The sync schedulersimply processes each chunk of an input dataset in turn, using the current python thread. The
-threads scheduler employs python `multithreaded` to spawn multiple python threads that process chunks in parallel
-on the machine. The processes and local distributed client schedulures use `multiprocessing` to spawn multiple python
-processes that process chunk in parallel on the machine. Process-base parallelism tends to more efficient when using
-uproot since it avoids performance limitations due to the CPython [global interpreter lock](https://wiki.python.org/moin/GlobalInterpreterLock).
+Coffea provides two executors for running on a single machine:
 
+- `IterativeExecutor`: processes chunks sequentially in one Python thread. This is ideal for debugging and validation because it has the least moving parts.
+- `FuturesExecutor`: uses `concurrent.futures` to fan out work to multiple local workers. By default it creates a process pool, and you can pass `pool` or `workers` to fine-tune the level of parallelism.
+
+You can swap between these executors by adjusting the `executor` argument passed to {class}`~coffea.processor.Runner`.
 
 (#distributed-executors)=
 ### Distributed executors
 
-Currently, coffea supports two types of distributed schedulers:
+Coffea supports three distributed schedulers out of the box:
 
-   - the [dask](https://distributed.dask.org/en/latest/) distributed executor, accessed via the `distributed.Client` entrypoint,
-   - and the taskvine distributed scheduler.
+- {class}`~coffea.processor.DaskExecutor` integrates with a running [Dask Distributed](https://distributed.dask.org/en/latest/) cluster via a `distributed.Client`.
+- {class}`~coffea.processor.ParslExecutor` uses [Parsl](http://parsl-project.org/) to target a wide range of HPC and batch backends.
+- {class}`~coffea.processor.TaskVineExecutor` leverages [TaskVine](https://cctools.readthedocs.io/en/latest/taskvine/) for opportunistic and heterogeneous workers.
 
-These schedulers use their respective underlying libraries to distribute processing tasks over multiple machines.
+Each executor shares the same `Runner` interface, making it easy to start locally and later connect to a remote resource manager. The Work Queue executor is covered separately in {doc}`../user_guide/wq`.
