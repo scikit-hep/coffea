@@ -1256,7 +1256,7 @@ class Runner:
             pre_executor = self.pre_executor.copy(**pre_arg_override)
             closure = partial(
                 self.automatic_retries,
-                self.retries,
+                0 if isinstance(pre_executor, DaskExecutor) else self.retries,
                 self.skipbadfiles,
                 partial(
                     self.metadata_fetcher_root, self.xrootdtimeout, self.align_clusters
@@ -1292,7 +1292,7 @@ class Runner:
             pre_executor = self.pre_executor.copy(**pre_arg_override)
             closure = partial(
                 self.automatic_retries,
-                self.retries,
+                0 if isinstance(pre_executor, DaskExecutor) else self.retries,
                 self.skipbadfiles,
                 self.metadata_fetcher_parquet,
             )
@@ -1721,12 +1721,15 @@ class Runner:
             "unit": "chunk",
             "function_name": type(processor_instance).__name__,
         }
+        executor = self.executor.copy(**exe_args)
 
         closure = partial(
-            self.automatic_retries, self.retries, self.skipbadfiles, closure
+            self.automatic_retries,
+            0 if isinstance(executor, DaskExecutor) else self.retries,
+            self.skipbadfiles,
+            closure,
         )
 
-        executor = self.executor.copy(**exe_args)
         wrapped_out, e = executor(chunks, closure, None)
         if wrapped_out is None:
             raise ValueError(
