@@ -472,9 +472,12 @@ class IterativeExecutor(ExecutorBase):
             Label of progress bar description
         compression : int, optional
             Ignored for iterative executor
+        retries : int, optional
+            Number of retries for failed tasks (default: 3)
     """
 
     workers: int = 1
+    retries: int = 3
 
     def __call__(
         self,
@@ -549,6 +552,8 @@ class FuturesExecutor(ExecutorBase):
         tailtimeout : int, optional
             Timeout requirement on job tails. Cancel all remaining jobs if none have finished
             in the timeout window.
+        retries : int, optional
+            Number of retries for failed tasks (default: 3)
     """
 
     pool: Union[
@@ -565,6 +570,7 @@ class FuturesExecutor(ExecutorBase):
     merging: Union[bool, tuple[int, int, int]] = False
     workers: int = 1
     tailtimeout: Optional[int] = None
+    retries: int = 3
 
     def __post_init__(self):
         if not (
@@ -855,6 +861,8 @@ class ParslExecutor(ExecutorBase):
         tailtimeout : int, optional
             Timeout requirement on job tails. Cancel all remaining jobs if none have finished
             in the timeout window.
+        retries : int, optional
+            Number of retries for failed tasks (default: 3)
     """
 
     tailtimeout: Optional[int] = None
@@ -863,6 +871,7 @@ class ParslExecutor(ExecutorBase):
     merging: Optional[Union[bool, tuple[int, int, int]]] = False
     jobs_executors: Union[str, list] = "all"
     merges_executors: Union[str, list] = "all"
+    retries: int = 3
 
     def __post_init__(self):
         if not (
@@ -1095,10 +1104,7 @@ class Runner:
 
     @property
     def retries(self):
-        if isinstance(self.executor, DaskExecutor):
-            retries = 0
-        else:
-            retries = getattr(self.executor, "retries", 0)
+        retries = getattr(self.executor, "retries", 0)
         assert retries >= 0
         return retries
 
@@ -1128,17 +1134,21 @@ class Runner:
             try:
                 return func(*args, **kwargs)
             except Exception as e:
+                warnings.warn(
+                    f"Performed attempt {retry_count + 1} out of {retries + 1}"
+                )
                 chain = _exception_chain(e)
                 if (
                     skipbadfiles
                     and (retries == retry_count)
                     and any(isinstance(c, skipbadfiles) for c in chain)
                 ):
-                    warnings.warn(str(e))
+                    warnings.warn(
+                        f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}"
+                    )
                     break
-                else:
+                if not skipbadfiles or (retries == retry_count):
                     raise e
-                warnings.warn("Attempt %d of %d." % (retry_count + 1, retries + 1))
             retry_count += 1
 
     @staticmethod
