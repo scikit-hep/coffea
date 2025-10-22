@@ -1,4 +1,4 @@
-.. image:: docs/source/logo/coffea_logo.svg
+.. image:: logo/coffea_logo.svg
     :align: center
     :width: 250px
     :alt: logo

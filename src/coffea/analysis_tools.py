@@ -70,7 +70,7 @@ def boolean_masks_to_categorical_integers(
     masks : list of boolean numpy.ndarray, awkward.Array or dask_awkward.lib.core.Array objects
         The boolean mask arrays to convert to categorical integers
     insert_unmasked_as_zeros : bool, optional
-        Whether to insert a zero entry representing an 'unmasked' state, equivalent to the first mask satisfying `ak.all(mask == True)`. Default is False.
+        Whether to insert a zero entry representing an 'unmasked' state, equivalent to the first mask satisfying ``ak.all(mask == True)``. Default is False.
     insert_commonmask_as_zeros : boolean numpy.ndarray, awkward.Array, or dask_awkward.lib.core.Array, optional
         If not None, insert a zero entry representing a 'commonmasked' state. Default is None. Not compatible with insert_unmasked_as_zeros=True.
     return_mask : bool, optional
@@ -1464,6 +1464,7 @@ class Cutflow:
                 A namedtuple with the CutflowResult properties and additionally the following:
 
                 commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array object, or None if no common mask was provided
+                    The eventwise mask for the for the cutflow.
                 wgtevonecut : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
                     The weighted number of events that survive each cut alone as a list of floats or delayed floats
                 wgtevcutflow : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
@@ -1676,6 +1677,7 @@ class Cutflow:
                         The array to be filled in the categorical axis, must be the same length as the masks
                     labels : list
                         The labels corresponding to the values in the categorical axis
+
                 Default is None, which does not apply any categorical axis.
 
         Returns

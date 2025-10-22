@@ -57,7 +57,7 @@ class PHYSLITESchema(BaseSchema):
     }
     """Default configuration for mixin types, based on the collection name.
 
-    The types are implemented in the `coffea.nanoevents.methods.physlite` module.
+    The types are implemented in the ``coffea.nanoevents.methods.physlite`` module.
     """
 
     for _k in truth_collections:
