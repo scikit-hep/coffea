@@ -1136,7 +1136,7 @@ class Runner:
                 ):
                     warnings.warn(str(e))
                     break
-                if not skipbadfiles or retries == retry_count:
+                else:
                     raise e
                 warnings.warn("Attempt %d of %d." % (retry_count + 1, retries + 1))
             retry_count += 1
