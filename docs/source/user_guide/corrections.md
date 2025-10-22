@@ -73,19 +73,6 @@ event_weight = ak.prod(per_muon, axis=1)
 
 Multiply per-object corrections before reducing across the event dimension.
 
-## Patch missing phase space
-
-When a correction is undefined for a value, correctionlib raises an exception. Guard with masks or clamps.
-
-```python
-eta = ak.clip(muons.eta, -2.39, 2.39)
-pt = ak.where(muons.pt < 20, 20, muons.pt)
-
-sf = self.sf.evaluate(eta, pt, "nominal")
-```
-
-Apply the same pre-processing to all systematic branches to stay consistent.
-
 ## Apply event-level weights
 
 Not all weights depend on per-object kinematics. Use metadata for global factors.
