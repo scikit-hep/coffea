@@ -9,7 +9,6 @@ import awkward
 import dask_awkward
 from dask_awkward import dask_method, dask_property
 
-import coffea
 from coffea.util import awkward_rewrap, rewrap_recordarray
 
 behavior = {}
@@ -171,11 +170,7 @@ class Systematic:
         wrap = partial(
             awkward_rewrap, like_what=self["__systematics__"], gfunc=rewrap_recordarray
         )
-        flat = (
-            self
-            if isinstance(self, coffea.nanoevents.methods.base.NanoEvents)
-            else awkward.flatten(self)
-        )
+        flat = self if self.ndim == 1 else awkward.flatten(self)
 
         if what == "weight" and "__ones__" not in awkward.fields(
             flat["__systematics__"]

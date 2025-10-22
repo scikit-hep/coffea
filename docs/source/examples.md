@@ -7,8 +7,9 @@ Each notebook builds on the previous one so it is recommended to go through them
 :maxdepth: 1
 notebooks/nanoevents
 notebooks/applying_corrections
+notebooks/packedselection
+notebooks/systematics
 notebooks/processor
 notebooks/mltools
 notebooks/dataset_discovery
-notebooks/packedselection
 ```
