@@ -39,7 +39,7 @@ class DimuonProcessor(processor.ProcessorABC):
 
 ## Fill histograms
 
-Use Awkward arrays directly; coffea handles flattening and merging.
+Fill the accumulator histograms in each Processor. Keep in mind to flatten the awkward array first, e.g.:
 
 ```python
 import awkward as ak
@@ -62,8 +62,8 @@ def process(self, events):
 ```
 
 - Histogram axes grow dynamically when you use `growth=True`.
-- Use `ak.num` to count objects per event without materializing scalars.
-- Track totals such as the number of processed events inside the accumulator for later efficiency calculations.
+- Use `ak.num` to count objects per event.
+- Track metadata such as the number of processed and selected events inside the accumulator for later efficiency calculations.
 
 ## Add non-histogram outputs
 
@@ -88,17 +88,11 @@ Append small summaries or debug payloads that you want to merge across workers.
 
 ## Use postprocess to finalize results
 
-`postprocess` runs after all chunks are merged. Treat it as a hook to reshape or augment the aggregated outputs before you hand them to the next stage.
+`postprocess` runs after all chunks are merged. Treat it as a hook to manipulate the aggregated outputs before you hand them to the next stage.
 
 ```python
 def postprocess(self, accumulator):
-    hist_mass = accumulator["mass"].copy()
-    cutflow = dict(accumulator["cutflow"])
-
-    # Normalize histogram to unit area for quick plotting
-    total = hist_mass.sum().value if hasattr(hist_mass.sum(), "value") else hist_mass.sum()
-    if total > 0:
-        hist_mass /= total
+    cutflow = accumulator["cutflow"]
 
     pairs = cutflow.get("pairs", 0.0)
     events_total = cutflow.get("events", 0.0)
@@ -107,29 +101,23 @@ def postprocess(self, accumulator):
     return {"mass": hist_mass, "cutflow": cutflow}
 ```
 
-Typical postprocessing tasks include normalizing histograms, stacking or rebinning axes, computing efficiencies, or dropping intermediate bookkeeping before serialization.
-
 ## Serialize results
 
-Histograms are picklable; save them to disk or convert to JSON using `hist.export`.
+Histograms are picklable; save them to disk using `coffea.util.save`.
 
 ```python
-import json
-from hist import export
+import coffea
 
 result = runner(...)
 
-with open("mass.json", "w") as fout:
-    json.dump(export.export1d(result["mass"]), fout)
+coffea.util.save(result, "out.coffea")
 ```
-
-Alternatively, write to ROOT using `uproot`.
 
 ## Debug accumulator merging
 
-- Verify that every branch of your processor returns the accumulator.
-- If you modify a shared object in-place, use `.identity()` first to avoid cross-talk between chunks.
-- When introducing new accumulator components, run with `processor.IterativeExecutor` to validate the output structure before scaling up.
+- Make sure that every processor returns the accumulator.
+- Avoid early returns, i.e. `if len(events) == 0: return`
+- When introducing new accumulator components or modifying it, run with `processor.IterativeExecutor` to validate the output structure before scaling up.
 
 ## Tips & tricks
 

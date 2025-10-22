@@ -20,16 +20,16 @@ fileset = {
     "DYJets": {
         "treename": "Events",
         "files": [
-            "/store/mc/Run3Summer23/.../nanoAOD_*.root",
+            "/store/mc/.../nano_dy.root",
         ],
-        "metadata": {"year": 2022, "is_mc": True},
+        "metadata": {"year": 2018, "is_mc": True},
     },
     "DataMu": {
         "treename": "Events",
         "files": [
-            "/eos/cms/store/data/Run2023C/.../nano_data.root",
+            "/store/data/.../nano_data.root",
         ],
-        "metadata": {"year": 2023, "is_mc": False},
+        "metadata": {"year": 2018, "is_mc": False},
     },
 }
 
@@ -40,7 +40,6 @@ runner = processor.Runner(
 ```
 
 - The top-level keys label datasets; they propagate into `events.metadata['dataset']`.
-- `treename` is optional if you use the uproot syntax that includes the tree in the filename.
 - `metadata` is merged into each chunk’s metadata dictionary and is available inside your processor.
 
 ## Mix local and remote files
@@ -112,7 +111,6 @@ fileset = {
         "treename": "Events",
         "metadata": {
             "cross_section": 831.76,
-            "genfilter": 1.0,
             "year": 2022,
         },
     },

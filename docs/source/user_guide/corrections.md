@@ -24,7 +24,7 @@ class MuonSFProcessor(processor.ProcessorABC):
         ...
 ```
 
-- Load the JSON once in `__init__`.
+- Load the JSON once in `__init__`, coffea knows how to distribute it with the Processor onto a cluster.
 - Keep references to individual `Correction` objects you will call frequently.
 
 ## Evaluate per-object scale factors
@@ -107,24 +107,7 @@ out["systematics"]["muon_sf_up"] += float(ak.sum(event_weight_up))
 
 Use `defaultdict_accumulator` or `dict_accumulator` to accumulate per-systematic yields.
 
-## Share corrections across processors
-
-For large teams, store correction payloads on CVMFS or in object stores and load them by URL.
-
-```python
-import fsspec
-import json
-
-with fsspec.open("https://.../muon_sf.json.gz") as fin:
-    payload = json.load(fin)
-    cset = correctionlib.CorrectionSet.from_string(json.dumps(payload))
-```
-
-Caching the parsed `CorrectionSet` in your processor avoids re-reading the file per chunk.
-
 ## Tips & tricks
 
-- Print `self.sf.inputs` to confirm the order and names of arguments—especially when migrating to new payload versions.
-- Use `self.sf.to_evaluator()` for a fast, vectorized callable if you need to evaluate the same correction millions of times outside coffea.
 - Persist helper arrays (like absolute eta) on the events object if multiple corrections need them; this avoids recomputing inside every evaluation.
 - Record the correction versions you used in the accumulator or metadata to streamline reproducibility and cross-checks.

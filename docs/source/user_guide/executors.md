@@ -193,6 +193,5 @@ cluster_result = cluster_runner(
 
 - Set `savemetrics=True` on {class}`~coffea.processor.Runner` to collect bytes read, columns touched, and runtime statistics for every executor.
 - Use `processor.SimpleCheckpointer` with the `checkpointer` argument when running long jobs so partially completed chunks persist across restarts.
-- For `FuturesExecutor`, pass a pre-created `ProcessPoolExecutor` if you need to control affinity or reuse workers across multiple runs.
 - When using `DaskExecutor`, call `client.upload_file` or package your environment so workers have the same code version as the driver.
 - Disable compression (`compression=None`) only if the accumulator payloads are small; otherwise LZ4 saves network transfer time on distributed backends.

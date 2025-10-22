@@ -102,6 +102,5 @@ Avoid explicit Python loops over events or particles. Coffea’s executors thriv
 ## Tips & tricks
 
 - Call `ak.num(collection, axis=1)` to see how many objects each event contains.
-- `events.layout.form` reveals the underlying Awkward form when debugging schema issues.
-- If a branch is missing, confirm that it is interpretable by NanoEvents; uproot warnings in the log often identify incompatible forms.
+- If a branch is missing, confirm that it is interpretable by NanoEvents; warnings of the schema often identify incompatible forms.
 - Apply selections with boolean masks before combinations to avoid forming unnecessary pairings.

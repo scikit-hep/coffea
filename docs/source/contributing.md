@@ -4,13 +4,6 @@ coffea is a community-driven project. This page highlights the most common
 ways to get involved and the expectations we have for contributors of every
 experience level.
 
-## Code of Conduct
-
-Participation in the coffea community is governed by our
-[Code of Conduct](https://github.com/scikit-hep/coffea/blob/main/CODE_OF_CONDUCT.md).
-Please review it before engaging in GitHub issues, discussions, or pull
-requests.
-
 ## Ways to contribute
 
 - Report reproducible bugs and help triage existing issues.
@@ -40,7 +33,7 @@ walks through the basics of configuring git, forking, and cloning a project.
 - Feature requests are best discussed in a new issue or in Discussions. Provide
   the motivation, any existing workarounds, and how you would measure success.
 - Usage questions are welcome in the
-  [IRIS-HEP Slack `#coffea` channel](https://iris-hep.slack.com/messages/CGBV6H10P/)
+  [IRIS-HEP Slack `#coffea` channel](https://iris-hep.slack.com/)
   (invite instructions are pinned in the channel topic).
 
 ## Submitting changes
@@ -81,6 +74,6 @@ ask for help.
 
 coffea follows [CalVer](https://calver.org/). Maintainers cut releases as
 needed and publish them on the GitHub Releases page. Changes that land in
-`main` will be part of the next scheduled release.
+`master` will be part of the next scheduled release.
 
 Thank you for helping improve coffea! :coffee:
