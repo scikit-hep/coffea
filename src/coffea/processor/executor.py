@@ -1512,7 +1512,8 @@ class Runner:
                         metrics["entries"] = len(events)
                     metrics["processtime"] = toc - tic
                     out = {"out": out, "metrics": metrics, "processed": {item}}
-                out = {"out": out, "processed": {item}}
+                else:
+                    out = {"out": out, "processed": {item}}
 
             if checkpointer is not None:
                 if not isinstance(checkpointer, CheckpointerABC):
