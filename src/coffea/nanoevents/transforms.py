@@ -487,6 +487,84 @@ def eventindex(stack):
     stack.append(out)
 
 
+def alias_form(source_form):
+    form = copy.deepcopy(source_form)
+    form["form_key"] = concat(source_form["form_key"], "!alias")
+    if not (
+        source_form["class"] == "NumpyArray"
+        or source_form["class"].startswith("ListOffset")
+    ):
+        raise RuntimeError
+    if form["class"].startswith("ListOffset"):
+        form["content"]["form_key"] = concat(
+            source_form["form_key"], "!alias", "!content"
+        )
+    return form
+
+
+def alias(stack):
+    pass
+
+
+def zeros_from_content_form(source_form):
+    form = copy.deepcopy(source_form)
+    form["form_key"] = concat(source_form["form_key"], "!zeros_from_content")
+    if not (form["class"] == "NumpyArray" or form["class"].startswith("ListOffset")):
+        raise RuntimeError
+    if form["class"].startswith("ListOffset"):
+        form["content"]["form_key"] = concat(
+            source_form["form_key"], "!zeros_from_content", "!content"
+        )
+    return form
+
+
+def zeros_from_content(stack):
+    source = stack.pop()
+    stack.append(awkward.zeros_like(source))
+
+
+def zeros_from_offsets_form(offsets_form, dtype="float32"):
+    if not offsets_form["class"].startswith("NumpyArray"):
+        raise RuntimeError
+
+    if dtype == "float32":
+        itemsize = 4
+    elif dtype == "float64":
+        itemsize = 8
+    else:
+        raise ValueError(f"Unsupported dtype: {dtype}")
+
+    form = {
+        "class": "ListOffsetArray",
+        "offsets": "i64",
+        "content": {
+            "class": "NumpyArray",
+            "primitive": dtype,
+            "itemsize": itemsize,
+            "format": "i",
+            "form_key": concat(
+                offsets_form["form_key"], "!zeros_from_offsets", "!content"
+            ),
+        },
+        "form_key": concat(offsets_form["form_key"], "!zeros_from_offsets"),
+        "parameters": offsets_form.get("parameters", None),
+    }
+    return form
+
+
+def zeros_from_offsets(stack):
+    offsets = ensure_array(stack.pop())
+    n_elements = offsets[-1]
+    content = numpy.zeros(n_elements, dtype=numpy.float32)
+    out = awkward.Array(
+        awkward.contents.ListOffsetArray(
+            awkward.index.Index64(offsets),
+            awkward.contents.NumpyArray(content),
+        )
+    )
+    stack.append(out)
+
+
 # For EDM4HEPSchema and FCCSChema:
 
 

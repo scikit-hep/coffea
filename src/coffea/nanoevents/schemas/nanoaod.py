@@ -296,6 +296,27 @@ class NanoAODSchema(BaseSchema):
             if all(k in branch_forms for k in args):
                 branch_forms[name] = fcn(*(branch_forms[k] for k in args))
 
+        # Add mass and charge fields for Photon collection (always zero for photons)
+        if "oPhoton" in branch_forms:
+            branch_forms["Photon_mass"] = transforms.zeros_from_offsets_form(
+                branch_forms["oPhoton"]
+            )
+            branch_forms["Photon_charge"] = transforms.zeros_from_offsets_form(
+                branch_forms["oPhoton"]
+            )
+
+        # Add dummy field for MET to test zeros_from_content with flat arrays
+        if "MET_pt" in branch_forms:
+            branch_forms["MET_dummy"] = transforms.zeros_from_content_form(
+                branch_forms["MET_pt"]
+            )
+
+        # Add PT aliases for pt fields
+        if "Photon_pt" in branch_forms:
+            branch_forms["Photon_PT"] = transforms.alias_form(branch_forms["Photon_pt"])
+        if "MET_pt" in branch_forms:
+            branch_forms["MET_PT"] = transforms.alias_form(branch_forms["MET_pt"])
+
         output = {}
         for name in collections:
             mixin = self.mixins.get(name, "NanoCollection")
