@@ -60,7 +60,7 @@ dependencies = [
   "numpy>=1.22",
   "scipy>=1.1.0",
   "tqdm>=4.27.0",
-  "lz4",
+  "lz4 @ https://github.com/python-lz4/python-lz4.git",
   "cloudpickle>=1.2.3",
   "toml>=0.10.2",
   "mplhep>=0.1.18",
@@ -122,6 +122,7 @@ dev = [
 [tool.hatch]
 version.source = "vcs"
 build.hooks.vcs.version-file = "src/coffea/_version.py"
+metadata.allow-direct-references = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
