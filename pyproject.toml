@@ -56,6 +56,7 @@ dependencies = [
   "matplotlib>=3",
   "numba>=0.58.1; python_version<'3.14'",
   "numba>=0.63.0b1; python_version>='3.14'",
+  "llvmlite>=0.46.0b1; python_version>='3.14'",
   "numpy>=1.22",
   "scipy>=1.1.0",
   "tqdm>=4.27.0",
