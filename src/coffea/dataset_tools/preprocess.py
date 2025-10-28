@@ -157,7 +157,7 @@ def get_steps(
                 "steps": out_steps,
                 "num_entries": num_entries,
                 "uuid": out_uuid,
-                "form": form_json,
+                "compressed_form": form_json,
                 "form_hash_md5": form_hash,
             }
         )
@@ -171,7 +171,7 @@ def get_steps(
                     "steps": [[0, 0]],
                     "num_entries": 0,
                     "uuid": "junk",
-                    "form": "junk",
+                    "compressed_form": "junk",
                     "form_hash_md5": "junk",
                 },
                 None,
@@ -374,7 +374,7 @@ def preprocess(
             ["file", "object_path", "steps", "num_entries", "uuid"]
         ]
 
-        forms = processed_files[["file", "form", "form_hash_md5", "num_entries"]][
+        forms = processed_files[["file", "compressed_form", "form_hash_md5", "num_entries"]][
             ~awkward.is_none(processed_files.form_hash_md5)
         ]
 
@@ -385,7 +385,7 @@ def preprocess(
         dataset_forms = []
         unique_forms = forms[unique_forms_idx]
         for thefile, formstr, num_entries in zip(
-            unique_forms.file, unique_forms.form, unique_forms.num_entries
+            unique_forms.file, unique_forms.compressed_form, unique_forms.num_entries
         ):
             # skip trivially filled or empty files
             form = awkward.forms.from_json(decompress_form(formstr))
@@ -471,29 +471,29 @@ def preprocess(
             out_updated[name]["files"] = files_out
             out_available[name]["files"] = files_available
         else:
-            out_updated[name] = {"files": files_out, "metadata": None, "form": None}
+            out_updated[name] = {"files": files_out, "metadata": None, "compressed_form": None}
             out_available[name] = {
                 "files": files_available,
                 "metadata": None,
-                "form": None,
+                "compressed_form": None,
             }
 
         compressed_union_form = None
         if union_form_jsonstr is not None:
             compressed_union_form = compress_form(union_form_jsonstr)
             if is_datasetspec:
-                out_updated[name].form = compressed_union_form
-                out_available[name].form = compressed_union_form
+                out_updated[name].compressed_form = compressed_union_form
+                out_available[name].compressed_form = compressed_union_form
             else:
-                out_updated[name]["form"] = compressed_union_form
-                out_available[name]["form"] = compressed_union_form
+                out_updated[name]["compressed_form"] = compressed_union_form
+                out_available[name]["compressed_form"] = compressed_union_form
         else:
             if is_datasetspec:
-                out_updated[name].form = None
-                out_available[name].form = None
+                out_updated[name].compressed_form = None
+                out_available[name].compressed_form = None
             else:
-                out_updated[name]["form"] = None
-                out_available[name]["form"] = None
+                out_updated[name]["compressed_form"] = None
+                out_available[name]["compressed_form"] = None
 
         if is_datasetspec:
             pass
