@@ -19,7 +19,7 @@ StepPair = Annotated[
 
 class GenericFileSpec(BaseModel):
     object_path: str | None = None
-    steps: Annotated[list[StepPair], Field(min_length=1)] | StepPair | None = None
+    steps: Annotated[list[StepPair], Field(min_length=1)] | None = None
     format: str | None = None
 
 
@@ -34,7 +34,7 @@ class CoffeaROOTFileSpecOptional(ROOTFileSpec):
 
 
 class CoffeaROOTFileSpec(CoffeaROOTFileSpecOptional):
-    steps: Annotated[list[StepPair], Field(min_length=1)] | StepPair
+    steps: Annotated[list[StepPair], Field(min_length=1)]
     num_entries: Annotated[int, Field(ge=0)]
     uuid: str
 
@@ -50,7 +50,7 @@ class CoffeaParquetFileSpecOptional(ParquetFileSpec):
 
 
 class CoffeaParquetFileSpec(CoffeaParquetFileSpecOptional):
-    steps: Annotated[list[StepPair], Field(min_length=1)] | StepPair
+    steps: Annotated[list[StepPair], Field(min_length=1)]
     num_entries: Annotated[int, Field(ge=0)]
     uuid: str
     # is_directory: Literal[True, False] #identify whether it's a directory of parquet files or a single parquet file, may be useful or necessary to distinguish
