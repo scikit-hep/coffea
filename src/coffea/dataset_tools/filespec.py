@@ -217,7 +217,7 @@ class DatasetSpec(BaseModel):
     files: InputFiles
     metadata: dict[Hashable, Any] | None = None
     format: str | None = None
-    form: str | None = None
+    compressed_form: str | None = None
 
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
@@ -240,24 +240,30 @@ class DatasetSpec(BaseModel):
                             # file name and object path
                             files[fsplit[0]] = fsplit[1]
             data["files"] = files
+            if "form" in data.keys():
+                _form = data.pop("form")
+                if "compressed_form" not in data.keys():
+                    import awkward
+
+                    from coffea.util import compress_form
+
+                    data["compressed_form"] = compress_form(
+                        awkward.forms.from_json(_form)
+                    )
         elif isinstance(data, DatasetSpec):
             data = data.model_dump()
         elif not isinstance(data, DatasetSpec):
             raise ValueError(
-                "DatasetSpec expects a dictionary with a 'files' key or a DatasetSpec instance"
+                "DatasetSpec expects a dictionary with a 'files' key DatasetSpec instance"
             )
         return data
 
     def check_form(self) -> bool | None:
         """Check the form can be decompressed into an awkward form, if present"""
-        if self.form is not None:
+        if self.compressed_form is not None:
             # If there's a form, validate we can decompress it into an awkward form
             try:
-                import awkward
-
-                from coffea.util import decompress_form
-
-                _ = awkward.forms.from_json(decompress_form(self.form))
+                _ = self.form
                 return True
             except Exception:
                 return False
@@ -286,7 +292,7 @@ class DatasetSpec(BaseModel):
         # check_form
         if self.check_form() is False:  # None indicates no form to check
             raise ValueError(
-                "form: was not able to decompress_form into an awkward form"
+                "compressed_form: was not able to decompress_form into an awkward form"
             )
         # set (if necessary) and check the format
         if not self.set_check_format():
@@ -300,6 +306,18 @@ class DatasetSpec(BaseModel):
         """Identify DatasetSpec criteria to be pre-joined for typetracing (necessary) and column-joining (sufficient)"""
         if self.check_form() and self.set_check_format():
             return True
+
+    @computed_field
+    @property
+    def form(self) -> str:
+        if self.compressed_form is None:
+            return None
+        else:
+            import awkward
+
+            from coffea.util import decompress_form
+
+            return awkward.forms.from_json(decompress_form(self.compressed_form))
 
 
 class FilesetSpec(RootModel[dict[str, DatasetSpec]], DictMethodsMixin):
