@@ -703,7 +703,9 @@ class TestDatasetSpec:
             with tempfile.TemporaryDirectory() as tmp:
                 fname = os.path.join(tmp, "test.json.gz")
                 with gzip.open(fname, "wt") as fout:
-                    fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
+                    fout.write(
+                        spec.model_dump_json(exclude_unset=False, exclude="form")
+                    )
                 with gzip.open(fname, "rt") as fin:
                     restored = DatasetSpec.model_validate_json(fin.read())
                     if k != "ZJets2":

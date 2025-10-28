@@ -429,8 +429,13 @@ def test_preprocess_calculate_form():
             ak_add_doc={"__doc__": "title", "typename": "typename"},
         ).layout.form.to_json()
 
-        assert decompress_form(dataset_runnable["ZJets"]["compressed_form"]) == raw_form_dy
-        assert decompress_form(dataset_runnable["Data"]["compressed_form"]) == raw_form_data
+        assert (
+            decompress_form(dataset_runnable["ZJets"]["compressed_form"]) == raw_form_dy
+        )
+        assert (
+            decompress_form(dataset_runnable["Data"]["compressed_form"])
+            == raw_form_data
+        )
 
 
 @pytest.mark.dask_client

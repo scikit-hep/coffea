@@ -374,9 +374,9 @@ def preprocess(
             ["file", "object_path", "steps", "num_entries", "uuid"]
         ]
 
-        forms = processed_files[["file", "compressed_form", "form_hash_md5", "num_entries"]][
-            ~awkward.is_none(processed_files.form_hash_md5)
-        ]
+        forms = processed_files[
+            ["file", "compressed_form", "form_hash_md5", "num_entries"]
+        ][~awkward.is_none(processed_files.form_hash_md5)]
 
         _, unique_forms_idx = numpy.unique(
             forms.form_hash_md5.to_numpy(), return_index=True
@@ -471,7 +471,11 @@ def preprocess(
             out_updated[name]["files"] = files_out
             out_available[name]["files"] = files_available
         else:
-            out_updated[name] = {"files": files_out, "metadata": None, "compressed_form": None}
+            out_updated[name] = {
+                "files": files_out,
+                "metadata": None,
+                "compressed_form": None,
+            }
             out_available[name] = {
                 "files": files_available,
                 "metadata": None,

@@ -4,7 +4,6 @@ import copy
 from collections.abc import Hashable
 from typing import Any, Callable, Union
 
-import awkward
 import dask.base
 import dask_awkward
 
@@ -14,7 +13,6 @@ from coffea.dataset_tools.filespec import (
 )
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 from coffea.processor import ProcessorABC
-from coffea.util import decompress_form
 
 DaskOutputBaseType = Union[
     dask.base.DaskMethodsMixin,
