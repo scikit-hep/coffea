@@ -258,7 +258,7 @@ class DatasetSpec(BaseModel):
             )
         return data
 
-    def check_form(self) -> bool | None:
+    def _check_form(self) -> bool | None:
         """Check the form can be decompressed into an awkward form, if present"""
         if self.compressed_form is not None:
             # If there's a form, validate we can decompress it into an awkward form
@@ -290,7 +290,7 @@ class DatasetSpec(BaseModel):
     @model_validator(mode="after")
     def post_validate(self) -> Self:
         # check_form
-        if self.check_form() is False:  # None indicates no form to check
+        if self._check_form() is False:  # None indicates no form to check
             raise ValueError(
                 "compressed_form: was not able to decompress_form into an awkward form"
             )
@@ -304,7 +304,7 @@ class DatasetSpec(BaseModel):
     # @property
     def joinable(self) -> bool:
         """Identify DatasetSpec criteria to be pre-joined for typetracing (necessary) and column-joining (sufficient)"""
-        if self.check_form() and self.set_check_format():
+        if self._check_form() and self.set_check_format():
             return True
 
     @computed_field
