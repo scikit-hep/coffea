@@ -63,8 +63,6 @@ def apply_to_dataset(
     if isinstance(dataset, dict):
         dataset = DatasetSpec.model_validate(dataset)
     maybe_base_form = dataset.form
-    if maybe_base_form is not None:
-        maybe_base_form = awkward.forms.from_json(decompress_form(maybe_base_form))
     files = dataset.files
     events = NanoEventsFactory.from_root(
         files.model_dump(),
