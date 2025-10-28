@@ -76,11 +76,6 @@ def test_identify_format():
 class TestStepPair:
     """Test the StepPair type annotation"""
 
-    def test_valid_simple_step_pair(self):
-        """Test that valid step pairs are accepted"""
-        spec = ROOTFileSpec(object_path="Events", steps=[0, 10])
-        assert spec.steps == [0, 10]
-
     def test_valid_step_pair(self):
         """Test that valid step pairs are accepted"""
         spec = ROOTFileSpec(object_path="Events", steps=[[0, 10]])
@@ -114,12 +109,6 @@ class TestROOTFileSpec:
         spec = ROOTFileSpec(object_path="Events", steps=[[0, 10], [10, 20]])
         assert spec.object_path == "Events"
         assert spec.steps == [[0, 10], [10, 20]]
-
-    def test_creation_with_single_step(self):
-        """Test creation with single step pair"""
-        spec = ROOTFileSpec(object_path="Events", steps=[0, 10])
-        assert spec.object_path == "Events"
-        assert spec.steps == [0, 10]
 
     def test_creation_comprehensive_steps_combinations(self):
         """Test creation with all step combinations from __main__"""
@@ -650,7 +639,7 @@ class TestDatasetSpec:
         test = {k: DatasetSpec(**v) for k, v in self.get_test_input().items()}
 
         # Test that we can modify the steps after creation
-        test["ZJets1"].files["tests/samples/nano_dy_2.root"].steps = [0, 30]
+        test["ZJets1"].files["tests/samples/nano_dy_2.root"].steps = [[0, 30]]
 
         assert test["ZJets1"] is not None
         assert test["ZJets1"].format == "root"
@@ -1096,7 +1085,7 @@ class TestFilesetSpec:
         assert test["ZJets1"].metadata == {"key": "value"}
 
         # Test we can modify the steps after creation
-        test["ZJets1"].files["tests/samples/nano_dy_2.root"].steps = [0, 30]
+        test["ZJets1"].files["tests/samples/nano_dy_2.root"].steps = [[0, 30]]
         test2 = FilesetSpec(test)
         assert isinstance(
             test2["ZJets1"].files["tests/samples/nano_dy_2.root"].steps, list
@@ -1129,7 +1118,7 @@ class TestMainMethodScenarios:
 
     def test_all_filespec_creation_combinations(self):
         """Test all file spec creation combinations from __main__"""
-        steps_options = [None, [0, 100], [[0, 1], [2, 3]]]
+        steps_options = [None, [[0, 100]], [[0, 1], [2, 3]]]
 
         for steps in steps_options:
             # Test ROOTFileSpec
