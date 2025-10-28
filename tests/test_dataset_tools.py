@@ -133,7 +133,7 @@ _runnable_result = {
             }
         },
         "metadata": None,
-        "form": None,
+        "compressed_form": None,
     },
     "Data": {
         "files": {
@@ -152,7 +152,7 @@ _runnable_result = {
             }
         },
         "metadata": None,
-        "form": None,
+        "compressed_form": None,
     },
 }
 
@@ -174,7 +174,7 @@ _updated_result = {
             }
         },
         "metadata": None,
-        "form": None,
+        "compressed_form": None,
     },
     "Data": {
         "files": {
@@ -199,7 +199,7 @@ _updated_result = {
             },
         },
         "metadata": None,
-        "form": None,
+        "compressed_form": None,
     },
 }
 
@@ -429,8 +429,8 @@ def test_preprocess_calculate_form():
             ak_add_doc={"__doc__": "title", "typename": "typename"},
         ).layout.form.to_json()
 
-        assert decompress_form(dataset_runnable["ZJets"]["form"]) == raw_form_dy
-        assert decompress_form(dataset_runnable["Data"]["form"]) == raw_form_data
+        assert decompress_form(dataset_runnable["ZJets"]["compressed_form"]) == raw_form_dy
+        assert decompress_form(dataset_runnable["Data"]["compressed_form"]) == raw_form_data
 
 
 @pytest.mark.dask_client
@@ -487,7 +487,7 @@ def test_preprocess_with_file_exceptions():
                     "uuid": "ad4cd5ec-123e-11ec-92f6-93e3aac0beef",
                 },
             },
-            "form": None,
+            "compressed_form": None,
             "metadata": None,
         },
     }
@@ -508,7 +508,7 @@ def test_filter_files(the_fileset):
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
         "Data": {
             "files": {
@@ -520,7 +520,7 @@ def test_filter_files(the_fileset):
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
     }
     if isinstance(filtered_files, FilesetSpec):
@@ -544,7 +544,7 @@ def test_max_files(the_fileset):
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
         "Data": {
             "files": {
@@ -556,7 +556,7 @@ def test_max_files(the_fileset):
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
     }
     if isinstance(the_fileset, FilesetSpec):
@@ -570,7 +570,7 @@ def test_slice_files(the_fileset):
     sliced_files = slice_files(the_fileset, slice(1, None, 2))
 
     target = {
-        "ZJets": {"files": {}, "metadata": None, "form": None},
+        "ZJets": {"files": {}, "metadata": None, "compressed_form": None},
         "Data": {
             "files": {
                 "tests/samples/nano_dimuon_not_there.root": {
@@ -581,7 +581,7 @@ def test_slice_files(the_fileset):
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
     }
     if isinstance(the_fileset, FilesetSpec):
@@ -608,7 +608,7 @@ def test_max_chunks(the_fileset):
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
         "Data": {
             "files": {
@@ -620,7 +620,7 @@ def test_max_chunks(the_fileset):
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
     }
 
@@ -738,7 +738,7 @@ def test_slice_chunks(the_fileset):
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
         "Data": {
             "files": {
@@ -750,7 +750,7 @@ def test_slice_chunks(the_fileset):
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
     }
     if isinstance(the_fileset, FilesetSpec):

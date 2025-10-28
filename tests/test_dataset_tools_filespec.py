@@ -149,7 +149,7 @@ class TestROOTFileSpec:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False))
+                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
             with gzip.open(fname, "rt") as fin:
                 restored = ROOTFileSpec.model_validate_json(fin.read())
 
@@ -183,7 +183,7 @@ class TestParquetFileSpec:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False))
+                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
             with gzip.open(fname, "rt") as fin:
                 restored = ParquetFileSpec.model_validate_json(fin.read())
 
@@ -258,7 +258,7 @@ class TestCoffeaROOTFileSpecOptional:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False))
+                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
             with gzip.open(fname, "rt") as fin:
                 restored = CoffeaROOTFileSpecOptional.model_validate_json(fin.read())
 
@@ -328,7 +328,7 @@ class TestCoffeaROOTFileSpec:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False))
+                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
             with gzip.open(fname, "rt") as fin:
                 restored = CoffeaROOTFileSpec.model_validate_json(fin.read())
 
@@ -386,7 +386,7 @@ class TestCoffeaParquetFileSpecOptional:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False))
+                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
             with gzip.open(fname, "rt") as fin:
                 restored = CoffeaParquetFileSpecOptional.model_validate_json(fin.read())
 
@@ -447,7 +447,7 @@ class TestCoffeaParquetFileSpec:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False))
+                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
             with gzip.open(fname, "rt") as fin:
                 restored = CoffeaParquetFileSpec.model_validate_json(fin.read())
 
@@ -552,7 +552,7 @@ class TestInputFiles:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False))
+                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
             with gzip.open(fname, "rt") as fin:
                 restored = InputFiles.model_validate_json(fin.read())
                 assert len(restored) == 3
@@ -587,7 +587,7 @@ class TestDatasetSpec:
                     },
                 },
                 "metadata": {"key": "value"},
-                "form": valid_compressed_form,
+                "compressed_form": valid_compressed_form,
             },
             "ZJets2": {
                 "files": [
@@ -703,7 +703,7 @@ class TestDatasetSpec:
             with tempfile.TemporaryDirectory() as tmp:
                 fname = os.path.join(tmp, "test.json.gz")
                 with gzip.open(fname, "wt") as fout:
-                    fout.write(spec.model_dump_json(exclude_unset=False))
+                    fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
                 with gzip.open(fname, "rt") as fin:
                     restored = DatasetSpec.model_validate_json(fin.read())
                     if k != "ZJets2":
@@ -733,13 +733,13 @@ class TestDatasetJoinableSpec:
             spec = DatasetSpec(
                 files=files.model_dump(),
                 format="root",
-                form=compressed_form,
+                compressed_form=compressed_form,
                 metadata=None,
             )
         except ValidationError as e:
             print(e.errors())
         assert spec.format == "root"
-        assert spec.form == compressed_form
+        assert spec.compressed_form == compressed_form
         assert spec.joinable() is True
 
     def test_invalid_format(self):
@@ -774,7 +774,7 @@ class TestDatasetJoinableSpec:
         )
 
         with pytest.raises(ValidationError):
-            DatasetSpec(files=files, format="root", form="invalid_form")
+            DatasetSpec(files=files, format="root", compressed_form="invalid_form")
 
 
 class TestIOFactory:
@@ -931,6 +931,7 @@ class TestIOFactory:
             },
             "format": "root",
             "metadata": {"sample": "test"},
+            "compressed_form": None,
             "form": None,
         }
         # Check that the result matches the expected dictionary
@@ -1037,7 +1038,7 @@ class TestFilesetSpec:
     def test_invalid_form(self):
         """Test that invalid form raises ValidationError"""
         invalid_form_dict = copy.deepcopy(_starting_fileset)
-        invalid_form_dict["ZJets"]["form"] = invalid_compressed_form
+        invalid_form_dict["ZJets"]["compressed_form"] = invalid_compressed_form
         print("invalid_form_dict:", invalid_form_dict)
         with pytest.raises(ValidationError):
             FilesetSpec(invalid_form_dict)
@@ -1069,7 +1070,7 @@ class TestFilesetSpec:
                 },
                 "format": "root",
                 "metadata": {"key": "value"},
-                "form": valid_compressed_form,
+                "compressed_form": valid_compressed_form,
             },
             "Data": {"files": {"tests/samples/nano_dimuon.root": "Events"}},
         }
