@@ -1,4 +1,4 @@
-name: Nightly CI/CD
+name: Nightly tests
 
 on:
   # Run every two days at 0:01 UTC
@@ -6,10 +6,6 @@ on:
     - cron: '1 0 */2 * *'
   # Allow manual trigger
   workflow_dispatch:
-  # TEMPORARY: Remove before merging
-  pull_request:
-    branches:
-      - master
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
