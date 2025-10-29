@@ -1,0 +1,73 @@
+name: Nightly upstream tests
+
+on:
+  # Run daily at 0:01 UTC
+  schedule:
+    - cron: '1 0 * * *'
+  # Allow manual trigger
+  workflow_dispatch:
+  # TEMPORARY: Remove before merging
+  pull_request:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-upstream:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13"]
+        java-version: [17]
+        java-distribution: ["corretto"]
+
+    name: Test upstream packages from main
+
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: astral-sh/setup-uv@v7
+      with:
+        python-version: ${{ matrix.python-version }}
+        activate-environment: true
+
+    - name: Set up JDK ${{ matrix.java-distribution }}/${{ matrix.java-version }}
+      uses: actions/setup-java@v5
+      with:
+        java-version: ${{ matrix.java-version }}
+        distribution: ${{ matrix.java-distribution }}
+
+    - name: Install dependencies
+      run: |
+        echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
+        export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
+        uv pip install --upgrade pip setuptools wheel pytest-xdist
+        # Install upstream packages from their main branches
+        uv pip install git+https://github.com/scikit-hep/awkward.git
+        uv pip install git+https://github.com/scikit-hep/uproot5.git
+        uv pip install git+https://github.com/dask-contrib/dask-awkward.git
+        uv pip install git+https://github.com/scikit-hep/vector.git
+        uv pip install git+https://github.com/dask-contrib/dask-histogram.git
+        # mltool installs
+        # c.f. https://github.com/astral-sh/uv/issues/3437
+        uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+        uv pip install xgboost
+        # install checked out coffea
+        uv pip install -q '.[dev,parsl,dask,spark]' --upgrade
+        uv pip list
+        java -version
+
+    - name: Test with pytest (without dask Client - run in parallel)
+      run: |
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "not dask_client" -n 4
+
+    - name: Test with pytest (with dask Client)
+      run: |
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "dask_client"
