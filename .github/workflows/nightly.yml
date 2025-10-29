@@ -17,15 +17,16 @@ concurrency:
 
 jobs:
   test-upstream:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13"]
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        python-version: ["3.9", "3.13"]
         java-version: [17]
         java-distribution: ["corretto"]
 
-    name: Test upstream packages from main
+    name: Test upstream (${{ matrix.os }}) - py ${{ matrix.python-version }}
 
     steps:
     - uses: actions/checkout@v5
@@ -44,10 +45,12 @@ jobs:
         java-version: ${{ matrix.java-version }}
         distribution: ${{ matrix.java-distribution }}
 
-    - name: Install dependencies
+    - name: Install dependencies (Linux)
+      if: startsWith( matrix.os, 'ubuntu' )
       run: |
         echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
         export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
+        export GIT_LFS_SKIP_SMUDGE=1
         uv pip install --upgrade pip setuptools wheel pytest-xdist
         # Install upstream packages from their main branches
         uv pip install git+https://github.com/scikit-hep/awkward.git
@@ -61,6 +64,47 @@ jobs:
         uv pip install xgboost
         # install checked out coffea
         uv pip install -q '.[dev,parsl,dask,spark]' --upgrade
+        uv pip list
+        java -version
+
+    - name: Install dependencies (MacOS)
+      if: matrix.os == 'macOS-latest'
+      run: |
+        echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
+        export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
+        export GIT_LFS_SKIP_SMUDGE=1
+        uv pip install --upgrade pip setuptools wheel pytest-xdist
+        # Install upstream packages from their main branches
+        uv pip install git+https://github.com/scikit-hep/awkward.git
+        uv pip install git+https://github.com/scikit-hep/uproot5.git
+        uv pip install git+https://github.com/dask-contrib/dask-awkward.git
+        uv pip install git+https://github.com/scikit-hep/vector.git
+        uv pip install git+https://github.com/dask-contrib/dask-histogram.git
+        # mltool installs
+        # c.f. https://github.com/astral-sh/uv/issues/3437
+        uv pip install torch
+        uv pip install xgboost
+        # install checked out coffea
+        uv pip install -q '.[dev,dask,spark]' --upgrade
+        uv pip list
+        java -version
+
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        uv pip install --upgrade pip setuptools wheel pytest-xdist
+        # Install upstream packages from their main branches
+        uv pip install git+https://github.com/scikit-hep/awkward.git
+        uv pip install git+https://github.com/scikit-hep/uproot5.git
+        uv pip install git+https://github.com/dask-contrib/dask-awkward.git
+        uv pip install git+https://github.com/scikit-hep/vector.git
+        uv pip install git+https://github.com/dask-contrib/dask-histogram.git
+        # mltool installs
+        # c.f. https://github.com/astral-sh/uv/issues/3437
+        uv pip install torch
+        uv pip install xgboost
+        # install checked out coffea
+        uv pip install -q '.[dev,dask]' --upgrade
         uv pip list
         java -version
 
