@@ -94,4 +94,4 @@ Coffea supports three distributed schedulers out of the box:
 - {class}`~coffea.processor.ParslExecutor` uses [Parsl](http://parsl-project.org/) to target a wide range of HPC and batch backends.
 - {class}`~coffea.processor.TaskVineExecutor` leverages [TaskVine](https://cctools.readthedocs.io/en/latest/taskvine/) for opportunistic and heterogeneous workers.
 
-Each executor shares the same `Runner` interface, making it easy to start locally and later connect to a remote resource manager. The Work Queue executor is covered separately in {doc}`../user_guide/wq`.
+Each executor shares the same `Runner` interface, making it easy to start locally and later connect to a remote resource manager.

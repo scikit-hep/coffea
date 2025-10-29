@@ -65,7 +65,7 @@ The necessary dependencies can be installed easily via ``pip`` using the setupto
    - Apache [Spark](https://spark.apache.org/) distributed executor: ``pip install coffea[spark]``
    - [parsl](http://parsl-project.org/) distributed executor: ``pip install coffea[parsl]``
    - [dask](https://distributed.dask.org/en/latest/) distributed executor: ``pip install coffea[dask]``
-   - [Work Queue](https://cctools.readthedocs.io/en/latest/work_queue/) distributed executor: see the introduction to coffea workqueue for installation instructions
+   - [TaskVine](https://ccl.cse.nd.edu/software/taskvine/) distributed executor: see the installation guide in their docs and use the `TaskVineExecutor` in coffea.
 
 Multiple extras can be installed together via, e.g. `pip install coffea[dask,spark]`
 

@@ -18,7 +18,6 @@ Each executor implements the same interface and is consumed by {class}`coffea.pr
 - `DaskExecutor`: connects to a [Dask Distributed](https://distributed.dask.org/en/latest/) cluster for interactive or batch workloads.
 - `ParslExecutor`: targets HPC facilities via [Parsl](http://parsl-project.org/).
 - `TaskVineExecutor`: dispatches work to opportunistic and heterogeneous resources managed by [TaskVine](https://cctools.readthedocs.io/en/latest/taskvine/).
-- Work Queue: see {doc}`wq` for details on the Work Queue executor.
 
 All executors accept the same arguments when invoked by {class}`~coffea.processor.Runner`, making it easy to prototype locally and scale out later. The snippets below assume that `fileset` and `my_processor`
 are defined (see the example at the end of this page for a full context).
@@ -129,10 +128,6 @@ result = runner(fileset, processor_instance=my_processor, treename="Events")
 ```
 
 Coordinate worker factories using the TaskVine CLI or Python APIs; see the TaskVine documentation for examples.
-
-### Work Queue
-
-The Work Queue executor shares the same concepts but is covered in depth in {doc}`wq`.
 
 ## Switching executors
 
