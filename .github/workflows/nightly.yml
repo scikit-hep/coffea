@@ -1,9 +1,9 @@
-name: Nightly upstream tests
+name: Nightly CI/CD
 
 on:
-  # Run daily at 0:01 UTC
+  # Run every two days at 0:01 UTC
   schedule:
-    - cron: '1 0 * * *'
+    - cron: '1 0 */2 * *'
   # Allow manual trigger
   workflow_dispatch:
   # TEMPORARY: Remove before merging
@@ -26,7 +26,7 @@ jobs:
         java-version: [17]
         java-distribution: ["corretto"]
 
-    name: Test upstream (${{ matrix.os }}) - py ${{ matrix.python-version }}
+    name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}
 
     steps:
     - uses: actions/checkout@v5
@@ -92,6 +92,7 @@ jobs:
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
+        $env:GIT_LFS_SKIP_SMUDGE = "1"
         uv pip install --upgrade pip setuptools wheel pytest-xdist
         # Install upstream packages from their main branches
         uv pip install git+https://github.com/scikit-hep/awkward.git
