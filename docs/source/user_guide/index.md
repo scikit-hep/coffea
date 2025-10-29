@@ -10,5 +10,4 @@ nanoevents.md
 accumulators.md
 corrections.md
 executors.md
-wq.md
 ```
