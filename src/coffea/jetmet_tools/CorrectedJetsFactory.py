@@ -205,13 +205,13 @@ class CorrectedJetsFactory:
 
         Parameters
         ----------
-            injets : (Awkward array[jets])
+            injets : awkward.Array or dask_awkward.Array
                 An array of uncorrected jets, to which we want to apply corrections.
 
         Returns
         -------
-            Awkward array of jets, representing the corrected jets, with shape matching
-            ``injets``.
+            awkward.Array or dask_awkward.Array
+                Array of jets, representing the corrected jets, with shape matching ``injets``.
         """
         if not isinstance(injets, (awkward.highlevel.Array, dask_awkward.Array)):
             raise Exception("input jets must be an (dask_)awkward array of some kind!")

@@ -188,7 +188,7 @@ class TreeMakerSchema(BaseSchema):
 
         Parameters
         ----------
-            events : TreeMakerSchema
+            events : TreeMakerSchema events
                 The TreeMakerSchema events to be turned into something uproot-writeable
 
         Returns

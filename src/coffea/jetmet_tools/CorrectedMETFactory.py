@@ -78,7 +78,7 @@ class CorrectedMETFactory:
 
         Returns
         -------
-            awkward.Array
+            awkward.Array or dask_awkward.Array
                 Array of corrected MET values with shape matching ``in_MET``.
         """
         if not isinstance(
