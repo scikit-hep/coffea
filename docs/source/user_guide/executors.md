@@ -33,11 +33,11 @@ from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
 runner = processor.Runner(
-    executor=processor.IterativeExecutor(status=True),
+    executor=processor.IterativeExecutor(),
     schema=NanoAODSchema,
 )
 
-result = runner(fileset, processor_instance=my_processor, treename="Events")
+result = runner(fileset, processor_instance=my_processor)
 ```
 
 ### FuturesExecutor
@@ -52,11 +52,10 @@ from coffea.nanoevents import NanoAODSchema
 executor = processor.FuturesExecutor(
     workers=8,
     pool=ThreadPoolExecutor,
-    status=True,
 )
 runner = processor.Runner(executor=executor, schema=NanoAODSchema)
 
-result = runner(fileset, processor_instance=my_processor, treename="Events")
+result = runner(fileset, processor_instance=my_processor)
 ```
 
 ## Distributed executors
@@ -73,20 +72,13 @@ from coffea.nanoevents import NanoAODSchema
 client = Client("tcp://scheduler:8786")
 
 runner = processor.Runner(
-    executor=processor.DaskExecutor(client=client, status=True),
-    pre_executor=processor.IterativeExecutor(status=True),
+    executor=processor.DaskExecutor(client=client),
     schema=NanoAODSchema,
     savemetrics=True,
 )
 
-result, metrics = runner(
-    fileset,
-    processor_instance=my_processor,
-    treename="Events",
-)
+result, metrics = runner(fileset, processor_instance=my_processor)
 ```
-
-The optional `pre_executor` controls how metadata is gathered before submitting work; by default it reuses the main executor.
 
 ### ParslExecutor
 
@@ -102,10 +94,10 @@ from parsl.executors import HighThroughputExecutor
 config = Config(executors=[HighThroughputExecutor(label="jobs")])
 parsl.load(config)
 
-executor = processor.ParslExecutor(config=config, status=True)
+executor = processor.ParslExecutor(config=config)
 runner = processor.Runner(executor=executor, schema=NanoAODSchema)
 
-result = runner(fileset, processor_instance=my_processor, treename="Events")
+result = runner(fileset, processor_instance=my_processor)
 ```
 
 ### TaskVineExecutor
@@ -120,11 +112,10 @@ executor = processor.TaskVineExecutor(
     port=9123,
     cores=2,
     disk=2048,
-    status=True,
 )
 runner = processor.Runner(executor=executor, schema=NanoAODSchema)
 
-result = runner(fileset, processor_instance=my_processor, treename="Events")
+result = runner(fileset, processor_instance=my_processor)
 ```
 
 Coordinate worker factories using the TaskVine CLI or Python APIs; see the TaskVine documentation for examples.
@@ -138,50 +129,46 @@ from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
 class CountEvents(processor.ProcessorABC):
-    def __init__(self):
-        self._accumulator = processor.dict_accumulator(
-            {"events": processor.defaultdict_accumulator(int)}
-        )
-
-    @property
-    def accumulator(self):
-        return self._accumulator.identity()
-
     def process(self, events):
-        out = self.accumulator
-        out["events"][events.metadata["dataset"]] += len(events)
-        return out
+        dataset = events.metadata["dataset"]
+        return {
+            dataset: {
+                "events": len(events),
+            }
+        }
 
     def postprocess(self, accumulator):
         return accumulator
 
 fileset = {
-    "ZJets": {"treename": "Events", "files": ["/data/nano_dy.root"]},
-    "Data": {"treename": "Events", "files": ["/data/nano_dimuon.root"]},
+    "ZJets": {
+        "files": {"/data/nano_dy.root": "Events"},
+        "metadata": {"year": 2018},
+    },
+    "Data": {
+        "files": {"/data/nano_dimuon.root": "Events"},
+        "metadata": {"year": 2018},
+    },
 }
 
 my_processor = CountEvents()
 
 # Local development
 local_runner = processor.Runner(
-    executor=processor.IterativeExecutor(status=True),
+    executor=processor.IterativeExecutor(),
     schema=NanoAODSchema,
 )
-local_result = local_runner(fileset, processor_instance=my_processor, treename="Events")
+local_result = local_runner(fileset, processor_instance=my_processor)
 
 # Scale to a cluster
 from dask.distributed import Client
 
 client = Client("tcp://scheduler:8786")
 cluster_runner = processor.Runner(
-    executor=processor.DaskExecutor(client=client, status=True),
+    executor=processor.DaskExecutor(client=client),
     schema=NanoAODSchema,
 )
-cluster_result = cluster_runner(
-    fileset,
-    processor_instance=my_processor,
-    treename="Events",
-)
+cluster_result = cluster_runner(fileset, processor_instance=my_processor)
 ```
 
 ## Tips & tricks

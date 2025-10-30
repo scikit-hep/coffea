@@ -33,7 +33,7 @@ class MuonSFProcessor(processor.ProcessorABC):
 import awkward as ak
 
 def process(self, events):
-    out = self.accumulator
+    dataset = events.metadata["dataset"]
     muons = events.Muon[(events.Muon.tightId) & (events.Muon.pt > 20)]
 
     sf = self.sf.evaluate(
@@ -59,7 +59,7 @@ event_weight_up = ak.prod(sf_up, axis=1)
 event_weight_down = ak.prod(sf_down, axis=1)
 ```
 
-Store alternative weights in the accumulator so downstream steps can build envelopes.
+Store alternative weights in your output dictionary so downstream steps can build envelopes.
 
 ## Combine multiple corrections
 
@@ -85,16 +85,26 @@ event_weight *= xsec * luminosity / events.metadata["n_events"]
 
 Keep bookkeeping inputs (sum of generator weights, number of events) in the fileset metadata.
 
-## Report weights in the accumulator
+## Report weights in the output
 
 ```python
-out["cutflow"]["weighted"] += float(ak.sum(event_weight))
-out["systematics"]["muon_sf_up"] += float(ak.sum(event_weight_up))
+return {
+    dataset: {
+        "cutflow": {
+            "weighted": float(ak.sum(event_weight)),
+        },
+        "systematics": {
+            "muon_sf_up": float(ak.sum(event_weight_up)),
+            "muon_sf_down": float(ak.sum(event_weight_down)),
+        },
+    }
+}
 ```
 
-Use `defaultdict_accumulator` or `dict_accumulator` to accumulate per-systematic yields.
+Return systematic variations in your output dictionary so they can be merged across chunks.
 
 ## Tips & tricks
 
 - Persist helper arrays (like absolute eta) on the events object if multiple corrections need them; this avoids recomputing inside every evaluation.
-- Record the correction versions you used in the accumulator or metadata to streamline reproducibility and cross-checks.
+- Record the correction versions you used in the output dictionary or metadata to streamline reproducibility and cross-checks.
+- Use the `Weights` class from `coffea.analysis_tools` to manage multiple corrections and their systematics together (see the applying_corrections notebook for examples).

@@ -16,13 +16,11 @@ This guide walks through exploring branches, creating selections, and reducing d
 ```python
 from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
 
-factory = NanoEventsFactory.from_root(
-    "nano_dy.root",
+events = NanoEventsFactory.from_root(
+    {"nano_dy.root": "Events"},
     schemaclass=NanoAODSchema,
-    treepath="Events",
     entry_stop=10_000,
-)
-events = factory.events()
+).events()
 
 print(events.fields)            # top-level collections
 print(events.Muon.fields)       # attributes on the Muon collection
