@@ -46,7 +46,7 @@ To install coffea, there are several mostly-equivalent options:
 
    - install coffea system-wide using `pip install coffea`;
    - if you do not have administrator permissions, install as local user with `pip install --user coffea`;
-   - if you prefer to not place coffea in your global environment, you can set up a `Virtual environment`_;
+   - if you prefer to not place coffea in your global environment, you can set up a `Virtual environment`;
    - if you use [Conda](https://docs.conda.io/projects/conda/en/latest/index.html), simply `conda install coffea`;
    - or, if you like to use containers, see [](#pre-build-images) below.
 
@@ -62,7 +62,6 @@ Coffea supports several optional components that require additional package inst
 In particular, all of the [](./concepts.md#distributed-executors) require additional packages.
 The necessary dependencies can be installed easily via ``pip`` using the setuptools [extras](https://setuptools.readthedocs.io/en/latest/setuptools.html#declaring-extras-optional-features-with-their-own-dependencies) facility:
 
-   - Apache [Spark](https://spark.apache.org/) distributed executor: ``pip install coffea[spark]``
    - [parsl](http://parsl-project.org/) distributed executor: ``pip install coffea[parsl]``
    - [dask](https://distributed.dask.org/en/latest/) distributed executor: ``pip install coffea[dask]``
    - [TaskVine](https://ccl.cse.nd.edu/software/taskvine/) distributed executor: see the installation guide in their docs and use the `TaskVineExecutor` in coffea.
@@ -83,25 +82,82 @@ pip install coffea
 (pre-build-images)=
 ## Pre-built images
 
-A complete coffea + scientific python environment is available as a docker image:
+Official Docker images are maintained at the [CoffeaTeam/af-images](https://github.com/CoffeaTeam/af-images) repository and available on DockerHub.
+
+### Docker Images
+
+For **Coffea 2024+ (calendar versioned)**, use the AlmaLinux 8 or 9 images with Dask, XrootD, and CA certificates:
 
 ```bash
-docker run -it --name docker-coffea-base coffeateam/coffea-base
+# AlmaLinux 8 (latest stable release)
+docker run -it --name coffea-container coffeateam/coffea-dask-almalinux8:latest
+
+# AlmaLinux 9 (latest stable release)
+docker run -it --name coffea-container coffeateam/coffea-dask-almalinux9:latest
+
+# Specific Python version (e.g., Python 3.10)
+docker run -it --name coffea-container coffeateam/coffea-dask-almalinux8:latest-py3.10
+
+# Specific release version (e.g., 2025.10.2)
+docker run -it --name coffea-container coffeateam/coffea-dask-almalinux8:2025.10.2-py3.10
 ```
 
-More information is available at https://github.com/CoffeaTeam/docker-coffea-base#readme
-Additionally there is an image with dask dependencies (including dask-jobqueue):
+For **legacy Coffea 0.7.x**, use the coffea-base images:
 
 ```bash
-docker run -it --name docker-coffea-dask coffeateam/coffea-dask
+# AlmaLinux 8 (legacy 0.7.x, latest stable)
+docker run -it --name coffea-container coffeateam/coffea-base-almalinux8:latest
+
+# AlmaLinux 9 (legacy 0.7.x, latest stable)
+docker run -it --name coffea-container coffeateam/coffea-base-almalinux9:latest
 ```
 
-With corresponding repo at https://github.com/CoffeaTeam/docker-coffea-dask#readme
+### Image variants:
 
-If you use singularity, there are preconverted images available via the unpacked.cern.ch service. For example, you can start a shell with:
+For specialized use cases, additional image variants are available:
 
 ```bash
-singularity shell -B ${PWD}:/work /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask:latest
+# Without machine learning libraries (smaller image size)
+docker run -it --name coffea-container coffeateam/coffea-dask-almalinux9-noml:latest
+
+# With EAF (Execute Ahead Framework) support
+docker run -it --name coffea-container coffeateam/coffea-dask-almalinux9-eaf:latest
+```
+
+**Note:** Legacy image names `coffeateam/coffea-base` and `coffeateam/coffea-dask` (without the `-almalinux8/9` suffix) are deprecated. Please use the AlmaLinux-specific images listed above.
+
+For a complete list of all available images, visit [DockerHub](https://hub.docker.com/u/coffeateam).
+
+### Tag naming conventions:
+
+- `latest`: Current stable release (recommended for most users)
+- `latest-py3.X`: Latest stable release with specific Python version (3.8, 3.9, 3.10, 3.11, 3.12)
+- `202X.X.X-pyX.XX`: Specific calendar-versioned release with Python version
+- `dev`: Development branch (unstable)
+- `head`: Main branch (unstable)
+
+### Singularity/Apptainer
+
+If you use Singularity or Apptainer, preconverted images are available via the CVMFS unpacked.cern.ch service at `/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/`:
+
+```bash
+# Latest calendar-versioned Coffea (AlmaLinux 8)
+singularity shell -B ${PWD}:/work /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux8:latest
+
+# Latest calendar-versioned Coffea (AlmaLinux 9)
+singularity shell -B ${PWD}:/work /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:latest
+
+# Specific Python version
+singularity shell -B ${PWD}:/work /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux8:latest-py3.10
+
+# Legacy Coffea 0.7.x
+singularity shell -B ${PWD}:/work /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-base-almalinux8:latest
+```
+
+To list all available images on CVMFS:
+
+```bash
+ls /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/
 ```
 
 ## Install via cvmfs
@@ -135,10 +191,10 @@ but the number of coffea dependencies makes the installation rather large, up to
 
 If we start from one of the singularity containers from the [](#pre-build-images) section, we don't have to install nearly as much
 software in our virtual environment, letting the container image take care of the majority of the codebase. For example, the following
-code starts from the `coffea-dask` image and adds a special python module that is not included in the base image:
+code starts from the `coffea-dask-almalinux8` image and adds a special python module that is not included in the base image:
 
 ```bash
-singularity shell -B ${PWD}:/srv /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask:latest
+singularity shell -B ${PWD}:/srv /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux8:latest
 cd /srv
 python -m venv --without-pip --system-site-packages myenv
 source myenv/bin/activate
