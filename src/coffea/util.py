@@ -262,6 +262,17 @@ def decompress_form(form_compressedb64):
 
 
 def _is_interpretable(branch, emit_warning=True):
+    if isinstance(branch, uproot.behaviors.RNTuple.HasFields):
+        # These are collections made by the RNTuple Importer
+        # Once "real" (i.e. non-converted) RNTuples start to be written,
+        # these should not be here and this check can be removed
+        if branch.path.startswith("_collection"):
+            return False
+        # Subfields should be accessed via the parent branch since
+        # the way forms are set up for subfields
+        if "." in branch.path:
+            return False
+        return True
     if isinstance(
         branch.interpretation, uproot.interpretation.identify.uproot.AsGrouped
     ):
