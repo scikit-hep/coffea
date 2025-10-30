@@ -6,7 +6,7 @@ class ProcessorABC(metaclass=ABCMeta):
 
     The various data delivery mechanisms (spark, striped, uproot, uproot+futures, condor, ...)
     receive such an object and the appropriate metadata to deliver NanoEvents to it.
-    It is expected that the entire processor object can be serializable (check with `coffea.util.save`)
+    It is expected that the entire processor object can be serializable (check with ``coffea.util.save``)
     No attempt should be made to track state inside an instance of ProcessorABC, it is to be
     treated simply as a bundle of methods.
 

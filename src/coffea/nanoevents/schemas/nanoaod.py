@@ -192,8 +192,8 @@ class NanoAODSchema(BaseSchema):
 
         Returns
         -------
-            out: NanoAODSchema
-                Schema assuming NanoAODv7
+            NanoAODSchema
+                Schema configured for NanoAODv7.
         """
         return cls(base_form, version="7")
 
@@ -203,8 +203,8 @@ class NanoAODSchema(BaseSchema):
 
         Returns
         -------
-            out: NanoAODSchema
-                Schema assuming NanoAODv6
+            NanoAODSchema
+                Schema configured for NanoAODv6.
         """
         return cls(base_form, version="6")
 
@@ -214,8 +214,8 @@ class NanoAODSchema(BaseSchema):
 
         Returns
         -------
-            out: NanoAODSchema
-                Schema assuming NanoAODv5
+            NanoAODSchema
+                Schema configured for NanoAODv5.
         """
         return cls(base_form, version="5")
 
