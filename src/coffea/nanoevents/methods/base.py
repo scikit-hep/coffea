@@ -57,11 +57,11 @@ class Systematic:
         Register a type of systematic variation, which must fulfill the base class interface. Types of
         systematic variations must be registered here before an actual systematic of that type can be
         added. For example, by default an up/down systematic is registered, as described in
-        `coffea.nanoevents.methods.systematics.UpDownSystematic`.
+        ``coffea.nanoevents.methods.systematics.UpDownSystematic``.
 
         Parameters
         ----------
-            kind: str
+            kind : str
                 The name of the type of systematic described by this class
         """
         cls._systematic_kinds.add(kind)
@@ -109,12 +109,15 @@ class Systematic:
         varying_function: Callable,
     ):
         """
-        name: str, name of the systematic variation / uncertainty source
-        what: Union[str, List[str], Tuple[str]], name what gets varied,
-              this could be a list or tuple of column names
-        varying_function: Union[function, bound method, partial], a function that describes how 'what' is varied
-        define how to manipulate the output of varying_function to produce all systematic variations. Varying function
-        must close over all non-event-data arguments.
+        Parameters
+        ----------
+            name : str
+                Name of the systematic variation or uncertainty source.
+            what : str or list[str] or tuple[str]
+                Which fields are varied by this systematic.
+            varying_function : Callable
+                Callable that describes how ``what`` is varied. The function must close
+                over all non event-data arguments.
         """
         pass
 
@@ -147,13 +150,13 @@ class Systematic:
 
         Parameters
         ----------
-            name: str
+            name : str
                 Name of the systematic variation / uncertainty source
-            kind: str
+            kind : str
                 The name of the kind of systematic variation
-            what: Union[str, List[str], Tuple[str]]
+            what : str or list[str, tuple[str]]
                 Name what gets varied, this could be a list or tuple of column names
-            varying_function: Union[function, bound method]
+            varying_function : Callable
                 A function that describes how 'what' is varied, it must close over all non-event-data arguments.
         """
 

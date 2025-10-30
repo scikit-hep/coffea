@@ -25,8 +25,8 @@ print("coffea version:", coffea.__version__)
 # -- Project information -----------------------------------------------------
 
 project = "coffea"
-copyright = "2024, Fermi National Accelerator Laboratory"
-author = "L. Gray, N. Smith, et al. (The Coffea Team)"
+copyright = "2025, Fermi National Accelerator Laboratory"
+author = "L. Gray, N. Smith, I. Krommydas et al. (The Coffea Team)"
 
 version = coffea.__version__.rsplit(".", 1)[0]
 release = coffea.__version__
@@ -36,13 +36,14 @@ language = "en"
 
 # -- General configuration ---------------------------------------------------
 
-source_suffix = ".rst"
+source_suffix = [".rst", ".md"]
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "nbsphinx",
+    "myst_nb",
+    # "nbsphinx",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.graphviz",
@@ -63,6 +64,7 @@ copybutton_here_doc_delimiter = "EOF"
 numpydoc_show_class_members = False
 nbsphinx_execute = "never"
 autosummary_generate = True
+autosummary_imported_members = True
 
 
 def linkcode_resolve(domain, info):
@@ -96,7 +98,21 @@ templates_path = ["_templates"]
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    "numpy": ("http://docs.scipy.org/doc/numpy", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "awkward": ("https://awkward-array.org/doc/main/", None),
+    "dask-awkward": ("https://dask-awkward.readthedocs.io/en/stable/", None),
+}
+
+napoleon_preprocess_types = True
+
+napoleon_type_aliases = {
+    "awkward.Array": ":class:`awkward.Array <ak.Array>`",
+    "awkward.Record": ":class:`awkward.Record <ak.Record>`",
+    "awkward.highlevel.Array": ":class:`awkward.Array <ak.Array>`",
+    "awkward.highlevel.Record": ":class:`awkward.Record <ak.Record>`",
+    "dask_awkward.Array": ":class:`dask_awkward.Array <dask_awkward.Array>`",
+    "dask_awkward.Record": ":class:`dask_awkward.Record <dask_awkward.Record>`",
+    "dask_awkward.Scalar": ":class:`dask_awkward.Scalar <dask_awkward.Scalar>`",
 }
 
 # The master toctree document.
@@ -115,11 +131,22 @@ default_role = "any"
 # a list of builtin themes.
 #
 pygments_style = "sphinx"
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
 todo_include_todos = False
 htmlhelp_basename = "coffeadoc"
 html_logo = "logo/coffea_favicon.png"
 html_favicon = "logo/coffea_favicon.png"
+
+# -- MyST configuration -------------------------------------------------
+myst_enable_extensions = ["colon_fence", "deflist"]
+myst_heading_anchors = 3
+
+# exclude for now
+nb_execution_excludepatterns = ["notebooks/*"]
+
+nb_execution_mode = "cache"
+nb_execution_raise_on_error = True
+nb_execution_show_tb = True
 
 
 # Add any paths that contain custom static files (such as style sheets) here,
