@@ -36,9 +36,9 @@ def get_steps(
 
     Parameters
     ----------
-        normed_files : awkward.Array | dask_awkward.Array
+        normed_files : awkward.Array or dask_awkward.Array
             The list of normalized file descriptions to process for steps.
-        step_size : int | None, default None
+        step_size : int or None, default None
             If specified, the size of the steps to make when analyzing the input files.
         align_clusters : bool, default False
             Round to the cluster size in a root file, when chunks are specified. Reduces data transfer in
@@ -48,7 +48,7 @@ def get_steps(
             of only recalculating the steps if the uuid has changed.
         skip_bad_files : bool, default False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions : Exception | Warning | tuple[Exception | Warning], default (OSError,)
+        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (OSError,)
             What exceptions to catch when skipping bad files.
         save_form : bool, default False
             Extract the form of the TTree from the file so we can skip opening files later.
@@ -58,7 +58,7 @@ def get_steps(
 
     Returns
     -------
-        array : awkward.Array | dask_awkward.Array
+        array : awkward.Array or dask_awkward.Array
             The normalized file descriptions, appended with the calculated steps for those files.
     """
     nf_backend = awkward.backend(normed_files)
@@ -272,7 +272,7 @@ def preprocess(
     ----------
         fileset : FilesetSpecOptional
             The set of datasets whose files will be preprocessed.
-        step_size : int | None, default None
+        step_size : int or None, default None
             If specified, the size of the steps to make when analyzing the input files.
         align_clusters : bool, default False
             Round to the cluster size in a root file, when chunks are specified. Reduces data transfer in
@@ -285,11 +285,11 @@ def preprocess(
             Large values will result in fewer dask tasks but each task will have to do more work.
         skip_bad_files : bool, default False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions : Exception | Warning | tuple[Exception | Warning], default (FileNotFoundError, OSError)
+        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (FileNotFoundError, OSError)
             What exceptions to catch when skipping bad files.
         save_form : bool, default False
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
-        scheduler : None | Callable | str, default None
+        scheduler : None or Callable or str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
         uproot_options : dict, default {}
             Options to pass to get_steps for opening files with uproot.

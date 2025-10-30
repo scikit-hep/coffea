@@ -46,7 +46,7 @@ def apply_to_dataset(
     ----------
         data_manipulation : ProcessorABC or GenericHEPAnalysis
             The user analysis code to run on the input dataset
-        dataset : DatasetSpec | DatasetSpecOptional
+        dataset : DatasetSpec or DatasetSpecOptional
             The data to be acted upon by the data manipulation passed in.
         schemaclass : BaseSchema, default NanoAODSchema
             The nanoevents schema to interpret the input dataset with.
@@ -105,7 +105,7 @@ def apply_to_fileset(
     ----------
         data_manipulation : ProcessorABC or GenericHEPAnalysis
             The user analysis code to run on the input dataset
-        fileset : FilesetSpec | FilesetSpecOptional
+        fileset : FilesetSpec or FilesetSpecOptional
             The data to be acted upon by the data manipulation passed in. Metadata within the fileset should be dask-serializable.
         schemaclass : BaseSchema, default NanoAODSchema
             The nanoevents schema to interpret the input dataset with.

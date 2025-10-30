@@ -229,7 +229,7 @@ Some basic commands:
 
         Parameters
         ----------
-            query : str | None, default None
+            query : str or None, default None
                 The query to pass to rucio. If None, will prompt the user for an input.
         """
         if query is None:
@@ -269,10 +269,10 @@ Some basic commands:
 
         Parameters
         ----------
-            selection : str | None, default None
+            selection : str or None, default None
                 Space-delimited indices corresponding to selected datasets. Can include
                 ranges (like ``"4-6"``) or the literal ``"all"``.
-            metadata : dict[Hashable, Any] | None, default None
+            metadata : dict[Hashable, Any] or None, default None
                 Metadata to store in associated with selected datasets.
         """
         if not self.last_query_list:
@@ -330,13 +330,13 @@ Some basic commands:
 
         Parameters
         ----------
-            mode : str | None, default None
+            mode : str or None, default None
                 Selection strategy for preferred sites. Options:
                     - None:  ask the user about the mode
                     - round-robin (take files randomly from available sites),
                     - choose: ask the user to choose from a list of sites
                     - first: take the first site from the rucio query
-            selection : str | None, default None
+            selection : str or None, default None
                 Indices (or the literal ``"all"``) identifying datasets on which to run
                 the replica query.
         """
@@ -491,7 +491,7 @@ Some basic commands:
 
         Parameters
         ----------
-            sites : list[str] | None, default None
+            sites : list[str] or None, default None
                 The sites to allow the replicas query to look at. If passing in a list,
                 elements of the list are sites. If passing in None, the prompt requires
                 a single string containing a comma-separated listing.
@@ -514,7 +514,7 @@ Some basic commands:
 
         Parameters
         ----------
-            sites : list[str] | None, default None
+            sites : list[str] or None, default None
                 The sites to prevent the replicas query from looking at. If passing in a
                 list elements of the list are sites. If passing in None, the prompt
                 requires a single string containing a comma-separated listing.
@@ -537,7 +537,7 @@ Some basic commands:
 
         Parameters
         ----------
-            regex : str | None, default None
+            regex : str or None, default None
                 Sites to use for replica queries, described with a regex string.
         """
         if regex is None:
@@ -604,7 +604,7 @@ Some basic commands:
 
         Parameters
         ----------
-            filename : str | None, default None
+            filename : str or None, default None
                 The name of the file to save the information into.
         """
         if not filename:
@@ -641,23 +641,23 @@ Some basic commands:
 
         Parameters
         ----------
-            output_file : str | None, default None
+            output_file : str or None, default None
                 Target prefix for the generated ``*_available.json.gz`` and
                 ``*_all.json.gz`` files.
-            step_size : int | None, default None
+            step_size : int or None, default None
                 Chunk size (number of events) to process per step.
-            align_to_clusters : bool | None, default None
+            align_to_clusters : bool or None, default None
                 Whether to align step boundaries to ROOT cluster boundaries. Mirrors the
                 ``align_clusters`` argument of ``coffea.dataset_tools.preprocess``.
-            scheduler_url : str | None, default None
+            scheduler_url : str or None, default None
                 Dask scheduler URL on which to run preprocessing.
-            recalculate_steps : bool | None, default None
+            recalculate_steps : bool or None, default None
                 Recompute step definitions even if cached values are present.
-            files_per_batch : int | None, default None
+            files_per_batch : int or None, default None
                 Number of files to send to each preprocessing task.
             file_exceptions : tuple[type[BaseException], ...], default (OSError,)
                 Exceptions that should trigger file skipping instead of aborting.
-            save_form : bool | None, default None
+            save_form : bool or None, default None
                 Persist the Awkward form extracted during preprocessing alongside the
                 output.
             uproot_options : dict, default {}

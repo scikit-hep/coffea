@@ -175,7 +175,7 @@ class extractor:
 
         Parameters
         ----------
-        reduce_list : list[str] | None, optional
+        reduce_list : list[str] or None, optional
             Reduce the weights contained in this extractor to only those with names
             in reduce_list. If not provided, no such reduction takes place.
         """

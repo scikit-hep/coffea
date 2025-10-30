@@ -309,7 +309,7 @@ class NanoEventsFactory:
                 Pass a list instance to record which branches were lazily accessed by this instance
             use_ak_forth : bool, default True
                 Toggle using awkward_forth to interpret branches in the ROOT file.
-            known_base_form : dict | None, optional
+            known_base_form : dict or None, optional
                 If the base form of the input file is known ahead of time we can skip opening a single file and parsing metadata.
             decompression_executor : Any, optional
                 Executor with a ``submit`` method used for decompression tasks. See
@@ -489,13 +489,13 @@ class NanoEventsFactory:
 
         Parameters
         ----------
-            file : str | pathlib.Path | pyarrow.NativeFile | io.IOBase
+            file : str or pathlib.Path or pyarrow.NativeFile or io.IOBase
                 The filename or already opened file using e.g. ``pyarrow.NativeFile()``.
             mode : {"eager", "virtual", "dask"}, default "virtual"
                 Backend to use when interpreting parquet data.
-            entry_start : int | None, optional
+            entry_start : int or None, optional
                 Starting entry (only used in eager or virtual mode). Defaults to ``0``.
-            entry_stop : int | None, optional
+            entry_stop : int or None, optional
                 Stopping entry (only used in eager or virtual mode). Defaults to end of dataset.
             runtime_cache : dict, optional
                 A dict-like interface to a cache object. This cache is expected to last the
@@ -654,9 +654,9 @@ class NanoEventsFactory:
             array_source : Mapping[str, awkward.Array]
                 A mapping of names to awkward arrays, it must have a metadata attribute with uuid,
                 num_rows, and path sub-items.
-            entry_start : int | None, optional
+            entry_start : int or None, optional
                 Start index for slicing the array source. Defaults to ``0``.
-            entry_stop : int | None, optional
+            entry_stop : int or None, optional
                 Stop index for slicing the array source. Defaults to the full length.
             runtime_cache : dict, optional
                 A dict-like interface to a cache object. This cache is expected to last the
@@ -783,7 +783,7 @@ class NanoEventsFactory:
 
         Returns
         -------
-            awkward.Array | dask_awkward.Array | tuple
+            awkward.Array or dask_awkward.Array or tuple
                 Events materialised according to the configured backend. In ``\"dask\"``
                 mode a ``dask_awkward.Array`` is returned (optionally paired with a
                 report). In ``\"virtual\"`` or ``\"eager\"`` mode an ``awkward.Array`` is

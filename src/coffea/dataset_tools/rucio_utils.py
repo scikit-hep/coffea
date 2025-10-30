@@ -158,15 +158,15 @@ def get_dataset_files_replicas(
 
         dataset : str
             The dataset to search for.
-        allowlist_sites : list | None
+        allowlist_sites : list or None
             List of sites to select from. If the file is not found there, raise an Exception.
-        blocklist_sites : list | None
+        blocklist_sites : list or None
             List of sites to avoid. If the file has no left site, raise an Exception.
-        regex_sites : list | None
+        regex_sites : list or None
             Regex expression to restrict the list of sites.
         mode : str, default "full"
             One of "full", "first", "best", or "roundrobin". Behavior of each described above.
-        client : rucio.client.Client | None, optional
+        client : rucio.client.Client or None, optional
             The rucio client to use. If not provided, one will be generated for you.
         partial_allowed : bool, default False
             If False, throws an exception if any file in the dataset cannot be found. If True,
@@ -302,7 +302,7 @@ def query_dataset(
     ----------
         query : str
             Pattern passed to ``rucio`` ``list_dids``.
-        client : rucio.client.Client | None, optional
+        client : rucio.client.Client or None, optional
             Client instance to use. If omitted, a new client is created.
         tree : bool, default False
             If True, return a mapping grouped by dataset components alongside the list.
@@ -313,7 +313,7 @@ def query_dataset(
 
     Returns
     -------
-        list[str] | tuple[list[str], dict[str, dict[str, list[str]]]]
+        list[str] or tuple[list[str], dict[str, dict[str, list[str]]]]
             When ``tree`` is False, returns the matched dataset names. Otherwise returns
             a tuple of the flat list and a nested dictionary grouping the names by their
             components.

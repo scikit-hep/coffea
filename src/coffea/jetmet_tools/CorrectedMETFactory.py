@@ -71,9 +71,9 @@ class CorrectedMETFactory:
 
         Parameters
         ----------
-            in_MET : awkward.Array | dask_awkward.Array
+            in_MET : awkward.Array or dask_awkward.Array
                 An array of raw (uncorrected) MET values.
-            in_corrected_jets : awkward.Array | dask_awkward.Array
+            in_corrected_jets : awkward.Array or dask_awkward.Array
                 An array of corrected jets, as produced by `CorrectedJetsFactory`.
 
         Returns

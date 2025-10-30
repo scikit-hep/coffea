@@ -113,7 +113,7 @@ class Systematic:
         ----------
             name : str
                 Name of the systematic variation or uncertainty source.
-            what : str | list[str] | tuple[str]
+            what : str or list[str] or tuple[str]
                 Which fields are varied by this systematic.
             varying_function : Callable
                 Callable that describes how ``what`` is varied. The function must close
@@ -154,7 +154,7 @@ class Systematic:
                 Name of the systematic variation / uncertainty source
             kind : str
                 The name of the kind of systematic variation
-            what : Union[str, list[str], tuple[str]]
+            what : str or list[str, tuple[str]]
                 Name what gets varied, this could be a list or tuple of column names
             varying_function : Callable
                 A function that describes how 'what' is varied, it must close over all non-event-data arguments.

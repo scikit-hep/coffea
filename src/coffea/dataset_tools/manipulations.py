@@ -17,7 +17,7 @@ def max_chunks(fileset: FilesetSpec, maxchunks: int | None = None) -> FilesetSpe
     ----------
         fileset : FilesetSpec
             The set of datasets reduce to max-chunks row-ranges.
-        maxchunks : int | None, default None
+        maxchunks : int or None, default None
             How many chunks to keep for each file.
 
     Returns
@@ -38,7 +38,7 @@ def max_chunks_per_file(
     ----------
         fileset : FilesetSpec
             The set of datasets reduce to max-chunks row-ranges.
-        maxchunks : int | None, default None
+        maxchunks : int or None, default None
             How many chunks to keep for each file.
 
     Returns
@@ -116,7 +116,7 @@ def max_files(fileset: FilesetSpec, maxfiles: int | None = None) -> FilesetSpec:
     ----------
         fileset : FilesetSpec
             The set of datasets reduce to max-files files per dataset.
-        maxfiles : int | None, default None
+        maxfiles : int or None, default None
             How many files to keep for each dataset.
 
     Returns

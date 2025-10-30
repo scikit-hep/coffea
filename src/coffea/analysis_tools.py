@@ -201,7 +201,7 @@ class Weights:
 
     Parameters
     ----------
-        size : int | None
+        size : int or None
             size of the weight arrays to be handled (i.e. the number of events / instances).
             If None then we expect to operate in delayed mode.
         storeIndividual : bool, optional
