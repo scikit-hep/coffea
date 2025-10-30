@@ -63,6 +63,8 @@ dependencies = [
   "requests",
   "aiohttp",
   "fsspec",
+  "rich",
+  "ipywidgets",
 ]
 dynamic = ["version"]
 
