@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import re
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, MutableMapping
 from typing import Annotated, Any, Literal, Union
 
 try:
@@ -56,39 +56,19 @@ class CoffeaParquetFileSpec(CoffeaParquetFileSpecOptional):
     # is_directory: Literal[True, False] #identify whether it's a directory of parquet files or a single parquet file, may be useful or necessary to distinguish
 
 
-class DictMethodsMixin:
-    def __getitem__(self, key: str) -> str:
-        return self.root[key]
+# Create union type definition
+FileSpecUnion = Union[
+    CoffeaROOTFileSpec,
+    CoffeaParquetFileSpec,
+    CoffeaROOTFileSpecOptional,
+    CoffeaParquetFileSpecOptional,
+]
 
-    def __setitem__(self, key: str, value: str):
-        self.root[key] = value
 
-    def __delitem__(self, key: str):
-        del self.root[key]
-
-    def __len__(self) -> int:
-        return len(self.root)
-
-    def __iter__(self) -> Iterable[str]:
-        return iter(self.root)
-
-    def keys(self) -> Iterable[str]:
-        return self.root.keys()
-
-    def values(self) -> Iterable[str]:
-        return self.root.values()
-
-    def items(self) -> Iterable[tuple[str, str]]:
-        return self.root.items()
-
-    def get(self, key: str, default=None) -> str | None:
-        return self.root.get(key, default)
-
-    def pop(self, key: str, default=...):
-        return self.root.pop(key, default)
-
-    def update(self, other=None, **kwargs):
-        self.root.update(other, **kwargs)
+ConcreteFileSpecUnion = Union[
+    CoffeaROOTFileSpec,
+    CoffeaParquetFileSpec,
+]
 
 
 class InputFilesMixin:
@@ -145,20 +125,27 @@ class InputFiles(
     RootModel[
         dict[
             str,
-            Union[
-                CoffeaROOTFileSpec,
-                CoffeaParquetFileSpec,
-                CoffeaROOTFileSpecOptional,
-                CoffeaParquetFileSpecOptional,
-            ],
+            FileSpecUnion,
         ]
     ],
-    DictMethodsMixin,
+    MutableMapping,
     InputFilesMixin,
 ):
 
     def __iter__(self) -> Iterable[str]:
         return iter(self.root)
+
+    def __getitem__(self, key: str) -> FileSpecUnion:
+        return self.root[key]
+
+    def __setitem__(self, key: str, value: FileSpecUnion):
+        self.root[key] = value
+
+    def __delitem__(self, key: str):
+        del self.root[key]
+
+    def __len__(self) -> int:
+        return len(self.root)
 
     @model_validator(mode="after")
     def promote_and_check_files(self) -> Self:
@@ -184,18 +171,27 @@ class PreprocessedFiles(
     RootModel[
         dict[
             str,
-            Union[
-                CoffeaROOTFileSpec,
-                CoffeaParquetFileSpec,
-            ],
+            ConcreteFileSpecUnion,
         ]
     ],
-    DictMethodsMixin,
+    MutableMapping,
     InputFilesMixin,
 ):
 
     def __iter__(self) -> Iterable[str]:
         return iter(self.root)
+
+    def __getitem__(self, key: str) -> ConcreteFileSpecUnion:
+        return self.root[key]
+
+    def __setitem__(self, key: str, value: ConcreteFileSpecUnion):
+        self.root[key] = value
+
+    def __delitem__(self, key: str):
+        del self.root[key]
+
+    def __len__(self) -> int:
+        return len(self.root)
 
     @model_validator(mode="after")
     def promote_and_check_files(self) -> Self:
@@ -320,9 +316,21 @@ class DatasetSpec(BaseModel):
             return awkward.forms.from_json(decompress_form(self.compressed_form))
 
 
-class FilesetSpec(RootModel[dict[str, DatasetSpec]], DictMethodsMixin):
+class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
     def __iter__(self) -> Iterable[str]:
         return iter(self.root)
+
+    def __getitem__(self, key: str) -> DatasetSpec:
+        return self.root[key]
+
+    def __setitem__(self, key: str, value: DatasetSpec):
+        self.root[key] = value
+
+    def __delitem__(self, key: str):
+        del self.root[key]
+
+    def __len__(self) -> int:
+        return len(self.root)
 
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
