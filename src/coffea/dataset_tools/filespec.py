@@ -152,9 +152,9 @@ class InputFiles(
         preprocessed = {k: False for k in self.root}
         for k, v in self.root.items():
             try:
-                if type(v) in [CoffeaROOTFileSpecOptional]:
+                if isinstance(v, CoffeaROOTFileSpecOptional):
                     self.root[k] = CoffeaROOTFileSpec(v)
-                if type(v) in [CoffeaParquetFileSpecOptional]:
+                if isinstance(v, CoffeaParquetFileSpecOptional):
                     self.root[k] = CoffeaParquetFileSpec(v)
                 preprocessed[k] = True
             except Exception:
@@ -198,9 +198,9 @@ class PreprocessedFiles(
         preprocessed = {k: False for k in self.root}
         for k, v in self.root.items():
             try:
-                if type(v) in [CoffeaROOTFileSpecOptional]:
+                if isinstance(v, CoffeaROOTFileSpecOptional):
                     self.root[k] = CoffeaROOTFileSpec(v)
-                if type(v) in [CoffeaParquetFileSpecOptional]:
+                if isinstance(v, CoffeaParquetFileSpecOptional):
                     self.root[k] = CoffeaParquetFileSpec(v)
                 preprocessed[k] = True
             except Exception:
