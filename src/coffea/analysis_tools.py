@@ -21,6 +21,14 @@ import coffea.processor
 import coffea.util
 from coffea.util import coffea_console
 
+__all__ = [
+    "WeightStatistics",
+    "Weights",
+    "NminusOne",
+    "Cutflow",
+    "PackedSelection",
+]
+
 # rich colors for console output
 # from https://mk.bcgsc.ca/colorblind/palettes.mhtml
 _rcol = {
@@ -918,23 +926,26 @@ class NminusOne:
                 and excludes them otherwise.
         Returns
         -------
-            result : NminusOneResult
-                A namedtuple with the following attributes:
+            result : NminusOneResult or ExtendedNminusOneResult
+                A namedtuple with the following attributes.
+                If includeweights is False or weights were not provided, returns NminusOneResult.
+                If includeweights is True and weights were provided, returns ExtendedNminusOneResult.
 
-                nev : list of integers or dask_awkward.lib.core.Scalar objects
+                NminusOneResult attributes:
+
+                - nev : list of integers or dask_awkward.lib.core.Scalar objects
                     The number of events in each step of the N-1 selection as a list of integers or delayed integers
-                masks : list of boolean numpy.ndarray or dask_awkward.lib.core.Array objects
+                - masks : list of boolean numpy.ndarray or dask_awkward.lib.core.Array objects
                     The boolean mask vectors of which events pass the N-1 selection each time as a list of materialized or delayed boolean arrays
 
-            result: ExtendedNminusOneResult
-                A namedtuple with the NminusOneResult properties and additionally the following:
+                ExtendedNminusOneResult additional attributes:
 
-                commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array object, or None if no common mask was provided
-                wgtev : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
+                - commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array object, or None if no common mask was provided
+                - wgtev : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
                     The weighted number of events in each step of the N-1 selection as a list of floats or delayed floats
-                weights : float numpy.ndarray or dask_awkward.lib.core.Array object, or None if no weights were provided
+                - weights : float numpy.ndarray or dask_awkward.lib.core.Array object, or None if no weights were provided
                     The Weights.weight(modifier) array provided as input. Must be masked by masks elements to get the corresponding weights
-                weightsmodifier : str or None
+                - weightsmodifier : str or None
                     The modifier passed to Weights.weight([modifier]) if weights were provided
 
         """
@@ -1101,12 +1112,14 @@ class NminusOne:
                 if the nminusone was instantiated with weights and unweighted statistics otherwise.
             categorical : dict, optional
                 A dictionary with the following keys:
+
                     axis : hist.axis object
                         The axis to be used as a categorical axis
                     values : list
                         The array to be filled in the categorical axis, must be the same length as the masks
                     labels : list
                         The labels corresponding to the values in the categorical axis
+
                 Default is None, which does not apply any categorical axis.
 
         Returns
@@ -1262,12 +1275,14 @@ class NminusOne:
                 A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
             categorical : dict, optional
                 A dictionary with the following keys:
+
                     axis : hist.axis object
                         The axis to be used as a categorical axis
                     values : list
                         The array to be filled in the categorical axis, must be the same length as the masks
                     labels : list
                         The labels corresponding to the values in the categorical axis
+
                 Default is None, which does not apply any categorical axis.
 
         Returns
@@ -1888,12 +1903,14 @@ class Cutflow:
                 A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
             categorical : dict, optional
                 A dictionary with the following keys:
+
                     axis : hist.axis object
                         The axis to be used as a categorical axis
                     values : list
                         The array to be filled in the categorical axis, must be the same length as the masks
                     labels : list
                         The labels corresponding to the values in the categorical axis
+
                 Default is None, which does not apply any categorical axis.
 
         Returns

@@ -34,6 +34,7 @@ class CorrectedMETFactory:
     ----------
         name_map: dict[str,str]
             Keys must include at least the following:
+
                 - METpt
                 - METphi
                 - JetPt
@@ -41,6 +42,7 @@ class CorrectedMETFactory:
                 - ptRaw
                 - UnClusteredEnergyDeltaX
                 - UnClusteredEnergyDeltaY
+
             and each of those must be mapped to the corresponding field name of the input
             arrays ``in_MET`` and ``in_corrected_jets`` for the ``build`` method.
     """

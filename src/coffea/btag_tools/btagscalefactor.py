@@ -20,25 +20,16 @@ class BTagScaleFactor:
         keep_df : bool, optional
             If set true, keep the parsed dataframe as an attribute (.df) for later inspection
 
-    Attributes
-    ----------
-        LOOSE: int
-            Value is 0. This is the integer for the loose WP
-        MEDIUM: int
-            Value is 1. This is the integer for the medium WP
-        TIGHT: int
-            Value is 2. This is the integer for the tight WP
-        RESHAPE: int
-            Value is 3. This is the integer for the reshape WP
-        FLAV_B: int
-            Value is 0. This is the integer to represent the b flavor. Input choice to some methods.
-        FLAV_C: int
-            Value is 1. This is the integer to represent the c flavor. Input choice to some methods.
-        FLAV_UDSG: int
-            Value is 2. This is the integer to represent u, d, and s flavors, as well as gluons. Input choice to some methods.
+    Notes
+    -----
+    Class constants for working points: LOOSE (0), MEDIUM (1), TIGHT (2), RESHAPE (3)
+
+    Class constants for flavors: FLAV_B (0), FLAV_C (1), FLAV_UDSG (2)
     """
 
+    # Working point constants
     LOOSE, MEDIUM, TIGHT, RESHAPE = range(4)
+    # Flavor constants
     FLAV_B, FLAV_C, FLAV_UDSG = range(3)
     _flavor = numpy.array([0, 4, 5, 6])
     _flavor2btvflavor = {0: FLAV_UDSG, 4: FLAV_C, 5: FLAV_B}

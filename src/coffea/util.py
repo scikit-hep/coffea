@@ -35,6 +35,18 @@ from functools import partial
 import cloudpickle
 import fsspec
 
+__all__ = [
+    "load",
+    "save",
+    "rich_bar",
+    "deprecate",
+    "awkward_rewrap",
+    "maybe_map_partitions",
+    "compress_form",
+    "decompress_form",
+    "coffea_console",
+]
+
 
 def load(filename, compression="lz4"):
     """Load a coffea file from disk
