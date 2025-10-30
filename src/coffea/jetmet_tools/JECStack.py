@@ -18,20 +18,20 @@ class JECStack:
 
     Parameters
     ---------
-        corrections: dict[str,lookup_base]
+        corrections : dict[str, lookup_base]
             A dict-like of function names and functions. The function depends on the type
             of correction (eg: for JEC, should be jme_standard_function). We expect JEC
             names to be formatted as their filenames.
-        jec: FactorizedJetCorrector, optional
+        jec : FactorizedJetCorrector, optional
             If provided, overrides the jec that would be created from ``corrections`` in
             the stack.
-        junc: JetCorrectionUncertainty, optional
+        junc : JetCorrectionUncertainty, optional
             If provided, overrides the junc that would be created from ``corrections`` in
             the stack.
-        jer: JetResolution, optional
+        jer : JetResolution, optional
             If provided, overrides the jer that would be created from ``corrections`` in
             the stack.
-        jersf: JetResolutionScaleFactor, optional
+        jersf : JetResolutionScaleFactor, optional
             If provided, overrides the jersf that would be created from ``corrections`` in
             the stack.
     """

@@ -71,11 +71,11 @@ class extractor:
 
         Parameters
         ----------
-        local_name: str
+        local_name : str
             The name of the weight.
-        thetype: str
+        thetype : str
             The type of weight (eg: jme_standard_function).
-        weights: Varies
+        weights : Varies
             The weights themselves. Type and structure depends on thetype.
         """
         if self._finalized:
@@ -92,7 +92,7 @@ class extractor:
 
         Parameters
         ----------
-        weightsdescs: Iterable[str]
+        weightsdescs : Iterable[str]
             Expects a list of text lines to be formatted as '<local name> <name> <weights file>'.
             Allows * * <file> and <prefix> * <file> to do easy imports of whole file.
         """
@@ -132,7 +132,7 @@ class extractor:
 
         Parameters
         ----------
-        thefile: str
+        thefile : str
             The path to the file to be imported
         """
         if thefile not in self._filecache.keys():
@@ -156,9 +156,9 @@ class extractor:
 
         Parameters
         ----------
-        thefile: str
+        thefile : str
             The path to the file to import
-        name: str
+        name : str
             The name of the weights to extract, as named in the file
         """
         self.import_file(thefile)
@@ -175,7 +175,7 @@ class extractor:
 
         Parameters
         ----------
-        reduce_list: list[str], optional
+        reduce_list : list[str] | None, optional
             Reduce the weights contained in this extractor to only those with names
             in reduce_list. If not provided, no such reduction takes place.
         """

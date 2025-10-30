@@ -42,9 +42,9 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
 
     Parameters
     ----------
-        torch_jit: str
-            Path to the TorchScript file to load
-        expected_output_shape: tuple(int)
+        torch_jit : str
+            Path to the TorchScript file to load.
+        expected_output_shape : tuple[int] | None
             A tuple representing the expected shape of the torch model return.
             In case a length-0 inputs is detected and this value is not None,
             the wrapper will return the length-0 numpy array of the same shape,

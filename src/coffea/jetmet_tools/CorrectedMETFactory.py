@@ -32,7 +32,7 @@ class CorrectedMETFactory:
 
     Parameters
     ----------
-        name_map: dict[str,str]
+        name_map : dict[str, str]
             Keys must include at least the following:
 
                 - METpt
@@ -71,14 +71,15 @@ class CorrectedMETFactory:
 
         Parameters
         ----------
-            in_MET: (Awkward array[float])
+            in_MET : awkward.Array | dask_awkward.Array
                 An array of raw (uncorrected) MET values.
-            in_corrected_jets: (Awkward array[jets])
+            in_corrected_jets : awkward.Array | dask_awkward.Array
                 An array of corrected jets, as produced by `CorrectedJetsFactory`.
 
         Returns
         -------
-            Awkward array of corrected MET values, with shape matching ``in_MET``.
+            awkward.Array
+                Array of corrected MET values with shape matching ``in_MET``.
         """
         if not isinstance(
             in_MET, (awkward.highlevel.Array, dask_awkward.Array)

@@ -19,9 +19,9 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
 
     Parameters
     ----------
-        fname: str
+        fname : str
             Path to the xgboost model file, such that an ``xgbooster`` can be created
-            via ``xgboost.Booster(model_file=fname)```.
+            via ``xgboost.Booster(model_file=fname)``.
     """
 
     def __init__(self, fname):
@@ -60,11 +60,11 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
 
         Parameters
         ----------
-            data: np.ndarray
+            data : numpy.ndarray
                 The data to pass into the ``xgboost.DMatrix`` construction.
-            dmat_args: dict[str,str], optional
+            dmat_args : dict[str, str], optional
                 Keyword arguments to pass into the ``xgboost.DMatrix`` construction.
-            predict_args: dict[str,str], optional
+            predict_args : dict[str, str], optional
                 Keyword arguments to pass to the actual prediction step of ``xgboost``,
                 ie: the ``predict`` method of ``xgbooster.Booster.predict``. Note that the
                 first argument of that method is handled by this method.
@@ -95,11 +95,11 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
 
         Parameters
         ----------
-            data: np.ndarray
+            data : numpy.ndarray
                 The data to pass into the ``xgboost.DMatrix`` construction.
-            dmat_args: dict[str,str], optional
+            dmat_args : dict[str, str], optional
                 Keyword arguments to pass into the ``xgboost.DMatrix`` construction.
-            predict_args: dict[str,str], optional
+            predict_args : dict[str, str], optional
                 Keyword arguments to pass to the actual prediction step of ``xgboost``,
                 ie: the ``predict`` method of ``xgbooster.Booster.predict``. Note that the
                 first argument of that method is handled by this method.

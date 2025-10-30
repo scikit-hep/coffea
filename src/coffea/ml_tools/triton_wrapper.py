@@ -43,13 +43,13 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
 
     Parameters
     ----------
-        model_url: str
+        model_url : str
             A string in the format of: ``triton+<protocol>://<address>/<model>/<version>``
 
-        client_args: dict[str,str], optional
+        client_args : dict[str, str], optional
             Optional keyword arguments to pass to the underlying ``InferenceServerClient`` objects.
 
-        batch_size: int, default -1
+        batch_size : int, default -1
             How the input arrays should be split up for analysis processing. Leave negative to
             have this automatically resolved.
     """
@@ -185,19 +185,19 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
 
         Parameters
         ----------
-            output_list: list[str]
+            output_list : list[str]
                 List of string corresponding to the name of the outputs
                 of interest. These strings will be automatically translated into the
-                required ```tritonclient.InferRequestedOutput``` objects. This is identical
-                to the first argument the user passes in when calling the `triton_wrapper`
+                required ``tritonclient.InferRequestedOutput`` objects. This is identical
+                to the first argument the user passes in when calling the ``triton_wrapper``
                 instance.
 
-            input_dict: dict[str,np.array]
+            input_dict : dict[str, numpy.ndarray]
                 Dictionary with the model's input-names as the key and the
                 appropriate numpy array as the dictionary value. This dictionary is
-                automatically translated into a list of ```tritonclient.InferInput```
+                automatically translated into a list of ``tritonclient.InferInput``
                 objects. This is identical to the second argument the user passes in when
-                calling the ```triton_wrapper`` instance.
+                calling the ``triton_wrapper`` instance.
         """
         # Input value checking
         for iname, iarr in input_dict.items():
@@ -252,21 +252,21 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
         """
         Parameters
         ----------
-            output_list: list[str]
+            output_list : list[str]
                 List of string corresponding to the name of the outputs
                 of interest. These strings will be automatically translated into the
-                required ```tritonclient.InferRequestedOutput``` objects.
+                required ``tritonclient.InferRequestedOutput`` objects.
 
-            input_dict: dict[str,np.array]
+            input_dict : dict[str, numpy.ndarray]
                 Dictionary with the model's input-names as the key and the
                 appropriate numpy array as the dictionary value. This dictionary is
-                automatically translated into a list of ```tritonclient.InferInput```
+                automatically translated into a list of ``tritonclient.InferInput``
                 objects.
 
 
         Returns
         -------
-            dict[str,np.array]
+            dict[str, numpy.ndarray]
                 The return will be the dictionary of numpy arrays that have the
                 output_list arguments as keys.
         """

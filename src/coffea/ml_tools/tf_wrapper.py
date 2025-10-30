@@ -29,15 +29,12 @@ class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):
 
         Parameters
         ----------
-
-        tf_model:
-            Path to the tensorflow model file for computation
-        skip_length_zero:
-            Generating a default length 0 numpy array if the input array is
-            detected to be length-0 instead of passing it into the tensorflow
-            model. This option should only be used if the model uses tensorflow
-            functions that does not properly implement behaviors for length 0
-            inputs.
+        tf_model : str
+            Path to the TensorFlow model file saved via ``tf.keras.models.save_model``.
+        skip_length_zero : bool, default False
+            Produce an empty numpy array when the input array has zero length instead of
+            passing it to the TensorFlow model. Use only if the model relies on TensorFlow
+            functions that do not gracefully handle length-zero inputs.
         """
         if _tf_import_error is not None:
             warnings.warn(

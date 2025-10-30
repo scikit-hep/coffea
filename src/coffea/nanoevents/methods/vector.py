@@ -2,9 +2,9 @@
 
 These mixins will eventually be superseded by the `vector <https://github.com/scikit-hep/vector>`__ library,
 which will hopefully be feature-compatible. The 2D vector provides cartesian and polar coordinate attributes,
-where ```r``` represents the polar distance from the origin..  The 3D vector provides cartesian and spherical coordinates,
-where ```rho``` represents the 3D distance from the origin and ```r``` is the axial distance from the z axis, so that it can
-subclass the 2D vector. The Lorentz vector also subclasses the 3D vector, adding ```t``` as the fourth
+where ``r`` represents the polar distance from the origin. The 3D vector provides cartesian and spherical coordinates,
+where ``rho`` represents the 3D distance from the origin and ``r`` is the axial distance from the z axis, so that it can
+subclass the 2D vector. The Lorentz vector also subclasses the 3D vector, adding ``t`` as the fourth
 cartesian coordinate. Aliases typical of momentum vectors are also provided.
 
 A small example::

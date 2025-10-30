@@ -66,9 +66,9 @@ def save(output, filename, compression="lz4"):
 
     This function can accept any picklable object.  Suggested suffix: ``.coffea``
 
-    ``compression` can be one of the ``fsspec`` supported compression string names.
+    ``compression`` can be one of the ``fsspec`` supported compression string names.
     These compression algorithms may have dependencies that need to be installed separately.
-    if it is ``None``, it means no compression.
+    If it is ``None``, it means no compression.
     """
     with fsspec.open(filename, "wb", compression=compression) as fout:
         cloudpickle.dump(output, fout)

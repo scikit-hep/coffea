@@ -280,7 +280,7 @@ class NanoEventsFactory:
             mode:
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
             treepath : str, optional
-                Name of the tree to read in the file. Used only if ```file``` is a ``uproot.reading.ReadOnlyDirectory``.
+                Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``.
             entry_start : int, optional (eager and virtual mode only)
                 Start at this entry offset in the tree (default 0)
             entry_stop : int, optional (eager and virtual mode only)
@@ -307,19 +307,21 @@ class NanoEventsFactory:
                 Any options to pass to ``tree.iteritems`` when iterating over the tree's branches to extract the form.
             access_log : list, optional
                 Pass a list instance to record which branches were lazily accessed by this instance
-            use_ak_forth:
-                Toggle using awkward_forth to interpret branches in root file.
-            known_base_form:
+            use_ak_forth : bool, default True
+                Toggle using awkward_forth to interpret branches in the ROOT file.
+            known_base_form : dict | None, optional
                 If the base form of the input file is known ahead of time we can skip opening a single file and parsing metadata.
-            decompression_executor (None or Executor with a ``submit`` method):
-                see: https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L109
-            interpretation_executor (None or Executor with a ``submit`` method):
-                see: https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L113
+            decompression_executor : Any, optional
+                Executor with a ``submit`` method used for decompression tasks. See
+                https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L109.
+            interpretation_executor : Any, optional
+                Executor with a ``submit`` method used for interpretation tasks. See
+                https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L113.
 
         Returns
         -------
-            out: NanoEventsFactory
-                A NanoEventsFactory instance built from the file at ``file``.
+            NanoEventsFactory
+                Factory configured from ``file`` that can materialise NanoEvents.
         """
         if delayed is not uproot._util.unset:
             msg = """
@@ -487,14 +489,14 @@ class NanoEventsFactory:
 
         Parameters
         ----------
-            file : str, pathlib.Path, pyarrow.NativeFile, or python file-like
+            file : str | pathlib.Path | pyarrow.NativeFile | io.IOBase
                 The filename or already opened file using e.g. ``pyarrow.NativeFile()``.
-            mode:
-                Nanoevents will use "eager", "virtual", or "dask" as a backend.
-            entry_start : int, optional
-                Start at this entry offset in the tree (default 0)
-            entry_stop : int, optional
-                Stop at this entry offset in the tree (default end of tree)
+            mode : {"eager", "virtual", "dask"}, default "virtual"
+                Backend to use when interpreting parquet data.
+            entry_start : int | None, optional
+                Starting entry (only used in eager or virtual mode). Defaults to ``0``.
+            entry_stop : int | None, optional
+                Stopping entry (only used in eager or virtual mode). Defaults to end of dataset.
             runtime_cache : dict, optional
                 A dict-like interface to a cache object. This cache is expected to last the
                 duration of the program only, and will be used to hold references to materialized
@@ -515,8 +517,8 @@ class NanoEventsFactory:
 
         Returns
         -------
-            out: NanoEventsFactory
-                A NanoEventsFactory instance built from the file at ``file``.
+            NanoEventsFactory
+                Factory configured from ``file`` that can materialise NanoEvents.
         """
         import pyarrow
         import pyarrow.dataset as ds
@@ -652,10 +654,10 @@ class NanoEventsFactory:
             array_source : Mapping[str, awkward.Array]
                 A mapping of names to awkward arrays, it must have a metadata attribute with uuid,
                 num_rows, and path sub-items.
-            entry_start : int, optional
-                Start at this entry offset in the tree (default 0)
-            entry_stop : int, optional
-                Stop at this entry offset in the tree (default end of tree)
+            entry_start : int | None, optional
+                Start index for slicing the array source. Defaults to ``0``.
+            entry_stop : int | None, optional
+                Stop index for slicing the array source. Defaults to the full length.
             runtime_cache : dict, optional
                 A dict-like interface to a cache object. This cache is expected to last the
                 duration of the program only, and will be used to hold references to materialized
@@ -672,8 +674,8 @@ class NanoEventsFactory:
 
         Returns
         -------
-            out: NanoEventsFactory
-                A NanoEventsFactory instance built from information in ``array_source``.
+            NanoEventsFactory
+                Factory configured from ``array_source`` that can materialise NanoEvents.
         """
         if not isinstance(array_source, Mapping):
             raise TypeError(
@@ -781,12 +783,11 @@ class NanoEventsFactory:
 
         Returns
         -------
-            out:
-                If the NanoEventsFactory is running in dask mode, this is
-                a Dask awkward array of the events. If the mapping also produces a
-                report, the output will be a tuple (events, report).
-                If the factory is running in virtual or eager mode, this is an awkward
-                array of the events.
+            awkward.Array | dask_awkward.Array | tuple
+                Events materialised according to the configured backend. In ``\"dask\"``
+                mode a ``dask_awkward.Array`` is returned (optionally paired with a
+                report). In ``\"virtual\"`` or ``\"eager\"`` mode an ``awkward.Array`` is
+                returned.
         """
         if self._mode == "dask":
             dask_awkward.lib.core.dak_cache.clear()

@@ -141,15 +141,15 @@ class WeightStatistics:
 
     Parameters
     ----------
-        sumw: float
+        sumw : float
             The sum of weights
-        sumw2: float
+        sumw2 : float
             The sum of squared weights
-        minw: float
+        minw : float
             The minimum weight
-        maxw: float
+        maxw : float
             The maximum weight
-        n: int
+        n : int
             The number of entries
     """
 
@@ -175,7 +175,7 @@ class WeightStatistics:
 
         Parameters
         ----------
-            other: WeightStatistics
+            other : WeightStatistics
                 The other WeightStatistics object to add to this one
         """
         self.sumw += other.sumw
@@ -2115,8 +2115,8 @@ class PackedSelection:
 
         Returns
         -------
-            res: bool
-                True if the PackedSelection is in delayed mode
+            bool
+                True if the PackedSelection is in delayed mode.
         """
         if isinstance(self._data, dask_awkward.Array):
             return True
@@ -2135,8 +2135,8 @@ class PackedSelection:
 
         Returns
         -------
-            res: bool
-                The maximum supported number of selections
+            int
+                Maximum number of selections that can be stored given the current dtype.
         """
         return PackedSelection._supported_types[self._dtype]
 
@@ -2355,8 +2355,8 @@ class PackedSelection:
 
         Returns
         -------
-            res: coffea.analysis_tools.NminusOne
-                A wrapper class for the results, see the documentation for that class for more details
+            NminusOne
+                Wrapper class describing the N-1 results. See the ``NminusOne`` documentation for details.
         """
         for cut in names:
             if not isinstance(cut, str) or cut not in self._names:
@@ -2449,8 +2449,8 @@ class PackedSelection:
 
         Returns
         -------
-            res: coffea.analysis_tools.Cutflow
-                A wrapper class for the results, see the documentation for that class for more details
+            Cutflow
+                Wrapper class describing the cutflow results. See the ``Cutflow`` documentation for details.
         """
         for cut in names:
             if not isinstance(cut, str) or cut not in self._names:

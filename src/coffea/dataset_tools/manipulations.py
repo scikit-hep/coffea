@@ -15,9 +15,9 @@ def max_chunks(fileset: FilesetSpec, maxchunks: int | None = None) -> FilesetSpe
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : FilesetSpec
             The set of datasets reduce to max-chunks row-ranges.
-        maxchunks: int | None, default None
+        maxchunks : int | None, default None
             How many chunks to keep for each file.
 
     Returns
@@ -36,9 +36,9 @@ def max_chunks_per_file(
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : FilesetSpec
             The set of datasets reduce to max-chunks row-ranges.
-        maxchunks: int | None, default None
+        maxchunks : int | None, default None
             How many chunks to keep for each file.
 
     Returns
@@ -57,11 +57,11 @@ def slice_chunks(
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : FilesetSpec
             The set of datasets to be sliced.
-        theslice: Any, default slice(None)
+        theslice : Any, default slice(None)
             How to slice the array of row-ranges (steps) in the input fileset.
-        bydataset: bool, default True
+        bydataset : bool, default True
             If True, slices across all steps in all files in each dataset, otherwise slices each file individually.
 
     Returns
@@ -114,9 +114,9 @@ def max_files(fileset: FilesetSpec, maxfiles: int | None = None) -> FilesetSpec:
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : FilesetSpec
             The set of datasets reduce to max-files files per dataset.
-        maxfiles: int | None, default None
+        maxfiles : int | None, default None
             How many files to keep for each dataset.
 
     Returns
@@ -133,9 +133,9 @@ def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpe
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : FilesetSpec
             The set of datasets to be sliced.
-        theslice: Any, default slice(None)
+        theslice : Any, default slice(None)
             How to slice the array of files in the input datasets. We slice in key-order.
 
     Returns
@@ -171,9 +171,9 @@ def filter_files(
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : FilesetSpec
             The set of datasets to be sliced.
-        thefilter: Callable[[tuple[str, CoffeaFileSpec]], bool], default filters empty files
+        thefilter : Callable[[tuple[str, CoffeaFileSpec]], bool], default filters empty files
             How to filter the files in the each dataset.
 
     Returns
@@ -195,9 +195,9 @@ def get_failed_steps_for_dataset(
 
     Parameters
     ----------
-        dataset: DatasetSpec
+        dataset : DatasetSpec
             The dataset to be reduced to only contain files and row-ranges that have previously encountered failed file access.
-        report: awkward.Array
+        report : awkward.Array
             The computed file-access error report from dask-awkward.
 
     Returns
@@ -252,9 +252,9 @@ def get_failed_steps_for_fileset(
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : FilesetSpec
             The set of datasets to be reduced to only contain files and row-ranges that have previously encountered failed file access.
-        report_dict: dict[str, awkward.Array]
+        report_dict : dict[str, awkward.Array]
             The computed file-access error reports from dask-awkward, indexed by dataset name.
 
     Returns

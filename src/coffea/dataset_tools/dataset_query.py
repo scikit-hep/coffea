@@ -30,13 +30,13 @@ def print_dataset_query(
 
     Parameters
     ----------
-        query: str
+        query : str
             The query given to rucio
-        dataset_list: dict[str, dict[str,list[str]]]
+        dataset_list : dict[str, dict[str, list[str]]]
             The second output of a call to query_dataset with tree=True
-        console: Console
+        console : Console
             A Console object to print to
-        selected: list[str], default []
+        selected : list[str], default []
             A list of selected datasets
     """
     table = Table(title=f"Query: [bold red]{query}")
@@ -209,7 +209,7 @@ Some basic commands:
 
     def do_login(self, proxy=None):
         """Login to the rucio client. Optionally a specific proxy file can be passed to the command.
-        If the proxy file is not specified, ```voms-proxy-info``` is used"""
+        If the proxy file is not specified, ``voms-proxy-info`` is used"""
         if proxy:
             self.rucio_client = rucio_utils.get_rucio_client(proxy)
         else:
@@ -229,7 +229,7 @@ Some basic commands:
 
         Parameters
         ----------
-            query: str | None, default None
+            query : str | None, default None
                 The query to pass to rucio. If None, will prompt the user for an input.
         """
         if query is None:
@@ -269,11 +269,10 @@ Some basic commands:
 
         Parameters
         ----------
-            selection: list[str] | None, default None
-                A list of indices corresponding to selected datasets. Should be a
-                string, with indices separated by spaces. Can include ranges (like "4-6")
-                or "all".
-            metadata: dict[Hashable,Any], default None
+            selection : str | None, default None
+                Space-delimited indices corresponding to selected datasets. Can include
+                ranges (like ``"4-6"``) or the literal ``"all"``.
+            metadata : dict[Hashable, Any] | None, default None
                 Metadata to store in associated with selected datasets.
         """
         if not self.last_query_list:
@@ -331,15 +330,15 @@ Some basic commands:
 
         Parameters
         ----------
-            mode: str, default None
-                One of the following
+            mode : str | None, default None
+                Selection strategy for preferred sites. Options:
                     - None:  ask the user about the mode
                     - round-robin (take files randomly from available sites),
                     - choose: ask the user to choose from a list of sites
                     - first: take the first site from the rucio query
-            selection: str, default None
-                list of indices or 'all' to select all the selected datasets for
-                replicas query
+            selection : str | None, default None
+                Indices (or the literal ``"all"``) identifying datasets on which to run
+                the replica query.
         """
         if selection is None:
             selection = Prompt.ask(
@@ -492,7 +491,7 @@ Some basic commands:
 
         Parameters
         ----------
-            sites: list[str] | None, default None
+            sites : list[str] | None, default None
                 The sites to allow the replicas query to look at. If passing in a list,
                 elements of the list are sites. If passing in None, the prompt requires
                 a single string containing a comma-separated listing.
@@ -515,7 +514,7 @@ Some basic commands:
 
         Parameters
         ----------
-            sites: list[str] | None, default None
+            sites : list[str] | None, default None
                 The sites to prevent the replicas query from looking at. If passing in a
                 list elements of the list are sites. If passing in None, the prompt
                 requires a single string containing a comma-separated listing.
@@ -538,7 +537,7 @@ Some basic commands:
 
         Parameters
         ----------
-            regex: str | None, default None
+            regex : str | None, default None
                 Sites to use for replica queries, described with a regex string.
         """
         if regex is None:
@@ -554,7 +553,7 @@ Some basic commands:
 
         Parameters
         ----------
-            ask_clear: bool, default True
+            ask_clear : bool, default True
                 If True, ask the user via prompt if allow, disallow, and regex filters
                 should be cleared.
         """
@@ -603,9 +602,10 @@ Some basic commands:
         """
         Save the replica information in yaml format
 
-        Parameters:
-            filename: str | None, default None
-                The name of the file to save the information into
+        Parameters
+        ----------
+            filename : str | None, default None
+                The name of the file to save the information into.
         """
         if not filename:
             filename = Prompt.ask(
@@ -641,15 +641,31 @@ Some basic commands:
 
         Parameters
         ----------
-            output_file: str | None, default None
-                The name of the file to write the preprocessed file into
-            step_size: int | None, default None
-                The chunk size for file splitting
-            align_to_clusters: bool | None, default None
-                Whether or not round to the cluster size in a root file. See
-                align_clusters parameter in coffea.dataset_tools.preprocess.
-            scheduler_url: str | None, default None
-                Dask scheduler URL where the preprocessing should take place
+            output_file : str | None, default None
+                Target prefix for the generated ``*_available.json.gz`` and
+                ``*_all.json.gz`` files.
+            step_size : int | None, default None
+                Chunk size (number of events) to process per step.
+            align_to_clusters : bool | None, default None
+                Whether to align step boundaries to ROOT cluster boundaries. Mirrors the
+                ``align_clusters`` argument of ``coffea.dataset_tools.preprocess``.
+            scheduler_url : str | None, default None
+                Dask scheduler URL on which to run preprocessing.
+            recalculate_steps : bool | None, default None
+                Recompute step definitions even if cached values are present.
+            files_per_batch : int | None, default None
+                Number of files to send to each preprocessing task.
+            file_exceptions : tuple[type[BaseException], ...], default (OSError,)
+                Exceptions that should trigger file skipping instead of aborting.
+            save_form : bool | None, default None
+                Persist the Awkward form extracted during preprocessing alongside the
+                output.
+            uproot_options : dict, default {}
+                Keyword arguments forwarded to ``uproot`` when opening files.
+            step_size_safety_factor : float, default 0.5
+                Multiplicative safety factor applied when estimating step sizes.
+            allow_empty_datasets : bool, default False
+                Whether to keep datasets that produce zero valid chunks.
         """
         if not output_file:
             output_file = Prompt.ask(
@@ -714,12 +730,12 @@ Some basic commands:
 
         Parameters
         ----------
-            dataset_definition: Dict[str,Dict[Hashable,Any]]
-                Keys are dataset queries (ie: something that can be passed to do_query())
-            query_results_strategy: str, default "all"
+            dataset_definition : dict[str, dict[Hashable, Any]]
+                Mapping from dataset query string to metadata to attach to the selection.
+            query_results_strategy : str, default "all"
                 How to decide which datasets to select. If "manual", user will be prompted
                 for selection
-            replicas_strategy: str, default "round-robin"
+            replicas_strategy : str, default "round-robin"
                 Options are:
                     - "round-robin": select randomly from the available sites for each file
                     - "choose": filter the sites with a list of indices for all the files
@@ -728,7 +744,7 @@ Some basic commands:
 
         Returns
         -------
-            out_replicas: FilesetSpecOptional
+            out_replicas : FilesetSpecOptional
                 An uproot-readable fileset. At this point, the fileset is not fully
                 preprocessed, but this can be done with do_preprocess().
         """
