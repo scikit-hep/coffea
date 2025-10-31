@@ -211,7 +211,7 @@ class PreprocessedFiles(
 
 class DatasetSpec(BaseModel):
     files: InputFiles
-    metadata: dict[Hashable, Any] | None = None
+    metadata: dict[Hashable, Any] = {}
     format: str | None = None
     compressed_form: str | None = None
 
@@ -246,6 +246,8 @@ class DatasetSpec(BaseModel):
                     data["compressed_form"] = compress_form(
                         awkward.forms.from_json(_form)
                     )
+            if "metadata" not in data.keys() or data["metadata"] is None:
+                data["metadata"] = {}
         elif isinstance(data, DatasetSpec):
             data = data.model_dump()
         elif not isinstance(data, DatasetSpec):
