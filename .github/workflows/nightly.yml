@@ -19,8 +19,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
         python-version: ["3.9", "3.13"]
-        java-version: [17]
-        java-distribution: ["corretto"]
 
     name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}
 
@@ -34,12 +32,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         activate-environment: true
-
-    - name: Set up JDK ${{ matrix.java-distribution }}/${{ matrix.java-version }}
-      uses: actions/setup-java@v5
-      with:
-        java-version: ${{ matrix.java-version }}
-        distribution: ${{ matrix.java-distribution }}
 
     - name: Install dependencies (Linux)
       if: startsWith( matrix.os, 'ubuntu' )
@@ -61,7 +53,6 @@ jobs:
         # install checked out coffea
         uv pip install -q '.[dev,parsl,dask,spark]' --upgrade
         uv pip list
-        java -version
 
     - name: Install dependencies (MacOS)
       if: matrix.os == 'macOS-latest'
@@ -81,9 +72,8 @@ jobs:
         uv pip install torch
         uv pip install xgboost
         # install checked out coffea
-        uv pip install -q '.[dev,dask,spark]' --upgrade
+        uv pip install -q '.[dev,dask]' --upgrade
         uv pip list
-        java -version
 
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
@@ -103,7 +93,6 @@ jobs:
         # install checked out coffea
         uv pip install -q '.[dev,dask]' --upgrade
         uv pip list
-        java -version
 
     - name: Test with pytest (without dask Client - run in parallel)
       run: |
