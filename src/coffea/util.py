@@ -35,6 +35,18 @@ from functools import partial
 import cloudpickle
 import fsspec
 
+__all__ = [
+    "load",
+    "save",
+    "rich_bar",
+    "deprecate",
+    "awkward_rewrap",
+    "maybe_map_partitions",
+    "compress_form",
+    "decompress_form",
+    "coffea_console",
+]
+
 
 def load(filename, compression="lz4"):
     """Load a coffea file from disk
@@ -54,9 +66,9 @@ def save(output, filename, compression="lz4"):
 
     This function can accept any picklable object.  Suggested suffix: ``.coffea``
 
-    ``compression` can be one of the ``fsspec`` supported compression string names.
+    ``compression`` can be one of the ``fsspec`` supported compression string names.
     These compression algorithms may have dependencies that need to be installed separately.
-    if it is ``None``, it means no compression.
+    If it is ``None``, it means no compression.
     """
     with fsspec.open(filename, "wb", compression=compression) as fout:
         cloudpickle.dump(output, fout)
@@ -250,6 +262,17 @@ def decompress_form(form_compressedb64):
 
 
 def _is_interpretable(branch, emit_warning=True):
+    if isinstance(branch, uproot.behaviors.RNTuple.HasFields):
+        # These are collections made by the RNTuple Importer
+        # Once "real" (i.e. non-converted) RNTuples start to be written,
+        # these should not be here and this check can be removed
+        if branch.path.startswith("_collection"):
+            return False
+        # Subfields should be accessed via the parent branch since
+        # the way forms are set up for subfields
+        if "." in branch.path:
+            return False
+        return True
     if isinstance(
         branch.interpretation, uproot.interpretation.identify.uproot.AsGrouped
     ):

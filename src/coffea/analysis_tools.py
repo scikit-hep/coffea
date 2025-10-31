@@ -21,6 +21,14 @@ import coffea.processor
 import coffea.util
 from coffea.util import coffea_console
 
+__all__ = [
+    "WeightStatistics",
+    "Weights",
+    "NminusOne",
+    "Cutflow",
+    "PackedSelection",
+]
+
 # rich colors for console output
 # from https://mk.bcgsc.ca/colorblind/palettes.mhtml
 _rcol = {
@@ -70,7 +78,7 @@ def boolean_masks_to_categorical_integers(
     masks : list of boolean numpy.ndarray, awkward.Array or dask_awkward.lib.core.Array objects
         The boolean mask arrays to convert to categorical integers
     insert_unmasked_as_zeros : bool, optional
-        Whether to insert a zero entry representing an 'unmasked' state, equivalent to the first mask satisfying `ak.all(mask == True)`. Default is False.
+        Whether to insert a zero entry representing an 'unmasked' state, equivalent to the first mask satisfying ``ak.all(mask == True)``. Default is False.
     insert_commonmask_as_zeros : boolean numpy.ndarray, awkward.Array, or dask_awkward.lib.core.Array, optional
         If not None, insert a zero entry representing a 'commonmasked' state. Default is None. Not compatible with insert_unmasked_as_zeros=True.
     return_mask : bool, optional
@@ -133,15 +141,15 @@ class WeightStatistics:
 
     Parameters
     ----------
-        sumw: float
+        sumw : float
             The sum of weights
-        sumw2: float
+        sumw2 : float
             The sum of squared weights
-        minw: float
+        minw : float
             The minimum weight
-        maxw: float
+        maxw : float
             The maximum weight
-        n: int
+        n : int
             The number of entries
     """
 
@@ -167,7 +175,7 @@ class WeightStatistics:
 
         Parameters
         ----------
-            other: WeightStatistics
+            other : WeightStatistics
                 The other WeightStatistics object to add to this one
         """
         self.sumw += other.sumw
@@ -193,7 +201,7 @@ class Weights:
 
     Parameters
     ----------
-        size : int | None
+        size : int or None
             size of the weight arrays to be handled (i.e. the number of events / instances).
             If None then we expect to operate in delayed mode.
         storeIndividual : bool, optional
@@ -918,23 +926,26 @@ class NminusOne:
                 and excludes them otherwise.
         Returns
         -------
-            result : NminusOneResult
-                A namedtuple with the following attributes:
+            result : NminusOneResult or ExtendedNminusOneResult
+                A namedtuple with the following attributes.
+                If includeweights is False or weights were not provided, returns NminusOneResult.
+                If includeweights is True and weights were provided, returns ExtendedNminusOneResult.
 
-                nev : list of integers or dask_awkward.lib.core.Scalar objects
+                NminusOneResult attributes:
+
+                - nev : list of integers or dask_awkward.lib.core.Scalar objects
                     The number of events in each step of the N-1 selection as a list of integers or delayed integers
-                masks : list of boolean numpy.ndarray or dask_awkward.lib.core.Array objects
+                - masks : list of boolean numpy.ndarray or dask_awkward.lib.core.Array objects
                     The boolean mask vectors of which events pass the N-1 selection each time as a list of materialized or delayed boolean arrays
 
-            result: ExtendedNminusOneResult
-                A namedtuple with the NminusOneResult properties and additionally the following:
+                ExtendedNminusOneResult additional attributes:
 
-                commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array object, or None if no common mask was provided
-                wgtev : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
+                - commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array object, or None if no common mask was provided
+                - wgtev : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
                     The weighted number of events in each step of the N-1 selection as a list of floats or delayed floats
-                weights : float numpy.ndarray or dask_awkward.lib.core.Array object, or None if no weights were provided
+                - weights : float numpy.ndarray or dask_awkward.lib.core.Array object, or None if no weights were provided
                     The Weights.weight(modifier) array provided as input. Must be masked by masks elements to get the corresponding weights
-                weightsmodifier : str or None
+                - weightsmodifier : str or None
                     The modifier passed to Weights.weight([modifier]) if weights were provided
 
         """
@@ -1101,12 +1112,14 @@ class NminusOne:
                 if the nminusone was instantiated with weights and unweighted statistics otherwise.
             categorical : dict, optional
                 A dictionary with the following keys:
+
                     axis : hist.axis object
                         The axis to be used as a categorical axis
                     values : list
                         The array to be filled in the categorical axis, must be the same length as the masks
                     labels : list
                         The labels corresponding to the values in the categorical axis
+
                 Default is None, which does not apply any categorical axis.
 
         Returns
@@ -1262,12 +1275,14 @@ class NminusOne:
                 A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
             categorical : dict, optional
                 A dictionary with the following keys:
+
                     axis : hist.axis object
                         The axis to be used as a categorical axis
                     values : list
                         The array to be filled in the categorical axis, must be the same length as the masks
                     labels : list
                         The labels corresponding to the values in the categorical axis
+
                 Default is None, which does not apply any categorical axis.
 
         Returns
@@ -1464,6 +1479,7 @@ class Cutflow:
                 A namedtuple with the CutflowResult properties and additionally the following:
 
                 commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array object, or None if no common mask was provided
+                    The eventwise mask for the for the cutflow.
                 wgtevonecut : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
                     The weighted number of events that survive each cut alone as a list of floats or delayed floats
                 wgtevcutflow : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
@@ -1676,6 +1692,7 @@ class Cutflow:
                         The array to be filled in the categorical axis, must be the same length as the masks
                     labels : list
                         The labels corresponding to the values in the categorical axis
+
                 Default is None, which does not apply any categorical axis.
 
         Returns
@@ -1886,12 +1903,14 @@ class Cutflow:
                 A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
             categorical : dict, optional
                 A dictionary with the following keys:
+
                     axis : hist.axis object
                         The axis to be used as a categorical axis
                     values : list
                         The array to be filled in the categorical axis, must be the same length as the masks
                     labels : list
                         The labels corresponding to the values in the categorical axis
+
                 Default is None, which does not apply any categorical axis.
 
         Returns
@@ -2096,8 +2115,8 @@ class PackedSelection:
 
         Returns
         -------
-            res: bool
-                True if the PackedSelection is in delayed mode
+            bool
+                True if the PackedSelection is in delayed mode.
         """
         if isinstance(self._data, dask_awkward.Array):
             return True
@@ -2116,8 +2135,8 @@ class PackedSelection:
 
         Returns
         -------
-            res: bool
-                The maximum supported number of selections
+            int
+                Maximum number of selections that can be stored given the current dtype.
         """
         return PackedSelection._supported_types[self._dtype]
 
@@ -2336,8 +2355,8 @@ class PackedSelection:
 
         Returns
         -------
-            res: coffea.analysis_tools.NminusOne
-                A wrapper class for the results, see the documentation for that class for more details
+            NminusOne
+                Wrapper class describing the N-1 results. See the ``NminusOne`` documentation for details.
         """
         for cut in names:
             if not isinstance(cut, str) or cut not in self._names:
@@ -2430,8 +2449,8 @@ class PackedSelection:
 
         Returns
         -------
-            res: coffea.analysis_tools.Cutflow
-                A wrapper class for the results, see the documentation for that class for more details
+            Cutflow
+                Wrapper class describing the cutflow results. See the ``Cutflow`` documentation for details.
         """
         for cut in names:
             if not isinstance(cut, str) or cut not in self._names:
