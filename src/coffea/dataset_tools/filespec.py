@@ -217,8 +217,8 @@ class DatasetSpec(BaseModel):
 
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
-        data = copy.deepcopy(data)
         if isinstance(data, dict):
+            data = copy.deepcopy(data)
             files = data.pop("files")
             # promote files list to dict if necessary
             if isinstance(files, list):
