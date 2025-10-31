@@ -31,6 +31,12 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: Information Analysis",
   "Topic :: Scientific/Engineering :: Mathematics",
@@ -48,11 +54,13 @@ dependencies = [
   "correctionlib>=2.6.0",
   "pyarrow>=6.0.0",
   "matplotlib>=3",
-  "numba>=0.58.1",
+  "numba>=0.58.1; python_version<'3.14'",
+  "numba>=0.63.0b1; python_version>='3.14'",
+  "llvmlite>=0.46.0b1; python_version>='3.14'",
   "numpy>=1.22",
   "scipy>=1.1.0",
   "tqdm>=4.27.0",
-  "lz4",
+  "lz4 @ https://github.com/python-lz4/python-lz4.git",
   "cloudpickle>=1.2.3",
   "toml>=0.10.2",
   "mplhep>=0.1.18",
@@ -113,6 +121,7 @@ dev = [
 [tool.hatch]
 version.source = "vcs"
 build.hooks.vcs.version-file = "src/coffea/_version.py"
+metadata.allow-direct-references = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
