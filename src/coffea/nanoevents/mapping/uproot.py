@@ -73,7 +73,12 @@ def _lazify_form(form, prefix, docstr=None, typestr=None):
             form["parameters"] = parameters
     elif form["class"] == "RecordArray":
         newfields, newcontents = [], []
-        for field, value in zip(form["fields"], form["contents"]):
+        fields = (
+            form["fields"]
+            if form["fields"] is not None
+            else [str(i) for i in range(len(form["contents"]))]
+        )
+        for field, value in zip(fields, form["contents"]):
             if "," in field or "!" in field:
                 # Could also skip here
                 raise CannotBeNanoEvents(
@@ -157,7 +162,10 @@ class UprootSourceMapping(BaseSourceMapping):
                 continue
             if not _is_interpretable(branch):
                 continue
-            form = branch.interpretation.awkward_form(None)
+            if isinstance(branch, uproot.behaviors.RNTuple.HasFields):
+                form = branch.to_akform()[0].contents[0]
+            else:
+                form = branch.interpretation.awkward_form(None)
             # until awkward-forth is available, this fixer is necessary
             if cls._fix_awkward_form_of_iter:
                 form = uproot._util.recursively_fix_awkward_form_of_iter(
@@ -168,7 +176,14 @@ class UprootSourceMapping(BaseSourceMapping):
             )  # normalizes form (expand NumpyArray classes)
             try:
                 form = _lazify_form(
-                    form, f"{key},!load", docstr=branch.title, typestr=branch.typename
+                    form,
+                    f"{key},!load",
+                    docstr=(
+                        branch.description
+                        if isinstance(branch, uproot.behaviors.RNTuple.HasFields)
+                        else branch.title
+                    ),
+                    typestr=branch.typename,
                 )
             except CannotBeNanoEvents as ex:
                 warnings.warn(
@@ -181,7 +196,13 @@ class UprootSourceMapping(BaseSourceMapping):
             "class": "RecordArray",
             "contents": [item for item in branch_forms.values()],
             "fields": [key for key in branch_forms.keys()],
-            "parameters": {"__doc__": tree.title},
+            "parameters": {
+                "__doc__": (
+                    tree.description
+                    if isinstance(tree, uproot.behaviors.RNTuple.HasFields)
+                    else tree.title
+                )
+            },
             "form_key": None,
         }
 
@@ -219,16 +240,24 @@ class UprootSourceMapping(BaseSourceMapping):
         ):
             the_array = self.preloaded_arrays[columnhandle.name][start:stop]
         else:
-            interp = columnhandle.interpretation
-            interp._forth = use_ak_forth
+            if isinstance(columnhandle, uproot.behaviors.RNTuple.HasFields):
+                the_array = columnhandle.array(
+                    entry_start=start,
+                    entry_stop=stop,
+                    decompression_executor=self.decompression_executor,
+                    interpretation_executor=self.interpretation_executor,
+                )
+            else:
+                interp = columnhandle.interpretation
+                interp._forth = use_ak_forth
 
-            the_array = columnhandle.array(
-                interp,
-                entry_start=start,
-                entry_stop=stop,
-                decompression_executor=self.decompression_executor,
-                interpretation_executor=self.interpretation_executor,
-            )
+                the_array = columnhandle.array(
+                    interp,
+                    entry_start=start,
+                    entry_stop=stop,
+                    decompression_executor=self.decompression_executor,
+                    interpretation_executor=self.interpretation_executor,
+                )
         if isinstance(the_array.layout, awkward.contents.ListOffsetArray):
             the_array = awkward.Array(the_array.layout.to_ListOffsetArray64(True))
 
