@@ -44,11 +44,11 @@ def apply_to_dataset(
             The user analysis code to run on the input dataset
         dataset: DatasetSpec | dict
             The data to be acted upon by the data manipulation passed in.
-        schemaclass: BaseSchema, default NanoAODSchema
+        schemaclass : BaseSchema, default NanoAODSchema
             The nanoevents schema to interpret the input dataset with.
-        metadata: dict[Hashable, Any], default {}
+        metadata : dict[Hashable, Any], default {}
             Metadata for the dataset that is accessible by the input analysis. Should also be dask-serializable.
-        uproot_options: dict[str, Any], default {}
+        uproot_options : dict[str, Any], default {}
             Options to pass to uproot. Pass at least {"allow_read_errors_with_report": True} to turn on file access reports.
 
     Returns
@@ -101,11 +101,11 @@ def apply_to_fileset(
     ----------
         data_manipulation : ProcessorABC or GenericHEPAnalysis
             The user analysis code to run on the input dataset
-        fileset: FilesetSpec
+        fileset: FilesetSpec | dict
             The data to be acted upon by the data manipulation passed in. Metadata within the fileset should be dask-serializable.
-        schemaclass: BaseSchema, default NanoAODSchema
+        schemaclass : BaseSchema, default NanoAODSchema
             The nanoevents schema to interpret the input dataset with.
-        uproot_options: dict[str, Any], default {}
+        uproot_options : dict[str, Any], default {}
             Options to pass to uproot. Pass at least {"allow_read_errors_with_report": True} to turn on file access reports.
 
     Returns

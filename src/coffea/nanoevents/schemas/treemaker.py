@@ -188,12 +188,12 @@ class TreeMakerSchema(BaseSchema):
 
         Parameters
         ----------
-            events: TreeMakerSchema events
+            events : TreeMakerSchema events
                 The TreeMakerSchema events to be turned into something uproot-writeable
 
         Returns
         -------
-            out: dict
+            out : dict
                 An uproot-writeable dictionary representing the same information as the input
                 TreeMakerSchema events
         """
