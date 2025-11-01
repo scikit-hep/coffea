@@ -512,6 +512,32 @@ class IterativeExecutor(ExecutorBase):
             )
 
 
+# forking cloudpickler plugin
+class _ForkingCloudPickler(
+    multiprocessing.reduction.ForkingPickler, cloudpickle.Pickler
+):
+
+    @classmethod
+    def dumps(cls, obj, protocol=None):
+        print("calling _ForkingCloudPickler.dumps()")
+        buf = BytesIO()
+        cloudpickle.dump(obj, buf, protocol=protocol)
+        return buf.getbuffer()
+
+    loads = cloudpickle.loads
+
+
+def _CloudPickleDump(obj, file, protocol=None):
+    """Replacement for pickle.dump() using _ForkingCloudPickler."""
+    _ForkingCloudPickler(file, protocol).dump(obj)
+
+
+class _CloudPickleReducer(multiprocessing.reduction.AbstractReducer):
+    ForkingPickler = _ForkingCloudPickler
+    register = _ForkingCloudPickler.register
+    dump = _CloudPickleDump
+
+
 # this class changes the default pickler of ProcessPoolExecutor to the default cloudpickle.Pickler
 class _CloudPickleProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
     def __init__(
@@ -524,7 +550,7 @@ class _CloudPickleProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
     ):
         if mp_context is None:
             mp_context = multiprocessing.get_context()
-            mp_context.reduction.ForkingPickler = cloudpickle.Pickler
+            mp_context.reducer = _CloudPickleReducer
         super().__init__(
             max_workers=max_workers,
             mp_context=mp_context,
