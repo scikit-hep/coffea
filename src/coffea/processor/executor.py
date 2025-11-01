@@ -524,7 +524,7 @@ class _CloudPickleProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
     ):
         if mp_context is None:
             mp_context = multiprocessing.get_context()
-            mp_context.reducer = cloudpickle.Pickler()
+            mp_context.reduction.ForkingPickler = cloudpickle.Pickler
         super().__init__(
             max_workers=max_workers,
             mp_context=mp_context,
