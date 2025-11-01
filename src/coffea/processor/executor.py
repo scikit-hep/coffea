@@ -511,13 +511,28 @@ class IterativeExecutor(ExecutorBase):
                 0,
             )
 
+
 # this class changes the default pickler of ProcessPoolExecutor to the default cloudpickle.Pickler
 class _CloudPickleProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
-    def __init__(self, max_workers=None, mp_context=None, initializer=None, initargs=(), max_tasks_per_child=None):
+    def __init__(
+        self,
+        max_workers=None,
+        mp_context=None,
+        initializer=None,
+        initargs=(),
+        max_tasks_per_child=None,
+    ):
         if mp_context is None:
             mp_context = multiprocessing.get_context()
-            mp_context.reducer = cloudpickle.Pickler()            
-        super().__init__(max_workers=max_workers, mp_context=mp_context, initializer=initializer, initargs=initargs, max_tasks_per_child=max_tasks_per_child)
+            mp_context.reducer = cloudpickle.Pickler()
+        super().__init__(
+            max_workers=max_workers,
+            mp_context=mp_context,
+            initializer=initializer,
+            initargs=initargs,
+            max_tasks_per_child=max_tasks_per_child,
+        )
+
 
 @dataclass
 class FuturesExecutor(ExecutorBase):
