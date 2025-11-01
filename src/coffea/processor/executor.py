@@ -472,9 +472,12 @@ class IterativeExecutor(ExecutorBase):
             Label of progress bar description
         compression : int, optional
             Ignored for iterative executor
+        retries : int, optional
+            Number of retries for failed tasks (default: 3)
     """
 
     workers: int = 1
+    retries: int = 3
 
     def __call__(
         self,
@@ -549,6 +552,8 @@ class FuturesExecutor(ExecutorBase):
         tailtimeout : int, optional
             Timeout requirement on job tails. Cancel all remaining jobs if none have finished
             in the timeout window.
+        retries : int, optional
+            Number of retries for failed tasks (default: 3)
     """
 
     pool: Union[
@@ -565,6 +570,7 @@ class FuturesExecutor(ExecutorBase):
     merging: Union[bool, tuple[int, int, int]] = False
     workers: int = 1
     tailtimeout: Optional[int] = None
+    retries: int = 3
 
     def __post_init__(self):
         if not (
@@ -855,6 +861,8 @@ class ParslExecutor(ExecutorBase):
         tailtimeout : int, optional
             Timeout requirement on job tails. Cancel all remaining jobs if none have finished
             in the timeout window.
+        retries : int, optional
+            Number of retries for failed tasks (default: 3)
     """
 
     tailtimeout: Optional[int] = None
@@ -863,6 +871,7 @@ class ParslExecutor(ExecutorBase):
     merging: Optional[Union[bool, tuple[int, int, int]]] = False
     jobs_executors: Union[str, list] = "all"
     merges_executors: Union[str, list] = "all"
+    retries: int = 3
 
     def __post_init__(self):
         if not (
@@ -1050,7 +1059,7 @@ class Runner:
     chunksize: int = 100000
     maxchunks: Optional[int] = None
     metadata_cache: Optional[MutableMapping] = None
-    skipbadfiles: bool = False
+    skipbadfiles: Union[bool, tuple[type[BaseException], ...]] = False
     xrootdtimeout: Optional[int] = 60
     align_clusters: bool = False
     savemetrics: bool = False
@@ -1095,10 +1104,7 @@ class Runner:
 
     @property
     def retries(self):
-        if isinstance(self.executor, DaskExecutor):
-            retries = 0
-        else:
-            retries = getattr(self.executor, "retries", 0)
+        retries = getattr(self.executor, "retries", 0)
         assert retries >= 0
         return retries
 
@@ -1110,45 +1116,39 @@ class Runner:
             return False
 
     @staticmethod
-    def automatic_retries(retries: int, skipbadfiles: bool, func, *args, **kwargs):
+    def automatic_retries(
+        retries: int,
+        skipbadfiles: Union[bool, tuple[type[BaseException], ...]],
+        func,
+        *args,
+        **kwargs,
+    ):
         """This should probably defined on Executor-level."""
         import warnings
+
+        if not isinstance(skipbadfiles, tuple) and skipbadfiles is True:
+            skipbadfiles = (OSError,)
 
         retry_count = 0
         while retry_count <= retries:
             try:
                 return func(*args, **kwargs)
-            # catch xrootd errors and optionally skip
-            # or retry to read the file
             except Exception as e:
+                warnings.warn(
+                    f"Performed attempt {retry_count + 1} out of {retries + 1}"
+                )
                 chain = _exception_chain(e)
-                if skipbadfiles and any(
-                    isinstance(c, (OSError, UprootMissTreeError)) for c in chain
-                ):
-                    warnings.warn(str(e))
-                    break
                 if (
                     skipbadfiles
                     and (retries == retry_count)
-                    and any(
-                        e in str(c)
-                        for c in chain
-                        for e in [
-                            "Invalid redirect URL",
-                            "Operation expired",
-                            "Socket timeout",
-                        ]
+                    and any(isinstance(c, skipbadfiles) for c in chain)
+                ):
+                    warnings.warn(
+                        f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}"
                     )
-                ):
-                    warnings.warn(str(e))
                     break
-                if (
-                    not skipbadfiles
-                    or any("Auth failed" in str(c) for c in chain)
-                    or retries == retry_count
-                ):
+                if not skipbadfiles or (retries == retry_count):
                     raise e
-                warnings.warn("Attempt %d of %d." % (retry_count + 1, retries + 1))
             retry_count += 1
 
     @staticmethod
@@ -1256,7 +1256,7 @@ class Runner:
             pre_executor = self.pre_executor.copy(**pre_arg_override)
             closure = partial(
                 self.automatic_retries,
-                self.retries,
+                0 if isinstance(pre_executor, DaskExecutor) else self.retries,
                 self.skipbadfiles,
                 partial(
                     self.metadata_fetcher_root, self.xrootdtimeout, self.align_clusters
@@ -1292,7 +1292,7 @@ class Runner:
             pre_executor = self.pre_executor.copy(**pre_arg_override)
             closure = partial(
                 self.automatic_retries,
-                self.retries,
+                0 if isinstance(pre_executor, DaskExecutor) else self.retries,
                 self.skipbadfiles,
                 self.metadata_fetcher_parquet,
             )
@@ -1724,17 +1724,20 @@ class Runner:
             "unit": "chunk",
             "function_name": type(processor_instance).__name__,
         }
+        executor = self.executor.copy(**exe_args)
 
         closure = partial(
-            self.automatic_retries, self.retries, self.skipbadfiles, closure
+            self.automatic_retries,
+            0 if isinstance(executor, DaskExecutor) else self.retries,
+            self.skipbadfiles,
+            closure,
         )
 
-        executor = self.executor.copy(**exe_args)
         wrapped_out, e = executor(chunks, closure, None)
         if wrapped_out is None:
             raise ValueError(
                 "No chunks returned results, verify ``processor`` instance structure.\n\
-                if you used skipbadfiles=True, it is possible all your files are bad."
+                if you used skipbadfiles=True or similar, it is possible all your files are bad."
             )
         wrapped_out["exception"] = e
 

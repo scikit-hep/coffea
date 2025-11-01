@@ -7,9 +7,11 @@ from coffea.nanoevents import schemas
 from coffea.processor.executor import UprootMissTreeError
 from coffea.processor.test_items import NanoEventsProcessor
 
+_exceptions = (FileNotFoundError, UprootMissTreeError)
+
 
 @pytest.mark.parametrize("filetype", ["root", "parquet"])
-@pytest.mark.parametrize("skipbadfiles", [True, False])
+@pytest.mark.parametrize("skipbadfiles", [False, True, _exceptions])
 @pytest.mark.parametrize("maxchunks", [None, 1000])
 @pytest.mark.parametrize("compression", [None, 0, 2])
 @pytest.mark.parametrize(
@@ -65,7 +67,7 @@ def test_nanoevents_analysis(
         format=filetype,
     )
 
-    if skipbadfiles:
+    if skipbadfiles == _exceptions:
         hists = run(
             filelist,
             processor_instance=processor_instance,
@@ -79,14 +81,13 @@ def test_nanoevents_analysis(
         assert hists["cutflow"]["Data_mass"] == 66
 
     else:
-        LookForError = (FileNotFoundError, UprootMissTreeError)
-        with pytest.raises(LookForError):
+        with pytest.raises(_exceptions):
             hists = run(
                 filelist,
                 processor_instance=processor_instance,
                 treename="Events",
             )
-        with pytest.raises(LookForError):
+        with pytest.raises(_exceptions):
             hists = run(
                 filelist,
                 processor_instance=processor_instance,
