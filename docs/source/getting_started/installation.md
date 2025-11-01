@@ -66,7 +66,7 @@ The necessary dependencies can be installed easily via ``pip`` using the setupto
    - [dask](https://distributed.dask.org/en/latest/) distributed executor: ``pip install coffea[dask]``
    - [TaskVine](https://ccl.cse.nd.edu/software/taskvine/) distributed executor: see the installation guide in their docs and use the `TaskVineExecutor` in coffea.
 
-Multiple extras can be installed together via, e.g. `pip install coffea[dask,spark]`
+Multiple extras can be installed together via, e.g. `pip install coffea[dask,parsl]`
 
 ## Virtual environment
 
