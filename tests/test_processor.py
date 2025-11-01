@@ -26,6 +26,7 @@ def test_processorabc():
     acc = None
     super(test, proc).postprocess(acc)
 
+
 def test_issue1408():
 
     class P(processor.ProcessorABC):
@@ -34,6 +35,13 @@ def test_issue1408():
 
         def postprocess(self, accumulator):
             pass
+
     fileset = {"dy": {"files": {"tests/samples/nano_dy.root": "Events"}}}
     run = processor.Runner(executor=processor.FuturesExecutor())
-    print(run(fileset=fileset, processor_instance=P(), iteritems_options={"filter_name": lambda name: True}))
+    print(
+        run(
+            fileset=fileset,
+            processor_instance=P(),
+            iteritems_options={"filter_name": lambda name: True},
+        )
+    )
