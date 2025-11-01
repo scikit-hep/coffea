@@ -38,6 +38,35 @@ class CoffeaROOTFileSpec(CoffeaROOTFileSpecOptional):
     num_entries: Annotated[int, Field(ge=0)]
     uuid: str
 
+    @model_validator(mode="after")
+    def validate_steps(self) -> Self:
+        self.steps.sort(key=lambda x: x[1])
+        starts = [step[0] for step in self.steps]
+        stops = [step[1] for step in self.steps]
+
+        # check starts and stops are monotonically increasing
+        step_indices_to_remove = []
+        for i in range(1, len(self.steps)):
+            if starts[i] < stops[i - 1]:
+                raise ValueError(
+                    f"steps: start of step {i} ({starts[i]}) is less than stop of previous step ({stops[i-1]})"
+                )
+            if stops[i] < starts[i]:
+                raise ValueError(
+                    f"steps: stop of step {i} ({stops[i]}) is less than the corresponding start ({starts[i]})"
+                )
+            if stops[i] > self.num_entries:
+                if starts[i] >= self.num_entries:
+                    # both start and stop are beyond num_entries, remove this step
+                    step_indices_to_remove.append(i)
+                else:
+                    # only stop is beyond num_entries, cap it to num_entries
+                    self.steps[i][1] = self.num_entries
+        # remove any steps that are entirely beyond num_entries
+        for index in reversed(step_indices_to_remove):
+            del self.steps[index]
+        return self
+
 
 class ParquetFileSpec(GenericFileSpec):
     object_path: None = None
@@ -235,6 +264,9 @@ class DatasetSpec(BaseModel):
                         else:
                             # file name and object path
                             files[fsplit[0]] = fsplit[1]
+                    else:
+                        # no object path
+                        files[fsplit[0]] = None
             data["files"] = files
             if "form" in data.keys():
                 _form = data.pop("form")
