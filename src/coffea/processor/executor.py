@@ -1,6 +1,7 @@
 import concurrent.futures
 import json
 import math
+import multiprocessing
 import os
 import pickle
 import time
@@ -510,6 +511,13 @@ class IterativeExecutor(ExecutorBase):
                 0,
             )
 
+# this class changes the default pickler of ProcessPoolExecutor to the default cloudpickle.Pickler
+class _CloudPickleProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
+    def __init__(self, max_workers=None, mp_context=None, initializer=None, initargs=(), max_tasks_per_child=None):
+        if mp_context is None:
+            mp_context = multiprocessing.get_context()
+            mp_context.reducer = cloudpickle.Pickler()            
+        super().__init__(max_workers=max_workers, mp_context=mp_context, initializer=initializer, initargs=initargs, max_tasks_per_child=max_tasks_per_child)
 
 @dataclass
 class FuturesExecutor(ExecutorBase):
@@ -524,7 +532,7 @@ class FuturesExecutor(ExecutorBase):
         accumulator : Accumulatable
             An accumulator to collect the output of the function
         pool : concurrent.futures.Executor class or instance, optional
-            The type of futures executor to use, defaults to ProcessPoolExecutor.
+            The type of futures executor to use, defaults to _CloudPickleProcessPoolExecutor.
             You can pass an instance instead of a class to reuse an executor
         workers : int, optional
             Number of parallel processes for futures (default 1)
@@ -565,7 +573,7 @@ class FuturesExecutor(ExecutorBase):
 
     pool: (
         Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor
-    ) = concurrent.futures.ProcessPoolExecutor  # fmt: skip
+    ) = _CloudPickleProcessPoolExecutor  # fmt: skip
     mergepool: None | (
         Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor | bool
     ) = None
