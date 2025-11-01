@@ -28,6 +28,7 @@ def test_processorabc():
 
 
 def test_issue1408():
+    from coffea import processor
 
     class P(processor.ProcessorABC):
         def process(self, events):
