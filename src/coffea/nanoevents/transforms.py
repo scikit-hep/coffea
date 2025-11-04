@@ -490,10 +490,7 @@ def eventindex(stack):
 def alias_form(source_form):
     form = copy.deepcopy(source_form)
     form["form_key"] = concat(source_form["form_key"], "!alias")
-    if not (
-        source_form["class"] == "NumpyArray"
-        or source_form["class"].startswith("ListOffset")
-    ):
+    if not (form["class"] == "NumpyArray" or form["class"].startswith("ListOffset")):
         raise RuntimeError
     if form["class"].startswith("ListOffset"):
         form["content"]["form_key"] = concat(
@@ -523,24 +520,17 @@ def zeros_from_content(stack):
     stack.append(awkward.zeros_like(source))
 
 
-def zeros_from_offsets_form(offsets_form, dtype="float32"):
+def zeros_from_offsets_form(offsets_form):
     if not offsets_form["class"].startswith("NumpyArray"):
         raise RuntimeError
-
-    if dtype == "float32":
-        itemsize = 4
-    elif dtype == "float64":
-        itemsize = 8
-    else:
-        raise ValueError(f"Unsupported dtype: {dtype}")
 
     form = {
         "class": "ListOffsetArray",
         "offsets": "i64",
         "content": {
             "class": "NumpyArray",
-            "primitive": dtype,
-            "itemsize": itemsize,
+            "primitive": "float64",
+            "itemsize": 8,
             "format": "i",
             "form_key": concat(
                 offsets_form["form_key"], "!zeros_from_offsets", "!content"
@@ -555,7 +545,7 @@ def zeros_from_offsets_form(offsets_form, dtype="float32"):
 def zeros_from_offsets(stack):
     offsets = ensure_array(stack.pop())
     n_elements = offsets[-1]
-    content = numpy.zeros(n_elements, dtype=numpy.float32)
+    content = numpy.zeros(n_elements, dtype=numpy.float64)
     out = awkward.Array(
         awkward.contents.ListOffsetArray(
             awkward.index.Index64(offsets),
