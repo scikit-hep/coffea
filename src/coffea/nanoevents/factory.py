@@ -222,14 +222,13 @@ class NanoEventsFactory:
     the constructor args are properly set.
     """
 
-    def __init__(self, schema, mapping, partition_key, cache=None, mode="eager"):
+    def __init__(self, schema, mapping, partition_key, mode="eager"):
         if mode not in _allowed_modes:
             raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
         self._mode = mode
         self._schema = schema
         self._mapping = mapping
         self._partition_key = partition_key
-        self._cache = cache
         self._events = lambda: None
 
     def __getstate__(self):
@@ -243,7 +242,6 @@ class NanoEventsFactory:
         self._schema = state["schema"]
         self._mapping = state["mapping"]
         self._partition_key = state["partition_key"]
-        self._cache = None
         self._events = lambda: None
 
     @classmethod
@@ -257,7 +255,6 @@ class NanoEventsFactory:
         entry_stop=None,
         steps_per_file=uproot._util.unset,
         preload=None,
-        runtime_cache=None,
         persistent_cache=None,
         schemaclass=NanoAODSchema,
         metadata=None,
@@ -290,10 +287,6 @@ class NanoEventsFactory:
             preload (None or Callable):
                 A function to call to preload specific branches/columns in bulk. Only works in eager and virtual mode.
                 Passed to ``tree.arrays`` as the ``filter_branch`` argument to filter branches to be preloaded.
-            runtime_cache : dict, optional
-                A dict-like interface to a cache object. This cache is expected to last the
-                duration of the program only, and will be used to hold references to materialized
-                awkward arrays, etc.
             persistent_cache : dict, optional
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
@@ -389,7 +382,7 @@ class NanoEventsFactory:
                 **uproot_options,
             )
 
-            return cls(map_schema, opener, None, cache=None, mode="dask")
+            return cls(map_schema, opener, None, mode="dask")
         elif mode == "dask" and not schemaclass.__dask_capable__:
             warnings.warn(
                 f"{schemaclass} is not dask capable despite requesting dask mode, generating non-dask nanoevents",
@@ -461,7 +454,6 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            runtime_cache,
             persistent_cache,
             schemaclass,
             metadata,
@@ -476,7 +468,6 @@ class NanoEventsFactory:
         mode="virtual",
         entry_start=None,
         entry_stop=None,
-        runtime_cache=None,
         persistent_cache=None,
         schemaclass=NanoAODSchema,
         metadata=None,
@@ -497,10 +488,6 @@ class NanoEventsFactory:
                 Starting entry (only used in eager or virtual mode). Defaults to ``0``.
             entry_stop : int or None, optional
                 Stopping entry (only used in eager or virtual mode). Defaults to end of dataset.
-            runtime_cache : dict, optional
-                A dict-like interface to a cache object. This cache is expected to last the
-                duration of the program only, and will be used to hold references to materialized
-                awkward arrays, etc.
             persistent_cache : dict, optional
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
@@ -563,7 +550,7 @@ class NanoEventsFactory:
             raise NotImplementedError(
                 "Dask-awkward does not yet support lazy loading of parquet files with a schema"
             )
-            return cls(map_schema, opener, None, cache=None, mode="dask")
+            return cls(map_schema, opener, None, mode="dask")
         elif mode == "dask" and not schemaclass.__dask_capable__:
             warnings.warn(
                 f"{schemaclass} is not dask capable despite allowing dask, generating non-dask nanoevents"
@@ -627,7 +614,6 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            runtime_cache,
             persistent_cache,
             schemaclass,
             metadata,
@@ -641,7 +627,6 @@ class NanoEventsFactory:
         *,
         entry_start=None,
         entry_stop=None,
-        runtime_cache=None,
         persistent_cache=None,
         schemaclass=NanoAODSchema,
         metadata=None,
@@ -658,10 +643,6 @@ class NanoEventsFactory:
                 Start index for slicing the array source. Defaults to ``0``.
             entry_stop : int or None, optional
                 Stop index for slicing the array source. Defaults to the full length.
-            runtime_cache : dict, optional
-                A dict-like interface to a cache object. This cache is expected to last the
-                duration of the program only, and will be used to hold references to materialized
-                awkward arrays, etc.
             persistent_cache : dict, optional
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
@@ -711,7 +692,6 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            runtime_cache,
             persistent_cache,
             schemaclass,
             metadata,
@@ -724,7 +704,6 @@ class NanoEventsFactory:
         mapping,
         partition_key,
         base_form,
-        runtime_cache,
         persistent_cache,
         schemaclass,
         metadata,
@@ -740,10 +719,6 @@ class NanoEventsFactory:
                 Basic information about the column source, uuid, paths.
             base_form : dict
                 The awkward form describing the nanoevents interpretation of the mapped file.
-            runtime_cache : dict
-                A dict-like interface to a cache object. This cache is expected to last the
-                duration of the program only, and will be used to hold references to materialized
-                awkward arrays, etc.
             persistent_cache : dict
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
@@ -768,7 +743,6 @@ class NanoEventsFactory:
             schema,
             mapping,
             tuple_to_key(partition_key),
-            cache=runtime_cache,
             mode=mode,
         )
 
