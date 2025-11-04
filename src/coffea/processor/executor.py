@@ -17,6 +17,7 @@ from itertools import repeat
 from typing import (
     Any,
     Callable,
+    Literal,
     Optional,
     Union,
 )
@@ -1060,6 +1061,9 @@ class Runner:
     skyhook_options: Optional[dict] = field(default_factory=dict)
     format: str = "root"
     checkpointer: Optional[CheckpointerABC] = None
+    cachestrategy: Optional[
+        Union[Literal["dask-worker"], Callable[..., MutableMapping]]
+    ] = None
 
     @staticmethod
     def read_coffea_config():
@@ -1108,6 +1112,24 @@ class Runner:
             return self.executor.use_dataframes
         else:
             return False
+
+    @staticmethod
+    def get_cache(cachestrategy):
+        cache = None
+        if cachestrategy == "dask-worker":
+            from distributed import get_worker
+
+            from coffea.processor.dask import ColumnCache
+
+            worker = get_worker()
+            try:
+                cache = worker.plugins[ColumnCache.name]
+            except KeyError:
+                # emit warning if not found?
+                pass
+        elif callable(cachestrategy):
+            cache = cachestrategy()
+        return cache
 
     @staticmethod
     def automatic_retries(retries: int, skipbadfiles: bool, func, *args, **kwargs):
@@ -1408,6 +1430,7 @@ class Runner:
         uproot_options: dict,
         iteritems_options: dict,
         checkpointer: CheckpointerABC,
+        cache_function: Callable[[], MutableMapping],
     ) -> dict:
         if "timeout" in uproot_options:
             xrootdtimeout = uproot_options["timeout"]
@@ -1472,6 +1495,7 @@ class Runner:
                             entry_start=item.entrystart,
                             entry_stop=item.entrystop,
                             iteritems_options=iteritems_options,
+                            buffer_cache=cache_function(),
                         )
                         events = factory.events()
                     elif format == "parquet":
@@ -1703,6 +1727,7 @@ class Runner:
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
                 checkpointer=self.checkpointer,
+                cache_function=partial(self.get_cache, self.cachestrategy),
             )
         else:
             closure = partial(
@@ -1716,6 +1741,7 @@ class Runner:
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
                 checkpointer=self.checkpointer,
+                cache_function=partial(self.get_cache, self.cachestrategy),
             )
 
         chunks = list(chunks)
