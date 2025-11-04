@@ -89,10 +89,8 @@ class BaseSourceMapping(Mapping):
 
     def __getitem__(self, key):
         def _getitem(key):
-            try:
+            if key in self._buffer_cache:
                 return self._buffer_cache[key]
-            except KeyError:
-                pass
             uuid, treepath, start, stop, nodes = self.interpret_key(key)
             if self._debug:
                 print("Getting (", key, ") :", uuid, treepath, start, stop, nodes)
