@@ -538,11 +538,11 @@ class FuturesExecutor(ExecutorBase):
             aka as they are returned try to split completed jobs into 5 batches, but of at least 4 and at most 100 items.
             Default is ``False`` - results get merged as they finish in the main process.
         nparts : int, optional
-            Number of merge jobs to create at a time. Also pass via ``merging(X, ..., ...)''
+            Number of merge jobs to create at a time. Also pass via ``merging(X, ..., ...)``
         minred : int, optional
-            Minimum number of items to merge in one job. Also pass via ``merging(..., X, ...)''
+            Minimum number of items to merge in one job. Also pass via ``merging(..., X, ...)``
         maxred : int, optional
-            maximum number of items to merge in one job. Also pass via ``merging(..., ..., X)''
+            maximum number of items to merge in one job. Also pass via ``merging(..., ..., X)``
         mergepool : concurrent.futures.Executor class or instance | int, optional
             Supply an additional executor to process merge jobs independently.
             An ``int`` will be interpreted as ``ProcessPoolExecutor(max_workers=int)``.
@@ -1632,11 +1632,13 @@ class Runner:
         Parameters
         ----------
             fileset : dict | str | List[WorkItem] | Generator
+                Fileset can be one of the following:
+
                 - A dictionary ``{dataset: [file, file], }``
                   Optionally, if some files' tree name differ, the dictionary can be specified:
                   ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
                   You can also define a different tree name per file in the dictionary:
-                ``{dataset: {'files': {file: 'name'}}, }``
+                  ``{dataset: {'files': {file: 'name'}}, }``
                 - A single file name
                 - File chunks for self.preprocess()
                 - Chunk generator

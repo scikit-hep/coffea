@@ -4,15 +4,11 @@ on:
   push:
     branches:
       - master
-      - backports-v0.7.x
-      - backports-v0.6.x
     tags:
       - v*.*.*
   pull_request:
     branches:
       - master
-      - backports-v0.7.x
-      - backports-v0.6.x
   # Run daily at 0:01 UTC
   schedule:
     - cron:  '1 0 * * *'
@@ -40,12 +36,10 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, macOS-latest, windows-latest]
-        java-version: [17]
-        java-distribution: ["corretto"]
         python-version: ["3.9", "3.13"]
         dask-client: ["with", "without"]
 
-    name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}, JDK${{ matrix.java-version }}, ${{ matrix.dask-client }} dask
+    name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}, ${{ matrix.dask-client }} dask
 
     steps:
     - uses: actions/checkout@v5
@@ -56,11 +50,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         activate-environment: true
-    - name: Set up JDK ${{ matrix.java-distribution }}/${{ matrix.java-version }}
-      uses: actions/setup-java@v5
-      with:
-        java-version: ${{ matrix.java-version }}
-        distribution: ${{ matrix.java-distribution }}
 
     - name: Set python test settings
       run: |
@@ -78,9 +67,8 @@ jobs:
         uv pip install xgboost
         uv pip install 'tritonclient[grpc,http]!=2.41.0'
         # install checked out coffea
-        uv pip install -q '.[dev,parsl,dask,spark]' --upgrade
+        uv pip install -q '.[dev,parsl,dask]' --upgrade
         uv pip list
-        java -version
     - name: Install dependencies (MacOS)
       if: matrix.os == 'macOS-latest'
       run: |
@@ -92,9 +80,8 @@ jobs:
         uv pip install torch
         uv pip install xgboost
         # install checked out coffea
-        uv pip install -q '.[dev,dask,spark]' --upgrade
+        uv pip install -q '.[dev,dask]' --upgrade
         uv pip list
-        java -version
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
@@ -106,7 +93,6 @@ jobs:
         # install checked out coffea
         uv pip install -q '.[dev,dask]' --upgrade
         uv pip list
-        java -version
 
     - name: Start triton server with example model
       if: startsWith( matrix.os, 'ubuntu' )
