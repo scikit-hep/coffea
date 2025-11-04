@@ -8,14 +8,15 @@
 
 import importlib
 import inspect
+import subprocess
+import sys
+from functools import reduce
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import subprocess
-import sys
-from functools import reduce
+from pathlib import Path
 
 import coffea
 
@@ -66,31 +67,30 @@ nbsphinx_execute = "never"
 autosummary_generate = True
 autosummary_imported_members = True
 
+COFFEA_ROOT = Path(coffea.__file__).parent
 
-def linkcode_resolve(domain, info):
+
+def linkcode_resolve(domain, info: dict):
     if domain != "py":
         return None
-    if not info["module"]:
+    if not info.get("module", "").startswith("coffea"):
         return None
     mod = importlib.import_module(info["module"])
-    modpath = [p for p in sys.path if mod.__file__.startswith(p)]
-    if len(modpath) < 1:
-        raise RuntimeError("Cannot deduce module path")
-    modpath = modpath[0]
     try:
         obj = reduce(getattr, [mod] + info["fullname"].split("."))
     except AttributeError:
         return None
     try:
         path = inspect.getsourcefile(obj)
-        relpath = path[modpath.rfind("/src") + 1 :]
+        if path is None:
+            return None
+        relpath = Path(path).relative_to(COFFEA_ROOT)
         _, lineno = inspect.getsourcelines(obj)
     except TypeError:
         # skip property or other type that inspect doesn't like
         return None
-    return "http://github.com/scikit-hep/coffea/blob/{}/{}#L{}".format(
-        githash, relpath, lineno
-    )
+    url = f"http://github.com/scikit-hep/coffea/blob/{githash}/src/coffea/{relpath}#L{lineno}"
+    return url
 
 
 # Add any paths that contain templates here, relative to this directory.
