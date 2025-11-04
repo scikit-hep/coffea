@@ -30,6 +30,7 @@ class BaseSourceMapping(Mapping):
         access_log=None,
         use_ak_forth=False,
         virtual=False,
+        buffer_cache=None,
     ):
         self._fileopener = fileopener
         self._cache = cache
@@ -38,11 +39,14 @@ class BaseSourceMapping(Mapping):
         self._stop = stop
         self._use_ak_forth = use_ak_forth
         self._virtual = virtual
+        self._buffer_cache = buffer_cache
         self.setup()
 
     def setup(self):
         if self._cache is None:
             self._cache = LRUCache(1)
+        if self._buffer_cache is None:
+            self._buffer_cache = LRUCache(1)
 
     @classmethod
     @abstractmethod
@@ -85,6 +89,10 @@ class BaseSourceMapping(Mapping):
 
     def __getitem__(self, key):
         def _getitem(key):
+            try:
+                return self._buffer_cache[key]
+            except KeyError:
+                pass
             uuid, treepath, start, stop, nodes = self.interpret_key(key)
             if self._debug:
                 print("Getting (", key, ") :", uuid, treepath, start, stop, nodes)
@@ -139,6 +147,7 @@ class BaseSourceMapping(Mapping):
                     raise RuntimeError(
                         f"Left with non-bare array after evaluating form key {nodes}"
                     )
+            self._buffer_cache[key] = out
             return out
 
         if self._virtual:

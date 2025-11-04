@@ -5,7 +5,6 @@ from .preloaded import (
     SimplePreloadedColumnSource,
 )
 from .uproot import TrivialUprootOpener, UprootSourceMapping
-from .util import ArrayLifecycleMapping, CachedMapping
 
 __all__ = [
     "TrivialUprootOpener",
@@ -15,6 +14,4 @@ __all__ = [
     "SimplePreloadedColumnSource",
     "PreloadedOpener",
     "PreloadedSourceMapping",
-    "CachedMapping",
-    "ArrayLifecycleMapping",
 ]

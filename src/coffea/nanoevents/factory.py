@@ -13,7 +13,6 @@ import fsspec
 import uproot
 
 from coffea.nanoevents.mapping import (
-    CachedMapping,
     ParquetSourceMapping,
     PreloadedOpener,
     PreloadedSourceMapping,
@@ -255,7 +254,7 @@ class NanoEventsFactory:
         entry_stop=None,
         steps_per_file=uproot._util.unset,
         preload=None,
-        persistent_cache=None,
+        buffer_cache=None,
         schemaclass=NanoAODSchema,
         metadata=None,
         uproot_options={},
@@ -287,7 +286,7 @@ class NanoEventsFactory:
             preload (None or Callable):
                 A function to call to preload specific branches/columns in bulk. Only works in eager and virtual mode.
                 Passed to ``tree.arrays`` as the ``filter_branch`` argument to filter branches to be preloaded.
-            persistent_cache : dict, optional
+            buffer_cache : dict, optional
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
             schemaclass : BaseSchema
@@ -442,6 +441,7 @@ class NanoEventsFactory:
             use_ak_forth=use_ak_forth,
             virtual=mode == "virtual",
             preloaded_arrays=preloaded_arrays,
+            buffer_cache=buffer_cache,
         )
         mapping.preload_column_source(partition_key[0], partition_key[1], tree)
 
@@ -454,7 +454,7 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            persistent_cache,
+            buffer_cache,
             schemaclass,
             metadata,
             mode=mode,
@@ -468,7 +468,7 @@ class NanoEventsFactory:
         mode="virtual",
         entry_start=None,
         entry_stop=None,
-        persistent_cache=None,
+        buffer_cache=None,
         schemaclass=NanoAODSchema,
         metadata=None,
         parquet_options={},
@@ -488,7 +488,7 @@ class NanoEventsFactory:
                 Starting entry (only used in eager or virtual mode). Defaults to ``0``.
             entry_stop : int or None, optional
                 Stopping entry (only used in eager or virtual mode). Defaults to end of dataset.
-            persistent_cache : dict, optional
+            buffer_cache : dict, optional
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
             schemaclass : BaseSchema
@@ -588,6 +588,7 @@ class NanoEventsFactory:
             entry_stop,
             access_log=access_log,
             virtual=mode == "virtual",
+            buffer_cache=buffer_cache,
         )
 
         format_ = "parquet"
@@ -614,7 +615,7 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            persistent_cache,
+            buffer_cache,
             schemaclass,
             metadata,
             mode,
@@ -627,7 +628,7 @@ class NanoEventsFactory:
         *,
         entry_start=None,
         entry_stop=None,
-        persistent_cache=None,
+        buffer_cache=None,
         schemaclass=NanoAODSchema,
         metadata=None,
         access_log=None,
@@ -643,7 +644,7 @@ class NanoEventsFactory:
                 Start index for slicing the array source. Defaults to ``0``.
             entry_stop : int or None, optional
                 Stop index for slicing the array source. Defaults to the full length.
-            persistent_cache : dict, optional
+            buffer_cache : dict, optional
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
             schemaclass : BaseSchema
@@ -692,7 +693,7 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            persistent_cache,
+            buffer_cache,
             schemaclass,
             metadata,
             mode="eager",
@@ -704,7 +705,7 @@ class NanoEventsFactory:
         mapping,
         partition_key,
         base_form,
-        persistent_cache,
+        buffer_cache,
         schemaclass,
         metadata,
         mode,
@@ -719,7 +720,7 @@ class NanoEventsFactory:
                 Basic information about the column source, uuid, paths.
             base_form : dict
                 The awkward form describing the nanoevents interpretation of the mapped file.
-            persistent_cache : dict
+            buffer_cache : dict
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
             schemaclass : BaseSchema
@@ -730,8 +731,6 @@ class NanoEventsFactory:
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
         """
-        if persistent_cache is not None:
-            mapping = CachedMapping(persistent_cache, mapping)
         if metadata is not None:
             base_form["parameters"]["metadata"] = metadata
         if not callable(schemaclass):
