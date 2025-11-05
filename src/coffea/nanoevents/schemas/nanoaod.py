@@ -307,6 +307,11 @@ class NanoAODSchema(BaseSchema):
                     branch_forms["oPhoton"]
                 )
 
+        # Rename Electron_energy to Electron_regrEnergy to avoid conflict with mixin
+        # Present in EGamma NanoAOD flavor
+        if "Electron_energy" in branch_forms:
+            branch_forms["Electron_regrEnergy"] = branch_forms.pop("Electron_energy")
+
         output = {}
         for name in collections:
             mixin = self.mixins.get(name, "NanoCollection")
