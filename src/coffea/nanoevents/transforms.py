@@ -487,22 +487,6 @@ def eventindex(stack):
     stack.append(out)
 
 
-def alias_form(source_form):
-    form = copy.deepcopy(source_form)
-    form["form_key"] = concat(source_form["form_key"], "!alias")
-    if not (form["class"] == "NumpyArray" or form["class"].startswith("ListOffset")):
-        raise RuntimeError
-    if form["class"].startswith("ListOffset"):
-        form["content"]["form_key"] = concat(
-            source_form["form_key"], "!alias", "!content"
-        )
-    return form
-
-
-def alias(stack):
-    pass
-
-
 def zeros_from_content_form(source_form):
     form = copy.deepcopy(source_form)
     form["form_key"] = concat(source_form["form_key"], "!zeros_from_content")
