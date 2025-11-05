@@ -1,8 +1,9 @@
 from dataclasses import dataclass
+from itertools import islice
 from queue import Queue, ShutDown
 from threading import Condition, Thread
 import time
-from typing import Callable, Iterator, Literal, Protocol, Any, TypeVar
+from typing import Callable, Iterator, Literal, Protocol, Any, Sized, TypeVar
 
 import numpy
 
@@ -15,7 +16,7 @@ class ResultType(Protocol):
         ...
 
 
-EventsArray = Any
+EventsArray = Sized
 "Awkward array of events or similar"
 
 
@@ -27,7 +28,15 @@ class Processor(Protocol):
 
 class Computable(Protocol):
     def __iter__(self) -> Iterator[Callable[[], ResultType]]:
-        """Return an iterator over callables that each compute a part of the result."""
+        """Return an iterator over callables that each compute a part of the result.
+
+        This establishes a global index over the computation. We can use filters
+        and slicing on this basis to create resumable and retryable computations.
+
+        A potential optimization is to yield a tuple of (index, callable) so that
+        the index can be smarter than just the integer position in the iterator.
+        Then Computable could be a Container type.
+        """
         ...
 
 
@@ -130,15 +139,13 @@ class ResumableComputation:
     index: int
 
     def __iter__(self) -> Iterator[Callable[[], ResultType]]:
-        for i, task_element in enumerate(self.original):
-            if i >= self.index:
-                yield task_element
+        return islice(self.original, self.index, None)
 
 
 @dataclass
 class RetryableComputation:
     original: Computable
-    failed_indices: list[int]
+    failed_indices: frozenset[int]
 
     def __iter__(self) -> Iterator[Callable[[], ResultType]]:
         for i, task_element in enumerate(self.original):
@@ -190,7 +197,7 @@ class SimpleTask:
                 return self._output, resumable
         return self._output, RetryableComputation(
             original=self.item,
-            failed_indices=[idx for idx, _ in self._errors],
+            failed_indices=frozenset(idx for idx, _ in self._errors),
         )
 
     def wait(self) -> None:
@@ -283,6 +290,9 @@ if __name__ == "__main__":
             return len(events)  # Dummy processing: return number of events
 
     processor = SimpleProcessor()
+
+    # Binding the processor to the dataset makes the computable object not easy to serialize
+    # but on the other hand, the ProcessableDataset has them separated out easily enough
     computable = dataset.apply(processor)
 
     tic = time.monotonic()
@@ -292,3 +302,15 @@ if __name__ == "__main__":
     print(f"Computation took {toc - tic:.2f} seconds")
     print(f"Processed {num_files * steps_per_file} steps")
     assert task.result() == stepsize * steps_per_file * num_files
+
+    # Try a partial result
+    computable = dataset.apply(processor)
+    task = compute(computable)
+    time.sleep(1.0)
+    part, resumable = task.partial_result()
+    print(f"Partial result after 1s: {part}")
+    print(f"Resumable computation has {len(list(resumable))} remaining steps")
+
+    resumed_task = compute(resumable)
+    final_result = part + resumed_task.result()
+    assert final_result == stepsize * steps_per_file * num_files
