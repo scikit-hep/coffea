@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from itertools import islice
+from itertools import chain, islice, repeat
 from queue import Queue, ShutDown
 from threading import Condition, Thread
 import time
@@ -40,7 +40,7 @@ class Computable(Protocol):
         ...
 
 
-@dataclass
+@dataclass(slots=True)
 class ProcessStep:
     path: str
     step: tuple[int, int]
@@ -48,7 +48,7 @@ class ProcessStep:
 
     def __call__(self) -> ResultType:
         """Load the events for this step and process them."""
-        events = numpy.ones(self.step[1] - self.step[0])  # Dummy implementation
+        events = "A" * (self.step[1] - self.step[0])  # Dummy implementation
         return self.processor.process(events)
 
 
@@ -61,18 +61,15 @@ class File:
         return ProcessableFile(file=self, processor=processor)
 
 
-@dataclass
+@dataclass(slots=True)
 class ProcessableFile:
     file: File
     processor: Processor
 
     def __iter__(self):
-        for step in self.file.steps:
-            yield ProcessStep(
-                path=self.file.path,
-                step=step,
-                processor=self.processor,
-            )
+        return map(
+            ProcessStep, repeat(self.file.path), self.file.steps, repeat(self.processor)
+        )
 
 
 @dataclass
@@ -83,7 +80,7 @@ class Dataset:
         return ProcessableDataset(dataset=self, processor=processor)
 
 
-@dataclass
+@dataclass(slots=True)
 class ProcessableDataset:
     dataset: Dataset
     processor: Processor
@@ -97,9 +94,9 @@ class ProcessableDataset:
     def __iter__(self):
         if self.traversal == "roundrobin":
             raise NotImplementedError
-        # return chain(zip(self.dataset.files, repeat(self.processor)))
-        for file in self.dataset.files:
-            yield from ProcessableFile(file=file, processor=self.processor)
+        return chain.from_iterable(
+            map(ProcessableFile, self.dataset.files, repeat(self.processor))
+        )
 
 
 class Task(Protocol):
@@ -155,6 +152,9 @@ class RetryableComputation:
 
 class EmptyResult:
     def __add__(self, other: T, /) -> T:
+        return other
+
+    def __radd__(self, other: T, /) -> T:
         return other
 
 
@@ -306,7 +306,7 @@ if __name__ == "__main__":
     # Try a partial result
     computable = dataset.apply(processor)
     task = compute(computable)
-    time.sleep(1.0)
+    time.sleep(0.4)
     part, resumable = task.partial_result()
     print(f"Partial result after 1s: {part}")
     print(f"Resumable computation has {len(list(resumable))} remaining steps")
