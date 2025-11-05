@@ -513,7 +513,7 @@ def zeros_from_offsets_form(offsets_form):
         "offsets": "i64",
         "content": {
             "class": "NumpyArray",
-            "primitive": "float64",
+            "primitive": "float32",
             "itemsize": 8,
             "format": "i",
             "form_key": concat(
@@ -529,7 +529,7 @@ def zeros_from_offsets_form(offsets_form):
 def zeros_from_offsets(stack):
     offsets = ensure_array(stack.pop())
     n_elements = offsets[-1]
-    content = numpy.zeros(n_elements, dtype=numpy.float64)
+    content = numpy.zeros(n_elements, dtype=numpy.float32)
     out = awkward.Array(
         awkward.contents.ListOffsetArray(
             awkward.index.Index64(offsets),
