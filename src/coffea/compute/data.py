@@ -1,0 +1,88 @@
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from itertools import chain, repeat
+from typing import Callable, Literal
+from collections.abc import Iterator
+
+from coffea.compute.func import EventsArray, ProcessorABC
+from coffea.compute.protocol import ResultType
+
+EventsFunc = Callable[[EventsArray], ResultType]
+"Function that processes an EventsArray and returns a ResultType"
+
+
+@dataclass(slots=True)
+class Step:
+    path: str
+    entry_range: tuple[int, int]
+
+    def __len__(self) -> int:
+        return self.entry_range[1] - self.entry_range[0]
+
+
+@dataclass(slots=True)
+class StepWorkElement:
+    func: EventsFunc
+    step: Step
+
+    def __call__(self) -> ResultType:
+        # Dummy implementation of event loading
+        info = str(self.step.entry_range)
+        events = info + "A" * (len(self.step) - len(info))  # Dummy events
+        return self.func(events)
+
+
+class StepIterable(ABC):
+    @abstractmethod
+    def iter_steps(self) -> Iterator[Step]:
+        """Return an iterator over steps in the computation."""
+        raise NotImplementedError
+
+    def apply(self, func: EventsFunc | ProcessorABC) -> "StepwiseComputable":
+        if isinstance(func, ProcessorABC):
+            func = func.process
+        return StepwiseComputable(func=func, iterable=self)
+
+
+@dataclass
+class StepwiseComputable:
+    func: EventsFunc
+    iterable: StepIterable
+
+    def __iter__(self) -> Iterator[Callable[[], ResultType]]:
+        return map(StepWorkElement, repeat(self.func), self.iterable.iter_steps())
+
+
+@dataclass
+class File(StepIterable):
+    path: str
+    steps: list[tuple[int, int]]
+
+    def iter_steps(self) -> Iterator[Step]:
+        return map(Step, repeat(self.path), self.steps)
+
+
+@dataclass
+class Dataset(StepIterable):
+    files: list[File]
+    traversal: Literal["depth", "breadth"] = "depth"
+    """The traversal strategy for iterating over files in the dataset.
+
+    "depth" means to process all steps in one file before moving to the next file.
+    "breadth" means to process the first step in all files, then the second step in all files, etc.
+    """
+
+    def iter_steps(self) -> Iterator[Step]:
+        if self.traversal == "breadth":
+            raise NotImplementedError
+        return chain.from_iterable(map(File.iter_steps, self.files))
+
+
+@dataclass
+class DataGroup(StepIterable):
+    datasets: dict[str, Dataset]
+    traversal: Literal["depth", "breadth"] = "depth"
+    """The traversal strategy for iterating over datasets in the group."""
+
+    def iter_steps(self) -> Iterator[Step]:
+        return chain.from_iterable(map(Dataset.iter_steps, self.datasets.values()))
