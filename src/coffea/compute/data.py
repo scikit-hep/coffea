@@ -1,14 +1,20 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
 from itertools import chain, repeat
 from typing import Callable, Literal
-from collections.abc import Iterator
+
+import uproot
+from more_itertools import roundrobin
+from uproot import ReadOnlyDirectory
 
 from coffea.compute.func import EventsArray, ProcessorABC
 from coffea.compute.protocol import ResultType
 
 EventsFunc = Callable[[EventsArray], ResultType]
 "Function that processes an EventsArray and returns a ResultType"
+DirectoryFunc = Callable[[ReadOnlyDirectory], ResultType]
+"Function that processes a uproot directory"
 
 
 @dataclass(slots=True)
@@ -63,7 +69,38 @@ class File(StepIterable):
 
 
 @dataclass
-class Dataset(StepIterable):
+class FileWorkElement:
+    func: DirectoryFunc
+    file: File
+
+    def __call__(self) -> ResultType:
+        # Dummy implementation of file loading
+        file = uproot.open(self.file.path)
+        assert isinstance(file, ReadOnlyDirectory)
+        return self.func(file)
+
+
+class FileIterable(StepIterable):
+    @abstractmethod
+    def iter_files(self) -> Iterator[File]:
+        """Return an iterator over files in the computation."""
+        raise NotImplementedError
+
+    def map_files(self, func: DirectoryFunc) -> "FileComputable":
+        return FileComputable(func=func, iterable=self)
+
+
+@dataclass
+class FileComputable:
+    func: DirectoryFunc
+    iterable: FileIterable
+
+    def __iter__(self) -> Iterator[Callable[[], ResultType]]:
+        return map(FileWorkElement, repeat(self.func), self.iterable.iter_files())
+
+
+@dataclass
+class Dataset(FileIterable):
     files: list[File]
     traversal: Literal["depth", "breadth"] = "depth"
     """The traversal strategy for iterating over files in the dataset.
@@ -74,15 +111,25 @@ class Dataset(StepIterable):
 
     def iter_steps(self) -> Iterator[Step]:
         if self.traversal == "breadth":
-            raise NotImplementedError
+            return roundrobin(*map(File.iter_steps, self.files))
         return chain.from_iterable(map(File.iter_steps, self.files))
+
+    def iter_files(self) -> Iterator[File]:
+        return iter(self.files)
 
 
 @dataclass
-class DataGroup(StepIterable):
+class DataGroup(FileIterable):
     datasets: dict[str, Dataset]
     traversal: Literal["depth", "breadth"] = "depth"
     """The traversal strategy for iterating over datasets in the group."""
 
     def iter_steps(self) -> Iterator[Step]:
+        if self.traversal == "breadth":
+            return roundrobin(*map(Dataset.iter_steps, self.datasets.values()))
         return chain.from_iterable(map(Dataset.iter_steps, self.datasets.values()))
+
+    def iter_files(self) -> Iterator[File]:
+        if self.traversal == "breadth":
+            return roundrobin(*map(Dataset.iter_files, self.datasets.values()))
+        return chain.from_iterable(map(Dataset.iter_files, self.datasets.values()))

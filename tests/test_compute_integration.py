@@ -70,3 +70,5 @@ if __name__ == "__main__":
     # For use with profiling, e.g.
     # py-spy record -f speedscope tests/test_compute_integration.py
     test_threaded_backend_compute()
+    # On a M3 mac with py3.13, this is about 600k steps per second with
+    # DummyProcessor and about 160k steps per second with BuggyProcessor
