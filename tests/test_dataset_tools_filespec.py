@@ -856,9 +856,6 @@ class TestIOFactory:
     )
     def test_filespec_to_dict(self, input_dict, expected_type):
         """Test filespec_to_dict method"""
-        # spec = CoffeaROOTFileSpec(
-        #    object_path="Events", steps=[[0, 10]], num_entries=10, uuid="test-uuid"
-        # )
         spec = expected_type(**input_dict)
         result = IOFactory.filespec_to_dict(spec)
         expected = copy.deepcopy(input_dict)
@@ -871,6 +868,13 @@ class TestIOFactory:
             expected["steps"] = None
         if "num_entries" not in expected:
             expected["num_entries"] = None
+        if "num_entrie_in_steps" not in expected:
+            if "steps" in expected and expected["steps"] is not None:
+                expected["num_entries_in_steps"] = sum(
+                    end - start for start, end in expected["steps"]
+                )
+            else:
+                expected["num_entries_in_steps"] = None
         if "uuid" not in expected:
             expected["uuid"] = None
         assert result == expected, print(f"Expected: {expected}, Got: {result}")
@@ -917,6 +921,7 @@ class TestIOFactory:
                     "steps": [[0, 10]],
                     "format": "root",
                     "num_entries": 10,
+                    "num_entries_in_steps": 10,
                     "uuid": "uuid1",
                 }
             },

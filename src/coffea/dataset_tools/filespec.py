@@ -20,26 +20,13 @@ StepPair = Annotated[
 class GenericFileSpec(BaseModel):
     object_path: str | None = None
     steps: Annotated[list[StepPair], Field(min_length=1)] | None = None
-    format: str | None = None
-
-
-class ROOTFileSpec(GenericFileSpec):
-    object_path: str
-    format: Literal["root"] = "root"
-
-
-class CoffeaROOTFileSpecOptional(ROOTFileSpec):
     num_entries: Annotated[int, Field(ge=0)] | None = None
-    uuid: str | None = None
-
-
-class CoffeaROOTFileSpec(CoffeaROOTFileSpecOptional):
-    steps: Annotated[list[StepPair], Field(min_length=1)]
-    num_entries: Annotated[int, Field(ge=0)]
-    uuid: str
+    format: str | None = None
 
     @model_validator(mode="after")
     def validate_steps(self) -> Self:
+        if self.steps is None:
+            return self
         self.steps.sort(key=lambda x: x[1])
         starts = [step[0] for step in self.steps]
         stops = [step[1] for step in self.steps]
@@ -55,7 +42,7 @@ class CoffeaROOTFileSpec(CoffeaROOTFileSpecOptional):
                 raise ValueError(
                     f"steps: stop of step {i} ({stops[i]}) is less than the corresponding start ({starts[i]})"
                 )
-            if stops[i] > self.num_entries:
+            if self.num_entries is not None and stops[i] > self.num_entries:
                 if starts[i] >= self.num_entries:
                     # both start and stop are beyond num_entries, remove this step
                     step_indices_to_remove.append(i)
@@ -66,6 +53,33 @@ class CoffeaROOTFileSpec(CoffeaROOTFileSpecOptional):
         for index in reversed(step_indices_to_remove):
             del self.steps[index]
         return self
+
+
+    @computed_field
+    @property
+    def num_entries_in_steps(self) -> int | None:
+        """Compute the total number of entries covered by the steps."""
+        if self.steps is None:
+            return None
+        total = 0
+        for start, stop in self.steps:
+            total += stop - start
+        return total
+
+class ROOTFileSpec(GenericFileSpec):
+    object_path: str
+    format: Literal["root"] = "root"
+
+
+class CoffeaROOTFileSpecOptional(ROOTFileSpec):
+    num_entries: Annotated[int, Field(ge=0)] | None = None
+    uuid: str | None = None
+
+
+class CoffeaROOTFileSpec(CoffeaROOTFileSpecOptional):
+    steps: Annotated[list[StepPair], Field(min_length=1)]
+    num_entries: Annotated[int, Field(ge=0)]
+    uuid: str
 
 
 class ParquetFileSpec(GenericFileSpec):
