@@ -146,6 +146,7 @@ def test_tracing_nanoevents():
 
     assert access_log == []
     _ = _analysis(events)
+    access_log = [x.branch for x in access_log]
     assert sorted(set(access_log)) == [
         "Electron_eta",
         "Electron_jetIdx",
@@ -190,4 +191,5 @@ def test_tracing_nanoevents():
 
     assert access_log == []
     _untypetracable_analysis(events)
+    access_log = [x.branch for x in access_log]
     assert sorted(set(access_log)) == ["MET_sumEt"]
