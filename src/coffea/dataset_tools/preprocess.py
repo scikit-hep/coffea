@@ -19,7 +19,7 @@ from coffea.dataset_tools.filespec import (
     DatasetSpec,
     FilesetSpec,
     InputFiles,
-    IOFactory,
+    ModelFactory,
     PreprocessedFiles,
 )
 from coffea.util import _is_interpretable, compress_form, decompress_form
@@ -194,7 +194,7 @@ def _normalize_file_info(file_info):
     is_datasetspec = isinstance(file_info, DatasetSpec)
     if is_datasetspec:
         normed_files = uproot._util.regularize_files(
-            IOFactory.datasetspec_to_dict(file_info, coerce_filespec_to_dict=True)[
+            ModelFactory.datasetspec_to_dict(file_info, coerce_filespec_to_dict=True)[
                 "files"
             ],
             steps_allowed=True,

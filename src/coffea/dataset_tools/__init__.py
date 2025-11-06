@@ -7,7 +7,7 @@ from coffea.dataset_tools.filespec import (
     DatasetSpec,
     FilesetSpec,
     InputFiles,
-    IOFactory,
+    ModelFactory,
     ParquetFileSpec,
     PreprocessedFiles,
     ROOTFileSpec,
@@ -46,5 +46,5 @@ __all__ = [
     "PreprocessedFiles",
     "DatasetSpec",
     "FilesetSpec",
-    "IOFactory",
+    "ModelFactory",
 ]

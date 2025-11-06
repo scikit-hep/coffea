@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import copy
-import re
 import pathlib
+import re
 from collections.abc import Hashable, Iterable, MutableMapping
 from typing import Annotated, Any, Literal, Union
 
@@ -55,7 +55,6 @@ class GenericFileSpec(BaseModel):
             del self.steps[index]
         return self
 
-
     @computed_field
     @property
     def num_entries_in_steps(self) -> int | None:
@@ -66,6 +65,7 @@ class GenericFileSpec(BaseModel):
         for start, stop in self.steps:
             total += stop - start
         return total
+
 
 class ROOTFileSpec(GenericFileSpec):
     object_path: str
@@ -328,7 +328,7 @@ class DatasetSpec(BaseModel):
                 self.format = "|".join(union)
 
         # validate the format, if present
-        if not IOFactory.valid_format(self.format):
+        if not ModelFactory.valid_format(self.format):
             return False
         return True
 
@@ -341,7 +341,7 @@ class DatasetSpec(BaseModel):
             )
         # set (if necessary) and check the format
         if not self.set_check_format():
-            raise ValueError(f"format: format must be one of {IOFactory._formats}")
+            raise ValueError(f"format: format must be one of {ModelFactory._formats}")
 
         return self
 
@@ -405,7 +405,7 @@ def identify_file_format(name_or_directory: str) -> str:
         )
 
 
-class IOFactory:
+class ModelFactory:
     _formats = {"root", "parquet"}
 
     def __init__(self):
@@ -449,7 +449,7 @@ class IOFactory:
                 return FilesetSpec(input.model_dump())
             else:
                 raise TypeError(
-                    f"IOFactory.attempt_promotion got an unexpected input type {type(input)} for input: {input}"
+                    f"ModelFactory.attempt_promotion got an unexpected input type {type(input)} for input: {input}"
                 )
         except Exception:
             return input
