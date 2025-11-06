@@ -1,4 +1,4 @@
-"""Tests for the Pydantic-based IOFactory classes in iofactory.py"""
+"""Tests for the Pydantic-based ModelFactory classes in filespec.py"""
 
 import copy
 import gzip
@@ -17,7 +17,7 @@ from coffea.dataset_tools.filespec import (
     DatasetSpec,
     FilesetSpec,
     InputFiles,
-    IOFactory,
+    ModelFactory,
     ParquetFileSpec,
     ROOTFileSpec,
     identify_file_format,
@@ -527,7 +527,7 @@ class TestInputFiles:
         assert isinstance(spec["file2.root"], CoffeaROOTFileSpecOptional)
         spec["file2.root"].num_entries = 20
         spec["file2.root"].uuid = "test-uuid"
-        promoted = IOFactory.attempt_promotion(spec)
+        promoted = ModelFactory.attempt_promotion(spec)
         assert all(
             [
                 isinstance(v, (CoffeaROOTFileSpec, CoffeaParquetFileSpec))
@@ -677,7 +677,7 @@ class TestDatasetSpec:
         spec.files["root://file2.root"].steps = [[0, 10], [10, 20]]
         spec.files["root://file2.root"].num_entries = 20
         spec.files["root://file2.root"].uuid = "test-uuid"
-        promoted = IOFactory.attempt_promotion(spec)
+        promoted = ModelFactory.attempt_promotion(spec)
         assert all(
             [
                 isinstance(v, (CoffeaROOTFileSpec, CoffeaParquetFileSpec))
@@ -768,14 +768,14 @@ class TestDatasetJoinableSpec:
             DatasetSpec(files=files, format="root", compressed_form="invalid_form")
 
 
-class TestIOFactory:
-    """Test IOFactory class methods"""
+class TestModelFactory:
+    """Test ModelFactory class methods"""
 
     def test_valid_format(self):
         """Test valid_format method"""
-        assert IOFactory.valid_format("root") is True
-        assert IOFactory.valid_format("parquet") is True
-        assert IOFactory.valid_format("invalid") is False
+        assert ModelFactory.valid_format("root") is True
+        assert ModelFactory.valid_format("parquet") is True
+        assert ModelFactory.valid_format("invalid") is False
 
     @pytest.mark.parametrize(
         "input_dict",
@@ -791,7 +791,7 @@ class TestIOFactory:
     )
     def test_dict_to_uprootfilespec(self, input_dict):
         """Test dict_to_uprootfilespec method"""
-        result = IOFactory.dict_to_uprootfilespec(input_dict)
+        result = ModelFactory.dict_to_uprootfilespec(input_dict)
         if "steps" in input_dict:
             # Test complete spec
             assert isinstance(result, CoffeaROOTFileSpec)
@@ -819,7 +819,7 @@ class TestIOFactory:
     )
     def test_dict_to_parquetfilespec(self, input_dict):
         """Test dict_to_parquetfilespec method"""
-        result = IOFactory.dict_to_parquetfilespec(input_dict)
+        result = ModelFactory.dict_to_parquetfilespec(input_dict)
         if "steps" in input_dict:
             assert isinstance(result, CoffeaParquetFileSpec)
             assert result.object_path is None
@@ -857,7 +857,7 @@ class TestIOFactory:
     def test_filespec_to_dict(self, input_dict, expected_type):
         """Test filespec_to_dict method"""
         spec = expected_type(**input_dict)
-        result = IOFactory.filespec_to_dict(spec)
+        result = ModelFactory.filespec_to_dict(spec)
         expected = copy.deepcopy(input_dict)
         expected["format"] = (
             "parquet"
@@ -881,7 +881,7 @@ class TestIOFactory:
 
         # Test error for invalid input
         with pytest.raises((ValueError, TypeError)):
-            IOFactory.filespec_to_dict("invalid_input")
+            ModelFactory.filespec_to_dict("invalid_input")
 
     def test_dict_to_datasetspec(self):
         """Test dict_to_datasetspec method"""
@@ -897,7 +897,7 @@ class TestIOFactory:
             "metadata": {"sample": "test"},
         }
 
-        result = IOFactory.dict_to_datasetspec(input_dict)
+        result = ModelFactory.dict_to_datasetspec(input_dict)
         assert isinstance(result, (DatasetSpec))
         assert result.format == "root"
         assert result.metadata == {"sample": "test"}
@@ -913,7 +913,7 @@ class TestIOFactory:
         )
         spec = DatasetSpec(files=files, format="root", metadata={"sample": "test"})
 
-        result = IOFactory.datasetspec_to_dict(spec)
+        result = ModelFactory.datasetspec_to_dict(spec)
         expected = {
             "files": {
                 "file1.root": {
@@ -940,7 +940,7 @@ class TestIOFactory:
         spec.steps = [[0, 100]]
         spec.num_entries = 100
         spec.uuid = "test-uuid"
-        promoted = IOFactory.attempt_promotion(spec)
+        promoted = ModelFactory.attempt_promotion(spec)
         assert isinstance(promoted, CoffeaROOTFileSpec)
 
         # Test with valid ParquetFileSpec
@@ -948,7 +948,7 @@ class TestIOFactory:
         spec_parquet.steps = [[0, 100]]
         spec_parquet.num_entries = 100
         spec_parquet.uuid = "test-uuid"
-        promoted_parquet = IOFactory.attempt_promotion(spec_parquet)
+        promoted_parquet = ModelFactory.attempt_promotion(spec_parquet)
         assert isinstance(promoted_parquet, CoffeaParquetFileSpec)
 
 
@@ -1109,7 +1109,7 @@ class TestFilesetSpec:
                 v.steps = [[0, 10], [10, 20]]
                 v.num_entries = 20
                 v.uuid = "test-uuid"
-        promoted = IOFactory.attempt_promotion(spec)
+        promoted = ModelFactory.attempt_promotion(spec)
         assert all(
             [
                 isinstance(v, (CoffeaROOTFileSpec, CoffeaParquetFileSpec))
@@ -1219,7 +1219,7 @@ class TestComplexScenarios:
         # Convert each dataset
         converted = {}
         for dataset_name, dataset_info in legacy_fileset.items():
-            converted[dataset_name] = IOFactory.dict_to_datasetspec(dataset_info)
+            converted[dataset_name] = ModelFactory.dict_to_datasetspec(dataset_info)
 
         assert "ZJets" in converted
         assert "Data" in converted
