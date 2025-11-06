@@ -44,7 +44,7 @@ def test_threaded_backend_compute():
     with SingleThreadedBackend() as backend:
         # Binding the processor to the dataset makes the computable object not easy to serialize
         # but on the other hand, the ProcessableDataset has them separated out easily enough
-        computable = dataset.apply(DummyProcessor())
+        computable = dataset.map_steps(DummyProcessor())
         tic = time.monotonic()
         task = backend.compute(computable)
         task.wait()
@@ -53,7 +53,7 @@ def test_threaded_backend_compute():
         print(f"Processed {num_files * steps_per_file} steps with dummy processor")
         assert task.result() == stepsize * steps_per_file * num_files
 
-        computable = dataset.apply(BuggyProcessor())
+        computable = dataset.map_steps(BuggyProcessor())
         tic = time.monotonic()
         task = backend.compute(
             computable, error_policy=ErrorPolicy(continue_on=(ValueError,))

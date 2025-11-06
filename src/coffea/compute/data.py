@@ -44,7 +44,8 @@ class StepIterable(ABC):
         """Return an iterator over steps in the computation."""
         raise NotImplementedError
 
-    def apply(self, func: EventsFunc | ProcessorABC) -> "StepwiseComputable":
+    def map_steps(self, func: EventsFunc | ProcessorABC) -> "StepwiseComputable":
+        """Apply a function or Processor to each step in this data."""
         if isinstance(func, ProcessorABC):
             func = func.process
         return StepwiseComputable(func=func, iterable=self)
@@ -80,7 +81,7 @@ class FileWorkElement:
         return self.func(file)
 
 
-class FileIterable(StepIterable):
+class FileIterable(ABC):
     @abstractmethod
     def iter_files(self) -> Iterator[File]:
         """Return an iterator over files in the computation."""
@@ -100,7 +101,7 @@ class FileComputable:
 
 
 @dataclass
-class Dataset(FileIterable):
+class Dataset(StepIterable, FileIterable):
     files: list[File]
     traversal: Literal["depth", "breadth"] = "depth"
     """The traversal strategy for iterating over files in the dataset.
@@ -119,7 +120,7 @@ class Dataset(FileIterable):
 
 
 @dataclass
-class DataGroup(FileIterable):
+class DataGroup(StepIterable, FileIterable):
     datasets: dict[str, Dataset]
     traversal: Literal["depth", "breadth"] = "depth"
     """The traversal strategy for iterating over datasets in the group."""
