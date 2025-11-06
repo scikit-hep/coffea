@@ -521,7 +521,6 @@ def zeros_from_offsets_form(offsets_form):
             ),
         },
         "form_key": concat(offsets_form["form_key"], "!zeros_from_offsets"),
-        "parameters": offsets_form.get("parameters", None),
     }
     return form
 
