@@ -12,6 +12,7 @@ _processing_sentinel = object()
 _final_merge_sentinel = object()
 
 
+# group of progress bars for dask executor
 def pbar_group(datasets: list[str]) -> tuple[Live, dict[Any, Progress]]:
     pbars = {_processing_sentinel: rich_bar()}
     pbars.update({ds: rich_bar() for ds in datasets})

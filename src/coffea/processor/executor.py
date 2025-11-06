@@ -234,7 +234,7 @@ class _reduce:
     def __call__(self, items):
         assert not any(
             isinstance(it, Err) for it in items
-        ), "Cannot reduce with error items"
+        ), "Cannot reduce with Err items"
         items = list(it for it in items if it is not None)
         if len(items) == 0:
             raise ValueError("Empty list provided to reduction")
@@ -664,7 +664,7 @@ class Err:
 @dataclass(frozen=True, slots=True)
 class Failure:
     item: WorkItem
-    reason: Err
+    reason: BaseException
 
 
 def _failed_future(future: Awaitable) -> bool:
@@ -782,6 +782,7 @@ class DaskExecutor(ExecutorBase):
             key_to_item = {future.key: item for future, item in zip(work, items)}
             # dataset -> number of items to do
             ds_to_todo = Counter(it.dataset for it, _ in items)
+            ds_to_todo_original = ds_to_todo.copy()  # keep for final report
             # create a buffer for each dataset (what we merge)
             ds_to_buf = defaultdict(list)
             # future to dataset item
@@ -791,19 +792,25 @@ class DaskExecutor(ExecutorBase):
 
             # initialize progress bars
             if self.status:
+                if self.desc == "Processing":
+                    unit = "events"
+                    total = sum(len(it) for it, _ in items)
+                else:
+                    unit = self.unit
+                    total = len(items)
                 processing_task = pbars[_processing_sentinel].add_task(
-                    self.desc, total=len(items), unit=self.unit
+                    self.desc, total=total, unit=unit
                 )
                 dataset_merge_tasks = {}
                 for ds in datasets:
                     total = ds_to_todo[ds]
                     dataset_merge_tasks[ds] = pbars[ds].add_task(
-                        f"[cyan]Merging {total} '{ds}' datasets into 1",
+                        f"[cyan]Merging {total} [italic]{ds}[/italic] datasets into 1",
                         total=total,
-                        unit="merges",
+                        unit="merge",
                     )
 
-            failed_items: list[Failure] = []
+            failed_items: defaultdict[list[Failure]] = defaultdict(list)
             ac = as_completed(work)
 
             # in-dataset merging loop, we merge first within datasets to avoid large accumulators in memory
@@ -832,9 +839,9 @@ class DaskExecutor(ExecutorBase):
                         failure = Failure(item=item, reason=reason)
 
                         # append to failed items
-                        failed_items.append(failure)
+                        failed_items[ds].append(failure)
 
-                        # all failed for this dataset, nothing to merge, skip
+                        # all failed for this dataset
                         if len(buf) == 0 and ds_to_todo[ds] == 0:
                             del ds_to_todo[ds]
                             del ds_to_buf[ds]
@@ -849,8 +856,13 @@ class DaskExecutor(ExecutorBase):
                             pbars[ds].update(dataset_merge_tasks[ds], advance=1)
                         else:
                             # processing task
+                            if self.desc == "Processing":
+                                item = key_to_item[future.key][0]
+                                advance = len(item)
+                            else:
+                                advance = 1
                             pbars[_processing_sentinel].update(
-                                processing_task, advance=1
+                                processing_task, advance=advance
                             )
 
                     # add future to buffer for merging
@@ -895,7 +907,7 @@ class DaskExecutor(ExecutorBase):
             for ds, todo in ds_to_todo.items():
                 buf = ds_to_buf[ds]
                 if todo != 0 or len(buf) != 1:
-                    msg = f"Internal scheduling error: dataset {ds} has {len(buf)} items in buffer (should only be 1); todo={todo}"
+                    msg = f"dataset {ds} has {len(buf)} items in merge-buffer (should only be 1); chunks left to merge: {todo}"
                     raise SchedulingError(msg)
                 if self.status:
                     pbars[ds].update(dataset_merge_tasks[ds], advance=1)
@@ -904,9 +916,9 @@ class DaskExecutor(ExecutorBase):
             if self.status:
                 final_total = 0
                 final_merge_task = pbars[_final_merge_sentinel].add_task(
-                    f"[cyan italic]Merging {len(final_merge_futures)} merged datasets (final)",
+                    f"[cyan]Merging {len(final_merge_futures)} merged datasets [italic](final)",
                     total=total,
-                    unit="merges",
+                    unit="merge",
                 )
 
             # not needed anymore
@@ -930,7 +942,7 @@ class DaskExecutor(ExecutorBase):
                         )
 
                 buf.append(future)
-                if len(buf) >= min(len(buf), self.treereduction) > 1:
+                if len(buf) >= min(len(buf), self.treereduction) and len(buf) > 1:
                     future = self.client.submit(
                         reducer,
                         buf,
@@ -975,7 +987,24 @@ class DaskExecutor(ExecutorBase):
                     completed=final_total,
                     total=final_total,
                 )
-            return out, failed_items
+
+        if self.status:
+            failure_count = {
+                ds: len(fails) for ds, fails in sorted(failed_items.items())
+            }
+            if failure_count:
+                coffea_console.print(
+                    f"[bold red]Failed processing {sum(failure_count.values())} items across {len(failure_count)} datasets:[/bold red]"
+                )
+                for ds, n_failures in failure_count.items():
+                    n_tasks = ds_to_todo_original[ds]
+                    perc = n_failures / float(n_tasks) * 100
+                    coffea_console.print(
+                        f"[red][bold]:arrow_right: {ds}: {n_failures}/{n_tasks} ({perc:.2f}%)[/bold] failed chunks[/red]"
+                    )
+            else:
+                coffea_console.print("[bold green]Success :sparkles:[/bold green]")
+        return out, sum(failed_items.values(), [])
 
 
 @dataclass
@@ -1647,9 +1676,7 @@ class Runner:
                 else:
                     out = processor_instance(events)
             except Exception as e:
-                raise Exception(
-                    f"Failed processing file: {item!r}. The error was: {e!r}."
-                ) from e
+                raise e from None
             if out is None:
                 raise ValueError(
                     "Output of process() should not be None. Make sure your processor's process() function returns an accumulator."
@@ -1722,12 +1749,12 @@ class Runner:
             uproot_options=uproot_options,
             iteritems_options=iteritems_options,
         )
-        failed_items = wrapped_out["failed_items"]
+        aux = wrapped_out["aux"]
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
         if self.savemetrics:
-            return wrapped_out["out"], wrapped_out["metrics"], failed_items
-        return wrapped_out["out"], failed_items
+            return wrapped_out["out"], wrapped_out["metrics"], aux
+        return wrapped_out["out"], aux
 
     def preprocess(
         self,
@@ -1836,9 +1863,6 @@ class Runner:
         else:
             chunks = self.preprocess(fileset, treename=treename)
 
-        # just an empty line for console spacing
-        coffea_console.print()
-
         if self.processor_compression is None:
             pi_to_send = processor_instance
         else:
@@ -1890,13 +1914,13 @@ class Runner:
             closure,
         )
 
-        wrapped_out, failed_items = executor(chunks, closure, None)
+        wrapped_out, aux = executor(chunks, closure, None)
         if wrapped_out is None:
             raise ValueError(
                 "No chunks returned results, verify ``processor`` instance structure.\n\
                 if you used skipbadfiles=True or similar, it is possible all your files are bad."
             )
-        wrapped_out["failed_items"] = failed_items
+        wrapped_out["aux"] = aux
 
         if (
             not self.use_dataframes
