@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import re
+import pathlib
 from collections.abc import Hashable, Iterable, MutableMapping
 from typing import Annotated, Any, Literal, Union
 
@@ -167,7 +168,7 @@ class InputFilesMixin:
 class InputFiles(
     RootModel[
         dict[
-            str,
+            str | pathlib.Path,
             FileSpecUnion,
         ]
     ],
@@ -253,7 +254,7 @@ class PreprocessedFiles(
 
 
 class DatasetSpec(BaseModel):
-    files: InputFiles
+    files: InputFiles | PreprocessedFiles
     metadata: dict[Hashable, Any] = {}
     format: str | None = None
     compressed_form: str | None = None
