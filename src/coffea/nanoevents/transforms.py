@@ -514,7 +514,7 @@ def zeros_from_offsets_form(offsets_form):
         "content": {
             "class": "NumpyArray",
             "primitive": "float32",
-            "itemsize": 8,
+            "itemsize": 4,
             "format": "i",
             "form_key": concat(
                 offsets_form["form_key"], "!zeros_from_offsets", "!content"
