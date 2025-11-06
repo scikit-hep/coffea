@@ -489,13 +489,17 @@ def eventindex(stack):
 
 def zeros_from_content_form(source_form):
     form = copy.deepcopy(source_form)
-    form["form_key"] = concat(source_form["form_key"], "!zeros_from_content")
     if not (form["class"] == "NumpyArray" or form["class"].startswith("ListOffset")):
         raise RuntimeError
-    if form["class"].startswith("ListOffset"):
+    if form["class"] == "NumpyArray":
+        form["form_key"] = concat(source_form["form_key"], "!zeros_from_content")
+        form["parameters"].pop("__doc__", None)
+    elif form["class"].startswith("ListOffset"):
         form["content"]["form_key"] = concat(
             source_form["form_key"], "!zeros_from_content", "!content"
         )
+        form["parameters"].pop("__doc__", None)
+        form["content"]["parameters"].pop("__doc__", None)
     return form
 
 
