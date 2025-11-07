@@ -57,7 +57,7 @@ class GenericFileSpec(BaseModel):
 
     @computed_field
     @property
-    def num_entries_in_steps(self) -> int | None:
+    def num_selected_entries(self) -> int | None:
         """Compute the total number of entries covered by the steps."""
         if self.steps is None:
             return None

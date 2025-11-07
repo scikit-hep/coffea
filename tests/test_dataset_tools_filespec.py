@@ -870,11 +870,11 @@ class TestModelFactory:
             expected["num_entries"] = None
         if "num_entrie_in_steps" not in expected:
             if "steps" in expected and expected["steps"] is not None:
-                expected["num_entries_in_steps"] = sum(
+                expected["num_selected_entries"] = sum(
                     end - start for start, end in expected["steps"]
                 )
             else:
-                expected["num_entries_in_steps"] = None
+                expected["num_selected_entries"] = None
         if "uuid" not in expected:
             expected["uuid"] = None
         assert result == expected, print(f"Expected: {expected}, Got: {result}")
@@ -921,7 +921,7 @@ class TestModelFactory:
                     "steps": [[0, 10]],
                     "format": "root",
                     "num_entries": 10,
-                    "num_entries_in_steps": 10,
+                    "num_selected_entries": 10,
                     "uuid": "uuid1",
                 }
             },
