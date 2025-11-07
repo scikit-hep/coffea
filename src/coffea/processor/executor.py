@@ -7,9 +7,9 @@ import time
 import traceback
 import uuid
 import warnings
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Awaitable, Generator, Iterable, Mapping, MutableMapping
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass, field
 from functools import partial
 from io import BytesIO
@@ -30,7 +30,7 @@ import uproot
 from cachetools import LRUCache
 
 from ..nanoevents import NanoEventsFactory, schemas
-from ..util import _exception_chain, _hash, deprecate, rich_bar
+from ..util import _hash, coffea_console, deprecate, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .checkpointer import CheckpointerABC
 from .processor import ProcessorABC
@@ -219,6 +219,9 @@ class _compression_wrapper:
     # no @wraps due to pickle
     def __call__(self, *args, **kwargs):
         out = self.function(*args, **kwargs)
+        # do not compress errors
+        if isinstance(out, Err):
+            return out
         return _compress(out, self.level)
 
 
@@ -230,9 +233,20 @@ class _reduce:
         return "reduce"
 
     def __call__(self, items):
+        assert not any(
+            isinstance(it, Err) for it in items
+        ), "Cannot reduce with Err items"
         items = list(it for it in items if it is not None)
         if len(items) == 0:
             raise ValueError("Empty list provided to reduction")
+
+        # sort big items first
+        items = sorted(
+            items,
+            key=lambda item: len(item) if isinstance(item, bytes) else -1,
+            reverse=True,
+        )
+
         if self.compression is not None:
             out = _decompress(items.pop())
             out = accumulate(map(_decompress, items), out)
@@ -579,8 +593,7 @@ class FuturesExecutor(ExecutorBase):
             or (isinstance(self.merging, tuple) and len(self.merging) == 3)
         ):
             raise ValueError(
-                f"merging={self.merging} not understood. Required format is "
-                "(n_batches, min_batch_size, max_batch_size)"
+                f"merging={self.merging} not understood. Required format is (n_batches, min_batch_size, max_batch_size)"
             )
         elif self.merging is True:
             self.merging = (5, 4, 100)
@@ -644,6 +657,21 @@ class FuturesExecutor(ExecutorBase):
                 return _processwith(pool=poolinstance, mergepool=mergepoolinstance)
 
 
+@dataclass(frozen=True, slots=True)
+class Err:
+    val: BaseException
+
+
+@dataclass(frozen=True, slots=True)
+class Failure:
+    item: WorkItem
+    reason: BaseException
+
+
+def _failed_future(future: Awaitable) -> bool:
+    return future.type is Err or future.status == "error"
+
+
 @dataclass
 class DaskExecutor(ExecutorBase):
     """Execute using dask futures
@@ -674,11 +702,6 @@ class DaskExecutor(ExecutorBase):
             items in a tuple (item, heavy_input) that is passed to function.
         function_name : str, optional
             Name of the function being passed
-        use_dataframes: bool, optional
-            Retrieve output as a distributed Dask DataFrame (default: False).
-            The outputs of individual tasks must be Pandas DataFrames.
-
-            .. note:: If ``heavy_input`` is set, ``function`` is assumed to be pure.
     """
 
     client: Optional["dask.distributed.Client"] = None  # noqa
@@ -686,9 +709,16 @@ class DaskExecutor(ExecutorBase):
     priority: int = 0
     retries: int = 3
     heavy_input: Optional[bytes] = None
+    # deprecated
     use_dataframes: bool = False
-    # secret options
+    # secret options, ignored now
     worker_affinity: bool = False
+
+    def __post_init__(self):
+        if self.use_dataframes:
+            raise NotImplementedError(
+                "Dask dataframe execution not implemented anymore."
+            )
 
     def __getstate__(self):
         return dict(self.__dict__, client=None)
@@ -702,15 +732,10 @@ class DaskExecutor(ExecutorBase):
         if len(items) == 0:
             return accumulator
 
-        import dask.dataframe as dd
-        from dask.distributed import Client
-        from distributed.scheduler import KilledWorker
+        from dask.distributed import Client, as_completed
 
         if self.client is None:
             self.client = Client(threads_per_worker=1)
-
-        if self.use_dataframes:
-            self.compression = None
 
         reducer = _reduce(self.compression)
         if self.compression is not None:
@@ -728,96 +753,259 @@ class DaskExecutor(ExecutorBase):
                         items, repeat(self.client.submit(lambda x: x, self.heavy_input))
                     )
                 )
-
-        work = []
-        key_to_item = {}
-        if self.worker_affinity:
-            workers = list(self.client.run(lambda: 0))
-
-            def belongsto(heavy_input, workerindex, item):
-                if heavy_input is not None:
-                    item = item[0]
-                hashed = _hash(
-                    (item.fileuuid, item.treename, item.entrystart, item.entrystop)
-                )
-                return hashed % len(workers) == workerindex
-
-            for workerindex, worker in enumerate(workers):
-                items_worker = [
-                    item
-                    for item in items
-                    if belongsto(self.heavy_input, workerindex, item)
-                ]
-                work_worker = self.client.map(
-                    function,
-                    items_worker,
-                    pure=(self.heavy_input is not None),
-                    priority=self.priority,
-                    retries=self.retries,
-                    workers={worker},
-                    allow_other_workers=False,
-                )
-                work.extend(work_worker)
-                key_to_item.update(
-                    {
-                        future.key: item
-                        for future, item in zip(work_worker, items_worker)
-                    }
-                )
         else:
+            items = list((item, None) for item in items)
+
+        datasets = sorted({it.dataset for it, _ in items})
+
+        if self.status:
+            from ._dask import _final_merge_sentinel, _processing_sentinel, pbar_group
+
+            live, pbars = pbar_group(datasets)
+        else:
+            live = nullcontext()
+
+        class SchedulingError(RuntimeError): ...
+
+        with live:
+            # submit chunk processing
             work = self.client.map(
                 function,
                 items,
                 pure=(self.heavy_input is not None),
                 priority=self.priority,
-                retries=self.retries,
+                retries=1,
+                key=self.desc,
             )
-            key_to_item.update({future.key: item for future, item in zip(work, items)})
-        if (self.function_name == "get_metadata") or not self.use_dataframes:
-            while len(work) > 1:
-                work = self.client.map(
-                    reducer,
-                    [
-                        work[i : i + self.treereduction]
-                        for i in range(0, len(work), self.treereduction)
-                    ],
-                    pure=True,
-                    priority=self.priority,
-                    retries=self.retries,
-                )
-                key_to_item.update({future.key: "(output reducer)" for future in work})
-            work = work[0]
-            try:
-                if self.status:
-                    from ._dask import progress
 
-                    progress(work, description=f"[green]{self.desc}", unit=self.unit)
-                return (
-                    accumulate(
-                        [
-                            (
-                                work.result()
-                                if self.compression is None
-                                else _decompress(work.result())
-                            )
-                        ],
-                        accumulator,
-                    ),
-                    0,
-                )
-            except KilledWorker as ex:
-                baditem = key_to_item[ex.task]
-                if self.heavy_input is not None and isinstance(baditem, tuple):
-                    baditem = baditem[0]
-                raise RuntimeError(
-                    f"Work item {baditem} caused a KilledWorker exception (likely a segfault or out-of-memory issue)"
-                )
-        else:
+            # prepare some metadata for merging
+            # future key -> workitem
+            key_to_item = {future.key: item for future, item in zip(work, items)}
+            # dataset -> number of items to do
+            ds_to_todo = Counter(it.dataset for it, _ in items)
+            ds_to_todo_original = ds_to_todo.copy()  # keep for final report
+            # create a buffer for each dataset (what we merge)
+            ds_to_buf = defaultdict(list)
+            # future to dataset item
+            key_to_ds = {
+                future.key: item[0].dataset for future, item in zip(work, items)
+            }
+
+            # initialize progress bars
             if self.status:
-                from distributed import progress
+                if self.desc == "Processing":
+                    unit = "events"
+                    total = sum(len(it) for it, _ in items)
+                else:
+                    unit = self.unit
+                    total = len(items)
+                processing_task = pbars[_processing_sentinel].add_task(
+                    self.desc, total=total, unit=unit
+                )
+                dataset_merge_tasks = {}
+                for ds in datasets:
+                    total = ds_to_todo[ds]
+                    dataset_merge_tasks[ds] = pbars[ds].add_task(
+                        f"[cyan]Merging {total} [italic]{ds}[/italic] datasets into 1",
+                        total=total,
+                        unit="merge",
+                    )
 
-                progress(work, multi=True, notebook=False)
-            return {"out": dd.from_delayed(work)}, 0
+            failed_items: defaultdict[list[Failure]] = defaultdict(list)
+            ac = as_completed(work)
+
+            # in-dataset merging loop, we merge first within datasets to avoid large accumulators in memory
+            for batch in ac.batches():
+                for future in batch:
+                    ds = key_to_ds[future.key]
+
+                    # subtract from todo
+                    if not future.key.startswith("reduce-"):
+                        ds_to_todo[ds] -= 1
+
+                    # get buffer
+                    buf = ds_to_buf[ds]
+
+                    if _failed_future(future):
+                        # let merge failures raise right away
+                        if future.key.startswith("reduce-"):
+                            raise future.exception() from None
+
+                        # just collect bad futures coming from the processing step, do not merge them
+                        if future.type is Err:
+                            reason = future.result().val
+                        else:
+                            reason = future.exception()
+                        item = key_to_item[future.key][0]
+                        failure = Failure(item=item, reason=reason)
+
+                        # append to failed items
+                        failed_items[ds].append(failure)
+
+                        # all failed for this dataset
+                        if len(buf) == 0 and ds_to_todo[ds] == 0:
+                            del ds_to_todo[ds]
+                            del ds_to_buf[ds]
+
+                        # nothing to merge, skip
+                        continue
+
+                    # update progress bars only for successful items
+                    if self.status:
+                        if future.key.startswith("reduce-"):
+                            # merging task
+                            pbars[ds].update(dataset_merge_tasks[ds], advance=1)
+                        else:
+                            # processing task
+                            if self.desc == "Processing":
+                                item = key_to_item[future.key][0]
+                                advance = len(item)
+                            else:
+                                advance = 1
+                            pbars[_processing_sentinel].update(
+                                processing_task, advance=advance
+                            )
+
+                    # add future to buffer for merging
+                    if future in buf:
+                        raise SchedulingError("Future already in buffer!")
+                    buf.append(future)
+
+                    # if this is the last item for this dataset, skip merging
+                    # as we schedule it for final cross-dataset merging
+                    if len(buf) == 1 and ds_to_todo[ds] == 0:
+                        continue
+
+                    # submit treereduction merge if we have enough items
+                    if (
+                        len(buf) >= min(ds_to_todo[ds], self.treereduction)
+                        and len(buf) > 1
+                    ):
+                        work = self.client.submit(
+                            reducer,
+                            buf,
+                            pure=True,
+                            retries=1,
+                            priority=self.priority + 1,
+                        )
+
+                        # release explicit retention
+                        for f in buf:
+                            f.release()
+
+                        # add merged item to key_to_item, just use the first one of the
+                        # buffer in order to access the dataset later again
+                        key_to_ds[work.key] = ds
+
+                        # reset buffer
+                        buf.clear()
+
+                        # add back to the ac, recursively merge
+                        ac.add(work)
+
+            # make sure there's only 1 future per dataset in the buffer for the final merge
+            final_merge_futures = {}
+            for ds, todo in ds_to_todo.items():
+                buf = ds_to_buf[ds]
+                if todo != 0 or len(buf) != 1:
+                    msg = f"dataset {ds} has {len(buf)} items in merge-buffer (should only be 1); chunks left to merge: {todo}"
+                    raise SchedulingError(msg)
+                if self.status:
+                    pbars[ds].update(dataset_merge_tasks[ds], advance=1)
+                final_merge_futures[ds] = buf[0]
+
+            if self.status:
+                final_total = 0
+                final_merge_task = pbars[_final_merge_sentinel].add_task(
+                    f"[cyan]Merging {len(final_merge_futures)} merged datasets [italic](final)",
+                    total=total,
+                    unit="merge",
+                )
+
+            # not needed anymore
+            del ds_to_buf, ds_to_todo
+
+            # final merge across datasets
+            buf = []
+
+            ac = as_completed(final_merge_futures.values())
+            for future in ac:
+                if _failed_future(future):
+                    raise future.exception()
+
+                if self.status:
+                    if future not in final_merge_futures.values():
+                        # final merge progress
+                        pbars[_final_merge_sentinel].update(
+                            final_merge_task,
+                            advance=1,
+                            total=final_total,
+                        )
+
+                buf.append(future)
+                if len(buf) >= min(len(buf), self.treereduction) and len(buf) > 1:
+                    future = self.client.submit(
+                        reducer,
+                        buf,
+                        pure=True,
+                        priority=self.priority + 2,
+                        retries=1,
+                    )
+
+                    # release explicit retention
+                    for f in buf:
+                        f.release()
+
+                    # add merged item to key_to_item, just use the first one of the
+                    # buffer in order to access the dataset later again
+                    key_to_ds[future.key] = ds
+
+                    # reset buffer
+                    buf.clear()
+
+                    # add back to the ac, recursively merge
+                    ac.add(future)
+
+                    if self.status:
+                        # add one to the pbar
+                        final_total += 1
+
+            # last merge:
+            out = accumulate(
+                [
+                    (
+                        future.result()
+                        if self.compression is None
+                        else _decompress(future.result())
+                    )
+                ],
+                accumulator,
+            )
+            if self.status:
+                final_total += 1
+                pbars[_final_merge_sentinel].update(
+                    final_merge_task,
+                    completed=final_total,
+                    total=final_total,
+                )
+
+        if self.status:
+            failure_count = {
+                ds: len(fails) for ds, fails in sorted(failed_items.items())
+            }
+            if failure_count:
+                coffea_console.print(
+                    f"[bold red]Failed processing {sum(failure_count.values())} items across {len(failure_count)} datasets:[/bold red]"
+                )
+                for ds, n_failures in failure_count.items():
+                    n_tasks = ds_to_todo_original[ds]
+                    perc = n_failures / float(n_tasks) * 100
+                    coffea_console.print(
+                        f"[red][bold]:arrow_right: {ds}: {n_failures}/{n_tasks} ({perc:.2f}%)[/bold] failed chunks[/red]"
+                    )
+            else:
+                coffea_console.print("[bold green]Success :sparkles:[/bold green]")
+        return out, sum(failed_items.values(), [])
 
 
 @dataclass
@@ -880,8 +1068,7 @@ class ParslExecutor(ExecutorBase):
             or (isinstance(self.merging, tuple) and len(self.merging) == 3)
         ):
             raise ValueError(
-                f"merging={self.merging} not understood. Required format is "
-                "(n_batches, min_batch_size, max_batch_size)"
+                f"merging={self.merging} not understood. Required format is (n_batches, min_batch_size, max_batch_size)"
             )
         elif self.merging is True:
             self.merging = (5, 4, 100)
@@ -1145,32 +1332,25 @@ class Runner:
         *args,
         **kwargs,
     ):
-        """This should probably defined on Executor-level."""
-        import warnings
+        # """This should probably defined on Executor-level."""
+        # import warnings
 
-        if not isinstance(skipbadfiles, tuple) and skipbadfiles is True:
-            skipbadfiles = (OSError,)
+        # if not isinstance(skipbadfiles, tuple) and skipbadfiles is True:
+        #     skipbadfiles = (OSError,)
 
         retry_count = 0
         while retry_count <= retries:
             try:
                 return func(*args, **kwargs)
             except Exception as e:
-                warnings.warn(
-                    f"Performed attempt {retry_count + 1} out of {retries + 1}"
-                )
-                chain = _exception_chain(e)
-                if (
-                    skipbadfiles
-                    and (retries == retry_count)
-                    and any(isinstance(c, skipbadfiles) for c in chain)
-                ):
-                    warnings.warn(
-                        f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}"
-                    )
-                    break
-                if not skipbadfiles or (retries == retry_count):
-                    raise e
+                # warnings.warn(f"Performed attempt {retry_count + 1} out of {retries + 1}")
+                # chain = _exception_chain(e)
+                # if skipbadfiles and (retries == retry_count) and any(isinstance(c, skipbadfiles) for c in chain):
+                #     warnings.warn(f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}")
+                #     break
+                if retries == retry_count:
+                    # return error to be handled upstream
+                    return Err(e)
             retry_count += 1
 
     @staticmethod
@@ -1224,6 +1404,8 @@ class Runner:
     def metadata_fetcher_root(
         xrootdtimeout: int, align_clusters: bool, item: FileMeta
     ) -> Accumulatable:
+        if isinstance(item, tuple):
+            item, _ = item
         with uproot.open({item.filename: None}, timeout=xrootdtimeout) as file:
             try:
                 tree = file[item.treename]
@@ -1518,9 +1700,7 @@ class Runner:
                 else:
                     out = processor_instance(events)
             except Exception as e:
-                raise Exception(
-                    f"Failed processing file: {item!r}. The error was: {e!r}."
-                ) from e
+                raise e from None
             if out is None:
                 raise ValueError(
                     "Output of process() should not be None. Make sure your processor's process() function returns an accumulator."
@@ -1593,11 +1773,12 @@ class Runner:
             uproot_options=uproot_options,
             iteritems_options=iteritems_options,
         )
+        aux = wrapped_out["aux"]
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
         if self.savemetrics:
-            return wrapped_out["out"], wrapped_out["metrics"]
-        return wrapped_out["out"]
+            return wrapped_out["out"], wrapped_out["metrics"], aux
+        return wrapped_out["out"], aux
 
     def preprocess(
         self,
@@ -1759,13 +1940,13 @@ class Runner:
             closure,
         )
 
-        wrapped_out, e = executor(chunks, closure, None)
+        wrapped_out, aux = executor(chunks, closure, None)
         if wrapped_out is None:
             raise ValueError(
                 "No chunks returned results, verify ``processor`` instance structure.\n\
                 if you used skipbadfiles=True or similar, it is possible all your files are bad."
             )
-        wrapped_out["exception"] = e
+        wrapped_out["aux"] = aux
 
         if (
             not self.use_dataframes
