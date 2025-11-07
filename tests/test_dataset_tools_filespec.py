@@ -683,6 +683,16 @@ class TestInputFiles:
             [[10, 20]],
         ]
 
+    def test_limit_steps_method_chain_slicing(self):
+        """Test limit_steps with slicing"""
+        spec = InputFiles(self.get_files())
+        limited_spec = spec.limit_steps(None).limit_steps(1, per_file=True)
+        assert [v.steps for v in limited_spec.values()] == [
+            [[0, 10]],
+            [[0, 50]],
+            [[10, 20]],
+        ]
+
 
 class TestDatasetSpec:
     """Test DatasetSpec class"""
