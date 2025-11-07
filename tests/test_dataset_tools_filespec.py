@@ -138,7 +138,7 @@ class TestROOTFileSpec:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
+                fout.write(spec.model_dump_json())
             with gzip.open(fname, "rt") as fin:
                 restored = ROOTFileSpec.model_validate_json(fin.read())
 
@@ -192,7 +192,7 @@ class TestParquetFileSpec:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
+                fout.write(spec.model_dump_json())
             with gzip.open(fname, "rt") as fin:
                 restored = ParquetFileSpec.model_validate_json(fin.read())
 
@@ -287,7 +287,7 @@ class TestCoffeaROOTFileSpecOptional:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
+                fout.write(spec.model_dump_json())
             with gzip.open(fname, "rt") as fin:
                 restored = CoffeaROOTFileSpecOptional.model_validate_json(fin.read())
 
@@ -357,7 +357,7 @@ class TestCoffeaROOTFileSpec:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
+                fout.write(spec.model_dump_json())
             with gzip.open(fname, "rt") as fin:
                 restored = CoffeaROOTFileSpec.model_validate_json(fin.read())
 
@@ -447,7 +447,7 @@ class TestCoffeaParquetFileSpecOptional:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
+                fout.write(spec.model_dump_json())
             with gzip.open(fname, "rt") as fin:
                 restored = CoffeaParquetFileSpecOptional.model_validate_json(fin.read())
 
@@ -508,7 +508,7 @@ class TestCoffeaParquetFileSpec:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
+                fout.write(spec.model_dump_json())
             with gzip.open(fname, "rt") as fin:
                 restored = CoffeaParquetFileSpec.model_validate_json(fin.read())
 
@@ -645,7 +645,7 @@ class TestInputFiles:
         with tempfile.TemporaryDirectory() as tmp:
             fname = os.path.join(tmp, "test.json.gz")
             with gzip.open(fname, "wt") as fout:
-                fout.write(spec.model_dump_json(exclude_unset=False, exclude="form"))
+                fout.write(spec.model_dump_json())
             with gzip.open(fname, "rt") as fin:
                 restored = InputFiles.model_validate_json(fin.read())
                 assert len(restored) == 3
@@ -838,9 +838,7 @@ class TestDatasetSpec:
             with tempfile.TemporaryDirectory() as tmp:
                 fname = os.path.join(tmp, "test.json.gz")
                 with gzip.open(fname, "wt") as fout:
-                    fout.write(
-                        spec.model_dump_json(exclude_unset=False, exclude="form")
-                    )
+                    fout.write(spec.model_dump_json())
                 with gzip.open(fname, "rt") as fin:
                     restored = DatasetSpec.model_validate_json(fin.read())
                     if k != "ZJets2":
@@ -851,27 +849,27 @@ class TestDatasetSpec:
     def test_num_entries_computation(self):
         """Test computation of num_entries property"""
         tmp = self.get_test_input()["ZJets1"]
-        tmp["files"]["tests/samples/nano_dy_2.root"][
-            "steps"
-        ] = [[0, 30]]  # Ensure steps are set for counting
+        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 30]
+        ]  # Ensure steps are set for counting
         spec = DatasetSpec(**tmp)
         assert spec.num_entries == 60
 
     def test_num_selected_entries_computation(self):
         """Test computation of num_selected_entries property"""
         tmp = self.get_test_input()["ZJets1"]
-        tmp["files"]["tests/samples/nano_dy_2.root"][
-            "steps"
-        ] = [[0, 30]]  # Ensure steps are set for counting
+        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 30]
+        ]  # Ensure steps are set for counting
         spec = DatasetSpec(**tmp).limit_steps(2, per_file=True)
         assert spec.num_selected_entries == 40
 
     def test_limit_steps_no_modification(self):
         """Test that limit_steps with no maxsteps returns equivalent object"""
         tmp = self.get_test_input()["ZJets1"]
-        tmp["files"]["tests/samples/nano_dy_2.root"][
-            "steps"
-        ] = [[0, 30]]  # Ensure steps are set for counting
+        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 30]
+        ]  # Ensure steps are set for counting
         spec = DatasetSpec(**tmp)
         limited_spec = spec.limit_steps(None)
         assert limited_spec == spec
@@ -879,9 +877,9 @@ class TestDatasetSpec:
     def test_limit_steps_slicing(self):
         """Test limit_steps with slicing"""
         tmp = self.get_test_input()["ZJets1"]
-        tmp["files"]["tests/samples/nano_dy_2.root"][
-            "steps"
-        ] = [[0, 30]]  # Ensure steps are set for counting
+        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 30]
+        ]  # Ensure steps are set for counting
         spec = DatasetSpec(**tmp)
         limited_spec = spec.limit_steps(2)
         assert [v.steps for v in limited_spec.files.values()] == [[[0, 5], [5, 10]]]
@@ -889,9 +887,10 @@ class TestDatasetSpec:
     def test_limit_steps_per_file_slicing(self):
         """Test limit_steps with slicing"""
         tmp = self.get_test_input()["ZJets1"]
-        tmp["files"]["tests/samples/nano_dy_2.root"][
-            "steps"
-        ] = [[0, 15], [15, 30]]  # Ensure steps are set for counting
+        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 15],
+            [15, 30],
+        ]  # Ensure steps are set for counting
         spec = DatasetSpec(**tmp)
         limited_spec = spec.limit_steps(1, per_file=True)
         assert [v.steps for v in limited_spec.files.values()] == [
@@ -902,14 +901,13 @@ class TestDatasetSpec:
     def test_limit_steps_method_chain_slicing(self):
         """Test limit_steps with slicing"""
         tmp = self.get_test_input()["ZJets1"]
-        tmp["files"]["tests/samples/nano_dy_2.root"][
-            "steps"
-        ] = [[0, 15], [15, 30]]  # Ensure steps are set for counting
+        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 15],
+            [15, 30],
+        ]  # Ensure steps are set for counting
         spec = DatasetSpec(**tmp)
         limited_spec = spec.limit_steps(1, per_file=True).limit_steps(1)
-        assert [v.steps for v in limited_spec.files.values()] == [
-            [[0, 5]]
-        ]
+        assert [v.steps for v in limited_spec.files.values()] == [[[0, 5]]]
 
 
 class TestDatasetJoinableSpec:
@@ -940,7 +938,7 @@ class TestDatasetJoinableSpec:
             print(e.errors())
         assert spec.format == "root"
         assert spec.compressed_form == compressed_form
-        assert spec.joinable() is True
+        assert spec.joinable is True
 
     def test_invalid_format(self):
         """Test that invalid formats are rejected"""
@@ -1137,9 +1135,6 @@ class TestModelFactory:
             "format": "root",
             "metadata": {"sample": "test"},
             "compressed_form": None,
-            "form": None,
-            "num_entries": 10,
-            "num_selected_entries": 10,
         }
         # Check that the result matches the expected dictionary
         assert result == expected
@@ -1327,6 +1322,88 @@ class TestFilesetSpec:
                 for v in promoted["Data"].files.values()
             ]
         )
+
+    def test_num_entries_computation(self):
+        """Test computation of num_entries property"""
+        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
+        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 30]
+        ]  # Ensure steps are set for counting
+        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
+        spec = FilesetSpec(tmp)
+        assert spec.num_entries == 90
+
+    def test_num_selected_entries_computation(self):
+        """Test computation of num_selected_entries property"""
+        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
+        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 30]
+        ]  # Ensure steps are set for counting
+        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
+        spec = FilesetSpec(tmp).limit_steps(2, per_file=True, per_dataset=True)
+        assert spec.num_selected_entries == 50
+
+    def test_limit_steps_no_modification(self):
+        """Test that limit_steps with no maxsteps returns equivalent object"""
+        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
+        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 30]
+        ]  # Ensure steps are set for counting
+        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
+        spec = FilesetSpec(tmp)
+        limited_spec = spec.limit_steps(None)
+        assert limited_spec == spec
+
+    def test_limit_steps_slicing(self):
+        """Test limit_steps with slicing"""
+        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
+        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 30]
+        ]  # Ensure steps are set for counting
+        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
+        spec = FilesetSpec(tmp)
+        limited_spec = spec.limit_steps(1, per_dataset=True)
+        assert limited_spec.steps == {
+            "ZJets1": {
+                "tests/samples/nano_dy.root": [[0, 5]],
+            },
+            "ZParquet": {"tests/samples/nano_dy.parquet": [[0, 5]]},
+        }  # Only first 1 step per dataset
+
+    def test_limit_steps_per_file_slicing(self):
+        """Test limit_steps with slicing"""
+        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
+        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 30]
+        ]  # Ensure steps are set for counting
+        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
+        spec = FilesetSpec(tmp)
+        limited_spec = spec.limit_steps(1, per_dataset=True, per_file=True)
+        assert limited_spec.steps == {
+            "ZJets1": {
+                "tests/samples/nano_dy.root": [[0, 5]],
+                "tests/samples/nano_dy_2.root": [[0, 30]],
+            },
+            "ZParquet": {"tests/samples/nano_dy.parquet": [[0, 5]]},
+        }  # Only first 1 step per dataset
+
+    def test_limit_steps_method_chain_slicing(self):
+        """Test limit_steps with slicing"""
+        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
+        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 30]
+        ]  # Ensure steps are set for counting
+        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
+        spec = FilesetSpec(tmp)
+        limited_spec = spec.limit_steps(1, per_file=True, per_dataset=True).limit_steps(
+            1
+        )
+        assert limited_spec.steps == {
+            "ZJets1": {
+                "tests/samples/nano_dy.root": [[0, 5]],
+            },
+            "ZParquet": {"tests/samples/nano_dy.parquet": [[0, 5]]},
+        }
 
 
 class TestMainMethodScenarios:
