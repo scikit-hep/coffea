@@ -66,6 +66,23 @@ class GenericFileSpec(BaseModel):
             total += stop - start
         return total
 
+    def limit_steps(self, maxsteps: int | slice) -> Self:
+        """Limit the steps"""
+        if self.steps is None:
+            # warn user
+            from coffea.util import coffea_console
+
+            coffea_console.log("limit_steps called but steps is None, no action taken")
+            return self
+
+        if not isinstance(maxsteps, slice):
+            maxsteps = slice(maxsteps)
+
+        # if there are valid steps, then create a new Spec with only those steps, permitting method chaining
+        spec = self.model_dump()
+        spec["steps"] = self.steps[maxsteps]
+        return type(self)(**spec)
+
 
 class ROOTFileSpec(GenericFileSpec):
     object_path: str
@@ -163,6 +180,55 @@ class InputFilesMixin:
                             v["format"] == "parquet"
                         ), f"Expected 'format' to be 'parquet', got {v['format']} for {k}"
         return data
+
+    @computed_field
+    @property
+    def num_entries(self) -> int | None:
+        """Compute the total number of entries across all files, if available."""
+        total = 0
+        for v in self.values():
+            if v.num_entries is not None:
+                total += v.num_entries
+        return total
+
+    @computed_field
+    @property
+    def num_selected_entries(self) -> int | None:
+        """Compute the total number of entries across all files, if available."""
+        total = 0
+        for v in self.values():
+            if v.num_selected_entries is not None:
+                total += v.num_selected_entries
+        return total
+
+    def limit_steps(self, maxsteps: int | None, per_file=False) -> Self:
+        """Limit the steps"""
+
+        if maxsteps is None:
+            return self
+        if per_file:
+            return type(self)({k: v.limit_steps(maxsteps) for k, v in self.items()})
+        else:
+            total_steps = sum(
+                len(v.steps) if v.steps is not None else 0 for v in self.values()
+            )
+            if maxsteps >= total_steps:
+                return self
+            current_count = 0
+            new_dict = {}
+            for k, v in self.items():
+                if v.steps is None:
+                    new_dict[k] = v
+                    continue
+                n_steps = len(v.steps)
+                if current_count + n_steps < maxsteps:
+                    new_dict[k] = v
+                    current_count += n_steps
+                else:
+                    remaining = maxsteps - current_count
+                    new_dict[k] = v.limit_steps(remaining)
+                    break
+            return type(self)(new_dict)
 
 
 class InputFiles(
