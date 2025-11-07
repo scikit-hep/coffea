@@ -1,9 +1,9 @@
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from itertools import starmap
 from queue import Queue, ShutDown
 from threading import Condition, Thread
-from typing import Callable
-from collections.abc import Iterator
+from typing import Generic, TypeVar
 
 from coffea.compute.errors import (
     ErrorAction,
@@ -11,12 +11,21 @@ from coffea.compute.errors import (
     FailedTaskElement,
     TaskElement,
 )
-from coffea.compute.protocol import Computable, EmptyResult, ResultType, TaskStatus
+from coffea.compute.protocol import (
+    Computable,
+    EmptyResult,
+    ResultType,
+    TaskStatus,
+    WorkElement,
+)
+
+InT = TypeVar("InT")
+OutT = TypeVar("OutT", bound=ResultType)
 
 
 @dataclass
-class Continuation:
-    original: Computable
+class Continuation(Generic[InT, OutT]):
+    original: Computable[InT, OutT]
     "The original computable item."
     status: TaskStatus
     "The status of the original computation task."
@@ -25,20 +34,22 @@ class Continuation:
     continue_at: int
     "Index to continue processing from, in the case where the original task was cancelled."
 
-    def __iter__(self) -> Iterator[Callable[[], ResultType]]:
+    def __iter__(self) -> Iterator[WorkElement[InT, OutT]]:
         for i, task_element in enumerate(self.original):
             if i in self.failed_indices or i >= self.continue_at:
                 yield task_element
 
 
 @dataclass
-class _TaskState:
-    output: ResultType = EmptyResult()
+class _TaskState(Generic[InT, OutT]):
+    output: OutT | EmptyResult = EmptyResult()
     next_index: int = 0
-    failures: list[FailedTaskElement] = field(default_factory=list)
+    failures: list[FailedTaskElement[InT, OutT]] = field(default_factory=list)
     status: TaskStatus = TaskStatus.PENDING
 
-    def get_continuation(self, original: Computable) -> Continuation:
+    def get_continuation(
+        self, original: Computable[InT, OutT]
+    ) -> Continuation[InT, OutT]:
         return Continuation(
             original=original,
             status=self.status,
@@ -48,8 +59,10 @@ class _TaskState:
 
 
 def _try_advance(
-    state: _TaskState, element: TaskElement, error_policy: ErrorPolicy
-) -> _TaskState:
+    state: _TaskState[InT, OutT],
+    element: TaskElement[InT, OutT],
+    error_policy: ErrorPolicy,
+) -> _TaskState[InT, OutT]:
     try:
         result = element()
     except Exception as ex:
@@ -108,22 +121,22 @@ def _try_advance(
         assert action == ErrorAction.RETRY
 
 
-class ThreadedTask:
-    item: Computable
+class ThreadedTask(Generic[InT, OutT]):
+    item: Computable[InT, OutT]
     error_policy: ErrorPolicy
-    _iter: Iterator[TaskElement]
-    _state: _TaskState
+    _iter: Iterator[TaskElement[InT, OutT]]
+    _state: _TaskState[InT, OutT]
     "To be modified only under _cv lock"
     _cv: Condition
 
-    def __init__(self, item: Computable, error_policy: ErrorPolicy) -> None:
+    def __init__(self, item: Computable[InT, OutT], error_policy: ErrorPolicy) -> None:
         self.item = item
         self.error_policy = error_policy
         self._iter = starmap(TaskElement, enumerate(item))
         self._state = _TaskState()
         self._cv = Condition()
 
-    def result(self) -> ResultType:
+    def result(self) -> OutT | EmptyResult:
         self.wait()
         if self._state.failures:
             # Reraise the first error encountered
@@ -137,7 +150,7 @@ class ThreadedTask:
             raise RuntimeError(msg) from self._state.failures[0].exception
         return self._state.output
 
-    def partial_result(self) -> tuple[ResultType, Continuation]:
+    def partial_result(self) -> tuple[OutT | EmptyResult, Continuation[InT, OutT]]:
         # Hold lock so we get a consistent snapshot of state
         with self._cv:
             return self._state.output, self._state.get_continuation(self.item)
@@ -155,6 +168,7 @@ class ThreadedTask:
     def cancel(self) -> None:
         with self._cv:
             self._state.status = TaskStatus.CANCELLED
+            self._cv.notify_all()
 
     def _run(self) -> None:
         """Run the task to completion.
@@ -186,7 +200,12 @@ def _work(task_queue: Queue[ThreadedTask]) -> None:
             task = task_queue.get()
         except ShutDown:
             break
-        task._run()
+        try:
+            task._run()
+        except Exception:
+            # Any exceptions not caught by the task itself are bugs in the backend
+            # TODO: find a way to report these in the user thread
+            task.cancel()
         task_queue.task_done()
 
 
@@ -216,8 +235,8 @@ class SingleThreadedBackend:
         self._thread = None
 
     def compute(
-        self, item: Computable, *, error_policy: ErrorPolicy = ErrorPolicy()
-    ) -> ThreadedTask:
+        self, item: Computable[InT, OutT], /, error_policy: ErrorPolicy = ErrorPolicy()
+    ) -> ThreadedTask[InT, OutT]:
         if not self._task_queue:
             raise RuntimeError("Backend compute called outside of context manager")
         if hasattr(item, "__next__"):

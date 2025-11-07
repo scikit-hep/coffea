@@ -1,6 +1,6 @@
-from enum import Enum
-from typing import Callable, Protocol, Self, TypeVar
 from collections.abc import Iterator
+from enum import Enum
+from typing import Callable, Generic, Protocol, Self, TypeVar
 
 T = TypeVar("T")
 
@@ -24,8 +24,53 @@ class EmptyResult:
         return "EmptyResult()"
 
 
-class Computable(Protocol):
-    def __iter__(self) -> Iterator[Callable[[], ResultType]]:
+DataT = TypeVar("DataT", covariant=True)
+
+
+class DataElement(Protocol, Generic[DataT]):
+    """A data element has the necessary information to load a piece of data.
+
+    It should be lightweight and serializable.
+    """
+
+    def load(self) -> DataT:
+        """Load and return the data represented by this element."""
+        ...
+
+
+InputT = TypeVar("InputT")
+OutputT = TypeVar("OutputT", bound=ResultType, covariant=True)
+
+
+class WorkElement(Protocol, Generic[InputT, OutputT]):
+    """A work element pairs a function with a data element to be processed.
+
+    We enforce that this is used over, say partial(func, item.load()) so that:
+    - We can type the input and output types separately
+    - We can avoid capturing item.load() in a closure
+    - We can later add metadata to this class if needed
+    - We can isolate the data element as it is generally more serializable than a partial function
+
+    Concrete implementations should be in the data module where DataElement is defined.
+    """
+
+    @property
+    def func(self) -> Callable[[InputT], OutputT]: ...
+
+    @property
+    def item(self) -> DataElement[InputT]: ...
+
+    def __call__(self) -> OutputT:
+        """Execute the work element by loading the data and applying the function.
+
+        Suggested implementation is below, but concrete implementations should define this method
+        rather than inheriting the protocol.
+        """
+        return self.func(self.item.load())
+
+
+class Computable(Protocol, Generic[InputT, OutputT]):
+    def __iter__(self) -> Iterator[WorkElement[InputT, OutputT]]:
         """Return an iterator over callables that each compute a part of the result.
 
         This establishes a global index over the computation. We can use filters
@@ -42,6 +87,11 @@ class Computable(Protocol):
 
 
 class TaskStatus(Enum):
+    """Enumeration of possible task statuses.
+
+    This is a concrete type so we are clear about definitions across backends.
+    """
+
     PENDING = "pending"
     """The computation has not yet started."""
     RUNNING = "running"
@@ -61,17 +111,19 @@ class TaskStatus(Enum):
         )
 
 
-class Task(Protocol):
+class Task(Protocol, Generic[InputT, OutputT]):
     """Task represents an ongoing or completed computation.
 
     A Task is created by a Backend when a Computable is submitted for execution.
     """
 
-    def result(self) -> ResultType:
+    def result(self) -> OutputT | EmptyResult:
         """Get the full final result of the computation. Blocking."""
         ...
 
-    def partial_result(self) -> tuple[ResultType, Computable]:
+    def partial_result(
+        self,
+    ) -> tuple[OutputT | EmptyResult, Computable[InputT, OutputT]]:
         """Get a partial result and the corresponding continuation computation. Non-blocking.
 
         The partial result may either be because the task is not yet complete,
@@ -80,6 +132,8 @@ class Task(Protocol):
         TODO: add cancel parameter to indicate whether to stop ongoing computation?
         """
         ...
+
+    # TODO: retrieve exceptions (this is managed in errors module, should errors define a Protocol?)
 
     def wait(self) -> None:
         """Block until the computation is complete.
@@ -104,7 +158,7 @@ class Task(Protocol):
 
 
 class Backend(Protocol):
-    def compute(self, item: Computable) -> Task:
+    def compute(self, item: Computable[InputT, OutputT], /) -> Task[InputT, OutputT]:
         """Launch a computation and return a Task representing it.
 
         The backend holds any resources needed to perform the computation,

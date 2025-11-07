@@ -25,17 +25,10 @@ class Step:
     def __len__(self) -> int:
         return self.entry_range[1] - self.entry_range[0]
 
-
-@dataclass(slots=True)
-class StepWorkElement:
-    func: EventsFunc
-    step: Step
-
-    def __call__(self) -> ResultType:
+    def load(self) -> EventsArray:
         # Dummy implementation of event loading
-        info = str(self.step.entry_range)
-        events = info + "A" * (len(self.step) - len(info))  # Dummy events
-        return self.func(events)
+        info = str(self.entry_range)
+        return info + "A" * (len(self) - len(info))  # Dummy events
 
 
 class StepIterable(ABC):
@@ -52,11 +45,24 @@ class StepIterable(ABC):
 
 
 @dataclass
+class StepWorkElement:
+    func: EventsFunc
+    item: Step
+
+    def __call__(self) -> ResultType:
+        # TODO: where should we attach the metadata about the step parentship?
+        # Here or in Step itself? Maybe in Step itself so that WorkElement can be generic?
+        # Or maybe it should be here in StepWorkElement so that Step can remain lightweight
+        # and not duplicate metadata contained inside the parent File or Dataset?
+        return self.func(self.item.load())
+
+
+@dataclass
 class StepwiseComputable:
     func: EventsFunc
     iterable: StepIterable
 
-    def __iter__(self) -> Iterator[Callable[[], ResultType]]:
+    def __iter__(self) -> Iterator[StepWorkElement]:
         return map(StepWorkElement, repeat(self.func), self.iterable.iter_steps())
 
 
@@ -68,17 +74,11 @@ class File(StepIterable):
     def iter_steps(self) -> Iterator[Step]:
         return map(Step, repeat(self.path), self.steps)
 
-
-@dataclass
-class FileWorkElement:
-    func: DirectoryFunc
-    file: File
-
-    def __call__(self) -> ResultType:
+    def load(self) -> ReadOnlyDirectory:
         # Dummy implementation of file loading
-        file = uproot.open(self.file.path)
+        file = uproot.open(self.path)
         assert isinstance(file, ReadOnlyDirectory)
-        return self.func(file)
+        return file
 
 
 class FileIterable(ABC):
@@ -87,16 +87,25 @@ class FileIterable(ABC):
         """Return an iterator over files in the computation."""
         raise NotImplementedError
 
-    def map_files(self, func: DirectoryFunc) -> "FileComputable":
-        return FileComputable(func=func, iterable=self)
+    def map_files(self, func: DirectoryFunc) -> "FilewiseComputable":
+        return FilewiseComputable(func=func, iterable=self)
 
 
 @dataclass
-class FileComputable:
+class FileWorkElement:
+    func: DirectoryFunc
+    item: File
+
+    def __call__(self) -> ResultType:
+        return self.func(self.item.load())
+
+
+@dataclass
+class FilewiseComputable:
     func: DirectoryFunc
     iterable: FileIterable
 
-    def __iter__(self) -> Iterator[Callable[[], ResultType]]:
+    def __iter__(self) -> Iterator[FileWorkElement]:
         return map(FileWorkElement, repeat(self.func), self.iterable.iter_files())
 
 

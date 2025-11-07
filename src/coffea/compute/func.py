@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Protocol
 from collections.abc import Sized
+from typing import Protocol
 
 from coffea.compute.protocol import ResultType
 

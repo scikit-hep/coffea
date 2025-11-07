@@ -5,19 +5,18 @@ from coffea.compute import (
     EventsArray,
     File,
     ProcessorABC,
-    ResultType,
 )
 from coffea.compute.backends.threaded import SingleThreadedBackend
 from coffea.compute.errors import ErrorPolicy
 
 
 class DummyProcessor(ProcessorABC):
-    def process(self, events: EventsArray) -> ResultType:
+    def process(self, events: EventsArray) -> int:
         return len(events)
 
 
 class BuggyProcessor(ProcessorABC):
-    def process(self, events: EventsArray) -> ResultType:
+    def process(self, events: EventsArray) -> int:
         if hash(events) % 100 == 0:
             raise ValueError("Simulated processing error")
         return len(events)

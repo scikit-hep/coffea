@@ -1,6 +1,7 @@
 import time
-from functools import partial
+from dataclasses import dataclass
 from itertools import repeat
+from typing import Callable
 
 import pytest
 
@@ -11,13 +12,37 @@ from coffea.compute.protocol import Backend, TaskStatus
 BACKENDS: list[type[Backend]] = [SingleThreadedBackend]
 
 
+def func(x: int):
+    time.sleep(0.001)
+    return x * x
+
+
+def buggy_func(x: int):
+    if x == 42:
+        raise ValueError("The answer to life, universe and everything caused an error")
+    return x * x
+
+
+class IntLoader:
+    def __init__(self, item: int):
+        self.item = item
+
+    def load(self) -> int:
+        return self.item
+
+
+@dataclass(frozen=True)
+class IntWorkElement:
+    func: Callable[[int], int]
+    item: IntLoader
+
+    def __call__(self) -> int:
+        return self.func(self.item.load())
+
+
 @pytest.mark.parametrize("backend_class", BACKENDS)
 def test_backend_compute(backend_class):
-    def func(x: int):
-        time.sleep(0.001)
-        return x * x
-
-    computable = list(map(partial, repeat(func), range(100)))
+    computable = list(map(IntWorkElement, repeat(func), map(IntLoader, range(100))))
 
     thing = backend_class()
     # Test that using compute outside of context manager raises
@@ -40,7 +65,7 @@ def test_backend_compute(backend_class):
     assert task.status() == TaskStatus.COMPLETE
 
     # detect iterators (stateful)
-    computable = map(partial, repeat(func), range(100))
+    computable = map(IntWorkElement, repeat(func), map(IntLoader, range(100)))
     with thing as backend:
         with pytest.raises(TypeError, match="iterables, not iterators"):
             backend.compute(computable)
@@ -48,12 +73,8 @@ def test_backend_compute(backend_class):
 
 @pytest.mark.parametrize("backend_class", BACKENDS)
 def test_backend_partial_result(backend_class):
-    def func(x: int):
-        time.sleep(0.001)
-        return x * x
-
     with backend_class() as backend:
-        computable = list(map(partial, repeat(func), range(100)))
+        computable = list(map(IntWorkElement, repeat(func), map(IntLoader, range(100))))
         task = backend.compute(computable)
 
         time.sleep(0.01)
@@ -74,15 +95,10 @@ def test_backend_partial_result(backend_class):
 
 @pytest.mark.parametrize("backend_class", BACKENDS)
 def test_backend_error_handling(backend_class):
-    def func(x: int):
-        if x == 42:
-            raise ValueError(
-                "The answer to life, universe and everything caused an error"
-            )
-        return x * x
-
     with backend_class() as backend:
-        computable = list(map(partial, repeat(func), range(100)))
+        computable = list(
+            map(IntWorkElement, repeat(buggy_func), map(IntLoader, range(100)))
+        )
 
         # With default error policy, the task should cancel on error after 3 retries
         task = backend.compute(computable)
