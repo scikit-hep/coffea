@@ -5,10 +5,16 @@ from typing import Callable, Generic, Protocol, Self, TypeVar
 T = TypeVar("T")
 
 
-class ResultType(Protocol):
+class Addable(Protocol):
     def __add__(self: T, other: T, /) -> T:
         """Merge two results together."""
         ...
+
+
+ResultT = TypeVar("ResultT", bound=Addable, covariant=True)
+"""The result type produced by a computation.
+
+It must support addition to allow merging/reduction."""
 
 
 class EmptyResult:
@@ -39,10 +45,9 @@ class DataElement(Protocol, Generic[DataT]):
 
 
 InputT = TypeVar("InputT")
-OutputT = TypeVar("OutputT", bound=ResultType, covariant=True)
 
 
-class WorkElement(Protocol, Generic[InputT, OutputT]):
+class WorkElement(Protocol, Generic[InputT, ResultT]):
     """A work element pairs a function with a data element to be processed.
 
     We enforce that this is used over, say partial(func, item.load()) so that:
@@ -55,12 +60,12 @@ class WorkElement(Protocol, Generic[InputT, OutputT]):
     """
 
     @property
-    def func(self) -> Callable[[InputT], OutputT]: ...
+    def func(self) -> Callable[[InputT], ResultT]: ...
 
     @property
     def item(self) -> DataElement[InputT]: ...
 
-    def __call__(self) -> OutputT:
+    def __call__(self) -> ResultT:
         """Execute the work element by loading the data and applying the function.
 
         Suggested implementation is below, but concrete implementations should define this method
@@ -69,8 +74,8 @@ class WorkElement(Protocol, Generic[InputT, OutputT]):
         return self.func(self.item.load())
 
 
-class Computable(Protocol, Generic[InputT, OutputT]):
-    def __iter__(self) -> Iterator[WorkElement[InputT, OutputT]]:
+class Computable(Protocol, Generic[InputT, ResultT]):
+    def __iter__(self) -> Iterator[WorkElement[InputT, ResultT]]:
         """Return an iterator over callables that each compute a part of the result.
 
         This establishes a global index over the computation. We can use filters
@@ -111,19 +116,19 @@ class TaskStatus(Enum):
         )
 
 
-class Task(Protocol, Generic[InputT, OutputT]):
+class Task(Protocol, Generic[InputT, ResultT]):
     """Task represents an ongoing or completed computation.
 
     A Task is created by a Backend when a Computable is submitted for execution.
     """
 
-    def result(self) -> OutputT | EmptyResult:
+    def result(self) -> ResultT | EmptyResult:
         """Get the full final result of the computation. Blocking."""
         ...
 
     def partial_result(
         self,
-    ) -> tuple[OutputT | EmptyResult, Computable[InputT, OutputT]]:
+    ) -> tuple[ResultT | EmptyResult, Computable[InputT, ResultT]]:
         """Get a partial result and the corresponding continuation computation. Non-blocking.
 
         The partial result may either be because the task is not yet complete,
@@ -158,7 +163,7 @@ class Task(Protocol, Generic[InputT, OutputT]):
 
 
 class Backend(Protocol):
-    def compute(self, item: Computable[InputT, OutputT], /) -> Task[InputT, OutputT]:
+    def compute(self, item: Computable[InputT, ResultT], /) -> Task[InputT, ResultT]:
         """Launch a computation and return a Task representing it.
 
         The backend holds any resources needed to perform the computation,

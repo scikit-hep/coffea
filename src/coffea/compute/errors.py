@@ -1,27 +1,24 @@
 from dataclasses import KW_ONLY, dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Generic, TypeVar
+from typing import Generic
 
-from coffea.compute.protocol import ResultType, WorkElement
-
-InT = TypeVar("InT")
-OutT = TypeVar("OutT", bound=ResultType)
+from coffea.compute.protocol import InputT, ResultT, WorkElement
 
 
 @dataclass(slots=True, frozen=True)
-class TaskElement(Generic[InT, OutT]):
+class TaskElement(Generic[InputT, ResultT]):
     """A wrapper of WorkElement with an index for tracking."""
 
     index: int
-    work: WorkElement[InT, OutT]
+    work: WorkElement[InputT, ResultT]
 
-    def __call__(self) -> OutT:
+    def __call__(self) -> ResultT:
         return self.work()
 
 
 @dataclass(slots=True, frozen=True)
-class FailedTaskElement(TaskElement[InT, OutT]):
+class FailedTaskElement(TaskElement[InputT, ResultT]):
     exception: Exception
     retries: int
     last_attempt: datetime = field(default_factory=datetime.now)
@@ -48,8 +45,8 @@ class ErrorPolicy:
     All other exceptions will cause task cancellation after max retries."""
 
     def first_action(
-        self, element: TaskElement[InT, OutT], exception: Exception
-    ) -> tuple[FailedTaskElement[InT, OutT], ErrorAction]:
+        self, element: TaskElement[InputT, ResultT], exception: Exception
+    ) -> tuple[FailedTaskElement[InputT, ResultT], ErrorAction]:
         """Determine action to take on first failure of a task element."""
         new_element = FailedTaskElement(
             index=element.index,
@@ -64,8 +61,8 @@ class ErrorPolicy:
         return new_element, ErrorAction.RETRY
 
     def retry_action(
-        self, element: FailedTaskElement[InT, OutT], exception: Exception
-    ) -> tuple[FailedTaskElement[InT, OutT], ErrorAction]:
+        self, element: FailedTaskElement[InputT, ResultT], exception: Exception
+    ) -> tuple[FailedTaskElement[InputT, ResultT], ErrorAction]:
         """Determine action to take on retry failure of a task element."""
         new_element = FailedTaskElement(
             index=element.index,

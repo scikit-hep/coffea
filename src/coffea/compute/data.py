@@ -2,19 +2,14 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
 from itertools import chain, repeat
-from typing import Callable, Literal
+from typing import Generic, Literal
 
 import uproot
 from more_itertools import roundrobin
 from uproot import ReadOnlyDirectory
 
-from coffea.compute.func import EventsArray, ProcessorABC
-from coffea.compute.protocol import ResultType
-
-EventsFunc = Callable[[EventsArray], ResultType]
-"Function that processes an EventsArray and returns a ResultType"
-DirectoryFunc = Callable[[ReadOnlyDirectory], ResultType]
-"Function that processes a uproot directory"
+from coffea.compute.func import DirectoryFunc, EventsArray, EventsFunc, Processor
+from coffea.compute.protocol import Addable, ResultT
 
 
 @dataclass(slots=True)
@@ -37,19 +32,21 @@ class StepIterable(ABC):
         """Return an iterator over steps in the computation."""
         raise NotImplementedError
 
-    def map_steps(self, func: EventsFunc | ProcessorABC) -> "StepwiseComputable":
+    def map_steps(
+        self, func: EventsFunc[ResultT] | Processor[ResultT]
+    ) -> "StepwiseComputable[ResultT]":
         """Apply a function or Processor to each step in this data."""
-        if isinstance(func, ProcessorABC):
+        if not callable(func):
             func = func.process
         return StepwiseComputable(func=func, iterable=self)
 
 
-@dataclass
-class StepWorkElement:
-    func: EventsFunc
+@dataclass(frozen=True)
+class StepWorkElement(Generic[ResultT]):
+    func: EventsFunc[ResultT]
     item: Step
 
-    def __call__(self) -> ResultType:
+    def __call__(self) -> ResultT:
         # TODO: where should we attach the metadata about the step parentship?
         # Here or in Step itself? Maybe in Step itself so that WorkElement can be generic?
         # Or maybe it should be here in StepWorkElement so that Step can remain lightweight
@@ -57,12 +54,12 @@ class StepWorkElement:
         return self.func(self.item.load())
 
 
-@dataclass
-class StepwiseComputable:
-    func: EventsFunc
+@dataclass(frozen=True)
+class StepwiseComputable(Generic[ResultT]):
+    func: EventsFunc[ResultT]
     iterable: StepIterable
 
-    def __iter__(self) -> Iterator[StepWorkElement]:
+    def __iter__(self) -> Iterator[StepWorkElement[ResultT]]:
         return map(StepWorkElement, repeat(self.func), self.iterable.iter_steps())
 
 
@@ -96,7 +93,7 @@ class FileWorkElement:
     func: DirectoryFunc
     item: File
 
-    def __call__(self) -> ResultType:
+    def __call__(self) -> Addable:
         return self.func(self.item.load())
 
 

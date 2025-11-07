@@ -1,8 +1,9 @@
-from abc import ABC, abstractmethod
 from collections.abc import Sized
-from typing import Protocol
+from typing import Callable, Generic, Protocol
 
-from coffea.compute.protocol import ResultType
+from uproot import ReadOnlyDirectory
+
+from coffea.compute.protocol import ResultT
 
 
 class EventsArray(Sized, Protocol):
@@ -11,8 +12,15 @@ class EventsArray(Sized, Protocol):
     # metadata: dict[str, Any]
 
 
-class ProcessorABC(ABC):
-    @abstractmethod
-    def process(self, events: EventsArray) -> ResultType:
+EventsFunc = Callable[[EventsArray], ResultT]
+"Function that processes an EventsArray and returns a ResultType"
+
+
+class Processor(Protocol, Generic[ResultT]):
+    def process(self, events: EventsArray) -> ResultT:
         """Process a chunk of events and return a result."""
-        raise NotImplementedError
+        ...
+
+
+DirectoryFunc = Callable[[ReadOnlyDirectory], ResultT]
+"Function that processes a uproot directory"

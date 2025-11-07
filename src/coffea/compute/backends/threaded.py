@@ -12,15 +12,15 @@ from coffea.compute.errors import (
     TaskElement,
 )
 from coffea.compute.protocol import (
+    Addable,
     Computable,
     EmptyResult,
-    ResultType,
     TaskStatus,
     WorkElement,
 )
 
 InT = TypeVar("InT")
-OutT = TypeVar("OutT", bound=ResultType)
+OutT = TypeVar("OutT", bound=Addable)
 
 
 @dataclass
