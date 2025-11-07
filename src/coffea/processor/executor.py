@@ -30,6 +30,7 @@ import uproot
 from cachetools import LRUCache
 
 from ..nanoevents import NanoEventsFactory, schemas
+from ..nanoevents.util import key_to_tuple
 from ..util import _exception_chain, _hash, deprecate, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .checkpointer import CheckpointerABC
@@ -1532,7 +1533,10 @@ class Runner:
                     if isinstance(file, uproot.ReadOnlyDirectory):
                         metrics["bytesread"] = file.file.source.num_requested_bytes
                     if schema is not None and issubclass(schema, schemas.BaseSchema):
-                        metrics["columns"] = set(materialized)
+                        metrics["columns"] = {
+                            f"{x.branch}-{key_to_tuple(x.buffer_key)[3]}"
+                            for x in materialized
+                        }
                         metrics["entries"] = len(events)
                     metrics["processtime"] = toc - tic
                     out = {"out": out, "metrics": metrics, "processed": {item}}
