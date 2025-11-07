@@ -10,6 +10,9 @@ class Addable(Protocol):
         """Merge two results together."""
         ...
 
+    # TODO: past experience shows that we'll need __iadd__ as well for performance
+    # which means we need to be careful about which results are mutable vs immutable
+
 
 ResultT = TypeVar("ResultT", bound=Addable, covariant=True)
 """The result type produced by a computation.
@@ -89,6 +92,8 @@ class Computable(Protocol, Generic[InputT, ResultT]):
         re-iterated over for resumptions. How to enforce that in the Protocol?
         """
         ...
+
+    # TODO: dependencies method to declare other Computables that must be run first?
 
 
 class TaskStatus(Enum):
