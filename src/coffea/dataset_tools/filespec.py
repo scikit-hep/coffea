@@ -194,14 +194,14 @@ class InputFilesMixin:
     @computed_field
     @property
     def num_selected_entries(self) -> int | None:
-        """Compute the total number of entries across all files, if available."""
+        """Compute the total number of selected entries across all files (calculated from steps), if available."""
         total = 0
         for v in self.values():
             if v.num_selected_entries is not None:
                 total += v.num_selected_entries
         return total
 
-    def limit_steps(self, maxsteps: int | None, per_file=False) -> Self:
+    def limit_steps(self, maxsteps: int | None, per_file: bool = False) -> Self:
         """Limit the steps"""
 
         if maxsteps is None:
@@ -430,6 +430,24 @@ class DatasetSpec(BaseModel):
 
             return awkward.forms.from_json(decompress_form(self.compressed_form))
 
+    @computed_field
+    @property
+    def num_entries(self) -> int | None:
+        """Compute the total number of entries across all files, if available."""
+        return self.files.num_entries
+
+    @computed_field
+    @property
+    def num_selected_entries(self) -> int | None:
+        """Compute the total number of selected entries across all files (calculated from steps), if available."""
+        return self.files.num_selected_entries
+
+    def limit_steps(self, maxsteps: int | None, per_file: bool = False) -> Self:
+        """Limit the steps"""
+        spec = self.model_dump()
+        spec["files"] = self.files.limit_steps(maxsteps, per_file=per_file)
+        return type(self)(**spec)
+
 
 class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
     def __iter__(self) -> Iterable[str]:
@@ -453,6 +471,31 @@ class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
         if isinstance(data, FilesetSpec):
             return data.model_dump()
         return data
+
+    @computed_field
+    @property
+    def num_entries(self, per_dataset: bool = False) -> int | None | dict[str, int | None]:
+        """Compute the total number of entries across all files, if available."""
+        if per_dataset:
+            return {k: v.num_entries for k, v in self.root.items()}
+        return sum(v.num_entries for v in self.root.values())
+
+    @computed_field
+    @property
+    def num_selected_entries(self, per_dataset: bool = False) -> int | None | dict[str, int | None]:
+        """Compute the total number of selected entries across all files (calculated from steps), if available."""
+        if per_dataset:
+            return {k: v.num_selected_entries for k, v in self.root.items()}
+        return sum(v.num_selected_entries for v in self.root.values())
+
+    def limit_steps(self, maxsteps: int | None, per_file: bool = False, per_dataset: bool = False) -> Self:
+        """Limit the steps"""
+        spec = self.model_dump()
+        if per_dataset:
+            spec["files"] = self.root.limit_steps(maxsteps, per_file=per_file)
+        else:
+            raise NotImplementedError("FilesetSpec.limit_steps with per_dataset=False is not implemented")
+        return type(self)(spec)
 
 
 def identify_file_format(name_or_directory: str) -> str:
