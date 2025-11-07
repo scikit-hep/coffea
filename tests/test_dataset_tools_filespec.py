@@ -145,6 +145,26 @@ class TestROOTFileSpec:
                 assert restored.object_path == "Events"
                 assert restored.steps == [[0, 10]]
 
+    def test_num_selected_entries_computation(self):
+        """Test computation of num_selected_entries property"""
+        spec = ROOTFileSpec(object_path="Events", steps=[[0, 10], [20, 30]])
+        assert spec.num_selected_entries == 20
+
+        spec_no_steps = ROOTFileSpec(object_path="Events", steps=None)
+        assert spec_no_steps.num_selected_entries is None
+
+    def test_limit_steps_no_modification(self):
+        """Test that limit_steps with no maxsteps returns equivalent object"""
+        spec = ROOTFileSpec(object_path="Events", steps=[[0, 10], [10, 20]])
+        limited_spec = spec.limit_steps(None)
+        assert limited_spec == spec
+
+    def test_limit_steps_slicing(self):
+        """Test limit_steps with slicing"""
+        spec = ROOTFileSpec(object_path="Events", steps=[[0, 10], [10, 20], [20, 30]])
+        limited_spec = spec.limit_steps(2)
+        assert limited_spec.steps == [[0, 10], [10, 20]]
+
 
 class TestParquetFileSpec:
     """Test ParquetFileSpec class"""
@@ -179,6 +199,26 @@ class TestParquetFileSpec:
                 assert restored.object_path is None
                 assert restored.steps == [[0, 10]]
 
+    def test_num_selected_entries_computation(self):
+        """Test computation of num_selected_entries property"""
+        spec = ParquetFileSpec(object_path=None, steps=[[0, 10], [20, 30]])
+        assert spec.num_selected_entries == 20
+
+        spec_no_steps = ParquetFileSpec(object_path=None, steps=None)
+        assert spec_no_steps.num_selected_entries is None
+
+    def test_limit_steps_no_modification(self):
+        """Test that limit_steps with no maxsteps returns equivalent object"""
+        spec = ParquetFileSpec(object_path=None, steps=[[0, 10], [10, 20]])
+        limited_spec = spec.limit_steps(None)
+        assert limited_spec == spec
+
+    def test_limit_steps_slicing(self):
+        """Test limit_steps with slicing"""
+        spec = ParquetFileSpec(object_path=None, steps=[[0, 10], [10, 20], [20, 30]])
+        limited_spec = spec.limit_steps(2)
+        assert limited_spec.steps == [[0, 10], [10, 20]]
+
 
 class TestCoffeaROOTFileSpecOptional:
     """Test CoffeaROOTFileSpecOptional class"""
@@ -202,7 +242,7 @@ class TestCoffeaROOTFileSpecOptional:
         assert spec.uuid == "test-uuid"
 
     def test_comprehensive_parameter_combinations(self):
-        """Test all parameter combinations from __main__ method"""
+        """Test all parameter combinations"""
         steps_options = [None, [0, 100], [[0, 1], [2, 3]]]
         num_entries_options = [None, 100]
         uuid_options = [None, "hello-there"]
@@ -327,6 +367,38 @@ class TestCoffeaROOTFileSpec:
                 assert restored.num_entries == 100
                 assert restored.uuid == "test-uuid"
 
+    def test_num_selected_entries_computation(self):
+        """Test computation of num_selected_entries property"""
+        spec = CoffeaROOTFileSpec(
+            object_path="Events",
+            steps=[[0, 10], [20, 30]],
+            num_entries=30,
+            uuid="test-uuid",
+        )
+        assert spec.num_selected_entries == 20
+
+    def test_limit_steps_no_modification(self):
+        """Test that limit_steps with no maxsteps returns equivalent object"""
+        spec = CoffeaROOTFileSpec(
+            object_path="Events",
+            steps=[[0, 10], [10, 20]],
+            num_entries=30,
+            uuid="test-uuid",
+        )
+        limited_spec = spec.limit_steps(None)
+        assert limited_spec == spec
+
+    def test_limit_steps_slicing(self):
+        """Test limit_steps with slicing"""
+        spec = CoffeaROOTFileSpec(
+            object_path="Events",
+            steps=[[0, 10], [10, 20], [20, 30]],
+            num_entries=30,
+            uuid="test-uuid",
+        )
+        limited_spec = spec.limit_steps(2)
+        assert limited_spec.steps == [[0, 10], [10, 20]]
+
 
 class TestCoffeaParquetFileSpecOptional:
     """Test CoffeaParquetFileSpecOptional class"""
@@ -446,6 +518,38 @@ class TestCoffeaParquetFileSpec:
                 assert restored.num_entries == 100
                 assert restored.uuid == "test-uuid"
 
+    def test_num_selected_entries_computation(self):
+        """Test computation of num_selected_entries property"""
+        spec = CoffeaParquetFileSpec(
+            object_path=None,
+            steps=[[0, 10], [20, 30]],
+            num_entries=30,
+            uuid="test-uuid",
+        )
+        assert spec.num_selected_entries == 20
+
+    def test_limit_steps_no_modification(self):
+        """Test that limit_steps with no maxsteps returns equivalent object"""
+        spec = CoffeaParquetFileSpec(
+            object_path=None,
+            steps=[[0, 10], [10, 20]],
+            num_entries=30,
+            uuid="test-uuid",
+        )
+        limited_spec = spec.limit_steps(None)
+        assert limited_spec == spec
+
+    def test_limit_steps_slicing(self):
+        """Test limit_steps with slicing"""
+        spec = CoffeaParquetFileSpec(
+            object_path=None,
+            steps=[[0, 10], [10, 20], [20, 30]],
+            num_entries=30,
+            uuid="test-uuid",
+        )
+        limited_spec = spec.limit_steps(2)
+        assert limited_spec.steps == [[0, 10], [10, 20]]
+
 
 class TestInputFiles:
     """Test InputFiles class"""
@@ -456,7 +560,7 @@ class TestInputFiles:
                 object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
             ),
             "file1.parquet": CoffeaParquetFileSpec(
-                steps=[[0, 100]], num_entries=100, uuid="uuid2"
+                steps=[[0, 50], [50, 100]], num_entries=100, uuid="uuid2"
             ),
             "file2.root": CoffeaROOTFileSpecOptional(
                 object_path="Events", steps=[[10, 20]], num_entries=None, uuid=None
@@ -546,6 +650,38 @@ class TestInputFiles:
                 restored = InputFiles.model_validate_json(fin.read())
                 assert len(restored) == 3
                 assert restored == spec
+
+    def test_num_entries_computation(self):
+        """Test computation of num_entries property"""
+        spec = InputFiles(self.get_files())
+        assert spec.num_entries == 110
+
+    def test_num_selected_entries_computation(self):
+        """Test computation of num_selected_entries property"""
+        spec = InputFiles(self.get_files())
+        assert spec.num_selected_entries == 120
+
+    def test_limit_steps_no_modification(self):
+        """Test that limit_steps with no maxsteps returns equivalent object"""
+        spec = InputFiles(self.get_files())
+        limited_spec = spec.limit_steps(None)
+        assert limited_spec == spec
+
+    def test_limit_steps_slicing(self):
+        """Test limit_steps with slicing"""
+        spec = InputFiles(self.get_files())
+        limited_spec = spec.limit_steps(2)
+        assert [v.steps for v in limited_spec.values()] == [[[0, 10]], [[0, 50]]]
+
+    def test_limit_steps_per_file_slicing(self):
+        """Test limit_steps with slicing"""
+        spec = InputFiles(self.get_files())
+        limited_spec = spec.limit_steps(1, per_file=True)
+        assert [v.steps for v in limited_spec.values()] == [
+            [[0, 10]],
+            [[0, 50]],
+            [[10, 20]],
+        ]
 
 
 class TestDatasetSpec:
