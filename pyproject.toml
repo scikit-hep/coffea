@@ -78,6 +78,7 @@ Homepage = "https://github.com/coffeateam/coffea"
 dask = [
   "distributed>=2024.3.0",
   "bokeh!=3.0.*,>=2.4.2",
+  "blosc2",
 ]
 parsl = [
   "parsl>=2024.12.09"

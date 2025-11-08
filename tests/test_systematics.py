@@ -99,6 +99,7 @@ def test_single_field_variation(tests_directory, mode, kind):
     assert ak.all(ak.isclose(get_array(met_PtScale_down_pt), expected_met_pt * 0.97))
 
     if mode == "virtual":
+        access_log = [x.branch for x in access_log]
         assert sorted(access_log) == ["Jet_pt", "MET_pt", "Muon_pt", "nJet", "nMuon"]
 
 
@@ -228,6 +229,7 @@ def test_multi_field_variation(tests_directory, mode):
     )
 
     if mode == "virtual":
+        access_log = [x.branch for x in access_log]
         assert sorted(access_log) == [
             "Jet_phi",
             "Jet_pt",
@@ -408,6 +410,7 @@ def test_single_and_multi_field_variation(tests_directory, mode):
     )
 
     if mode == "virtual":
+        access_log = [x.branch for x in access_log]
         assert sorted(access_log) == [
             "Jet_phi",
             "Jet_pt",
