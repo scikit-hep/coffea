@@ -922,8 +922,10 @@ class TestDatasetSpec:
     def test_filter_files_callable(self):
         """Test that filter_files with callable works as expected"""
         spec = self.get_spec_with_valid_steps()
+
         def pattern_func(datasetspec) -> bool:
             return len(datasetspec.steps) > 3
+
         filtered_spec = spec.filter_files(filter_callable=pattern_func)
         assert len(filtered_spec.files.items()) == 1
         assert "nano_dy" in list(filtered_spec.files.keys())[0]
@@ -1452,8 +1454,10 @@ class TestFilesetSpec:
     def test_filter_files_callable(self):
         """Test that filter_files with callable works as expected"""
         spec = self.get_sliceable_spec()
+
         def pattern_func(datasetspec) -> bool:
             return len(datasetspec.steps) > 3
+
         filtered_spec = spec.filter_files(filter_callable=pattern_func)
         for k, v in filtered_spec.items():
             if k == "ZJets1":
@@ -1486,8 +1490,10 @@ class TestFilesetSpec:
     def test_filter_datasets_callable(self):
         """Test that filter_files with callable works as expected"""
         spec = self.get_sliceable_spec()
+
         def pattern_func(datasetspec) -> bool:
             return datasetspec.metadata.get("key", "") == "value"
+
         filtered_spec = spec.filter_datasets(filter_callable=pattern_func)
         for k, v in filtered_spec.items():
             if k == "ZJets1":
@@ -1495,6 +1501,7 @@ class TestFilesetSpec:
                 assert "nano_dy" in list(v.files.keys())[0]
             else:
                 raise AssertionError("Only ZJets1 should match")
+
 
 class TestMainMethodScenarios:
     """Test scenarios specifically from the __main__ method"""
