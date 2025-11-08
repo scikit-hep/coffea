@@ -4,7 +4,7 @@ import copy
 import pathlib
 import re
 from collections.abc import Hashable, Iterable, MutableMapping
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Callable, Literal, Union
 
 try:
     from typing import Self
@@ -228,6 +228,35 @@ class InputFilesMixin:
                     break
             return type(self)(new_dict)
 
+    def limit_files(self, maxfiles: int) -> Self:
+        """Limit the number of files."""
+        if maxfiles is None or maxfiles >= len(self):
+            return self
+        new_dict = {}
+        for i, (k, v) in enumerate(self.items()):
+            if i < maxfiles:
+                new_dict[k] = v
+            else:
+                break
+        return type(self)(new_dict)
+
+    def filter_files(
+        self,
+        filter_name: str | None = None,
+        filter_filespec_callable: Callable[[FileSpecUnion], bool] | None = None,
+    ) -> Self:
+        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_filespec_callable)."""
+        if filter_name is not None:
+            regex = re.compile(filter_name)
+            new_dict = {k: v for k, v in self.items() if regex.search(k)}
+        else:
+            new_dict = dict(self)
+        if filter_filespec_callable is not None:
+            new_dict = {
+                k: v for k, v in new_dict.items() if filter_filespec_callable(v)
+            }
+        return type(self)(new_dict)
+
 
 class InputFiles(
     RootModel[
@@ -447,6 +476,24 @@ class DatasetSpec(BaseModel):
         spec["files"] = self.files.limit_steps(maxsteps, per_file=per_file)
         return type(self)(**spec)
 
+    def limit_files(self, maxfiles: int | None) -> Self:
+        """Limit the number of files."""
+        spec = self.model_dump()
+        spec["files"] = self.files.limit_files(maxfiles)
+        return type(self)(**spec)
+
+    def filter_files(
+        self,
+        filter_name: str | None = None,
+        filter_filespec_callable: Callable[[FileSpecUnion], bool] | None = None,
+    ) -> Self:
+        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_filespec_callable)."""
+        spec = self.model_dump()
+        spec["files"] = self.files.filter_files(
+            filter_name=filter_name, filter_filespec_callable=filter_filespec_callable
+        )
+        return type(self)(**spec)
+
 
 class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
     def __iter__(self) -> Iterable[str]:
@@ -499,6 +546,30 @@ class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
                 "FilesetSpec.limit_steps with per_dataset=False is not implemented"
             )
         return type(self)(spec)
+
+    def limit_files(self, maxfiles: int | None, per_dataset: bool = True) -> Self:
+        """Limit the number of files."""
+        spec = copy.deepcopy(self)
+        if per_dataset:
+            for k, v in spec.items():
+                spec[k] = v.limit_files(maxfiles)
+        else:
+            raise NotImplementedError(
+                "FilesetSpec.limit_files with per_dataset=False is not implemented"
+            )
+        return type(self)(spec)
+
+    def filter_files(
+        self,
+        filter_name: str | None = None,
+        filter_filespec_callable: Callable[[FileSpecUnion], bool] | None = None,
+    ) -> Self:
+        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_filespec_callable)."""
+        spec = self.model_dump()
+        spec["files"] = self.files.filter_files(
+            filter_name=filter_name, filter_filespec_callable=filter_filespec_callable
+        )
+        return type(self)(**spec)
 
 
 def identify_file_format(name_or_directory: str) -> str:
