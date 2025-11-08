@@ -243,17 +243,17 @@ class InputFilesMixin:
     def filter_files(
         self,
         filter_name: str | None = None,
-        filter_filespec_callable: Callable[[FileSpecUnion], bool] | None = None,
+        filter_callable: Callable[[FileSpecUnion], bool] | None = None,
     ) -> Self:
-        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_filespec_callable)."""
+        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_callable)."""
         if filter_name is not None:
             regex = re.compile(filter_name)
             new_dict = {k: v for k, v in self.items() if regex.search(k)}
         else:
             new_dict = dict(self)
-        if filter_filespec_callable is not None:
+        if filter_callable is not None:
             new_dict = {
-                k: v for k, v in new_dict.items() if filter_filespec_callable(v)
+                k: v for k, v in new_dict.items() if filter_callable(v)
             }
         return type(self)(new_dict)
 
@@ -485,12 +485,12 @@ class DatasetSpec(BaseModel):
     def filter_files(
         self,
         filter_name: str | None = None,
-        filter_filespec_callable: Callable[[FileSpecUnion], bool] | None = None,
+        filter_callable: Callable[[FileSpecUnion], bool] | None = None,
     ) -> Self:
-        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_filespec_callable)."""
+        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_callable)."""
         spec = self.model_dump()
         spec["files"] = self.files.filter_files(
-            filter_name=filter_name, filter_filespec_callable=filter_filespec_callable
+            filter_name=filter_name, filter_callable=filter_callable
         )
         return type(self)(**spec)
 
@@ -562,14 +562,34 @@ class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
     def filter_files(
         self,
         filter_name: str | None = None,
-        filter_filespec_callable: Callable[[FileSpecUnion], bool] | None = None,
+        filter_callable: Callable[[FileSpecUnion], bool] | None = None,
     ) -> Self:
-        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_filespec_callable)."""
+        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_callable)."""
         spec = self.model_dump()
-        spec["files"] = self.files.filter_files(
-            filter_name=filter_name, filter_filespec_callable=filter_filespec_callable
-        )
+        for k, v in self.items():
+            spec[k]["files"] = v.files.filter_files(
+                filter_name=filter_name, filter_callable=filter_callable
+            )
         return type(self)(**spec)
+
+    def filter_datasets(
+        self,
+        filter_name: str | None = None,
+        filter_callable: Callable[[DatasetSpec], bool] | None = None,
+    ) -> Self:
+        """Filter files by a regex pattern on the dataset names(filter_name) or callable applied to DatasetSpecs (filter_callable)."""
+        if filter_name is not None:
+            regex = re.compile(filter_name)
+            new_dict = {k: v for k, v in self.items() if regex.search(k)}
+        else:
+            new_dict = dict(self)
+        if filter_callable is not None:
+            import rich; rich.print(new_dict)
+            rich.print(new_dict.keys())
+            new_dict = {
+                k: v for k, v in new_dict.items() if filter_callable(v)
+            }
+        return type(self)(new_dict)
 
 
 def identify_file_format(name_or_directory: str) -> str:
