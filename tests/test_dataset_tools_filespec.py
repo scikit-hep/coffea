@@ -895,10 +895,38 @@ class TestDatasetSpec:
         assert limited_spec == spec
 
     def test_limit_files_single(self):
-        """Test that limit_files with no maxsteps returns equivalent object"""
+        """Test that limit_files with maxsteps returns expected object"""
         spec = self.get_spec_with_valid_steps()
         limited_spec = spec.limit_files(maxfiles=1)
         assert len(limited_spec.files.items()) == 1
+
+    def test_filter_files_pattern(self):
+        """Test that filter_files_pattern works as expected"""
+        spec = self.get_spec_with_valid_steps()
+        filtered_spec = spec.filter_files(filter_name="nano_dy_2")
+        assert len(filtered_spec.files.items()) == 1
+        assert "nano_dy_2" in list(filtered_spec.files.keys())[0]
+
+    def test_filter_files_no_match(self):
+        """Test that filter_files with no matches returns empty fileset"""
+        spec = self.get_spec_with_valid_steps()
+        filtered_spec = spec.filter_files(filter_name="nonexistent_pattern")
+        assert len(filtered_spec.files.items()) == 0
+
+    def test_filter_files_all_match(self):
+        """Test that filter_files with all matches returns full fileset"""
+        spec = self.get_spec_with_valid_steps()
+        filtered_spec = spec.filter_files(filter_name="nano_dy")
+        assert len(filtered_spec.files.items()) == len(spec.files.items())
+
+    def test_filter_files_callable(self):
+        """Test that filter_files with callable works as expected"""
+        spec = self.get_spec_with_valid_steps()
+        def pattern_func(datasetspec) -> bool:
+            return len(datasetspec.steps) > 3
+        filtered_spec = spec.filter_files(filter_callable=pattern_func)
+        assert len(filtered_spec.files.items()) == 1
+        assert "nano_dy" in list(filtered_spec.files.keys())[0]
 
 
 class TestDatasetJoinableSpec:
@@ -1382,17 +1410,91 @@ class TestFilesetSpec:
         assert limited_spec == spec
 
     def test_limit_files_single_per_dataset(self):
-        """Test that limit_files with no maxsteps returns equivalent object"""
+        """Test that limit_files with maxsteps returns expected object"""
         spec = self.get_sliceable_spec()
         limited_spec = spec.limit_files(maxfiles=1, per_dataset=True)
-        import rich
-
-        rich.print(limited_spec)
         assert {k: len(v.files) for k, v in limited_spec.items()} == {
             "ZJets1": 1,
             "ZParquet": 1,
         }
 
+    def test_limit_files_single_not_per_dataset(self):
+        """Test that limit_files with per_dataset=False raises NotImplementedError"""
+        spec = self.get_sliceable_spec()
+        with pytest.raises(NotImplementedError):
+            limited_spec = spec.limit_files(maxfiles=1, per_dataset=False)
+
+    def test_filter_files_pattern(self):
+        """Test that filter_files_pattern works as expected"""
+        spec = self.get_sliceable_spec()
+        filtered_spec = spec.filter_files(filter_name=r"nano_dy\.")
+        for k, v in filtered_spec.items():
+            if k == "ZJets1":
+                assert len(v.files.items()) == 1
+                assert "nano_dy_2." not in list(v.files.keys())[0]
+            else:
+                assert len(v.files.items()) == 1
+                assert "parquet" in list(v.files.keys())[0]
+
+    def test_filter_files_no_match(self):
+        """Test that filter_files with no matches returns empty fileset"""
+        spec = self.get_sliceable_spec()
+        filtered_spec = spec.filter_files(filter_name="nonexistent_pattern")
+        for k, v in filtered_spec.items():
+            assert len(v.files.items()) == 0
+
+    def test_filter_files_all_match(self):
+        """Test that filter_files with all matches returns full fileset"""
+        spec = self.get_sliceable_spec()
+        filtered_spec = spec.filter_files(filter_name="nano_dy")
+        assert filtered_spec == spec
+
+    def test_filter_files_callable(self):
+        """Test that filter_files with callable works as expected"""
+        spec = self.get_sliceable_spec()
+        def pattern_func(datasetspec) -> bool:
+            return len(datasetspec.steps) > 3
+        filtered_spec = spec.filter_files(filter_callable=pattern_func)
+        for k, v in filtered_spec.items():
+            if k == "ZJets1":
+                assert len(v.files.items()) == 1
+                assert "nano_dy" in list(v.files.keys())[0]
+            else:
+                assert len(v.files.items()) == 1
+
+    def test_filter_datasets_pattern(self):
+        """Test that filter_name on datasets works as expected"""
+        spec = self.get_sliceable_spec()
+        filtered_spec = spec.filter_datasets(filter_name="Jets.")
+        assert "ZJets1" in filtered_spec
+        assert "ZParquet" not in filtered_spec
+
+    def test_filter_datasets_no_match(self):
+        """Test that filter_files with no matches returns empty fileset"""
+        spec = self.get_sliceable_spec()
+        filtered_spec = spec.filter_datasets(filter_name="nonexistent_pattern")
+        assert len(filtered_spec) == 0
+
+    def test_filter_datasets_all_match(self):
+        """Test that filter_files with all matches returns full fileset"""
+        spec = self.get_sliceable_spec()
+        filtered_spec = spec.filter_datasets(filter_name="Z.*")
+        assert len(filtered_spec) == len(spec)
+        assert "ZJets1" in filtered_spec
+        assert "ZParquet" in filtered_spec
+
+    def test_filter_datasets_callable(self):
+        """Test that filter_files with callable works as expected"""
+        spec = self.get_sliceable_spec()
+        def pattern_func(datasetspec) -> bool:
+            return datasetspec.metadata.get("key", "") == "value"
+        filtered_spec = spec.filter_datasets(filter_callable=pattern_func)
+        for k, v in filtered_spec.items():
+            if k == "ZJets1":
+                assert len(v.files.items()) == 2
+                assert "nano_dy" in list(v.files.keys())[0]
+            else:
+                raise AssertionError("Only ZJets1 should match")
 
 class TestMainMethodScenarios:
     """Test scenarios specifically from the __main__ method"""
