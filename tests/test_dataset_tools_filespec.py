@@ -1424,7 +1424,7 @@ class TestFilesetSpec:
         """Test that limit_files with per_dataset=False raises NotImplementedError"""
         spec = self.get_sliceable_spec()
         with pytest.raises(NotImplementedError):
-            limited_spec = spec.limit_files(maxfiles=1, per_dataset=False)
+            spec.limit_files(maxfiles=1, per_dataset=False)
 
     def test_filter_files_pattern(self):
         """Test that filter_files_pattern works as expected"""
