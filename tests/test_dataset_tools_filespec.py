@@ -749,6 +749,11 @@ class TestDatasetSpec:
             },
         }
 
+    def get_spec_with_valid_steps(self, steps=[[0, 30]]):
+        tmp = self.get_test_input()["ZJets1"]
+        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = steps
+        return DatasetSpec(**tmp)
+
     def test_creation_valid(self):
         """Test creation with valid concrete file specs"""
         files = InputFiles(
@@ -848,50 +853,29 @@ class TestDatasetSpec:
 
     def test_num_entries_computation(self):
         """Test computation of num_entries property"""
-        tmp = self.get_test_input()["ZJets1"]
-        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
-            [0, 30]
-        ]  # Ensure steps are set for counting
-        spec = DatasetSpec(**tmp)
+        spec = self.get_spec_with_valid_steps()
         assert spec.num_entries == 60
 
     def test_num_selected_entries_computation(self):
         """Test computation of num_selected_entries property"""
-        tmp = self.get_test_input()["ZJets1"]
-        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
-            [0, 30]
-        ]  # Ensure steps are set for counting
-        spec = DatasetSpec(**tmp).limit_steps(2, per_file=True)
+        spec = self.get_spec_with_valid_steps([[0, 10]])
         assert spec.num_selected_entries == 40
 
     def test_limit_steps_no_modification(self):
         """Test that limit_steps with no maxsteps returns equivalent object"""
-        tmp = self.get_test_input()["ZJets1"]
-        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
-            [0, 30]
-        ]  # Ensure steps are set for counting
-        spec = DatasetSpec(**tmp)
+        spec = self.get_spec_with_valid_steps()
         limited_spec = spec.limit_steps(None)
         assert limited_spec == spec
 
     def test_limit_steps_slicing(self):
         """Test limit_steps with slicing"""
-        tmp = self.get_test_input()["ZJets1"]
-        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
-            [0, 30]
-        ]  # Ensure steps are set for counting
-        spec = DatasetSpec(**tmp)
+        spec = self.get_spec_with_valid_steps()
         limited_spec = spec.limit_steps(2)
         assert [v.steps for v in limited_spec.files.values()] == [[[0, 5], [5, 10]]]
 
     def test_limit_steps_per_file_slicing(self):
         """Test limit_steps with slicing"""
-        tmp = self.get_test_input()["ZJets1"]
-        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
-            [0, 15],
-            [15, 30],
-        ]  # Ensure steps are set for counting
-        spec = DatasetSpec(**tmp)
+        spec = self.get_spec_with_valid_steps(steps=[[0, 15], [15, 30]])
         limited_spec = spec.limit_steps(1, per_file=True)
         assert [v.steps for v in limited_spec.files.values()] == [
             [[0, 5]],
@@ -900,14 +884,21 @@ class TestDatasetSpec:
 
     def test_limit_steps_method_chain_slicing(self):
         """Test limit_steps with slicing"""
-        tmp = self.get_test_input()["ZJets1"]
-        tmp["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
-            [0, 15],
-            [15, 30],
-        ]  # Ensure steps are set for counting
-        spec = DatasetSpec(**tmp)
+        spec = self.get_spec_with_valid_steps(steps=[[0, 15], [15, 30]])
         limited_spec = spec.limit_steps(1, per_file=True).limit_steps(1)
         assert [v.steps for v in limited_spec.files.values()] == [[[0, 5]]]
+
+    def test_limit_files_no_modification(self):
+        """Test that limit_files with no maxsteps returns equivalent object"""
+        spec = self.get_spec_with_valid_steps()
+        limited_spec = spec.limit_files(maxfiles=None)
+        assert limited_spec == spec
+
+    def test_limit_files_single(self):
+        """Test that limit_files with no maxsteps returns equivalent object"""
+        spec = self.get_spec_with_valid_steps()
+        limited_spec = spec.limit_files(maxfiles=1)
+        assert len(limited_spec.files.items()) == 1
 
 
 class TestDatasetJoinableSpec:
@@ -1202,6 +1193,15 @@ class TestJSONSerialization:
 class TestFilesetSpec:
     """Test FilesetSpec class"""
 
+    def get_sliceable_spec(self):
+        """Test limit_steps with slicing"""
+        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
+        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 30]
+        ]  # Ensure steps are set for counting
+        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
+        return FilesetSpec(tmp)
+
     def test_creation_valid(self):
         """Test creation with valid concrete dataset specs"""
         files = InputFiles(
@@ -1325,43 +1325,23 @@ class TestFilesetSpec:
 
     def test_num_entries_computation(self):
         """Test computation of num_entries property"""
-        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
-        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
-            [0, 30]
-        ]  # Ensure steps are set for counting
-        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
-        spec = FilesetSpec(tmp)
+        spec = self.get_sliceable_spec()
         assert spec.num_entries == 90
 
     def test_num_selected_entries_computation(self):
-        """Test computation of num_selected_entries property"""
-        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
-        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
-            [0, 30]
-        ]  # Ensure steps are set for counting
-        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
-        spec = FilesetSpec(tmp).limit_steps(2, per_file=True, per_dataset=True)
-        assert spec.num_selected_entries == 50
+        spec = self.get_sliceable_spec()
+        limited_spec = spec.limit_steps(2, per_file=True, per_dataset=True)
+        assert limited_spec.num_selected_entries == 50
 
     def test_limit_steps_no_modification(self):
         """Test that limit_steps with no maxsteps returns equivalent object"""
-        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
-        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
-            [0, 30]
-        ]  # Ensure steps are set for counting
-        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
-        spec = FilesetSpec(tmp)
+        spec = self.get_sliceable_spec()
         limited_spec = spec.limit_steps(None)
         assert limited_spec == spec
 
     def test_limit_steps_slicing(self):
         """Test limit_steps with slicing"""
-        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
-        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
-            [0, 30]
-        ]  # Ensure steps are set for counting
-        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
-        spec = FilesetSpec(tmp)
+        spec = self.get_sliceable_spec()
         limited_spec = spec.limit_steps(1, per_dataset=True)
         assert limited_spec.steps == {
             "ZJets1": {
@@ -1372,12 +1352,7 @@ class TestFilesetSpec:
 
     def test_limit_steps_per_file_slicing(self):
         """Test limit_steps with slicing"""
-        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
-        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
-            [0, 30]
-        ]  # Ensure steps are set for counting
-        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
-        spec = FilesetSpec(tmp)
+        spec = self.get_sliceable_spec()
         limited_spec = spec.limit_steps(1, per_dataset=True, per_file=True)
         assert limited_spec.steps == {
             "ZJets1": {
@@ -1389,12 +1364,7 @@ class TestFilesetSpec:
 
     def test_limit_steps_method_chain_slicing(self):
         """Test limit_steps with slicing"""
-        tmp = TestDatasetSpec.get_test_input(TestDatasetSpec)
-        tmp["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
-            [0, 30]
-        ]  # Ensure steps are set for counting
-        _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
-        spec = FilesetSpec(tmp)
+        spec = self.get_sliceable_spec()
         limited_spec = spec.limit_steps(1, per_file=True, per_dataset=True).limit_steps(
             1
         )
@@ -1403,6 +1373,24 @@ class TestFilesetSpec:
                 "tests/samples/nano_dy.root": [[0, 5]],
             },
             "ZParquet": {"tests/samples/nano_dy.parquet": [[0, 5]]},
+        }
+
+    def test_limit_files_no_modification(self):
+        """Test that limit_files with no maxfiles returns equivalent object"""
+        spec = self.get_sliceable_spec()
+        limited_spec = spec.limit_files(maxfiles=None)
+        assert limited_spec == spec
+
+    def test_limit_files_single_per_dataset(self):
+        """Test that limit_files with no maxsteps returns equivalent object"""
+        spec = self.get_sliceable_spec()
+        limited_spec = spec.limit_files(maxfiles=1, per_dataset=True)
+        import rich
+
+        rich.print(limited_spec)
+        assert {k: len(v.files) for k, v in limited_spec.items()} == {
+            "ZJets1": 1,
+            "ZParquet": 1,
         }
 
 
