@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from enum import Enum
-from typing import Callable, Generic, Protocol, Self, TypeVar
+from types import TracebackType
+from typing import Callable, Protocol, TypeVar
 
 T = TypeVar("T")
 
@@ -36,21 +37,29 @@ class EmptyResult:
 DataT = TypeVar("DataT", covariant=True)
 
 
-class DataElement(Protocol, Generic[DataT]):
+class DataElement(Protocol[DataT]):
     """A data element has the necessary information to load a piece of data.
 
-    It should be lightweight and serializable.
+    It should be lightweight and serializable. By using this protocol rather than
+    DataT/InputT directly, backends can manage data loading more flexibly.
     """
 
     def load(self) -> DataT:
-        """Load and return the data represented by this element."""
+        """Load and return the data represented by this element.
+
+        It is assumed to be IO-bound.
+        """
         ...
 
 
 InputT = TypeVar("InputT")
+"""The input type consumed by a computation.
+
+This is the same as the DataT of DataElement, but it needs to be invariant.
+"""
 
 
-class WorkElement(Protocol, Generic[InputT, ResultT]):
+class WorkElement(Protocol[InputT, ResultT]):
     """A work element pairs a function with a data element to be processed.
 
     We enforce that this is used over, say partial(func, item.load()) so that:
@@ -60,6 +69,7 @@ class WorkElement(Protocol, Generic[InputT, ResultT]):
     - We can isolate the data element as it is generally more serializable than a partial function
 
     Concrete implementations should be in the data module where DataElement is defined.
+    They will generally only be generic in ResultT, as InputT is tied to the DataElement.
     """
 
     @property
@@ -71,13 +81,16 @@ class WorkElement(Protocol, Generic[InputT, ResultT]):
     def __call__(self) -> ResultT:
         """Execute the work element by loading the data and applying the function.
 
-        Suggested implementation is below, but concrete implementations should define this method
-        rather than inheriting the protocol.
+        Concrete implementations should define this method rather than inheriting the protocol.
+        They MUST implement the method exactly as specified here.
+
+        Backends MAY call `item.load()` to preload data while working on another element,
+        as DataElement.load is assumed to be IO-bound.
         """
         return self.func(self.item.load())
 
 
-class Computable(Protocol, Generic[InputT, ResultT]):
+class Computable(Protocol[InputT, ResultT]):
     def __iter__(self) -> Iterator[WorkElement[InputT, ResultT]]:
         """Return an iterator over callables that each compute a part of the result.
 
@@ -121,7 +134,7 @@ class TaskStatus(Enum):
         )
 
 
-class Task(Protocol, Generic[InputT, ResultT]):
+class Task(Protocol[InputT, ResultT]):
     """Task represents an ongoing or completed computation.
 
     A Task is created by a Backend when a Computable is submitted for execution.
@@ -167,24 +180,42 @@ class Task(Protocol, Generic[InputT, ResultT]):
         ...
 
 
-class Backend(Protocol):
+class RunningBackend(Protocol):
+    """A RunningBackend represents an active backend context.
+
+    This is the type returned by Backend.__enter__.
+    It may be distinct from Backend to separate resource management
+    from computation submission.
+    """
+
     def compute(self, item: Computable[InputT, ResultT], /) -> Task[InputT, ResultT]:
         """Launch a computation and return a Task representing it.
 
-        The backend holds any resources needed to perform the computation,
-        such as a thread pool, process pool, or cluster connection. It should
-        manage a queue of tasks and execute them in FIFO order.
-
-        Probably this should have a context manager interface to clean up resources.
+        Note: a trivial implementation of this is `sum((f() for f in item), EmptyResult())`
         """
         ...
 
-    def __enter__(self) -> Self:
-        """Enter the backend context manager, allocating resources.
 
-        TODO: should we have a separate type for the context manager rather than return Self here?
-        One may also want to choose the behavior of exiting the context manager (wait for tasks to finish, cancel them, etc).
-        """
-        ...
+class Backend(Protocol):
+    """A backend manages the execution of computations.
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None: ...
+    The backend holds any resources needed to perform the computation,
+    such as a thread pool, process pool, or cluster connection. It should
+    manage a queue of tasks and execute them in FIFO order.
+
+    An example configuration option may be the behavior of exiting the context
+    manager (wait for tasks to finish, cancel them, etc).
+    """
+
+    # Implementation note: mypy was not happy with having Backend inherit from
+    # ContextManager[RunningBackend], so we define the methods explicitly here.
+
+    def __enter__(self) -> RunningBackend: ...
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+        /,
+    ) -> bool | None: ...

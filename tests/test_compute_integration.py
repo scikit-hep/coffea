@@ -31,7 +31,8 @@ def test_threaded_backend_compute():
                 ],
             )
             for j in range(num_files)
-        ]
+        ],
+        name="test_dataset",
     )
 
     with SingleThreadedBackend() as backend:

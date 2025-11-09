@@ -1,7 +1,5 @@
 from collections.abc import Sized
-from typing import Callable, Generic, Protocol
-
-from uproot import ReadOnlyDirectory
+from typing import Callable, Protocol
 
 from coffea.compute.protocol import ResultT
 
@@ -19,7 +17,7 @@ EventsFunc = Callable[[EventsArray], ResultT]
 "Function that processes an EventsArray and returns a ResultType"
 
 
-class Processor(Protocol, Generic[ResultT]):
+class Processor(Protocol[ResultT]):
     """The Processor protocol is used to represent serializable processing units.
 
     This should not be subclassed directly, but rather implemented by user-defined
@@ -29,7 +27,3 @@ class Processor(Protocol, Generic[ResultT]):
     def process(self, events: EventsArray) -> ResultT:
         """Process a chunk of events and return a result."""
         ...
-
-
-DirectoryFunc = Callable[[ReadOnlyDirectory], ResultT]
-"Function that processes a uproot directory"

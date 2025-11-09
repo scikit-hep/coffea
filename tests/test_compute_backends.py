@@ -45,9 +45,6 @@ def test_backend_compute(backend_class):
     computable = list(map(IntWorkElement, repeat(func), map(IntLoader, range(100))))
 
     thing = backend_class()
-    # Test that using compute outside of context manager raises
-    with pytest.raises(RuntimeError, match="context manager"):
-        thing.compute(computable)
 
     with thing as backend:
         task = backend.compute(computable)
