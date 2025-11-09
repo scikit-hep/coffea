@@ -11,9 +11,37 @@ from more_itertools import roundrobin
 from uproot import ReadOnlyDirectory
 
 from coffea.compute.func import EventsArray, Processor
-from coffea.compute.protocol import ResultT
+from coffea.compute.protocol import DataElement, InputT, ResultT
 
-StepContextT = TypeVar("StepContextT", bound="StepContextFile")
+
+@dataclass(frozen=True)
+class DataWorkElement(Generic[InputT, ResultT]):
+    """Concrete WorkElement, applies func to loaded item.
+
+    TODO: do we really need a protocol and a concrete class for this or can it just be the concrete class?
+    """
+
+    func: Callable[[InputT], ResultT]
+    item: DataElement[InputT]
+
+    def __call__(self) -> ResultT:
+        return self.func(self.item.load())
+
+
+@dataclass(frozen=True)
+class MapData(Generic[InputT, ResultT]):
+    """Concrete Computable, generates DataWorkElements by calling iter_gen and applying func."""
+
+    func: Callable[[InputT], ResultT]
+    "Function to apply to each loaded DataElement."
+    iter_gen: Callable[[], Iterator[DataElement[InputT]]]
+    "Iterator generator over DataElements. Should be callable to allow re-iteration."
+
+    def __iter__(self) -> Iterator[DataWorkElement[InputT, ResultT]]:
+        return map(DataWorkElement, repeat(self.func), self.iter_gen())
+
+
+StepContextT = TypeVar("StepContextT", bound="ContextFile")
 """A context for the current chunk of events being processed.
 
 This can be used to pass along metadata about the chunk, such as
@@ -65,32 +93,14 @@ class StepIterable(ABC, Generic[StepContextT]):
 
     def map_steps(
         self, func: Callable[[Chunk[StepContextT]], ResultT] | Processor[ResultT]
-    ) -> "StepwiseComputable[StepContextT, ResultT]":
+    ):
         """Apply a function or Processor to each step in this data."""
         if not callable(func):
             func = partial(_func_chunk, func)
-        return StepwiseComputable(func=func, iterable=self)
+        return MapData(func=func, iter_gen=self.iter_steps)
 
 
-@dataclass(frozen=True)
-class StepWorkElement(Generic[StepContextT, ResultT]):
-    func: Callable[[Chunk[StepContextT]], ResultT]
-    item: StepElement[StepContextT]
-
-    def __call__(self) -> ResultT:
-        return self.func(self.item.load())
-
-
-@dataclass(frozen=True)
-class StepwiseComputable(Generic[StepContextT, ResultT]):
-    func: Callable[[Chunk[StepContextT]], ResultT]
-    iterable: StepIterable[StepContextT]
-
-    def __iter__(self) -> Iterator[StepWorkElement[StepContextT, ResultT]]:
-        return map(StepWorkElement, repeat(self.func), self.iterable.iter_steps())
-
-
-FileContextT = TypeVar("FileContextT", bound="FileContextDataset")
+FileContextT = TypeVar("FileContextT", bound="ContextDataset")
 """A context for the current file being processed."""
 
 
@@ -112,8 +122,9 @@ class FileElement(Generic[FileContextT]):
     path: str
     context: FileContextT
 
-    def load(self) -> OpenFile:
+    def load(self) -> OpenFile[FileContextT]:
         file = uproot.open(self.path)
+        # TODO: find a way to keep this while mocking in tests
         # assert isinstance(file, ReadOnlyDirectory)
         return OpenFile(file, self.path, self.context)
 
@@ -124,32 +135,12 @@ class FileIterable(ABC, Generic[FileContextT]):
         """Return an iterator over files in the computation."""
         raise NotImplementedError
 
-    def map_files(
-        self, func: Callable[[OpenFile[FileContextT]], ResultT]
-    ) -> "FilewiseComputable[FileContextT, ResultT]":
-        return FilewiseComputable(func=func, iterable=self)
-
-
-@dataclass(frozen=True)
-class FileWorkElement(Generic[FileContextT, ResultT]):
-    func: Callable[[OpenFile[FileContextT]], ResultT]
-    item: FileElement[FileContextT]
-
-    def __call__(self) -> ResultT:
-        return self.func(self.item.load())
-
-
-@dataclass(frozen=True)
-class FilewiseComputable(Generic[FileContextT, ResultT]):
-    func: Callable[[OpenFile[FileContextT]], ResultT]
-    iterable: FileIterable[FileContextT]
-
-    def __iter__(self) -> Iterator[FileWorkElement[FileContextT, ResultT]]:
-        return map(FileWorkElement, repeat(self.func), self.iterable.iter_files())
+    def map_files(self, func: Callable[[OpenFile[FileContextT]], ResultT]):
+        return MapData(func=func, iter_gen=self.iter_files)
 
 
 @dataclass
-class StepContextFile:
+class ContextFile:
     """Based on the File properties we'd like to pass as context to each step."""
 
     file_path: str
@@ -157,37 +148,37 @@ class StepContextFile:
 
 
 @dataclass
-class File(StepIterable[StepContextFile]):
+class File(StepIterable[ContextFile]):
     path: str
     steps: list[tuple[int, int]]
     # TODO: object path within the file
     uuid: str = ""
 
-    def iter_steps(self) -> Iterator[StepElement[StepContextFile]]:
-        for step in self.steps:
-            yield StepElement(
-                entry_range=step,
-                context=StepContextFile(file_path=self.path, uuid=self.uuid),
-            )
-        # context = StepContextFile(file_path=self.path, uuid=self.uuid)
-        # return map(StepElement, repeat(self.path), self.steps, repeat(context))
+    def iter_steps(self) -> Iterator[StepElement[ContextFile]]:
+        context = ContextFile(file_path=self.path, uuid=self.uuid)
+        return map(StepElement, self.steps, repeat(context))
 
 
 @dataclass
-class StepContextDataset(StepContextFile):
-    """Metadata associated with a dataset."""
-
+class ContextDataset:
     dataset_name: str
     """Name of the dataset."""
     cross_section: float
     """Cross section in pb."""
 
+
+# Note: field order is from right to left when inheriting from multiple dataclasses
+
+
+@dataclass
+class StepContextDataset(ContextDataset, ContextFile):
+    """Metadata associated with a dataset."""
+
     @classmethod
     def wrap_file_step(
         cls,
-        file_step: StepElement[StepContextFile],
-        dataset_name: str,
-        cross_section: float,
+        file_step: StepElement[ContextFile],
+        context: ContextDataset,
     ) -> "StepElement[StepContextDataset]":
         # TODO: is the fact we use frozen dataclass and have to recreate a performance issue?
         return StepElement(
@@ -195,24 +186,13 @@ class StepContextDataset(StepContextFile):
             context=cls(
                 file_path=file_step.context.file_path,
                 uuid=file_step.context.uuid,
-                dataset_name=dataset_name,
-                cross_section=cross_section,
+                **context.__dict__,
             ),
         )
 
 
 @dataclass
-class FileContextDataset:
-    """Metadata associated with a dataset file."""
-
-    dataset_name: str
-    """Name of the dataset."""
-    cross_section: float
-    """Cross section in pb."""
-
-
-@dataclass
-class Dataset(StepIterable[StepContextDataset], FileIterable[FileContextDataset]):
+class Dataset(StepIterable[StepContextDataset], FileIterable[ContextDataset]):
     files: list[File]
     name: str
     traversal: Literal["depth", "breadth"] = "depth"
@@ -229,16 +209,18 @@ class Dataset(StepIterable[StepContextDataset], FileIterable[FileContextDataset]
             iterable = chain.from_iterable(map(File.iter_steps, self.files))
         contextwrap = partial(
             StepContextDataset.wrap_file_step,
-            dataset_name=self.name,
-            cross_section=1.0,  # TODO: placeholder
+            context=ContextDataset(
+                dataset_name=self.name,
+                cross_section=1.0,  # TODO: placeholder
+            ),
         )
         return map(contextwrap, iterable)
 
-    def iter_files(self) -> Iterator[FileElement[FileContextDataset]]:
+    def iter_files(self) -> Iterator[FileElement[ContextDataset]]:
         return map(
             FileElement,
             (f.path for f in self.files),
-            repeat(FileContextDataset(dataset_name=self.name, cross_section=1.0)),
+            repeat(ContextDataset(dataset_name=self.name, cross_section=1.0)),
         )
 
     def __add__(self, other: "Dataset") -> "Dataset":
@@ -251,49 +233,45 @@ class Dataset(StepIterable[StepContextDataset], FileIterable[FileContextDataset]
 
 
 @dataclass
-class StepContextDataGroup(StepContextDataset):
+class ContextDataGroup:
     """Metadata associated with a data group."""
 
     group_name: str
     """Name of the data group."""
 
+
+@dataclass
+class StepContextDataGroup(ContextDataGroup, StepContextDataset):
     @classmethod
     def wrap_dataset_step(
         cls,
         dataset_step: StepElement[StepContextDataset],
-        group_name: str,
+        context: ContextDataGroup,
     ) -> "StepElement[StepContextDataGroup]":
         return StepElement(
             entry_range=dataset_step.entry_range,
             context=cls(
-                file_path=dataset_step.context.file_path,
-                uuid=dataset_step.context.uuid,
-                dataset_name=dataset_step.context.dataset_name,
-                cross_section=dataset_step.context.cross_section,
-                group_name=group_name,
+                **dataset_step.context.__dict__,
+                **context.__dict__,
             ),
         )
 
 
 @dataclass
-class FileContextDataGroup(FileContextDataset):
+class FileContextDataGroup(ContextDataGroup, ContextDataset):
     """Metadata associated with a data group file."""
-
-    group_name: str
-    """Name of the data group."""
 
     @classmethod
     def wrap_dataset_file(
         cls,
-        dataset_file: FileElement[FileContextDataset],
-        group_name: str,
+        dataset_file: FileElement[ContextDataset],
+        context: ContextDataGroup,
     ) -> "FileElement[FileContextDataGroup]":
         return FileElement(
             path=dataset_file.path,
             context=cls(
-                dataset_name=dataset_file.context.dataset_name,
-                cross_section=dataset_file.context.cross_section,
-                group_name=group_name,
+                **dataset_file.context.__dict__,
+                **context.__dict__,
             ),
         )
 
@@ -312,7 +290,7 @@ class DataGroup(StepIterable[StepContextDataGroup], FileIterable[FileContextData
             iterable = chain.from_iterable(map(Dataset.iter_steps, self.datasets))
         contextwrap = partial(
             StepContextDataGroup.wrap_dataset_step,
-            group_name=self.name,
+            context=ContextDataGroup(group_name=self.name),
         )
         return map(contextwrap, iterable)
 
@@ -323,7 +301,7 @@ class DataGroup(StepIterable[StepContextDataGroup], FileIterable[FileContextData
             iterable = chain.from_iterable(map(Dataset.iter_files, self.datasets))
         contextwrap = partial(
             FileContextDataGroup.wrap_dataset_file,
-            group_name=self.name,
+            context=ContextDataGroup(group_name=self.name),
         )
         return map(contextwrap, iterable)
 
@@ -340,15 +318,15 @@ class DataGroup(StepIterable[StepContextDataGroup], FileIterable[FileContextData
 
 
 @dataclass
-class InputDataset(FileIterable[FileContextDataset]):
+class InputDataset(FileIterable[ContextDataset]):
     files: list[str]
     name: str
 
-    def iter_files(self) -> Iterator[FileElement[FileContextDataset]]:
+    def iter_files(self) -> Iterator[FileElement[ContextDataset]]:
         return map(
             FileElement,
             self.files,
-            repeat(FileContextDataset(dataset_name=self.name, cross_section=1.0)),
+            repeat(ContextDataset(dataset_name=self.name, cross_section=1.0)),
         )
 
 
@@ -361,6 +339,6 @@ class InputDataGroup(FileIterable[FileContextDataGroup]):
         iterable = chain.from_iterable(map(InputDataset.iter_files, self.datasets))
         contextwrap = partial(
             FileContextDataGroup.wrap_dataset_file,
-            group_name=self.name,
+            context=ContextDataGroup(group_name=self.name),
         )
         return map(contextwrap, iterable)

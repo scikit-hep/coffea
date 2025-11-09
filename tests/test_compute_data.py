@@ -2,18 +2,18 @@ from pytest_mock import MockerFixture
 
 from coffea.compute.data import (
     Chunk,
+    ContextDataset,
+    ContextFile,
     DataGroup,
     Dataset,
     File,
     FileContextDataGroup,
-    FileContextDataset,
     FileElement,
     InputDataGroup,
     InputDataset,
     OpenFile,
     StepContextDataGroup,
     StepContextDataset,
-    StepContextFile,
     StepElement,
 )
 from coffea.compute.func import EventsArray
@@ -147,11 +147,11 @@ def test_make_stepiterables():
     expected = [
         StepElement(
             (0, 150),
-            StepContextFile("file3.root", ""),
+            ContextFile("file3.root", ""),
         ),
         StepElement(
             (150, 300),
-            StepContextFile("file3.root", ""),
+            ContextFile("file3.root", ""),
         ),
     ]
     assert list(file.iter_steps()) == expected
@@ -199,7 +199,7 @@ def fake_uproot_open(path: str, **kwargs):
     return FakeReadOnlyDirectory(path)
 
 
-def make_up_steps(file: OpenFile[FileContextDataset]) -> Dataset:
+def make_up_steps(file: OpenFile[ContextDataset]) -> Dataset:
     return Dataset(
         files=[
             File(
