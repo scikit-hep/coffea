@@ -203,20 +203,18 @@ def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpe
         out : FilesetSpec
             The reduce fileset with only the files specified by theslice left.
     """
+    if isinstance(fileset, LimitFilesProtocol):
+        return fileset.limit_files(theslice)
+
     if not isinstance(theslice, slice):
         theslice = slice(theslice)
 
     out = copy.deepcopy(fileset)
     for name, entry in fileset.items():
-        is_datasetspec = isinstance(entry, DatasetSpec)
-        files = entry.files if is_datasetspec else entry["files"]
-        fnames = list(files.keys())[theslice]
-        finfos = list(files.values())[theslice]
-        updated = {fname: finfo for fname, finfo in zip(fnames, finfos)}
-        if is_datasetspec:
-            out[name].files = InputFiles(updated)
-        else:
-            out[name]["files"] = updated
+        fnames = list(entry["files"].keys())[theslice]
+        finfos = list(entry["files"].values())[theslice]
+
+        out[name]["files"] = {fname: finfo for fname, finfo in zip(fnames, finfos)}
 
     return out
 
