@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from itertools import starmap
-from queue import Queue, ShutDown
+from queue import Queue
 from threading import Condition, Thread
 from types import TracebackType
 from typing import TYPE_CHECKING, Generic
@@ -199,11 +199,20 @@ class ThreadedTask(Generic[InputT, ResultT]):
             self._cv.notify_all()
 
 
+class _Shutdown:
+    """A sentinel to signal worker threads to exit.
+
+    In python 3.13+, we can use queue.ShutDown directly.
+    """
+
+    pass
+
+
 def _work(task_queue: Queue[ThreadedTask]) -> None:  # type: ignore[type-arg]
     while True:
-        try:
-            task = task_queue.get()
-        except ShutDown:
+        task = task_queue.get()
+        if isinstance(task, _Shutdown):
+            task_queue.task_done()
             break
         try:
             task._run()
@@ -215,7 +224,7 @@ def _work(task_queue: Queue[ThreadedTask]) -> None:  # type: ignore[type-arg]
 
 
 class SingleThreadedBackend:
-    _task_queue: Queue[ThreadedTask] | None  # type: ignore[type-arg]
+    _task_queue: Queue[ThreadedTask | _Shutdown] | None  # type: ignore[type-arg]
     _thread: Thread | None
 
     def __init__(self) -> None:
@@ -230,7 +239,7 @@ class SingleThreadedBackend:
             args=(self._task_queue,),
         )
         self._thread.start()
-        return RunningSingleThreadedBackend(self._task_queue)
+        return RunningSingleThreadedBackend(self)
 
     def __exit__(
         self,
@@ -239,17 +248,17 @@ class SingleThreadedBackend:
         traceback: TracebackType | None,
     ) -> None:
         assert self._thread and self._task_queue
-        self._task_queue.shutdown()
+        self._task_queue.put(_Shutdown())
         self._thread.join()
         self._task_queue = None
         self._thread = None
 
 
 class RunningSingleThreadedBackend:
-    queue: Queue[ThreadedTask]  # type: ignore[type-arg]
+    _backend: SingleThreadedBackend
 
-    def __init__(self, queue: Queue[ThreadedTask]):  # type: ignore[type-arg]
-        self.queue = queue
+    def __init__(self, backend: SingleThreadedBackend):  # type: ignore[type-arg]
+        self._backend = backend
 
     def compute(
         self,
@@ -257,14 +266,14 @@ class RunningSingleThreadedBackend:
         /,
         error_policy: ErrorPolicy = ErrorPolicy(),
     ) -> ThreadedTask[InputT, ResultT]:
-        if self.queue.is_shutdown:
+        if self._backend._task_queue is None:
             raise RuntimeError(
                 "Cannot compute on a backend that has been exited from its context manager"
             )
         if hasattr(item, "__next__"):
             raise TypeError("Computable items must be iterables, not iterators")
         task = ThreadedTask(item, error_policy)
-        self.queue.put(task)
+        self._backend._task_queue.put(task)
         return task
 
     def wait_all(self, progress: bool = False) -> None:
@@ -278,7 +287,8 @@ class RunningSingleThreadedBackend:
         if progress:
             raise NotImplementedError("Progress bars are not yet implemented")
         else:
-            self.queue.join()
+            if self._backend._task_queue:
+                self._backend._task_queue.join()
 
 
 if TYPE_CHECKING:

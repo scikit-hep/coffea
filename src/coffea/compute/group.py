@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from typing import Callable, Generic, Self
+from typing import Callable, Generic
+
+from typing_extensions import Self  # Python < 3.11
 
 from coffea.compute.context import ContextInput, Ctx_co
 from coffea.compute.protocol import InputT, ResultT
