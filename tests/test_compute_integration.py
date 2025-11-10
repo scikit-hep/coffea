@@ -38,7 +38,6 @@ def test_threaded_backend_compute():
 
     with SingleThreadedBackend() as backend:
         # Binding the processor to the dataset makes the computable object not easy to serialize
-        # but on the other hand, the ProcessableDataset has them separated out easily enough
         computable = dataset.map_steps(DummyProcessor())
         tic = time.monotonic()
         task = backend.compute(computable)
