@@ -1086,6 +1086,10 @@ class TestModelFactory:
             if expected_type in [CoffeaParquetFileSpec, CoffeaParquetFileSpecOptional]
             else "root"
         )
+        if "lfn" not in expected:
+            expected["lfn"] = None
+        if "pfn" not in expected:
+            expected["pfn"] = None
         if "steps" not in expected:
             expected["steps"] = None
         if "num_entries" not in expected:
@@ -1142,6 +1146,8 @@ class TestModelFactory:
                     "object_path": "Events",
                     "steps": [[0, 10]],
                     "format": "root",
+                    "lfn": None,
+                    "pfn": None,
                     "num_entries": 10,
                     "num_selected_entries": 10,
                     "uuid": "uuid1",
@@ -1150,6 +1156,7 @@ class TestModelFactory:
             "format": "root",
             "metadata": {"sample": "test"},
             "compressed_form": None,
+            "did": None,
         }
         # Check that the result matches the expected dictionary
         assert result == expected
