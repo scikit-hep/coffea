@@ -2,6 +2,7 @@ import time
 
 from coffea.compute import Dataset, ErrorPolicy, EventsArray, File
 from coffea.compute.backends.threaded import SingleThreadedBackend
+from coffea.compute.data import ContextDataset
 
 
 class DummyProcessor:
@@ -32,7 +33,7 @@ def test_threaded_backend_compute():
             )
             for j in range(num_files)
         ],
-        name="test_dataset",
+        metadata=ContextDataset(dataset_name="test_dataset", cross_section=1.0),
     )
 
     with SingleThreadedBackend() as backend:

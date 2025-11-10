@@ -33,6 +33,9 @@ class EmptyResult:
     def __repr__(self) -> str:
         return "EmptyResult()"
 
+    def __bool__(self) -> bool:
+        return False
+
 
 DataT = TypeVar("DataT", covariant=True)
 
