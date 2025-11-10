@@ -216,20 +216,20 @@ class InputFilesMixin:
                     new_dict[k]["steps"] = steps_by_file[k]
             return type(self)(new_dict)
 
-    def limit_files(self, max_files: int | None) -> Self:
+    def limit_files(self, max_files: int | slice | None) -> Self:
         """Limit the number of files."""
-        if max_files is None:
+        if max_files is None or (isinstance(max_files, int) and max_files >= len(self)):
             return self
-        if not isinstance(max_files, int) or max_files < 0:
-            raise ValueError("max_files must be a non-negative integer")
-        if max_files >= len(self):
-            return self
-        new_dict = {}
-        for i, (k, v) in enumerate(self.items()):
-            if i < max_files:
-                new_dict[k] = v
-            else:
-                break
+        if isinstance(max_files, slice):
+            valid_keys = list(self.keys())[max_files]
+            new_dict = {k: v for k, v in self.items() if k in valid_keys}
+        else:
+            new_dict = {}
+            for i, (k, v) in enumerate(self.items()):
+                if i < max_files:
+                    new_dict[k] = v
+                else:
+                    break
         return type(self)(new_dict)
 
     def filter_files(
@@ -466,7 +466,7 @@ class DatasetSpec(BaseModel):
         spec["files"] = self.files.limit_steps(max_steps, per_file=per_file)
         return type(self)(**spec)
 
-    def limit_files(self, max_files: int | None) -> Self:
+    def limit_files(self, max_files: int | slice | None) -> Self:
         """Limit the number of files."""
         spec = self.model_dump()
         spec["files"] = self.files.limit_files(max_files)
@@ -533,7 +533,7 @@ class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
             spec[k] = v.limit_steps(max_steps, per_file=per_file)
         return type(self)(spec)
 
-    def limit_files(self, max_files: int | None, per_dataset: bool = True) -> Self:
+    def limit_files(self, max_files: int | slice | None, per_dataset: bool = True) -> Self:
         """Limit the number of files."""
         spec = copy.deepcopy(self)
         if per_dataset:
