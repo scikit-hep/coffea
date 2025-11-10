@@ -2,8 +2,9 @@
 
 import re
 from abc import abstractmethod
+from collections.abc import Callable
 from functools import partial
-from typing import Any, Callable, Union
+from typing import Any
 
 import awkward
 import dask_awkward
@@ -18,7 +19,7 @@ def _add_systematic_wrapper(
     self,
     name: str,
     kind: str,
-    what: Union[str, list[str], tuple[str]],
+    what: str | list[str] | tuple[str],
     varying_function: Callable,
 ):
     self.add_systematic(name, kind, what, varying_function)
@@ -105,7 +106,7 @@ class Systematic:
     def _build_variations(
         self,
         name: str,
-        what: Union[str, list[str], tuple[str]],
+        what: str | list[str] | tuple[str],
         varying_function: Callable,
     ):
         """
@@ -141,7 +142,7 @@ class Systematic:
         self,
         name: str,
         kind: str,
-        what: Union[str, list[str], tuple[str]],
+        what: str | list[str] | tuple[str],
         varying_function: Callable,
     ):
         """
@@ -218,7 +219,7 @@ class Systematic:
         dask_array,
         name: str,
         kind: str,
-        what: Union[str, list[str], tuple[str]],
+        what: str | list[str] | tuple[str],
         varying_function: Callable,
     ):
         dask_array._ensure_systematics()

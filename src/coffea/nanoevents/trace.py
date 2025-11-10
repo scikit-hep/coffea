@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable
 from functools import partial
-from typing import Callable
 
 import awkward as ak
 

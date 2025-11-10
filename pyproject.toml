@@ -7,7 +7,7 @@ name = "coffea"
 description = "Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis."
 readme = "README.rst"
 license = {text = "BSD-3-Clause"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
   { name = "Lindsey Gray", email = "lagray@fnal.gov" },
   { name = "Nick Smith", email = "ncsmith@fnal.gov" },
@@ -31,6 +31,11 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: Information Analysis",
   "Topic :: Scientific/Engineering :: Mathematics",
@@ -48,7 +53,9 @@ dependencies = [
   "correctionlib>=2.6.0",
   "pyarrow>=6.0.0",
   "matplotlib>=3",
-  "numba>=0.58.1",
+  "numba>=0.58.1; python_version<'3.14'",
+  "numba>=0.63.0b1; python_version>='3.14'",
+  "llvmlite>=0.46.0b1; python_version>='3.14'",
   "numpy>=1.22",
   "scipy>=1.1.0",
   "tqdm>=4.27.0",
