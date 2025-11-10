@@ -8,8 +8,8 @@ import dask.base
 import dask_awkward
 
 from coffea.dataset_tools.filespec import (
+    DataGroupSpec,
     DatasetSpec,
-    FilesetSpec,
 )
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 from coffea.processor import ProcessorABC
@@ -90,7 +90,7 @@ def apply_to_dataset(
 
 def apply_to_fileset(
     data_manipulation: ProcessorABC | GenericHEPAnalysis,
-    fileset: FilesetSpec | dict,
+    fileset: DataGroupSpec | dict,
     schemaclass: BaseSchema = NanoAODSchema,
     uproot_options: dict[str, Any] = {},
 ) -> dict[str, DaskOutputType] | tuple[dict[str, DaskOutputType], dask_awkward.Array]:
@@ -101,7 +101,7 @@ def apply_to_fileset(
     ----------
         data_manipulation : ProcessorABC or GenericHEPAnalysis
             The user analysis code to run on the input dataset
-        fileset: FilesetSpec | dict
+        fileset: DataGroupSpec | dict
             The data to be acted upon by the data manipulation passed in. Metadata within the fileset should be dask-serializable.
         schemaclass : BaseSchema, default NanoAODSchema
             The nanoevents schema to interpret the input dataset with.
@@ -116,7 +116,7 @@ def apply_to_fileset(
             The file access report for running the analysis on the input dataset. Needs to be computed in simultaneously with the analysis to be accurate.
     """
     if isinstance(fileset, dict):
-        fileset = FilesetSpec.model_validate(fileset)
+        fileset = DataGroupSpec.model_validate(fileset)
     out = {}
     report = {}
     for name, dataset in fileset.items():

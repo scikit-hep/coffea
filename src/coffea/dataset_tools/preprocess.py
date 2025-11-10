@@ -16,8 +16,8 @@ import uproot
 from uproot._util import no_filter
 
 from coffea.dataset_tools.filespec import (
+    DataGroupSpec,
     DatasetSpec,
-    FilesetSpec,
     InputFiles,
     ModelFactory,
     PreprocessedFiles,
@@ -227,7 +227,7 @@ _trivial_file_fields = {"run", "luminosityBlock", "event"}
 
 
 def preprocess(
-    fileset: FilesetSpec | dict,
+    fileset: DataGroupSpec | dict,
     step_size: None | int = None,
     align_clusters: bool = False,
     recalculate_steps: bool = False,
@@ -239,13 +239,13 @@ def preprocess(
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
-) -> tuple[FilesetSpec, FilesetSpec] | tuple[dict, dict]:
+) -> tuple[DataGroupSpec, DataGroupSpec] | tuple[dict, dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
 
     Parameters
     ----------
-        fileset : FilesetSpec | dict
+        fileset : DataGroupSpec | dict
             The set of datasets whose files will be preprocessed.
         step_size : int or None, default None
             If specified, the size of the steps to make when analyzing the input files.
@@ -276,9 +276,9 @@ def preprocess(
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
     Returns
     -------
-        out_available : FilesetSpec | dict
+        out_available : DataGroupSpec | dict
             The subset of files in each dataset that were successfully preprocessed, organized by dataset.
-        out_updated : FilesetSpec | dict
+        out_updated : DataGroupSpec | dict
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
     out_updated = copy.deepcopy(fileset)
@@ -286,11 +286,11 @@ def preprocess(
 
     all_ak_norm_files = {}
     files_to_preprocess = {}
-    is_filesetspec = isinstance(fileset, FilesetSpec)
+    is_DataGroupSpec = isinstance(fileset, DataGroupSpec)
     for name, info in fileset.items():
         is_datasetspec = isinstance(info, DatasetSpec)
         if is_datasetspec:
-            is_filesetspec = True
+            is_DataGroupSpec = True
         norm_files = _normalize_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
         ak_norm_files = awkward.from_iter(norm_files)
@@ -505,7 +505,7 @@ def preprocess(
             out_updated[name]["metadata"] = None
             out_available[name]["metadata"] = None
 
-    if is_filesetspec:
-        out_available = FilesetSpec(out_available)
-        out_updated = FilesetSpec(out_updated)
+    if is_DataGroupSpec:
+        out_available = DataGroupSpec(out_available)
+        out_updated = DataGroupSpec(out_updated)
     return out_available, out_updated

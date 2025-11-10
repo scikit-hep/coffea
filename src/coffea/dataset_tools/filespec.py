@@ -406,11 +406,15 @@ class DatasetSpec(BaseModel):
         else:
             return None
 
-    def _valid_format(self) -> bool:
+    def _valid_formats(self) -> set[str]:
         _formats = {"root", "parquet"}
-        return self.format in _formats or all(
-            fmt in _formats for fmt in self.format.split("|")
-        )
+        return _formats
+
+    def _valid_format(self) -> bool:
+        # in the future, we may loosen the restriction to allow mixed formats in a datasetspec
+        return (
+            self.format in self._valid_formats()
+        )  # or all(fmt in _formats for fmt in self.format.split("|"))
 
     def set_check_format(self) -> bool:
         """Set and/or alidate the format if manually specified"""
@@ -423,7 +427,6 @@ class DatasetSpec(BaseModel):
                 self.format = union.pop()
             else:
                 self.format = "|".join(union)
-
         # validate the format, if present
         return self._valid_format()
 
@@ -436,7 +439,7 @@ class DatasetSpec(BaseModel):
             )
         # set (if necessary) and check the format
         if not self.set_check_format():
-            raise ValueError(f"format: format must be one of {ModelFactory._formats}")
+            raise ValueError(f"format: format must be one of {self._valid_formats()}")
 
         return self
 
@@ -445,6 +448,8 @@ class DatasetSpec(BaseModel):
         """Identify DatasetSpec criteria to be pre-joined for typetracing (necessary) and column-joining (sufficient)"""
         if self._check_form() and self.set_check_format():
             return True
+        else:
+            return False
 
     @property
     def form(self) -> str:
@@ -497,7 +502,7 @@ class DatasetSpec(BaseModel):
         return type(self)(**spec)
 
 
-class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
+class DataGroupSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
     def __iter__(self) -> Iterable[str]:
         return iter(self.root)
 
@@ -516,7 +521,7 @@ class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
         data = copy.deepcopy(data)
-        if isinstance(data, FilesetSpec):
+        if isinstance(data, DataGroupSpec):
             return data.model_dump()
         return data
 
@@ -553,7 +558,7 @@ class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
                 spec[k] = v.limit_files(max_files)
         else:
             raise NotImplementedError(
-                "FilesetSpec.limit_files with per_dataset=False is not implemented"
+                "DataGroupSpec.limit_files with per_dataset=False is not implemented"
             )
         return type(self)(spec)
 
@@ -620,7 +625,7 @@ class ModelFactory:
             | CoffeaParquetFileSpecOptional
             | InputFiles
             | DatasetSpec
-            | FilesetSpec
+            | DataGroupSpec
         ),
     ):
         try:
@@ -634,8 +639,8 @@ class ModelFactory:
                 return InputFiles(input.model_dump())
             elif isinstance(input, DatasetSpec):
                 return DatasetSpec(**input.model_dump())
-            elif isinstance(input, FilesetSpec):
-                return FilesetSpec(input.model_dump())
+            elif isinstance(input, DataGroupSpec):
+                return DataGroupSpec(input.model_dump())
             else:
                 raise TypeError(
                     f"ModelFactory.attempt_promotion got an unexpected input type {type(input)} for input: {input}"

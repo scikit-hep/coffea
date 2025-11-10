@@ -16,8 +16,8 @@ from coffea.dataset_tools import (
     slice_files,
 )
 from coffea.dataset_tools.filespec import (
+    DataGroupSpec,
     DatasetSpec,
-    FilesetSpec,
 )
 from coffea.nanoevents import BaseSchema, NanoAODSchema
 from coffea.processor.test_items import NanoEventsProcessor, NanoTestProcessor
@@ -324,7 +324,7 @@ def test_apply_to_fileset(proc_and_schema):
 @pytest.mark.dask_client
 @pytest.mark.parametrize(
     "the_fileset",
-    [_starting_fileset, FilesetSpec(_starting_fileset)],
+    [_starting_fileset, DataGroupSpec(_starting_fileset)],
 )
 def test_apply_to_fileset_hinted_form(the_fileset):
     with Client() as _:
@@ -368,7 +368,7 @@ def test_preprocess(the_fileset):
 
 
 @pytest.mark.dask_client
-@pytest.mark.parametrize("the_fileset", [{}, FilesetSpec({})])
+@pytest.mark.parametrize("the_fileset", [{}, DataGroupSpec({})])
 def test_preprocess_empty(the_fileset):
     with Client() as _:
         dataset_runnable, dataset_updated = preprocess(
@@ -378,18 +378,18 @@ def test_preprocess_empty(the_fileset):
             files_per_batch=10,
             skip_bad_files=True,
         )
-    if isinstance(the_fileset, FilesetSpec):
-        assert isinstance(dataset_runnable, FilesetSpec)
-        assert isinstance(dataset_updated, FilesetSpec)
+    if isinstance(the_fileset, DataGroupSpec):
+        assert isinstance(dataset_runnable, DataGroupSpec)
+        assert isinstance(dataset_updated, DataGroupSpec)
     else:
         assert dataset_runnable == {}
         assert dataset_updated == {}
 
 
 @pytest.mark.dask_client
-def test_preprocess_filesetspec_mixed():
-    fileset = FilesetSpec(_starting_fileset)
-    # Create a mixed filesetspec
+def test_preprocess_DataGroupSpec_mixed():
+    fileset = DataGroupSpec(_starting_fileset)
+    # Create a mixed DataGroupSpec
     fileset["Data"] = fileset["Data"].model_dump()
 
     with Client() as _:
@@ -498,7 +498,9 @@ def test_preprocess_with_file_exceptions():
     }
 
 
-@pytest.mark.parametrize("the_fileset", [_updated_result, FilesetSpec(_updated_result)])
+@pytest.mark.parametrize(
+    "the_fileset", [_updated_result, DataGroupSpec(_updated_result)]
+)
 def test_filter_files(the_fileset):
     filtered_files = filter_files(the_fileset)
 
@@ -528,13 +530,15 @@ def test_filter_files(the_fileset):
             "compressed_form": None,
         },
     }
-    if isinstance(filtered_files, FilesetSpec):
-        assert filtered_files == FilesetSpec(target)
+    if isinstance(filtered_files, DataGroupSpec):
+        assert filtered_files == DataGroupSpec(target)
     else:
         assert filtered_files == target
 
 
-@pytest.mark.parametrize("the_fileset", [_updated_result, FilesetSpec(_updated_result)])
+@pytest.mark.parametrize(
+    "the_fileset", [_updated_result, DataGroupSpec(_updated_result)]
+)
 def test_max_files(the_fileset):
     maxed_files = max_files(the_fileset, 1)
 
@@ -564,13 +568,15 @@ def test_max_files(the_fileset):
             "compressed_form": None,
         },
     }
-    if isinstance(the_fileset, FilesetSpec):
-        assert maxed_files == FilesetSpec(target)
+    if isinstance(the_fileset, DataGroupSpec):
+        assert maxed_files == DataGroupSpec(target)
     else:
         assert maxed_files == target
 
 
-@pytest.mark.parametrize("the_fileset", [_updated_result, FilesetSpec(_updated_result)])
+@pytest.mark.parametrize(
+    "the_fileset", [_updated_result, DataGroupSpec(_updated_result)]
+)
 def test_slice_files(the_fileset):
     sliced_files = slice_files(the_fileset, slice(1, None, 2))
 
@@ -589,15 +595,15 @@ def test_slice_files(the_fileset):
             "compressed_form": None,
         },
     }
-    if isinstance(the_fileset, FilesetSpec):
+    if isinstance(the_fileset, DataGroupSpec):
         target["ZJets"]["format"] = "root"
-        assert sliced_files == FilesetSpec(target)
+        assert sliced_files == DataGroupSpec(target)
     else:
         assert sliced_files == target
 
 
 @pytest.mark.parametrize(
-    "the_fileset", [_runnable_result, FilesetSpec(_runnable_result)]
+    "the_fileset", [_runnable_result, DataGroupSpec(_runnable_result)]
 )
 def test_max_chunks(the_fileset):
     max_chunked = max_chunks(the_fileset, 3)
@@ -629,8 +635,8 @@ def test_max_chunks(the_fileset):
         },
     }
 
-    if isinstance(the_fileset, FilesetSpec):
-        assert max_chunked == FilesetSpec(target)
+    if isinstance(the_fileset, DataGroupSpec):
+        assert max_chunked == DataGroupSpec(target)
     else:
         assert max_chunked == target
 
@@ -677,9 +683,9 @@ def test_max_chunks(the_fileset):
             }
         },
     }
-    if isinstance(the_fileset, FilesetSpec):
-        max_chunked = max_chunks(FilesetSpec(_starting_fileset_with_steps), 10)
-        assert max_chunked == FilesetSpec(target2)
+    if isinstance(the_fileset, DataGroupSpec):
+        max_chunked = max_chunks(DataGroupSpec(_starting_fileset_with_steps), 10)
+        assert max_chunked == DataGroupSpec(target2)
     else:
         max_chunked = max_chunks(_starting_fileset_with_steps, 10)
         assert max_chunked == target2
@@ -718,16 +724,18 @@ def test_max_chunks(the_fileset):
             }
         },
     }
-    if isinstance(the_fileset, FilesetSpec):
-        max_chunked = max_chunks_per_file(FilesetSpec(_starting_fileset_with_steps), 3)
-        assert max_chunked == FilesetSpec(target3)
+    if isinstance(the_fileset, DataGroupSpec):
+        max_chunked = max_chunks_per_file(
+            DataGroupSpec(_starting_fileset_with_steps), 3
+        )
+        assert max_chunked == DataGroupSpec(target3)
     else:
         max_chunked = max_chunks_per_file(_starting_fileset_with_steps, 3)
         assert max_chunked == target3
 
 
 @pytest.mark.parametrize(
-    "the_fileset", [_runnable_result, FilesetSpec(_runnable_result)]
+    "the_fileset", [_runnable_result, DataGroupSpec(_runnable_result)]
 )
 def test_slice_chunks(the_fileset):
     slice_chunked = slice_chunks(the_fileset, slice(None, None, 2))
@@ -758,15 +766,15 @@ def test_slice_chunks(the_fileset):
             "compressed_form": None,
         },
     }
-    if isinstance(the_fileset, FilesetSpec):
-        assert slice_chunked == FilesetSpec(target)
+    if isinstance(the_fileset, DataGroupSpec):
+        assert slice_chunked == DataGroupSpec(target)
     else:
         assert slice_chunked == target
 
 
 @pytest.mark.parametrize(
     "the_fileset",
-    [_starting_fileset_with_steps, FilesetSpec(_starting_fileset_with_steps)],
+    [_starting_fileset_with_steps, DataGroupSpec(_starting_fileset_with_steps)],
 )
 @pytest.mark.dask_client
 def test_recover_failed_chunks(the_fileset):
@@ -799,7 +807,7 @@ def test_recover_failed_chunks(the_fileset):
             }
         }
     }
-    if isinstance(failed_fset, FilesetSpec):
-        assert failed_fset == FilesetSpec(target)
+    if isinstance(failed_fset, DataGroupSpec):
+        assert failed_fset == DataGroupSpec(target)
     else:
         assert failed_fset == target

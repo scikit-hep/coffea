@@ -14,8 +14,8 @@ import numpy
 from coffea.dataset_tools.filespec import (
     CoffeaParquetFileSpec,
     CoffeaROOTFileSpec,
+    DataGroupSpec,
     DatasetSpec,
-    FilesetSpec,
     InputFiles,
     PreprocessedFiles,
 )
@@ -34,42 +34,42 @@ class LimitStepsProtocol(Protocol):
 
 
 def max_chunks(
-    fileset: LimitStepsProtocol | FilesetSpec, maxchunks: int | None = None
-) -> FilesetSpec:
+    fileset: LimitStepsProtocol | DataGroupSpec, maxchunks: int | None = None
+) -> DataGroupSpec:
     """
     Modify the input fileset so that only the first "maxchunks" chunks of each dataset will be processed.
 
     Parameters
     ----------
-        fileset : FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets reduce to max-chunks row-ranges.
         maxchunks : int or None, default None
             How many chunks to keep for each file.
 
     Returns
     -------
-        out : FilesetSpec
+        out : DataGroupSpec
             The reduced fileset with only the first maxchunks event ranges left in.
     """
     return slice_chunks(fileset, slice(maxchunks))
 
 
 def max_chunks_per_file(
-    fileset: LimitStepsProtocol | FilesetSpec, maxchunks: int | None = None
-) -> FilesetSpec:
+    fileset: LimitStepsProtocol | DataGroupSpec, maxchunks: int | None = None
+) -> DataGroupSpec:
     """
     Modify the input fileset so that only the first "maxchunks" chunks of each file will be processed.
 
     Parameters
     ----------
-        fileset : FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets reduce to max-chunks row-ranges.
         maxchunks : int or None, default None
             How many chunks to keep for each file.
 
     Returns
     -------
-        out : FilesetSpec
+        out : DataGroupSpec
             The reduced fileset with only the first maxchunks event ranges left in.
     """
     return slice_chunks(fileset, slice(maxchunks), bydataset=False)
@@ -113,16 +113,16 @@ def _concatenated_step_slice(
 
 
 def slice_chunks(
-    fileset: LimitStepsProtocol | FilesetSpec,
+    fileset: LimitStepsProtocol | DataGroupSpec,
     theslice: Any = slice(None),
     bydataset: bool = True,
-) -> FilesetSpec:
+) -> DataGroupSpec:
     """
     Modify the input fileset so that only the chunks of each file or each dataset specified by the input slice are processed.
 
     Parameters
     ----------
-        fileset : FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets to be sliced.
         theslice : Any, default slice(None)
             How to slice the array of row-ranges (steps) in the input fileset.
@@ -131,7 +131,7 @@ def slice_chunks(
 
     Returns
     -------
-        out : FilesetSpec
+        out : DataGroupSpec
             The reduced fileset with only the row-ranges specified by theslice left.
     """
     if isinstance(fileset, LimitStepsProtocol):
@@ -175,39 +175,39 @@ def slice_chunks(
     return out
 
 
-def max_files(fileset: FilesetSpec, maxfiles: int | None = None) -> FilesetSpec:
+def max_files(fileset: DataGroupSpec, maxfiles: int | None = None) -> DataGroupSpec:
     """
     Modify the input fileset so that only the first "maxfiles" files of each dataset will be processed.
 
     Parameters
     ----------
-        fileset : FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets reduce to max-files files per dataset.
         maxfiles : int or None, default None
             How many files to keep for each dataset.
 
     Returns
     -------
-        out : FilesetSpec
+        out : DataGroupSpec
             The reduced fileset with only the first maxfiles files left in.
     """
     return slice_files(fileset, slice(maxfiles))
 
 
-def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpec:
+def slice_files(fileset: DataGroupSpec, theslice: Any = slice(None)) -> DataGroupSpec:
     """
     Modify the input fileset so that only the files of each dataset specified by the input slice are processed.
 
     Parameters
     ----------
-        fileset : FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets to be sliced.
         theslice : Any, default slice(None)
             How to slice the array of files in the input datasets. We slice in key-order.
 
     Returns
     -------
-        out : FilesetSpec
+        out : DataGroupSpec
             The reduce fileset with only the files specified by theslice left.
     """
     if isinstance(fileset, LimitFilesProtocol):
@@ -235,7 +235,7 @@ def _default_filter(name_and_spec):
 
 
 def filter_files(
-    fileset: FilesetSpec,
+    fileset: DataGroupSpec,
     thefilter: Callable[
         [
             tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec]
@@ -244,20 +244,20 @@ def filter_files(
         ],
         bool,
     ] = _default_filter,
-) -> FilesetSpec:
+) -> DataGroupSpec:
     """
     Modify the input fileset so that only the files of each dataset that pass the filter remain.
 
     Parameters
     ----------
-        fileset : FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets to be sliced.
         thefilter: Callable[[tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | InputFiles | PreprocessedFiles], bool], default filters empty files
             How to filter the files in the each dataset.
 
     Returns
     -------
-        out : FilesetSpec
+        out : DataGroupSpec
             The reduce fileset with only the files specified by thefilter left.
     """
     out = copy.deepcopy(fileset)
@@ -332,30 +332,30 @@ def get_failed_steps_for_dataset(
 
 
 def get_failed_steps_for_fileset(
-    fileset: FilesetSpec, report_dict: dict[str, awkward.Array]
+    fileset: DataGroupSpec, report_dict: dict[str, awkward.Array]
 ):
     """
     Modify the input fileset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
 
     Parameters
     ----------
-        fileset : FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets to be reduced to only contain files and row-ranges that have previously encountered failed file access.
         report_dict : dict[str, awkward.Array]
             The computed file-access error reports from dask-awkward, indexed by dataset name.
 
     Returns
     -------
-        out : FilesetSpec
+        out : DataGroupSpec
             The reduced dataset with only the row-ranges and files that failed processing, according to the input report.
     """
     failed_fileset = {}
-    if isinstance(fileset, FilesetSpec):
+    if isinstance(fileset, DataGroupSpec):
         for name, dataset in fileset.items():
             failed_dataset = get_failed_steps_for_dataset(dataset, report_dict[name])
             if len(failed_dataset.files) > 0:
                 failed_fileset[name] = failed_dataset
-        return FilesetSpec(failed_fileset)
+        return DataGroupSpec(failed_fileset)
     else:
         for name, dataset in fileset.items():
             failed_dataset = get_failed_steps_for_dataset(dataset, report_dict[name])

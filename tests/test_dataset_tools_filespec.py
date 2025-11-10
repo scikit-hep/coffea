@@ -14,8 +14,8 @@ from coffea.dataset_tools.filespec import (
     CoffeaParquetFileSpecOptional,
     CoffeaROOTFileSpec,
     CoffeaROOTFileSpecOptional,
+    DataGroupSpec,
     DatasetSpec,
-    FilesetSpec,
     InputFiles,
     ModelFactory,
     ParquetFileSpec,
@@ -1221,8 +1221,8 @@ class TestJSONSerialization:
         assert len(restored.files) == len(spec.files)
 
 
-class TestFilesetSpec:
-    """Test FilesetSpec class"""
+class TestDataGroupSpec:
+    """Test DataGroupSpec class"""
 
     def get_sliceable_spec(self):
         """Test limit_steps with slicing"""
@@ -1231,7 +1231,7 @@ class TestFilesetSpec:
             [0, 30]
         ]  # Ensure steps are set for counting
         _ = tmp.pop("ZJets2")  # Remove Optional DatasetSpec
-        return FilesetSpec(tmp)
+        return DataGroupSpec(tmp)
 
     def test_creation_valid(self):
         """Test creation with valid concrete dataset specs"""
@@ -1243,12 +1243,12 @@ class TestFilesetSpec:
             }
         )
         datasets = {"ZJets": DatasetSpec(files=files, format="root")}
-        fileset = FilesetSpec(datasets)
+        fileset = DataGroupSpec(datasets)
         assert len(fileset) == 1
         assert "ZJets" in fileset
 
     def test_fileset_creation_and_json_roundtrip(self):
-        """Test FilesetSpec creation and JSON serialization roundtrip"""
+        """Test DataGroupSpec creation and JSON serialization roundtrip"""
 
         # Convert to DatasetSpec first
         converted = {}
@@ -1256,15 +1256,15 @@ class TestFilesetSpec:
             print(k, v)
             converted[k] = DatasetSpec(**v)
 
-        # Create FilesetSpec
-        conv_pyd = FilesetSpec(converted)
+        # Create DataGroupSpec
+        conv_pyd = DataGroupSpec(converted)
         assert len(conv_pyd) == 2
         assert "ZJets" in conv_pyd
         assert "Data" in conv_pyd
 
         # Test JSON serialization roundtrip
         json_str = conv_pyd.model_dump_json()
-        restored = FilesetSpec.model_validate_json(json_str)
+        restored = DataGroupSpec.model_validate_json(json_str)
         assert len(restored) == len(conv_pyd)
         assert set(restored.keys()) == set(conv_pyd.keys())
 
@@ -1274,10 +1274,10 @@ class TestFilesetSpec:
         invalid_form_dict["ZJets"]["compressed_form"] = invalid_compressed_form
         print("invalid_form_dict:", invalid_form_dict)
         with pytest.raises(ValidationError):
-            FilesetSpec(invalid_form_dict)
+            DataGroupSpec(invalid_form_dict)
 
     def test_direct_fileset_creation(self):
-        """Test complex FilesetSpec creation from __main__"""
+        """Test complex DataGroupSpec creation from __main__"""
         test_input = {
             "ZJets1": {
                 "files": {
@@ -1309,7 +1309,7 @@ class TestFilesetSpec:
         }
 
         # Convert via direct constructor
-        test = FilesetSpec(test_input)
+        test = DataGroupSpec(test_input)
 
         # test that the steps are correct
         assert test["ZJets1"].files["tests/samples/nano_dy.root"].steps == [
@@ -1328,7 +1328,7 @@ class TestFilesetSpec:
 
         # Test we can modify the steps after creation
         test["ZJets1"].files["tests/samples/nano_dy_2.root"].steps = [[0, 30]]
-        test2 = FilesetSpec(test)
+        test2 = DataGroupSpec(test)
         assert isinstance(
             test2["ZJets1"].files["tests/samples/nano_dy_2.root"].steps, list
         )
@@ -1336,7 +1336,7 @@ class TestFilesetSpec:
     def test_attempt_promotion(self):
         """Test attempt_promotion method"""
         # Test with valid ROOTFileSpec
-        spec = FilesetSpec(copy.deepcopy(_starting_fileset))
+        spec = DataGroupSpec(copy.deepcopy(_starting_fileset))
         assert isinstance(
             spec["Data"].files["tests/samples/nano_dimuon.root"],
             CoffeaROOTFileSpecOptional,
@@ -1612,22 +1612,26 @@ class TestComplexScenarios:
 
     def test_mixed_format_handling(self):
         """Test handling datasets with mixed file formats"""
-        spec = DatasetSpec(
-            files={
-                "file1.root": CoffeaROOTFileSpec(
-                    object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
-                ),
-                "file1.parquet": CoffeaParquetFileSpec(
-                    steps=[[0, 100]], num_entries=100, uuid="uuid2"
-                ),
-            }
-        )
-        # Format should be mixed when files have different formats
-        assert spec.format in ("parquet|root", "root|parquet")
+        with pytest.raises(ValidationError):
+            spec = DatasetSpec(
+                files={
+                    "file1.root": CoffeaROOTFileSpec(
+                        object_path="Events",
+                        steps=[[0, 10]],
+                        num_entries=10,
+                        uuid="uuid1",
+                    ),
+                    "file1.parquet": CoffeaParquetFileSpec(
+                        steps=[[0, 100]], num_entries=100, uuid="uuid2"
+                    ),
+                }
+            )
+            # Format should be mixed when files have different formats
+            assert spec.format in ("parquet|root", "root|parquet")
 
     def test_empty_fileset_handling(self):
         """Test handling of empty filesets"""
-        empty_fileset = FilesetSpec({})
+        empty_fileset = DataGroupSpec({})
         assert len(empty_fileset) == 0
 
     def test_error_handling_invalid_steps(self):
