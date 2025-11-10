@@ -998,6 +998,7 @@ class TestDatasetJoinableSpec:
 
 class TestModelFactory:
     """Test ModelFactory class methods"""
+
     @pytest.mark.parametrize(
         "input_dict",
         [
