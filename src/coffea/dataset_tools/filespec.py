@@ -23,6 +23,8 @@ class GenericFileSpec(BaseModel):
     steps: Annotated[list[StepPair], Field(min_length=1)] | None = None
     num_entries: Annotated[int, Field(ge=0)] | None = None
     format: str | None = None
+    lfn: str | None = None
+    pfn: str | None = None
 
     @model_validator(mode="after")
     def validate_steps(self) -> Self:
@@ -346,6 +348,7 @@ class DatasetSpec(BaseModel):
     metadata: dict[Hashable, Any] = {}
     format: str | None = None
     compressed_form: str | None = None
+    did: str | None = None
 
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
