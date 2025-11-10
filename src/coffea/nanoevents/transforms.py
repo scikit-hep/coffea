@@ -487,6 +487,61 @@ def eventindex(stack):
     stack.append(out)
 
 
+def zeros_from_content_form(source_form):
+    form = copy.deepcopy(source_form)
+    if not (form["class"] == "NumpyArray" or form["class"].startswith("ListOffset")):
+        raise RuntimeError
+    if form["class"] == "NumpyArray":
+        form["form_key"] = concat(source_form["form_key"], "!zeros_from_content")
+        form["parameters"].pop("__doc__", None)
+    elif form["class"].startswith("ListOffset"):
+        form["content"]["form_key"] = concat(
+            source_form["form_key"], "!zeros_from_content", "!content"
+        )
+        form["parameters"].pop("__doc__", None)
+        form["content"]["parameters"].pop("__doc__", None)
+    return form
+
+
+def zeros_from_content(stack):
+    source = stack.pop()
+    stack.append(awkward.zeros_like(source))
+
+
+def zeros_from_offsets_form(offsets_form):
+    if not offsets_form["class"].startswith("NumpyArray"):
+        raise RuntimeError
+
+    form = {
+        "class": "ListOffsetArray",
+        "offsets": "i64",
+        "content": {
+            "class": "NumpyArray",
+            "primitive": "float32",
+            "itemsize": 4,
+            "format": "i",
+            "form_key": concat(
+                offsets_form["form_key"], "!zeros_from_offsets", "!content"
+            ),
+        },
+        "form_key": concat(offsets_form["form_key"], "!zeros_from_offsets"),
+    }
+    return form
+
+
+def zeros_from_offsets(stack):
+    offsets = ensure_array(stack.pop())
+    n_elements = offsets[-1]
+    content = numpy.zeros(n_elements, dtype=numpy.float32)
+    out = awkward.Array(
+        awkward.contents.ListOffsetArray(
+            awkward.index.Index64(offsets),
+            awkward.contents.NumpyArray(content),
+        )
+    )
+    stack.append(out)
+
+
 # For EDM4HEPSchema and FCCSChema:
 
 

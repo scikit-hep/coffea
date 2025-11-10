@@ -296,6 +296,24 @@ class NanoAODSchema(BaseSchema):
             if all(k in branch_forms for k in args):
                 branch_forms[name] = fcn(*(branch_forms[k] for k in args))
 
+        # Add mass and charge fields for Photon collection (always zero for photons)
+        if "oPhoton" in branch_forms:
+            if "Photon_mass" not in branch_forms:
+                branch_forms["Photon_mass"] = transforms.zeros_from_offsets_form(
+                    branch_forms["oPhoton"]
+                )
+            if "Photon_charge" not in branch_forms:
+                branch_forms["Photon_charge"] = transforms.zeros_from_offsets_form(
+                    branch_forms["oPhoton"]
+                )
+
+        # Rename Electron/Photon_energy to Electron/Photon_regrEnergy to avoid conflict with mixin
+        # Present in EGamma NanoAOD flavor
+        if "Electron_energy" in branch_forms:
+            branch_forms["Electron_regrEnergy"] = branch_forms.pop("Electron_energy")
+        if "Photon_energy" in branch_forms:
+            branch_forms["Photon_regrEnergy"] = branch_forms.pop("Photon_energy")
+
         output = {}
         for name in collections:
             mixin = self.mixins.get(name, "NanoCollection")
