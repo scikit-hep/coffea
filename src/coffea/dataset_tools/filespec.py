@@ -66,7 +66,7 @@ class GenericFileSpec(BaseModel):
             total += stop - start
         return total
 
-    def limit_steps(self, maxsteps: int | slice) -> Self:
+    def limit_steps(self, max_steps: int | slice) -> Self:
         """Limit the steps"""
         if self.steps is None:
             # warn user
@@ -75,12 +75,12 @@ class GenericFileSpec(BaseModel):
             coffea_console.log("limit_steps called but steps is None, no action taken")
             return self
 
-        if not isinstance(maxsteps, slice):
-            maxsteps = slice(maxsteps)
+        if not isinstance(max_steps, slice):
+            max_steps = slice(max_steps)
 
         # if there are valid steps, then create a new Spec with only those steps, permitting method chaining
         spec = self.model_dump()
-        spec["steps"] = self.steps[maxsteps]
+        spec["steps"] = self.steps[max_steps]
         return type(self)(**spec)
 
 
@@ -199,42 +199,34 @@ class InputFilesMixin:
                 total += v.num_selected_entries
         return total
 
-    def limit_steps(self, maxsteps: int | None, per_file: bool = False) -> Self:
+    def limit_steps(self, max_steps: int | slice | None, per_file: bool = False) -> Self:
         """Limit the steps. pass per_file=True to limit steps per file, otherwise limits across all files cumulatively"""
 
-        if maxsteps is None:
+        if max_steps is None:
             return self
         if per_file:
-            return type(self)({k: v.limit_steps(maxsteps) for k, v in self.items()})
+            return type(self)({k: v.limit_steps(max_steps) for k, v in self.items()})
         else:
-            total_steps = sum(
-                len(v.steps) if v.steps is not None else 0 for v in self.values()
-            )
-            if maxsteps >= total_steps:
-                return self
-            current_count = 0
+            from coffea.dataset_tools.manipulations import _concatenated_step_slice
+            steps_by_file = _concatenated_step_slice({k: v.steps for k, v in self.items()}, max_steps)
             new_dict = {}
             for k, v in self.items():
-                if v.steps is None:
-                    new_dict[k] = v
-                    continue
-                n_steps = len(v.steps)
-                if current_count + n_steps < maxsteps:
-                    new_dict[k] = v
-                    current_count += n_steps
-                else:
-                    remaining = maxsteps - current_count
-                    new_dict[k] = v.limit_steps(remaining)
-                    break
+                if len(steps_by_file[k]) > 0:
+                    new_dict[k] = v.model_dump()
+                    new_dict[k]["steps"] = steps_by_file[k]
             return type(self)(new_dict)
 
-    def limit_files(self, maxfiles: int) -> Self:
+    def limit_files(self, max_files: int | None) -> Self:
         """Limit the number of files."""
-        if maxfiles is None or maxfiles >= len(self):
+        if max_files is None:
+            return self
+        if not isinstance(max_files, int) or max_files < 0:
+            raise ValueError("max_files must be a non-negative integer")
+        if max_files >= len(self):
             return self
         new_dict = {}
         for i, (k, v) in enumerate(self.items()):
-            if i < maxfiles:
+            if i < max_files:
                 new_dict[k] = v
             else:
                 break
@@ -468,16 +460,16 @@ class DatasetSpec(BaseModel):
         """Get the steps per dataset file, if available."""
         return {k: v.steps for k, v in self.files.items()}
 
-    def limit_steps(self, maxsteps: int | None, per_file: bool = False) -> Self:
+    def limit_steps(self, max_steps: int | slice, per_file: bool = False) -> Self:
         """Limit the steps. pass per_file=True to limit steps per file, otherwise limits across all files cumulatively"""
         spec = self.model_dump()
-        spec["files"] = self.files.limit_steps(maxsteps, per_file=per_file)
+        spec["files"] = self.files.limit_steps(max_steps, per_file=per_file)
         return type(self)(**spec)
 
-    def limit_files(self, maxfiles: int | None) -> Self:
+    def limit_files(self, max_files: int | None) -> Self:
         """Limit the number of files."""
         spec = self.model_dump()
-        spec["files"] = self.files.limit_files(maxfiles)
+        spec["files"] = self.files.limit_files(max_files)
         return type(self)(**spec)
 
     def filter_files(
@@ -532,25 +524,21 @@ class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
         return {k: v.steps for k, v in self.items()}
 
     def limit_steps(
-        self, maxsteps: int | None, per_file: bool = False, per_dataset: bool = True
+        self, max_steps: int | slice, per_file: bool = False
     ) -> Self:
         """Limit the steps"""
         spec = copy.deepcopy(self)
-        if per_dataset:
-            for k, v in spec.items():
-                spec[k] = v.limit_steps(maxsteps, per_file=per_file)
-        else:
-            raise NotImplementedError(
-                "FilesetSpec.limit_steps with per_dataset=False is not implemented"
-            )
+        # handle both per_file True and False by passthrough
+        for k, v in spec.items():
+            spec[k] = v.limit_steps(max_steps, per_file=per_file)
         return type(self)(spec)
 
-    def limit_files(self, maxfiles: int | None, per_dataset: bool = True) -> Self:
+    def limit_files(self, max_files: int | None, per_dataset: bool = True) -> Self:
         """Limit the number of files."""
         spec = copy.deepcopy(self)
         if per_dataset:
             for k, v in spec.items():
-                spec[k] = v.limit_files(maxfiles)
+                spec[k] = v.limit_files(max_files)
         else:
             raise NotImplementedError(
                 "FilesetSpec.limit_files with per_dataset=False is not implemented"

@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import copy
-from typing import Any, Callable
+from typing import Any, Callable, Protocol, runtime_checkable
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 
 import awkward
 import numpy
@@ -15,8 +19,21 @@ from coffea.dataset_tools.filespec import (
     PreprocessedFiles,
 )
 
+# protocol for pydantic types that implement limit_files
+@runtime_checkable
+class LimitFilesProtocol(Protocol):
+    # handle both limit_files with max_files and max_files + per_dataset
+    def limit_files(self, max_files: int | slice, per_dataset: bool = True) -> Self:
+        ...
+@runtime_checkable
+class LimitStepsProtocol(Protocol):
+    def limit_steps(
+        self, max_steps: int | slice, per_file: bool = False, per_dataset: bool = True
+    ) -> Self:
+        ...
 
-def max_chunks(fileset: FilesetSpec, maxchunks: int | None = None) -> FilesetSpec:
+
+def max_chunks(fileset: LimitStepsProtocol | FilesetSpec, maxchunks: int | None = None) -> FilesetSpec:
     """
     Modify the input fileset so that only the first "maxchunks" chunks of each dataset will be processed.
 
@@ -36,7 +53,7 @@ def max_chunks(fileset: FilesetSpec, maxchunks: int | None = None) -> FilesetSpe
 
 
 def max_chunks_per_file(
-    fileset: FilesetSpec, maxchunks: int | None = None
+    fileset: LimitStepsProtocol | FilesetSpec, maxchunks: int | None = None
 ) -> FilesetSpec:
     """
     Modify the input fileset so that only the first "maxchunks" chunks of each file will be processed.
@@ -55,9 +72,43 @@ def max_chunks_per_file(
     """
     return slice_chunks(fileset, slice(maxchunks), bydataset=False)
 
+def _concatenated_step_slice(stepdict: dict[str, Any], theslice: int | slice) -> dict[str, Any]:
+    """
+    Modify the input step description to only contain the steps specified by the input slice.
+
+    Parameters
+    ----------
+        stepdict : dict[str, Any]
+            The step description to be sliced.
+        theslice : int | slice
+            How to slice the array of row-ranges (steps) in the input step description.
+
+    Returns
+    -------
+        out : dict[str, Any]
+            The reduced step description with only the row-ranges specified by theslice left.
+    """
+    if isinstance(theslice, int):
+        theslice = slice(theslice)
+    out = {key: [] for key in stepdict}
+
+    # 1) build a flat list of (key, step)
+    flat: list[tuple[str, Any]] = []
+    for key, steps in stepdict.items():
+        for step in steps:
+            flat.append((key, step))
+
+    # 2) slice that flat list
+    kept = flat[theslice]
+
+    # 3) repopulate in order, up to maxchunks total
+    for key, step in kept:
+        out[key].append(step)
+    return out # {key: steps for key, steps in out.items() if steps}
+
 
 def slice_chunks(
-    fileset: FilesetSpec, theslice: Any = slice(None), bydataset: bool = True
+    fileset: LimitStepsProtocol | FilesetSpec, theslice: Any = slice(None), bydataset: bool = True
 ) -> FilesetSpec:
     """
     Modify the input fileset so that only the chunks of each file or each dataset specified by the input slice are processed.
@@ -76,6 +127,9 @@ def slice_chunks(
         out : FilesetSpec
             The reduced fileset with only the row-ranges specified by theslice left.
     """
+    if isinstance(fileset, LimitStepsProtocol):
+        return fileset.limit_steps(theslice, per_file=not bydataset)
+
     if not isinstance(theslice, slice):
         theslice = slice(theslice)
 
@@ -83,67 +137,34 @@ def slice_chunks(
 
     if not bydataset:
         for dname, d in fileset.items():
-            is_datasetspec = isinstance(d, DatasetSpec)
-            datasetspec = d.files if is_datasetspec else d["files"]
-            for fname, finfo in datasetspec.items():
-                if is_datasetspec:
-                    out[dname].files[fname].steps = finfo.steps[theslice]
-                else:
-                    out[dname]["files"][fname]["steps"] = finfo["steps"][theslice]
+            for fname, finfo in d["files"].items():
+                out[dname]["files"][fname]["steps"] = finfo["steps"][theslice]
         return out
 
     for dname, d in fileset.items():
-        if isinstance(d, DatasetSpec):
-            # 1) build a flat list of (fname, step)
-            flat: list[tuple[str, Any]] = []
-            for fname, finfo in d.files.items():
-                for step in finfo.steps:
-                    flat.append((fname, step))
+        # 1) build a flat list of (fname, step)
+        flat: list[tuple[str, Any]] = []
+        for fname, finfo in d["files"].items():
+            for step in finfo["steps"]:
+                flat.append((fname, step))
 
-            # 2) slice that flat list
-            kept = flat[theslice]
+        # 2) slice that flat list
+        kept = flat[theslice]
 
-            # 3) zero-out all steps in the output
-            for fname in out[dname].files:
-                out[dname].files[fname].steps = []
+        # 3) zero-out all steps in the output
+        for fname in out[dname]["files"]:
+            out[dname]["files"][fname]["steps"] = []
 
-            # 4) repopulate in order, up to maxchunks total
-            for fname, step in kept:
-                out[dname].files[fname].steps.append(step)
+        # 4) repopulate in order, up to maxchunks total
+        for fname, step in kept:
+            out[dname]["files"][fname]["steps"].append(step)
 
-            # 5) drop files with no steps
-            # InputFiles has automatic promotion to PreprocessedFiles if conditions met
-            out[dname].files = InputFiles(
-                {
-                    fname: finfo
-                    for fname, finfo in out[dname].files.items()
-                    if finfo.steps
-                }
-            )
-        else:
-            # 1) build a flat list of (fname, step)
-            flat: list[tuple[str, Any]] = []
-            for fname, finfo in d["files"].items():
-                for step in finfo["steps"]:
-                    flat.append((fname, step))
-
-            # 2) slice that flat list
-            kept = flat[theslice]
-
-            # 3) zero-out all steps in the output
-            for fname in out[dname]["files"]:
-                out[dname]["files"][fname]["steps"] = []
-
-            # 4) repopulate in order, up to maxchunks total
-            for fname, step in kept:
-                out[dname]["files"][fname]["steps"].append(step)
-
-            # 5) drop files with no steps
-            out[dname]["files"] = {
-                fname: finfo
-                for fname, finfo in out[dname]["files"].items()
-                if finfo["steps"]
-            }
+        # 5) drop files with no steps
+        out[dname]["files"] = {
+            fname: finfo
+            for fname, finfo in out[dname]["files"].items()
+            if finfo["steps"]
+        }
     return out
 
 
