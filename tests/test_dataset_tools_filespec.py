@@ -154,7 +154,7 @@ class TestROOTFileSpec:
         assert spec_no_steps.num_selected_entries is None
 
     def test_limit_steps_no_modification(self):
-        """Test that limit_steps with no maxsteps returns equivalent object"""
+        """Test that limit_steps with no max_steps returns equivalent object"""
         spec = ROOTFileSpec(object_path="Events", steps=[[0, 10], [10, 20]])
         limited_spec = spec.limit_steps(None)
         assert limited_spec == spec
@@ -208,7 +208,7 @@ class TestParquetFileSpec:
         assert spec_no_steps.num_selected_entries is None
 
     def test_limit_steps_no_modification(self):
-        """Test that limit_steps with no maxsteps returns equivalent object"""
+        """Test that limit_steps with no max_steps returns equivalent object"""
         spec = ParquetFileSpec(object_path=None, steps=[[0, 10], [10, 20]])
         limited_spec = spec.limit_steps(None)
         assert limited_spec == spec
@@ -378,7 +378,7 @@ class TestCoffeaROOTFileSpec:
         assert spec.num_selected_entries == 20
 
     def test_limit_steps_no_modification(self):
-        """Test that limit_steps with no maxsteps returns equivalent object"""
+        """Test that limit_steps with no max_steps returns equivalent object"""
         spec = CoffeaROOTFileSpec(
             object_path="Events",
             steps=[[0, 10], [10, 20]],
@@ -529,7 +529,7 @@ class TestCoffeaParquetFileSpec:
         assert spec.num_selected_entries == 20
 
     def test_limit_steps_no_modification(self):
-        """Test that limit_steps with no maxsteps returns equivalent object"""
+        """Test that limit_steps with no max_steps returns equivalent object"""
         spec = CoffeaParquetFileSpec(
             object_path=None,
             steps=[[0, 10], [10, 20]],
@@ -662,7 +662,7 @@ class TestInputFiles:
         assert spec.num_selected_entries == 120
 
     def test_limit_steps_no_modification(self):
-        """Test that limit_steps with no maxsteps returns equivalent object"""
+        """Test that limit_steps with no max_steps returns equivalent object"""
         spec = InputFiles(self.get_files())
         limited_spec = spec.limit_steps(None)
         assert limited_spec == spec
@@ -862,7 +862,7 @@ class TestDatasetSpec:
         assert spec.num_selected_entries == 40
 
     def test_limit_steps_no_modification(self):
-        """Test that limit_steps with no maxsteps returns equivalent object"""
+        """Test that limit_steps with no max_steps returns equivalent object"""
         spec = self.get_spec_with_valid_steps()
         limited_spec = spec.limit_steps(None)
         assert limited_spec == spec
@@ -889,15 +889,15 @@ class TestDatasetSpec:
         assert [v.steps for v in limited_spec.files.values()] == [[[0, 5]]]
 
     def test_limit_files_no_modification(self):
-        """Test that limit_files with no maxsteps returns equivalent object"""
+        """Test that limit_files with no max_steps returns equivalent object"""
         spec = self.get_spec_with_valid_steps()
-        limited_spec = spec.limit_files(maxfiles=None)
+        limited_spec = spec.limit_files(max_files=None)
         assert limited_spec == spec
 
     def test_limit_files_single(self):
-        """Test that limit_files with maxsteps returns expected object"""
+        """Test that limit_files with max_steps returns expected object"""
         spec = self.get_spec_with_valid_steps()
-        limited_spec = spec.limit_files(maxfiles=1)
+        limited_spec = spec.limit_files(max_files=1)
         assert len(limited_spec.files.items()) == 1
 
     def test_filter_files_pattern(self):
@@ -1360,11 +1360,11 @@ class TestFilesetSpec:
 
     def test_num_selected_entries_computation(self):
         spec = self.get_sliceable_spec()
-        limited_spec = spec.limit_steps(2, per_file=True, per_dataset=True)
+        limited_spec = spec.limit_steps(2, per_file=True)
         assert limited_spec.num_selected_entries == 50
 
     def test_limit_steps_no_modification(self):
-        """Test that limit_steps with no maxsteps returns equivalent object"""
+        """Test that limit_steps with no max_steps returns equivalent object"""
         spec = self.get_sliceable_spec()
         limited_spec = spec.limit_steps(None)
         assert limited_spec == spec
@@ -1372,7 +1372,7 @@ class TestFilesetSpec:
     def test_limit_steps_slicing(self):
         """Test limit_steps with slicing"""
         spec = self.get_sliceable_spec()
-        limited_spec = spec.limit_steps(1, per_dataset=True)
+        limited_spec = spec.limit_steps(1)
         assert limited_spec.steps == {
             "ZJets1": {
                 "tests/samples/nano_dy.root": [[0, 5]],
@@ -1383,7 +1383,7 @@ class TestFilesetSpec:
     def test_limit_steps_per_file_slicing(self):
         """Test limit_steps with slicing"""
         spec = self.get_sliceable_spec()
-        limited_spec = spec.limit_steps(1, per_dataset=True, per_file=True)
+        limited_spec = spec.limit_steps(1, per_file=True)
         assert limited_spec.steps == {
             "ZJets1": {
                 "tests/samples/nano_dy.root": [[0, 5]],
@@ -1395,7 +1395,7 @@ class TestFilesetSpec:
     def test_limit_steps_method_chain_slicing(self):
         """Test limit_steps with slicing"""
         spec = self.get_sliceable_spec()
-        limited_spec = spec.limit_steps(1, per_file=True, per_dataset=True).limit_steps(
+        limited_spec = spec.limit_steps(1, per_file=True).limit_steps(
             1
         )
         assert limited_spec.steps == {
@@ -1406,15 +1406,15 @@ class TestFilesetSpec:
         }
 
     def test_limit_files_no_modification(self):
-        """Test that limit_files with no maxfiles returns equivalent object"""
+        """Test that limit_files with no max_files returns equivalent object"""
         spec = self.get_sliceable_spec()
-        limited_spec = spec.limit_files(maxfiles=None)
+        limited_spec = spec.limit_files(max_files=None)
         assert limited_spec == spec
 
     def test_limit_files_single_per_dataset(self):
-        """Test that limit_files with maxsteps returns expected object"""
+        """Test that limit_files with max_steps returns expected object"""
         spec = self.get_sliceable_spec()
-        limited_spec = spec.limit_files(maxfiles=1, per_dataset=True)
+        limited_spec = spec.limit_files(max_files=1, per_dataset=True)
         assert {k: len(v.files) for k, v in limited_spec.items()} == {
             "ZJets1": 1,
             "ZParquet": 1,
@@ -1424,7 +1424,7 @@ class TestFilesetSpec:
         """Test that limit_files with per_dataset=False raises NotImplementedError"""
         spec = self.get_sliceable_spec()
         with pytest.raises(NotImplementedError):
-            spec.limit_files(maxfiles=1, per_dataset=False)
+            spec.limit_files(max_files=1, per_dataset=False)
 
     def test_filter_files_pattern(self):
         """Test that filter_files_pattern works as expected"""
