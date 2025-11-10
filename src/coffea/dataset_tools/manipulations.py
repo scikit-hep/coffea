@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 from typing import Any, Callable, Protocol, runtime_checkable
+
 try:
     from typing import Self
 except ImportError:
@@ -19,21 +20,22 @@ from coffea.dataset_tools.filespec import (
     PreprocessedFiles,
 )
 
+
 # protocol for pydantic types that implement limit_files
 @runtime_checkable
 class LimitFilesProtocol(Protocol):
     # handle both limit_files with max_files and max_files + per_dataset
-    def limit_files(self, max_files: int | slice, per_dataset: bool = True) -> Self:
-        ...
+    def limit_files(self, max_files: int | slice, per_dataset: bool = True) -> Self: ...
 @runtime_checkable
 class LimitStepsProtocol(Protocol):
     def limit_steps(
         self, max_steps: int | slice, per_file: bool = False, per_dataset: bool = True
-    ) -> Self:
-        ...
+    ) -> Self: ...
 
 
-def max_chunks(fileset: LimitStepsProtocol | FilesetSpec, maxchunks: int | None = None) -> FilesetSpec:
+def max_chunks(
+    fileset: LimitStepsProtocol | FilesetSpec, maxchunks: int | None = None
+) -> FilesetSpec:
     """
     Modify the input fileset so that only the first "maxchunks" chunks of each dataset will be processed.
 
@@ -72,7 +74,10 @@ def max_chunks_per_file(
     """
     return slice_chunks(fileset, slice(maxchunks), bydataset=False)
 
-def _concatenated_step_slice(stepdict: dict[str, Any], theslice: int | slice) -> dict[str, Any]:
+
+def _concatenated_step_slice(
+    stepdict: dict[str, Any], theslice: int | slice
+) -> dict[str, Any]:
     """
     Modify the input step description to only contain the steps specified by the input slice.
 
@@ -104,11 +109,13 @@ def _concatenated_step_slice(stepdict: dict[str, Any], theslice: int | slice) ->
     # 3) repopulate in order, up to maxchunks total
     for key, step in kept:
         out[key].append(step)
-    return out # {key: steps for key, steps in out.items() if steps}
+    return out  # {key: steps for key, steps in out.items() if steps}
 
 
 def slice_chunks(
-    fileset: LimitStepsProtocol | FilesetSpec, theslice: Any = slice(None), bydataset: bool = True
+    fileset: LimitStepsProtocol | FilesetSpec,
+    theslice: Any = slice(None),
+    bydataset: bool = True,
 ) -> FilesetSpec:
     """
     Modify the input fileset so that only the chunks of each file or each dataset specified by the input slice are processed.

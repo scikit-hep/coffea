@@ -199,7 +199,9 @@ class InputFilesMixin:
                 total += v.num_selected_entries
         return total
 
-    def limit_steps(self, max_steps: int | slice | None, per_file: bool = False) -> Self:
+    def limit_steps(
+        self, max_steps: int | slice | None, per_file: bool = False
+    ) -> Self:
         """Limit the steps. pass per_file=True to limit steps per file, otherwise limits across all files cumulatively"""
 
         if max_steps is None:
@@ -208,7 +210,10 @@ class InputFilesMixin:
             return type(self)({k: v.limit_steps(max_steps) for k, v in self.items()})
         else:
             from coffea.dataset_tools.manipulations import _concatenated_step_slice
-            steps_by_file = _concatenated_step_slice({k: v.steps for k, v in self.items()}, max_steps)
+
+            steps_by_file = _concatenated_step_slice(
+                {k: v.steps for k, v in self.items()}, max_steps
+            )
             new_dict = {}
             for k, v in self.items():
                 if len(steps_by_file[k]) > 0:
@@ -398,6 +403,12 @@ class DatasetSpec(BaseModel):
         else:
             return None
 
+    def _valid_format(self) -> bool:
+        _formats = {"root", "parquet"}
+        return self.format in _formats or all(
+            fmt in _formats for fmt in self.format.split("|")
+        )
+
     def set_check_format(self) -> bool:
         """Set and/or alidate the format if manually specified"""
         if self.format is None:
@@ -411,9 +422,7 @@ class DatasetSpec(BaseModel):
                 self.format = "|".join(union)
 
         # validate the format, if present
-        if not ModelFactory.valid_format(self.format):
-            return False
-        return True
+        return self._valid_format()
 
     @model_validator(mode="after")
     def post_validate(self) -> Self:
@@ -523,9 +532,7 @@ class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
         """Get the steps per dataset file, if available."""
         return {k: v.steps for k, v in self.items()}
 
-    def limit_steps(
-        self, max_steps: int | slice, per_file: bool = False
-    ) -> Self:
+    def limit_steps(self, max_steps: int | slice, per_file: bool = False) -> Self:
         """Limit the steps"""
         spec = copy.deepcopy(self)
         # handle both per_file True and False by passthrough
@@ -533,7 +540,9 @@ class FilesetSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
             spec[k] = v.limit_steps(max_steps, per_file=per_file)
         return type(self)(spec)
 
-    def limit_files(self, max_files: int | slice | None, per_dataset: bool = True) -> Self:
+    def limit_files(
+        self, max_files: int | slice | None, per_dataset: bool = True
+    ) -> Self:
         """Limit the number of files."""
         spec = copy.deepcopy(self)
         if per_dataset:
@@ -595,20 +604,8 @@ def identify_file_format(name_or_directory: str) -> str:
 
 
 class ModelFactory:
-    _formats = {"root", "parquet"}
-
     def __init__(self):
         pass
-
-    @classmethod
-    def valid_format(cls, format: str | DatasetSpec) -> bool:
-        if isinstance(format, DatasetSpec):
-            test_format = format.format
-        else:
-            test_format = format
-        return test_format in cls._formats or all(
-            fmt in cls._formats for fmt in test_format.split("|")
-        )
 
     @classmethod
     def attempt_promotion(
@@ -694,7 +691,7 @@ class ModelFactory:
     def datasetspec_to_dict(
         cls,
         input: DatasetSpec,
-        coerce_filespec_to_dict=True,
+        coerce_filespec_to_dict: bool = True,
     ) -> dict[str, Any]:
         assert isinstance(
             input, DatasetSpec

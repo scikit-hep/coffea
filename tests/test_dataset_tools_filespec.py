@@ -998,13 +998,6 @@ class TestDatasetJoinableSpec:
 
 class TestModelFactory:
     """Test ModelFactory class methods"""
-
-    def test_valid_format(self):
-        """Test valid_format method"""
-        assert ModelFactory.valid_format("root") is True
-        assert ModelFactory.valid_format("parquet") is True
-        assert ModelFactory.valid_format("invalid") is False
-
     @pytest.mark.parametrize(
         "input_dict",
         [
@@ -1395,9 +1388,7 @@ class TestFilesetSpec:
     def test_limit_steps_method_chain_slicing(self):
         """Test limit_steps with slicing"""
         spec = self.get_sliceable_spec()
-        limited_spec = spec.limit_steps(1, per_file=True).limit_steps(
-            1
-        )
+        limited_spec = spec.limit_steps(1, per_file=True).limit_steps(1)
         assert limited_spec.steps == {
             "ZJets1": {
                 "tests/samples/nano_dy.root": [[0, 5]],
