@@ -7,7 +7,7 @@ name = "coffea"
 description = "Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis."
 readme = "README.rst"
 license = {text = "BSD-3-Clause"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
   { name = "Lindsey Gray", email = "lagray@fnal.gov" },
   { name = "Nick Smith", email = "ncsmith@fnal.gov" },
@@ -31,7 +31,6 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -121,7 +120,6 @@ dev = [
 [tool.hatch]
 version.source = "vcs"
 build.hooks.vcs.version-file = "src/coffea/_version.py"
-metadata.allow-direct-references = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
