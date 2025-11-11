@@ -77,6 +77,7 @@ Homepage = "https://github.com/coffeateam/coffea"
 dask = [
   "distributed>=2024.3.0",
   "bokeh!=3.0.*,>=2.4.2",
+  "blosc2",
 ]
 parsl = [
   "parsl>=2024.12.09"
@@ -122,7 +123,7 @@ addopts = [
   "-rfesxX",
   "-v",
 ]
-log_cli_level = "DEBUG"
+log_level = "DEBUG"
 filterwarnings = [
   "ignore:There is no current event loop",
 ]
