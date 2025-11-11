@@ -65,6 +65,7 @@ dependencies = [
   "fsspec",
   "rich",
   "ipywidgets",
+  "more-itertools",
   "typing-extensions;python_version<'3.11'",
 ]
 dynamic = ["version"]
