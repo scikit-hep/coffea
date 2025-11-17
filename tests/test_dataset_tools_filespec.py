@@ -165,6 +165,56 @@ class TestROOTFileSpec:
         limited_spec = spec.limit_steps(2)
         assert limited_spec.steps == [[0, 10], [10, 20]]
 
+    def test_add(self):
+        """Test addition of two ROOTFileSpec instances"""
+        spec1 = ROOTFileSpec(object_path="Events", steps=[[0, 10]])
+        spec2 = ROOTFileSpec(object_path="Events", steps=[[10, 20]])
+        combined_spec = spec1 + spec2
+        assert combined_spec.object_path == "Events"
+        assert combined_spec.steps == [[0, 10], [10, 20]]
+
+    def test_add_invalid_object_path(self):
+        """Test addition of two ROOTFileSpec instances with different object_paths"""
+        spec1 = ROOTFileSpec(object_path="Events1", steps=[[0, 10]])
+        spec2 = ROOTFileSpec(object_path="Events2", steps=[[10, 20]])
+        with pytest.raises(ValueError):
+            _ = spec1 + spec2
+
+    def test_invalid_format_add(self):
+        """Test addition of two FileSpec instances with different formats"""
+        spec1 = ROOTFileSpec(object_path="Events", steps=[[0, 10]])
+        spec2 = ParquetFileSpec(object_path=None, steps=[[10, 20]])
+        with pytest.raises(ValueError):
+            _ = spec1 + spec2
+
+    def test_subtract(self):
+        """Test subtraction of two ROOTFileSpec instances"""
+        spec1 = ROOTFileSpec(object_path="Events", steps=[[0, 10], [10, 20]])
+        spec2 = ROOTFileSpec(object_path="Events", steps=[[10, 20]])
+        reduced_spec = spec1 - spec2
+        assert reduced_spec.object_path == "Events"
+        assert reduced_spec.steps == [[0, 10]]
+
+    def test_subtract_invalid_object_path(self):
+        """Test subtraction of two ROOTFileSpec instances with different object_paths"""
+        spec1 = ROOTFileSpec(object_path="Events", steps=[[0, 10]])
+        spec2 = ROOTFileSpec(object_path="Events", steps=[[0, 10]])
+        assert (spec1 - spec2) is None
+
+    def test_subtract_invalid_format(self):
+        """Test subtraction of two ROOTFileSpec instances with different formats"""
+        spec1 = ROOTFileSpec(object_path="Events", steps=[[0, 10]])
+        spec2 = ParquetFileSpec(object_path=None, steps=[[0, 10]])
+        with pytest.raises(ValueError):
+            _ = spec1 - spec2
+
+    def test_subtract_non_overlapping(self):
+        """Test subtraction of two ROOTFileSpec instances with non-overlapping steps"""
+        spec1 = ROOTFileSpec(object_path="Events", steps=[[0, 10]])
+        spec2 = ROOTFileSpec(object_path="Events", steps=[[10, 20]])
+        non_reduced_spec = spec1 - spec2
+        assert non_reduced_spec.steps == [[0, 10]]
+
 
 class TestParquetFileSpec:
     """Test ParquetFileSpec class"""
@@ -218,6 +268,56 @@ class TestParquetFileSpec:
         spec = ParquetFileSpec(object_path=None, steps=[[0, 10], [10, 20], [20, 30]])
         limited_spec = spec.limit_steps(2)
         assert limited_spec.steps == [[0, 10], [10, 20]]
+
+    def test_add(self):
+        """Test addition of two ParquetFileSpec instances"""
+        spec1 = ParquetFileSpec(object_path=None, steps=[[0, 10]])
+        spec2 = ParquetFileSpec(object_path=None, steps=[[10, 20]])
+        combined_spec = spec1 + spec2
+        assert combined_spec.object_path is None
+        assert combined_spec.steps == [[0, 10], [10, 20]]
+
+    def test_add_invalid_object_path(self):
+        """Test addition of two ParquetFileSpec instances with different object_paths"""
+        spec1 = ParquetFileSpec(object_path=None, steps=[[0, 10]])
+        spec2 = ParquetFileSpec(object_path=None, steps=[[0, 10]])
+        with pytest.raises(ValueError):
+            _ = spec1 + spec2
+
+    def test_invalid_format_add(self):
+        """Test addition of two FileSpec instances with different formats"""
+        spec1 = ParquetFileSpec(object_path=None, steps=[[0, 10]])
+        spec2 = ROOTFileSpec(object_path="Events", steps=[[10, 20]])
+        with pytest.raises(ValueError):
+            _ = spec1 + spec2
+
+    def test_subtract(self):
+        """Test subtraction of two ParquetFileSpec instances"""
+        spec1 = ParquetFileSpec(object_path=None, steps=[[0, 10], [10, 20]])
+        spec2 = ParquetFileSpec(object_path=None, steps=[[10, 20]])
+        reduced_spec = spec1 - spec2
+        assert reduced_spec.object_path is None
+        assert reduced_spec.steps == [[0, 10]]
+
+    def test_subtract_invalid_object_path(self):
+        """Test subtraction of two ParquetFileSpec instances with different object_paths"""
+        spec1 = ParquetFileSpec(object_path=None, steps=[[0, 10]])
+        spec2 = ParquetFileSpec(object_path=None, steps=[[0, 10]])
+        assert (spec1 - spec2) is None
+
+    def test_subtract_invalid_format(self):
+        """Test subtraction of two ParquetFileSpec instances with different formats"""
+        spec1 = ParquetFileSpec(object_path=None, steps=[[0, 10]])
+        spec2 = ROOTFileSpec(object_path="Events", steps=[[0, 10]])
+        with pytest.raises(ValueError):
+            _ = spec1 - spec2
+
+    def test_subtract_non_overlapping(self):
+        """Test subtraction of two ParquetFileSpec instances with non-overlapping steps"""
+        spec1 = ParquetFileSpec(object_path=None, steps=[[0, 10]])
+        spec2 = ParquetFileSpec(object_path=None, steps=[[10, 20]])
+        non_reduced_spec = spec1 - spec2
+        assert non_reduced_spec.steps == [[0, 10]]
 
 
 class TestCoffeaROOTFileSpecOptional:
@@ -693,6 +793,103 @@ class TestInputFiles:
             [[10, 20]],
         ]
 
+    def test_addition_distinct(self):
+        """Test addition of two InputFiles instances"""
+        spec1 = InputFiles(
+            {
+                "file1.root": CoffeaROOTFileSpec(
+                    object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
+                )
+            }
+        )
+        spec2 = InputFiles(
+            {
+                "file2.parquet": CoffeaParquetFileSpec(
+                    steps=[[0, 50]], num_entries=50, uuid="uuid2"
+                )
+            }
+        )
+        combined_spec = spec1 + spec2
+        assert len(combined_spec) == 2
+        assert "file1.root" in combined_spec
+        assert "file2.parquet" in combined_spec
+
+    def test_addition_overlapping(self):
+        """Test addition of two InputFiles instances with overlapping files"""
+        spec1 = InputFiles(
+            {
+                "file1.root": CoffeaROOTFileSpec(
+                    object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
+                ),
+                "file2.root": CoffeaROOTFileSpec(
+                    object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid2"
+                ),
+            }
+        )
+        spec2 = InputFiles(
+            {
+                "file1.root": CoffeaROOTFileSpec(
+                    object_path="Events", steps=[[10, 20]], num_entries=20, uuid="uuid1"
+                ),
+                "file3.root": CoffeaROOTFileSpec(
+                    object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid3"
+                ),
+            }
+        )
+        combined_spec = spec1 + spec2
+        assert len(combined_spec) == 3
+        assert "file1.root" in combined_spec
+        assert "file2.root" in combined_spec
+        assert "file3.root" in combined_spec
+        assert combined_spec["file1.root"].steps == [[0, 10], [10, 20]]
+        assert combined_spec["file1.root"].num_entries == 20
+
+    def test_subtraction_overlapping_nonoverlapping(self):
+        """Test subtraction of two InputFiles instances"""
+        spec1 = InputFiles(
+            {
+                "file1overlap.root": CoffeaROOTFileSpec(
+                    object_path="Events",
+                    steps=[[0, 10], [10, 20]],
+                    num_entries=20,
+                    uuid="uuid1",
+                ),
+                "file2nonoverlap.root": CoffeaROOTFileSpec(
+                    object_path="Events",
+                    steps=[[0, 10], [10, 20]],
+                    num_entries=30,
+                    uuid="uuid1",
+                ),
+                "file3.root": CoffeaROOTFileSpec(
+                    object_path="Events",
+                    steps=[[0, 10], [10, 20]],
+                    num_entries=20,
+                    uuid="uuid1",
+                ),
+            }
+        )
+        spec2 = InputFiles(
+            {
+                "file1overlap.root": CoffeaROOTFileSpec(
+                    object_path="Events", steps=[[10, 20]], num_entries=10, uuid="uuid1"
+                ),
+                "file2nonoverlap.root": CoffeaROOTFileSpec(
+                    object_path="Events", steps=[[20, 30]], num_entries=30, uuid="uuid1"
+                ),
+            }
+        )
+        reduced_spec = spec1 - spec2
+        assert len(reduced_spec) == 3
+        assert "file1overlap.root" in reduced_spec
+        assert "file2nonoverlap.root" in reduced_spec
+        assert "file3.root" in reduced_spec
+        assert reduced_spec["file1overlap.root"].steps == [[0, 10]]
+        assert reduced_spec["file1overlap.root"].num_entries == 20
+        assert reduced_spec["file2nonoverlap.root"].steps == [[0, 10], [10, 20]]
+        assert reduced_spec["file2nonoverlap.root"].num_entries == 30
+        assert reduced_spec["file3.root"].steps == [[0, 10], [10, 20]]
+        assert reduced_spec["file3.root"].num_entries == 20
+
 
 class TestDatasetSpec:
     """Test DatasetSpec class"""
@@ -929,6 +1126,74 @@ class TestDatasetSpec:
         filtered_spec = spec.filter_files(filter_callable=pattern_func)
         assert len(filtered_spec.files.items()) == 1
         assert "nano_dy" in list(filtered_spec.files.keys())[0]
+
+    def test_addition_distinct(self):
+        """Test addition of two DatasetSpec instances"""
+        spec1 = self.get_spec_with_valid_steps()
+        spec2 = self.get_spec_with_valid_steps()
+        spec2.files = InputFiles(
+            {
+                "tests/samples/nano_dy_3.root": CoffeaROOTFileSpec(
+                    object_path="Events",
+                    steps=[[0, 10]],
+                    num_entries=10,
+                    uuid="uuid3",
+                )
+            }
+        )
+        combined_spec = spec1 + spec2
+        assert len(combined_spec.files) == 3
+        assert "tests/samples/nano_dy.root" in combined_spec.files
+        assert "tests/samples/nano_dy_2.root" in combined_spec.files
+        assert "tests/samples/nano_dy_3.root" in combined_spec.files
+
+    def test_addition_overlapping(self):
+        """Test addition of two DatasetSpec instances with overlapping files"""
+        spec1 = self.get_spec_with_valid_steps()
+        spec2 = self.get_spec_with_valid_steps()
+        with pytest.raises(ValidationError):
+            _ = spec1 + spec2
+
+    def test_subtraction_overlapping_nonoverlapping(self):
+        """Test subtraction of two DatasetSpec instances"""
+        spec1in = self.get_test_input()
+        spec1in["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [
+            [0, 10],
+            [10, 20],
+            [20, 30],
+        ]
+        spec2in = self.get_test_input()
+        spec2in["ZJets1"]["files"]["tests/samples/nano_dy.root"]["steps"] = None
+        spec2in["ZJets1"]["files"]["tests/samples/nano_dy_2.root"]["steps"] = [[10, 20]]
+        spec1 = DatasetSpec(**spec1in["ZJets1"])
+        spec2 = DatasetSpec(**spec2in["ZJets1"])
+        reduced_spec = spec1 - spec2
+        assert len(reduced_spec.files) == 2
+        assert "tests/samples/nano_dy.root" in reduced_spec.files
+        assert "tests/samples/nano_dy_2.root" in reduced_spec.files
+        assert reduced_spec.files["tests/samples/nano_dy.root"].steps == [
+            [0, 5],
+            [5, 10],
+            [10, 15],
+            [15, 20],
+            [20, 25],
+            [25, 30],
+        ]
+        assert reduced_spec.files["tests/samples/nano_dy_2.root"].steps == [
+            [0, 10],
+            [20, 30],
+        ]
+
+    def test_legacy_form_to_compressed_form_migration(self):
+        """Test that legacy 'form' field is migrated to 'compressed_form'"""
+        legacy_input = self.get_test_input()["ZJets1"]
+        legacy_input["form"] = legacy_input.pop("compressed_form")
+        DatasetSpec(**legacy_input)
+
+        raises_runtimeerror = copy.deepcopy(legacy_input)
+        raises_runtimeerror["form"] = "invalid_form"
+        with pytest.raises(RuntimeError):
+            DatasetSpec(**raises_runtimeerror)
 
 
 class TestDatasetJoinableSpec:
@@ -1500,6 +1765,75 @@ class TestDataGroupSpec:
                 assert "nano_dy" in list(v.files.keys())[0]
             else:
                 raise AssertionError("Only ZJets1 should match")
+
+    def test_addition_distinct(self):
+        """Test addition of two DataGroupSpec instances"""
+        spec1 = self.get_sliceable_spec()
+        spec2 = self.get_sliceable_spec()
+        spec2["ZJets1"].files = InputFiles(
+            {
+                "tests/samples/nano_dy_3.root": CoffeaROOTFileSpec(
+                    object_path="Events",
+                    steps=[[0, 10]],
+                    num_entries=10,
+                    uuid="uuid3",
+                )
+            }
+        )
+        spec2["ZParquet"].files = InputFiles(
+            {
+                "tests/samples/nano_dy_4.parquet": CoffeaParquetFileSpec(
+                    steps=[[0, 100]], num_entries=100, uuid="uuid4"
+                )
+            }
+        )
+        combined_spec = spec1 + spec2
+        assert len(combined_spec) == 2
+        assert len(combined_spec["ZJets1"].files) == 3
+        assert len(combined_spec["ZParquet"].files) == 2
+        assert "tests/samples/nano_dy.root" in combined_spec["ZJets1"].files
+        assert "tests/samples/nano_dy_2.root" in combined_spec["ZJets1"].files
+        assert "tests/samples/nano_dy_3.root" in combined_spec["ZJets1"].files
+        assert "tests/samples/nano_dy.parquet" in combined_spec["ZParquet"].files
+        assert "tests/samples/nano_dy_4.parquet" in combined_spec["ZParquet"].files
+
+    def test_addition_overlapping(self):
+        """Test addition of two DataGroupSpec instances with overlapping datasets"""
+        spec1 = self.get_sliceable_spec()
+        spec2 = self.get_sliceable_spec()
+        with pytest.raises(ValidationError):
+            _ = spec1 + spec2
+
+    def test_subtraction_overlapping_nonoverlapping(self):
+        """Test subtraction of two DataGroupSpec instances"""
+        spec1in = TestDataGroupSpec.get_sliceable_spec(TestDataGroupSpec)
+        spec1in["ZJets1"].files["tests/samples/nano_dy_2.root"].steps = [
+            [0, 10],
+            [10, 20],
+            [20, 30],
+        ]  # Ensure steps are set for counting
+        spec2in = TestDataGroupSpec.get_sliceable_spec(TestDataGroupSpec)
+        spec2in["ZJets1"].files["tests/samples/nano_dy.root"].steps = None
+        spec2in["ZJets1"].files["tests/samples/nano_dy_2.root"].steps = [[10, 20]]
+        spec1 = DataGroupSpec(spec1in)
+        spec2 = DataGroupSpec(spec2in)
+        reduced_spec = spec1 - spec2
+        assert len(reduced_spec) == 2
+        assert len(reduced_spec["ZJets1"].files) == 2
+        assert "tests/samples/nano_dy.root" in reduced_spec["ZJets1"].files
+        assert "tests/samples/nano_dy_2.root" in reduced_spec["ZJets1"].files
+        assert reduced_spec["ZJets1"].files["tests/samples/nano_dy.root"].steps == [
+            [0, 5],
+            [5, 10],
+            [10, 15],
+            [15, 20],
+            [20, 25],
+            [25, 30],
+        ]
+        assert reduced_spec["ZJets1"].files["tests/samples/nano_dy_2.root"].steps == [
+            [0, 10],
+            [20, 30],
+        ]
 
 
 class TestMainMethodScenarios:
