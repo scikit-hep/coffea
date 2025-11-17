@@ -1,8 +1,12 @@
+import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Generic
-from collections.abc import Callable
 
-from typing_extensions import Self  # Python < 3.11
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 from coffea.compute.context import ContextInput, Ctx_co
 from coffea.compute.protocol import InputT, ResultT
