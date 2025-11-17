@@ -1,5 +1,4 @@
 import warnings
-from typing import Optional
 
 import numpy
 
@@ -54,9 +53,7 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
             be ignored in the operation.
     """
 
-    def __init__(
-        self, torch_jit: str, expected_output_shape: Optional[tuple[int]] = None
-    ):
+    def __init__(self, torch_jit: str, expected_output_shape: tuple[int] | None = None):
         if _torch_import_error is not None:
             warnings.warn(
                 "Users should make sure the torch package is installed before proceeding!\n"

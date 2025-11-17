@@ -3,11 +3,10 @@ import math
 import os
 import re
 import signal
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from multiprocessing.pool import ThreadPool
 from os.path import join
-from typing import Callable, Optional
 
 from coffea.util import rich_bar
 
@@ -135,31 +134,31 @@ class TaskVineExecutor(ExecutorBase):
     """
 
     port: int = 9123
-    manager_name: Optional[str] = None
+    manager_name: str | None = None
     status_display_interval: int = 5
     ssl: bool = False
     filepath: str = "/tmp"
-    extra_input_files: Optional[list] = None
-    x509_proxy: Optional[str] = None
-    environment_file: Optional[str] = None
+    extra_input_files: list | None = None
+    x509_proxy: str | None = None
+    environment_file: str | None = None
     verbose: bool = False
     print_stdout: bool = False
-    password_file: Optional[str] = None
+    password_file: str | None = None
     treereduction: int = 20
     cores: int = 1
-    memory: Optional[int] = None
-    disk: Optional[int] = None
-    gpus: Optional[int] = None
+    memory: int | None = None
+    disk: int | None = None
+    gpus: int | None = None
     replicas: int = 1
     disable_worker_transfers: bool = False
     resource_monitor: str = "off"
     resources_mode: str = "fixed"
-    fast_terminate_workers: Optional[int] = None
+    fast_terminate_workers: int | None = None
     retries: int = 3
     split_on_exhaustion: bool = True
     checkpoint_proportion: float = 0.1
     concurrent_reads: int = 2
-    custom_init: Optional[Callable] = None
+    custom_init: Callable | None = None
 
     def __post_init__(self):
         if not vine:
