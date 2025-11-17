@@ -74,7 +74,9 @@ def test_backend_partial_result(backend_class):
         computable = list(map(IntWorkElement, repeat(func), map(IntLoader, range(100))))
         task = backend.compute(computable)
 
-        time.sleep(0.01)
+        assert task.status() in (TaskStatus.PENDING, TaskStatus.RUNNING)
+        while task.status() == TaskStatus.PENDING:
+            time.sleep(0.01)
         assert task.status() == TaskStatus.RUNNING
         part, resumable = task.partial_result()
         assert part > 0
