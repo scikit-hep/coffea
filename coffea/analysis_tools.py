@@ -3,6 +3,7 @@
 These helper classes were previously part of ``coffea.processor``
 but have been migrated and updated to be compatible with awkward-array 1.0
 """
+import awkward
 import numpy
 import coffea.util
 import coffea.processor
@@ -95,11 +96,31 @@ class Weights:
         if self._storeIndividual:
             self._weights[name] = weight
         self.__add_variation(name, weight, weightUp, weightDown, shift)
+        if weight.size == 0:
+            dtype = weight.dtype
+            if dtype in (
+                numpy.int8,
+                numpy.int16,
+                numpy.int32,
+                numpy.int64,
+                numpy.uint8,
+                numpy.uint16,
+                numpy.uint32,
+                numpy.uint64,
+            ):
+                min = numpy.iinfo(dtype).max
+                max = numpy.iinfo(dtype).min
+            else:
+                min = numpy.inf
+                max = -numpy.inf
+        else:
+            min = weight.min()
+            max = weight.max()
         self._weightStats[name] = WeightStatistics(
             weight.sum(),
             (weight**2).sum(),
-            weight.min(),
-            weight.max(),
+            min,
+            max,
             weight.size,
         )
 
@@ -157,11 +178,31 @@ class Weights:
         ):
             systName = f"{name}_{modifier}"
             self.__add_variation(systName, weight, weightUp, weightDown, shift)
+        if weight.size == 0:
+            dtype = weight.dtype
+            if dtype in (
+                numpy.int8,
+                numpy.int16,
+                numpy.int32,
+                numpy.int64,
+                numpy.uint8,
+                numpy.uint16,
+                numpy.uint32,
+                numpy.uint64,
+            ):
+                min = numpy.iinfo(dtype).max
+                max = numpy.iinfo(dtype).min
+            else:
+                min = numpy.inf
+                max = -numpy.inf
+        else:
+            min = weight.min()
+            max = weight.max()
         self._weightStats[name] = WeightStatistics(
             weight.sum(),
             (weight**2).sum(),
-            weight.min(),
-            weight.max(),
+            min,
+            max,
             weight.size,
         )
 

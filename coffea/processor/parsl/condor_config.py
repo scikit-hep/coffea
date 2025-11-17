@@ -3,7 +3,6 @@ import os.path as osp
 
 import parsl
 from parsl.providers import CondorProvider
-from parsl.channels import LocalChannel
 from parsl.config import Config
 from parsl.executors import HighThroughputExecutor
 
@@ -68,7 +67,6 @@ def condor_config(
                 cores_per_worker=1,
                 worker_logdir_root="./",
                 provider=CondorProvider(
-                    channel=LocalChannel(),
                     init_blocks=total_workers,
                     max_blocks=max_workers,
                     nodes_per_block=1,

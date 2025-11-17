@@ -8,7 +8,7 @@
 
 #### **Do you want to write a patch that fixes a bug?**
 
-* Follow the [setup instructions for developers](https://coffeateam.github.io/coffea/installation.html#for-developers) to get a development environment
+* Follow the [setup instructions for developers](https://coffea-hep.readthedocs.io/en/backports-v0.7.x/installation.html#for-developers) to get a development environment
 
 * Open a new GitHub pull request with the patch.
 
@@ -30,7 +30,7 @@ Changes that are cosmetic in nature and do not add anything substantial to the s
 
 #### **Do you want to contribute to the coffea documentation?**
 
-* Follow the [setup instructions for developers](https://coffeateam.github.io/coffea/installation.html#for-developers) to get a development environment
+* Follow the [setup instructions for developers](https://coffea-hep.readthedocs.io/en/backports-v0.7.x/installation.html#for-developers) to get a development environment
 
 * Edit the ReStructured Text files in `docs/source` or the docstrings in the python source code as appropriate
 
