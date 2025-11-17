@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Callable, Generic
+from typing import Generic
+from collections.abc import Callable
 
 from typing_extensions import Self  # Python < 3.11
 

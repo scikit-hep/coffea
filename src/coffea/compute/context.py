@@ -1,7 +1,8 @@
 from collections.abc import Iterator
 from dataclasses import dataclass
 from itertools import repeat
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, Generic, TypeVar
+from collections.abc import Callable
 
 from coffea.compute.protocol import DataElement, InputT
 
