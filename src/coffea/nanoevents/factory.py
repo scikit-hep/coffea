@@ -221,7 +221,7 @@ class NanoEventsFactory:
     the constructor args are properly set.
     """
 
-    def __init__(self, schema, mapping, partition_key, mode="eager"):
+    def __init__(self, schema, mapping, partition_key, mode, buffer_cache):
         if mode not in _allowed_modes:
             raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
         self._mode = mode
@@ -229,6 +229,7 @@ class NanoEventsFactory:
         self._mapping = mapping
         self._partition_key = partition_key
         self._events = lambda: None
+        self._buffer_cache = buffer_cache
 
     def __getstate__(self):
         return {
@@ -743,6 +744,7 @@ class NanoEventsFactory:
             mapping,
             tuple_to_key(partition_key),
             mode=mode,
+            buffer_cache=buffer_cache,
         )
 
     def __len__(self):
@@ -785,6 +787,9 @@ class NanoEventsFactory:
                 backend="cpu",
                 byteorder=awkward._util.native_byteorder,
                 allow_noncanonical_form=False,
+                disable_virtual_array_caching=(
+                    False if self._buffer_cache is None else True
+                ),
                 highlevel=True,
                 behavior=self._schema.behavior(),
                 attrs={
