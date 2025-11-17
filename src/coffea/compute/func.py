@@ -1,6 +1,5 @@
-from collections.abc import Sized
+from collections.abc import Callable, Sized
 from typing import Protocol
-from collections.abc import Callable
 
 from coffea.compute.protocol import ResultT
 

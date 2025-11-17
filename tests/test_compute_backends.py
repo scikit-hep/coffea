@@ -1,7 +1,7 @@
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import repeat
-from collections.abc import Callable
 
 import pytest
 

@@ -1,8 +1,7 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from enum import Enum
 from types import TracebackType
 from typing import Protocol, TypeVar
-from collections.abc import Callable
 
 T = TypeVar("T")
 
