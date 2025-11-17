@@ -3,7 +3,7 @@
 import base64
 import gzip
 import hashlib
-from typing import Any, Optional
+from typing import Any
 
 import awkward
 import dask_awkward
@@ -153,7 +153,7 @@ def _exception_chain(exc: BaseException) -> list[BaseException]:
 class SpeedColumn(ProgressColumn):
     """Renders human readable transfer speed."""
 
-    def __init__(self, fmt: str = ".1f", table_column: Optional[Column] = None):
+    def __init__(self, fmt: str = ".1f", table_column: Column | None = None):
         self.fmt = fmt
         super().__init__(table_column=table_column)
 
