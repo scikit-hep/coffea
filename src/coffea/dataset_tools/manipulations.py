@@ -7,7 +7,7 @@ from typing import Any, Protocol, runtime_checkable
 
 if sys.version_info >= (3, 11):
     from typing import Self
-except ImportError:
+else:
     from typing_extensions import Self
 
 import awkward

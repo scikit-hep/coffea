@@ -3,13 +3,13 @@ from __future__ import annotations
 import copy
 import pathlib
 import re
-from collections.abc import Hashable, Iterable, MutableMapping
+import sys
+from collections.abc import Callable, Hashable, Iterable, MutableMapping
 from typing import Annotated, Any, Literal
-from collections.abc import Callable
 
-try:
+if sys.version_info >= (3, 11):
     from typing import Self
-except ImportError:
+else:
     from typing_extensions import Self
 
 from pydantic import BaseModel, Field, RootModel, computed_field, model_validator
