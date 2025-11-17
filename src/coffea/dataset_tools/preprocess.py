@@ -4,8 +4,10 @@ import copy
 import hashlib
 import math
 import warnings
+from collections.abc import Callable, Hashable
+from dataclasses import dataclass
 from functools import partial
-from typing import Callable
+from typing import Any
 
 import awkward
 import dask

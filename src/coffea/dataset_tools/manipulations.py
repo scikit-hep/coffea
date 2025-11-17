@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import sys
 import copy
-from typing import Any, Callable, Protocol, runtime_checkable
-
-try:
+from typing import Any, Protocol, runtime_checkable
+from collections.abc import Callable
+if sys.version_info >= (3, 11):
     from typing import Self
 except ImportError:
     from typing_extensions import Self
