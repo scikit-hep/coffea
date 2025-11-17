@@ -26,6 +26,63 @@ class GenericFileSpec(BaseModel):
     lfn: str | None = None
     pfn: str | None = None
 
+    def __add__(self, other: GenericFileSpec) -> GenericFileSpec:
+        if not isinstance(other, GenericFileSpec):
+            raise TypeError(
+                f"Can only add GenericFileSpec to GenericFileSpec, got {type(other)}"
+            )
+        if self.format != other.format:
+            raise ValueError(
+                f"Cannot add GenericFileSpec with different formats: {self.format} and {other.format}"
+            )
+        new_spec = self.model_dump()
+        if self.object_path != other.object_path:
+            raise ValueError(
+                f"Cannot add GenericFileSpec with different object_paths: {self.object_path} and {other.object_path}"
+            )
+        if self.steps is None:
+            new_spec["steps"] = other.steps
+        elif other.steps is None:
+            new_spec["steps"] = self.steps
+        else:
+            new_spec["steps"] = sorted(self.steps + other.steps)
+        if self.num_entries is None:
+            new_spec["num_entries"] = other.num_entries
+        elif other.num_entries is None:
+            new_spec["num_entries"] = self.num_entries
+        else:
+            new_spec["num_entries"] = max(self.num_entries, other.num_entries)
+        return type(self)(**new_spec)
+
+    def __sub__(self, other: GenericFileSpec) -> GenericFileSpec:
+        if not isinstance(other, GenericFileSpec):
+            raise TypeError(
+                f"Can only subtract GenericFileSpec from GenericFileSpec, got {type(other)}"
+            )
+        if self.format != other.format:
+            raise ValueError(
+                f"Cannot subtract GenericFileSpec with different formats: {self.format} and {other.format}"
+            )
+        new_spec = self.model_dump()
+        if self.object_path != other.object_path:
+            raise ValueError(
+                f"Cannot subtract GenericFileSpec with different object_paths: {self.object_path} and {other.object_path}"
+            )
+        if self.steps is None:
+            raise ValueError("Cannot subtract when left operand's steps is None")
+        else:
+            if other.steps is not None:
+                new_steps = [step for step in self.steps if step not in other.steps]
+            else:
+                new_steps = self.steps
+            new_spec["steps"] = sorted(new_steps)
+        new_spec["num_entries"] = (
+            self.num_entries
+        )  # num_entries remains unchanged, it is a property of the file
+        if len(new_spec["steps"]) == 0:
+            return None
+        return type(self)(**new_spec)
+
     @model_validator(mode="after")
     def validate_steps(self) -> Self:
         if self.steps is None:
@@ -135,6 +192,32 @@ ConcreteFileSpecUnion = Union[
 
 
 class InputFilesMixin:
+    def __add__(self, other: InputFilesMixin) -> InputFilesMixin:
+        if not isinstance(other, InputFilesMixin):
+            raise TypeError(
+                f"Can only add InputFilesMixin to InputFilesMixin, got {type(other)}"
+            )
+        new_dict = dict(self)
+        for k, v in other.items():
+            if k in new_dict:
+                new_dict[k] = new_dict[k] + v
+            else:
+                new_dict[k] = v
+        return type(self)(new_dict)
+
+    def __sub__(self, other: InputFilesMixin) -> InputFilesMixin:
+        if not isinstance(other, InputFilesMixin):
+            raise TypeError(
+                f"Can only subtract InputFilesMixin from InputFilesMixin, got {type(other)}"
+            )
+        new_dict = dict(self)
+        for k, v in other.items():
+            if k in new_dict:
+                new_dict[k] = new_dict[k] - v
+                if new_dict[k] is None:
+                    del new_dict[k]
+        return type(self)(new_dict)
+
     @computed_field
     @property
     def format(self) -> str:
@@ -350,6 +433,44 @@ class DatasetSpec(BaseModel):
     compressed_form: str | None = None
     did: str | None = None
 
+    def __add__(self, other: DatasetSpec) -> DatasetSpec:
+        if not isinstance(other, DatasetSpec):
+            raise TypeError(
+                f"Can only add DatasetSpec to DatasetSpec, got {type(other)}"
+            )
+        if self.did is not None and other.did is not None:
+            if self.did != other.did:
+                raise ValueError(
+                    f"Cannot add DatasetSpec with different dids: {self.did} and {other.did}"
+                )
+        new_spec = self.model_dump()
+        new_spec["files"] = self.files + other.files
+        # merge metadata dictionaries, with other taking precedence
+        new_metadata = copy.deepcopy(self.metadata)
+        new_metadata.update(other.metadata)
+        new_spec["metadata"] = new_metadata
+        # format will be re-evaluated in post validation
+        new_spec["format"] = None
+        # compressed_form is not merged, set to None
+        new_spec["compressed_form"] = None
+        # did is not merged, set to None
+        new_spec["did"] = self.did if self.did is not None else other.did
+        return type(self)(**new_spec)
+
+    def __sub__(self, other: DatasetSpec) -> DatasetSpec:
+        if not isinstance(other, DatasetSpec):
+            raise TypeError(
+                f"Can only subtract DatasetSpec from DatasetSpec, got {type(other)}"
+            )
+        if self.did is not None and other.did is not None:
+            if self.did != other.did:
+                raise ValueError(
+                    f"Cannot add DatasetSpec with different dids: {self.did} and {other.did}"
+                )
+        new_spec = self.model_dump()
+        new_spec["files"] = self.files - other.files
+        return type(self)(**new_spec)
+
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
         if isinstance(data, dict):
@@ -377,13 +498,30 @@ class DatasetSpec(BaseModel):
             if "form" in data.keys():
                 _form = data.pop("form")
                 if "compressed_form" not in data.keys():
-                    import awkward
+                    # assume this was an uncompressed awkward form, try to compress it
+                    try:
+                        import awkward
 
-                    from coffea.util import compress_form
+                        from coffea.util import compress_form
 
-                    data["compressed_form"] = compress_form(
-                        awkward.forms.from_json(_form)
-                    )
+                        data["compressed_form"] = compress_form(
+                            awkward.forms.from_json(_form)
+                        )
+                    except Exception:
+                        # if we can't compress it, test if it can be decompressed
+                        try:
+                            import awkward
+
+                            from coffea.util import decompress_form
+
+                            _ = awkward.forms.from_json(decompress_form(_form))
+                            data["compressed_form"] = _form
+                        except Exception:
+                            raise RuntimeError(
+                                "form: provided form could neither be compressed nor decompressed, please provide a valid compressed_form"
+                            )
+                else:
+                    data["compressed_form"] = data["compressed_form"]
             if "metadata" not in data.keys() or data["metadata"] is None:
                 data["metadata"] = {}
         elif isinstance(data, DatasetSpec):
@@ -517,6 +655,30 @@ class DataGroupSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
 
     def __len__(self) -> int:
         return len(self.root)
+
+    def __add__(self, other: DataGroupSpec) -> DataGroupSpec:
+        if not isinstance(other, DataGroupSpec):
+            raise TypeError(
+                f"Can only add DataGroupSpec to DataGroupSpec, got {type(other)}"
+            )
+        new_dict = dict(self)
+        for k, v in other.items():
+            if k in new_dict:
+                new_dict[k] = new_dict[k] + v
+            else:
+                new_dict[k] = v
+        return type(self)(new_dict)
+
+    def __sub__(self, other: DataGroupSpec) -> DataGroupSpec:
+        if not isinstance(other, DataGroupSpec):
+            raise TypeError(
+                f"Can only subtract DataGroupSpec from DataGroupSpec, got {type(other)}"
+            )
+        new_dict = dict(self)
+        for k, v in other.items():
+            if k in new_dict:
+                new_dict[k] = new_dict[k] - v
+        return type(self)(new_dict)
 
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
