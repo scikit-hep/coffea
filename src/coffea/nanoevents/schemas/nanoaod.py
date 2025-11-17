@@ -177,11 +177,11 @@ class NanoAODSchema(BaseSchema):
         "Electron_energy": "Electron_regrEnergy",
         "Photon_energy": "Photon_regrEnergy",
     }
-    """Arrays that should be renamed to avoid conflicts with mixinx"""
+    """Arrays that should be renamed to ensure proper 4-vector behavior"""
     alias_items = {
         "CorrT1METJet_pt": "CorrT1METJet_rawPt",
     }
-    """Arrays that should be aliased to avoid conflicts with mixinx"""
+    """Arrays that should be aliased to ensure proper 4-vector behavior"""
 
     def __init__(self, base_form, version="latest"):
         super().__init__(base_form)
