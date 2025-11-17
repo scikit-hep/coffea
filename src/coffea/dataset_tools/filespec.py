@@ -4,7 +4,7 @@ import copy
 import pathlib
 import re
 from collections.abc import Hashable, Iterable, MutableMapping
-from typing import Annotated, Any, Callable, Literal, Union
+from typing import Annotated, Any, Callable, Literal
 
 try:
     from typing import Self
@@ -177,18 +177,15 @@ class CoffeaParquetFileSpec(CoffeaParquetFileSpecOptional):
 
 
 # Create union type definition
-FileSpecUnion = Union[
-    CoffeaROOTFileSpec,
-    CoffeaParquetFileSpec,
-    CoffeaROOTFileSpecOptional,
-    CoffeaParquetFileSpecOptional,
-]
+FileSpecUnion = (
+    CoffeaROOTFileSpec
+    | CoffeaParquetFileSpec
+    | CoffeaROOTFileSpecOptional
+    | CoffeaParquetFileSpecOptional
+)
 
 
-ConcreteFileSpecUnion = Union[
-    CoffeaROOTFileSpec,
-    CoffeaParquetFileSpec,
-]
+ConcreteFileSpecUnion = CoffeaROOTFileSpec | CoffeaParquetFileSpec
 
 
 class InputFilesMixin:
