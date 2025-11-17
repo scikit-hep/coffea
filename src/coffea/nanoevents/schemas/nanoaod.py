@@ -166,6 +166,22 @@ class NanoAODSchema(BaseSchema):
         ),
     }
     """Special arrays, where the callable and input arrays are specified in the value"""
+    zeros_items = {
+        "Photon_mass": (transforms.zeros_from_offsets_form, ("oPhoton",)),
+        "Photon_charge": (transforms.zeros_from_offsets_form, ("oPhoton",)),
+        "TrigObj_mass": (transforms.zeros_from_offsets_form, ("oTrigObj",)),
+        "CorrT1METJet_mass": (transforms.zeros_from_offsets_form, ("oCorrT1METJet",)),
+    }
+    """Arrays that should be filled with zeros if not present to satisfy 4-vector requirements"""
+    rename_items = {
+        "Electron_energy": "Electron_regrEnergy",
+        "Photon_energy": "Photon_regrEnergy",
+    }
+    """Arrays that should be renamed to avoid conflicts with mixinx"""
+    alias_items = {
+        "CorrT1METJet_pt": "CorrT1METJet_rawPt",
+    }
+    """Arrays that should be aliased to avoid conflicts with mixinx"""
 
     def __init__(self, base_form, version="latest"):
         super().__init__(base_form)
@@ -297,39 +313,20 @@ class NanoAODSchema(BaseSchema):
             if all(k in branch_forms for k in args):
                 branch_forms[name] = fcn(*(branch_forms[k] for k in args))
 
-        # Add mass and charge fields for Photon collection (always zero for photons)
-        if "oPhoton" in branch_forms:
-            if "Photon_mass" not in branch_forms:
-                branch_forms["Photon_mass"] = transforms.zeros_from_offsets_form(
-                    branch_forms["oPhoton"]
-                )
-            if "Photon_charge" not in branch_forms:
-                branch_forms["Photon_charge"] = transforms.zeros_from_offsets_form(
-                    branch_forms["oPhoton"]
-                )
+        # Create zeros arrays
+        for name, (fcn, args) in self.zeros_items.items():
+            if all(k in branch_forms for k in args):
+                branch_forms[name] = fcn(*(branch_forms[k] for k in args))
 
-        # Rename Electron/Photon_energy to Electron/Photon_regrEnergy to avoid conflict with mixin
-        # Present in EGamma NanoAOD flavor
-        if "Electron_energy" in branch_forms:
-            branch_forms["Electron_regrEnergy"] = branch_forms.pop("Electron_energy")
-        if "Photon_energy" in branch_forms:
-            branch_forms["Photon_regrEnergy"] = branch_forms.pop("Photon_energy")
+        # Rename arrays
+        for old_name, new_name in self.rename_items.items():
+            if old_name in branch_forms:
+                branch_forms[new_name] = branch_forms.pop(old_name)
 
-        # Alias CorrT1METJet_rawPt to CorrT1METJet_pt and add zero mass for CorrT1METJet collection
-        if "oCorrT1METJet" in branch_forms:
-            if "CorrT1METJet_pt" not in branch_forms:
-                branch_forms["CorrT1METJet_pt"] = branch_forms["CorrT1METJet_rawPt"]
-            if "CorrT1METJet_mass" not in branch_forms:
-                branch_forms["CorrT1METJet_mass"] = transforms.zeros_from_offsets_form(
-                    branch_forms["oCorrT1METJet"]
-                )
-
-        # Add zero mass to the trigger objects
-        if "oTrigObj" in branch_forms:
-            if "TrigObj_mass" not in branch_forms:
-                branch_forms["TrigObj_mass"] = transforms.zeros_from_offsets_form(
-                    branch_forms["oTrigObj"]
-                )
+        # Alias arrays
+        for alias_name, original_name in self.alias_items.items():
+            if original_name in branch_forms:
+                branch_forms[alias_name] = branch_forms[original_name]
 
         output = {}
         for name in collections:
