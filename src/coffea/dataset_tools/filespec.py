@@ -4,7 +4,8 @@ import copy
 import pathlib
 import re
 from collections.abc import Hashable, Iterable, MutableMapping
-from typing import Annotated, Any, Callable, Literal
+from typing import Annotated, Any, Literal
+from collections.abc import Callable
 
 try:
     from typing import Self
