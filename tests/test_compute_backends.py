@@ -75,11 +75,20 @@ def test_backend_partial_result(backend_class):
         task = backend.compute(computable)
 
         assert task.status() in (TaskStatus.PENDING, TaskStatus.RUNNING)
-        while task.status() == TaskStatus.PENDING:
+
+        t0 = time.monotonic()
+        while task.status() != TaskStatus.RUNNING and time.monotonic() - t0 < 5:
             time.sleep(0.01)
-        assert task.status() == TaskStatus.RUNNING
+        if task.status() != TaskStatus.RUNNING:
+            raise TimeoutError("Task did not reach desired state in time")
+
+        t0 = time.monotonic()
+        while task.partial_result()[0] == 0 and time.monotonic() - t0 < 5:
+            time.sleep(0.01)
+        if task.partial_result()[0] == 0:
+            raise TimeoutError("Task did not produce partial result in time")
+
         part, resumable = task.partial_result()
-        assert part > 0
         assert len(list(resumable)) < 100
 
         task.wait()
