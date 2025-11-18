@@ -1359,7 +1359,7 @@ class TestModelFactory:
             expected["steps"] = None
         if "num_entries" not in expected:
             expected["num_entries"] = None
-        if "num_entrie_in_steps" not in expected:
+        if "num_selected_entries" not in expected:
             if "steps" in expected and expected["steps"] is not None:
                 expected["num_selected_entries"] = sum(
                     end - start for start, end in expected["steps"]

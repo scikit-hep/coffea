@@ -379,6 +379,7 @@ class InputFiles(
             try:
                 self.root = PreprocessedFiles(self.root).root
             except Exception:
+                # We couldn't promote to PreprocessedFiles, do nothing
                 pass
         return self
 
@@ -424,6 +425,8 @@ class PreprocessedFiles(
                 pass
         if all(preprocessed.values()):
             return self
+        else:
+            return InputFiles(self.root)
 
 
 class DatasetSpec(BaseModel):
@@ -555,7 +558,7 @@ class DatasetSpec(BaseModel):
         )  # or all(fmt in _formats for fmt in self.format.split("|"))
 
     def set_check_format(self) -> bool:
-        """Set and/or alidate the format if manually specified"""
+        """Set and/or validate the format if manually specified"""
         if self.format is None:
             # set the format if not already set
             union = set()
