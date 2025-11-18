@@ -126,7 +126,7 @@ addopts = [
   "-rfesxX",
   "-v",
 ]
-log_level = "DEBUG"
+log_level = "INFO"
 filterwarnings = [
   "ignore:There is no current event loop",
 ]
