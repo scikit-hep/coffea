@@ -66,7 +66,7 @@ Install coffea like any other Python package:
     pip install coffea
 
 or similar (use ``sudo``, ``--user``, ``virtualenv``, or pip-in-conda if you wish).
-For more details, see the `Installing coffea <https://coffeateam.github.io/coffea/installation.html>`_ section of the documentation.
+For more details, see the `Installing coffea <https://coffea-hep.readthedocs.io/en/backports-v0.7.x/installation.html>`_ section of the documentation.
 
 Strict dependencies
 ===================
@@ -87,4 +87,4 @@ The following are installed automatically when you install coffea with pip:
 
 Documentation
 =============
-All documentation is hosted at https://coffeateam.github.io/coffea/
+All documentation is hosted at https://coffea-hep.readthedocs.io/en/backports-v0.7.x/

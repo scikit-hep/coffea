@@ -27,6 +27,7 @@ def jetmet_evaluator():
             "* * tests/samples/RegroupedV2_Fall17_17Nov2017_V32_MC_UncertaintySources_AK4PFchs.junc.txt.gz",
             "* * tests/samples/Regrouped_Fall17_17Nov2017_V32_MC_UncertaintySources_AK4PFchs.junc.txt",
             "* * tests/samples/Spring16_25nsV10_MC_PtResolution_AK4PFPuppi.jr.txt.gz",
+            "* * tests/samples/Summer23Prompt23_RunCv1234_JRV1_MC_PtResolution_AK4PFPuppi.jr.txt.gz",
             "* * tests/samples/Spring16_25nsV10_MC_SF_AK4PFPuppi.jersf.txt.gz",
             "* * tests/samples/Autumn18_V7_MC_SF_AK4PFchs.jersf.txt.gz",
         ]
@@ -205,6 +206,9 @@ def test_jet_resolution():
 
     jer_names = ["Spring16_25nsV10_MC_PtResolution_AK4PFPuppi"]
     reso = JetResolution(**{name: evaluator[name] for name in jer_names})
+
+    check2023_names = ["Summer23Prompt23_RunCv1234_JRV1_MC_PtResolution_AK4PFPuppi"]
+    _ = JetResolution(**{name: evaluator[name] for name in check2023_names})
 
     print(reso)
 
@@ -685,6 +689,9 @@ def test_corrected_jets_factory():
     name_map["JetPhi"] = "phi"
     name_map["UnClusteredEnergyDeltaX"] = "MetUnclustEnUpDeltaX"
     name_map["UnClusteredEnergyDeltaY"] = "MetUnclustEnUpDeltaY"
+    assert name_map["JetPt"] + "_orig" in corrected_jets.fields
+    assert name_map["JetPt"] + "_orig" in corrected_jets.JES_AbsoluteStat.up.fields
+    assert name_map["JetPt"] + "_orig" in corrected_jets.JER.up.fields
 
     tic = time.time()
     met_factory = CorrectedMETFactory(name_map)

@@ -454,6 +454,192 @@ def _wait_for_merges(FH: _FuturesHolder, executor: ExecutorBase) -> Accumulatabl
 
 
 @dataclass
+class TaskVineExecutor(ExecutorBase):
+    """Execute using Work Queue
+
+    For more information, see :ref:`intro-coffea-vine`
+
+    Parameters
+    ----------
+        items : sequence or generator
+            Sequence of input arguments
+        function : callable
+            A function to be called on each input, which returns an accumulator instance
+        accumulator : Accumulatable
+            An accumulator to collect the output of the function
+        status : bool
+            If true (default), enable progress bar
+        unit : str
+            Label of progress bar unit
+        desc : str
+            Label of progress bar description
+        compression : int, optional
+            Compress accumulator outputs in flight with LZ4, at level specified (default 1)
+            `None`` sets level to 1 (minimal compression)
+        # taskvine specific options:
+        cores : int
+            Maximum number of cores for work queue task. If unset, use a whole worker.
+        memory : int
+            Maximum amount of memory (in MB) for work queue task. If unset, use a whole worker.
+        disk : int
+            Maximum amount of disk space (in MB) for work queue task. If unset, use a whole worker.
+        gpus : int
+            Number of GPUs to allocate to each task.  If unset, use zero.
+        resource_monitor : str
+            If given, one of 'off', 'measure', or 'watchdog'. Default is 'off'.
+            - 'off': turns off resource monitoring. Overriden to 'watchdog' if resources_mode
+                     is not set to 'fixed'.
+            - 'measure': turns on resource monitoring for Work Queue. The
+                        resources used per task are measured.
+            - 'watchdog': in addition to measuring resources, tasks are terminated if they
+                        go above the cores, memory, or disk specified.
+        resources_mode : str
+            one of 'fixed', 'max-seen', or 'max-throughput'. Default is 'max-seen'.
+            Sets the strategy to automatically allocate resources to tasks.
+            - 'fixed': allocate cores, memory, and disk specified for each task.
+            - 'max-seen' or 'auto': use the cores, memory, and disk given as maximum values to allocate,
+                          but first try each task by allocating the maximum values seen. Leads
+                          to a good compromise between parallelism and number of retries.
+            - 'max-throughput': Like max-seen, but first tries the task with an
+                          allocation that maximizes overall throughput.
+            If resources_mode is other than 'fixed', preprocessing and
+            accumulation tasks always use the 'max-seen' strategy, as the
+            former tasks always use the same resources, the latter has a
+            distribution of resources that increases over time.
+        split_on_exhaustion: bool
+            Whether to split a processing task in half according to its chunksize when it exhausts its
+            the cores, memory, or disk allocated to it. If False, a task that exhausts resources
+            permanently fails. Default is True.
+        fast_terminate_workers: int
+            Terminate workers on which tasks have been running longer than average.
+            The time limit is computed by multiplying the average runtime of tasks
+            by the value of 'fast_terminate_workers'. Since there are
+            legitimately slow tasks, no task may trigger fast termination in
+            two distinct workers. Less than 1 disables it.
+        checkpoint_proportion: float
+            Whether to bring back accumulation results to the manager. If proportion of checkpointed inputs
+            is less than this proportion, the accumulation is checkpointed. >=1 forces all accumulations to
+            be checkpointed, with <=0 no accumulation is checkpointed. Default is 0.5
+
+        manager_name : str
+            Name to refer to this work queue manager.
+            Sets port to 0 (any available port) if port not given.
+        port : int or tuple(int, int)
+            Port number or range (inclusive of ports )for work queue manager program.
+            Defaults to 9123 if manager_name not given.
+        password_file: str
+            Location of a file containing a password used to authenticate workers.
+        ssl: bool or tuple(str, str)
+            Enable ssl encryption between manager and workers. If a tuple, then it
+            should be of the form (key, cert), where key and cert are paths to the files
+            containing the key and certificate in pem format. If True, auto-signed temporary
+            key and cert are generated for the session.
+
+        extra_input_files: list
+            A list of files in the current working directory to send along with each task.
+            Useful for small custom libraries and configuration files needed by the processor.
+        x509_proxy : str
+            Path to the X509 user proxy. If None (the default), use the value of the
+            environment variable X509_USER_PROXY, or fallback to the file /tmp/x509up_u${UID} if
+            exists.  If False, disables the default behavior and no proxy is sent.
+
+        environment_file : optional, str
+            Conda python environment tarball to use. If not given, assume that
+            the python environment is already setup at the execution site.
+
+        treereduction : int
+            Number of processed chunks per accumulation task. Defaults is 20.
+        concurrent_reads : int
+            Number of processed chunks concurrently read per accumulation task. Defaults is 2.
+        replicas : int
+            Number of replicas for temporary results in the cluster before checkpointing to manager
+            with an accumulation. If less than 2, only one copy of a result is kept, which reduces
+            cluster disk usage, but results need to be regenerated if workers are lost.
+        disable_worker_transfers: bool
+            Disable file transfers between workers. In normal operation, TaskVine will attempt to transfer
+            common and intermediate results between workers as needed, but some workers network
+            setup do not allow for this. Default is False.
+
+        verbose : bool
+            If true, emit a message on each task submission and completion.
+            Default is false.
+        print_stdout : bool
+            If true (default), print the standard output of work queue task on completion.
+
+        filepath: str
+            Path to the parent directory where to create the staging directory.
+            Default is "." (current working directory).
+
+        custom_init : function, optional
+            A function that takes as an argument the queue's WorkQueue object.
+            The function is called just before the first work unit is submitted
+            to the queue.
+    """
+
+    # Standard executor options:
+    compression: Optional[int] = 1
+    retries: int = 2  # task executes at most 3 times
+    # wq executor options:
+    manager_name: Optional[str] = None
+    port: Optional[Union[int, Tuple[int, int]]] = None
+    filepath: str = "."
+    events_total: Optional[int] = None
+    x509_proxy: Optional[str] = None
+    verbose: bool = False
+    print_stdout: bool = False
+    status_display_interval: Optional[int] = 10
+    password_file: Optional[str] = None
+    ssl: Union[bool, Tuple[str, str]] = False
+    environment_file: Optional[str] = None
+    extra_input_files: List = field(default_factory=list)
+    resource_monitor: Optional[str] = "off"
+    resources_mode: Optional[str] = "max-seen"
+    split_on_exhaustion: Optional[bool] = True
+    fast_terminate_workers: Optional[int] = None
+    checkpoint_proportion: Optional[float] = 0.5
+    cores: Optional[int] = None
+    memory: Optional[int] = None
+    disk: Optional[int] = None
+    gpus: Optional[int] = None
+    treereduction: int = 10
+    concurrent_reads: int = 2
+    replicas: int = 3
+    disable_worker_transfers: bool = False
+    chunksize: int = 100000
+    dynamic_chunksize: Optional[Dict] = None
+    custom_init: Optional[Callable] = None
+
+    # deprecated
+    bar_format: Optional[str] = None
+    chunks_accum_in_mem: Optional[int] = None
+    master_name: Optional[str] = None
+    chunks_per_accum: Optional[int] = None
+    wrapper: Optional[str] = None
+    debug_log: Optional[str] = None
+    stats_log: Optional[str] = None
+    transactions_log: Optional[str] = None
+    tasks_accum_log: Optional[str] = None
+
+    def __call__(
+        self,
+        items: Iterable,
+        function: Callable,
+        accumulator: Accumulatable,
+    ):
+        from .taskvine_executor import run
+
+        return (
+            run(
+                self,
+                items,
+                function,
+                accumulator,
+            ),
+            0,
+        )
+
+
+@dataclass
 class WorkQueueExecutor(ExecutorBase):
     """Execute using Work Queue
 
@@ -1339,8 +1525,7 @@ class Runner:
             except Exception as e:
                 chain = _exception_chain(e)
                 if skipbadfiles and any(
-                    isinstance(c, (FileNotFoundError, UprootMissTreeError))
-                    for c in chain
+                    isinstance(c, (OSError, UprootMissTreeError)) for c in chain
                 ):
                     warnings.warn(str(e))
                     break
@@ -1815,7 +2000,9 @@ class Runner:
                 processor_instance=pi_to_send,
             )
 
-        if self.format == "root" and isinstance(self.executor, WorkQueueExecutor):
+        if self.format == "root" and isinstance(
+            self.executor, (TaskVineExecutor, WorkQueueExecutor)
+        ):
             # keep chunks in generator, use a copy to count number of events
             # this is cheap, as we are reading from the cache
             chunks_to_count = self.preprocess(fileset, treename)
@@ -1830,7 +2017,7 @@ class Runner:
             "unit": "chunk",
             "function_name": type(processor_instance).__name__,
         }
-        if isinstance(self.executor, WorkQueueExecutor):
+        if isinstance(self.executor, (TaskVineExecutor, WorkQueueExecutor)):
             exe_args.update(
                 {
                     "unit": "event",
@@ -1857,7 +2044,11 @@ class Runner:
             processor_instance.postprocess(wrapped_out["out"])
 
         if "metrics" in wrapped_out.keys():
-            wrapped_out["metrics"]["chunks"] = len(chunks)
+            if isinstance(self.executor, (TaskVineExecutor, WorkQueueExecutor)):
+                wrapped_out["metrics"]["chunks"] = len(wrapped_out["processed"])
+            else:
+                wrapped_out["metrics"]["chunks"] = len(chunks_to_count)
+
             for k, v in wrapped_out["metrics"].items():
                 if isinstance(v, set):
                     wrapped_out["metrics"][k] = list(v)

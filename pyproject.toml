@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "coffea"
-version = "0.7.23"
+dynamic = ["version"]
 description = "Tools for doing Collider HEP style analysis with columnar operations"
 readme = "README.rst"
 license = {file = "LICENSE"}
@@ -68,10 +68,10 @@ python-requires = ">=3.8,<3.12"
 
 [project.optional-dependencies]
 spark = ["ipywidgets", "pyspark>=2.4.1,<3.0.0", "jinja2"]
-parsl = ["parsl>=1.1"]
+parsl = ["parsl>=2024.12.09"]
 dask = [
-    "dask[dataframe]>=2.6.0",
-    "distributed>=2.6.0",
+    "dask[dataframe]>=2023.04.0,<2025.4.0",
+    "distributed>=2023.04.0,<2025.4.0",
     "bokeh>=1.3.4",
     "blosc",
 ]
@@ -103,6 +103,10 @@ rucio = [
     "pyyaml",
 ]
 
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "coffea/_version.py"
+
 [tool.hatch.build.targets.wheel]
 packages = ["coffea"]
 
@@ -112,9 +116,6 @@ include = [
     "LICENSE",
     "coffea/processor/templates/*.tmpl",
 ]
-
-[tool.hatch.build.targets.wheel.hooks.version]
-path = "coffea/_version.py"
 
 [tool.pytest.ini_options]
 addopts = "-rfesxX -v"
