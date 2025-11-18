@@ -463,7 +463,7 @@ class DatasetSpec(BaseModel):
         if self.did is not None and other.did is not None:
             if self.did != other.did:
                 raise ValueError(
-                    f"Cannot add DatasetSpec with different dids: {self.did} and {other.did}"
+                    f"Cannot subtract DatasetSpec with different dids: {self.did} and {other.did}"
                 )
         new_spec = self.model_dump()
         new_spec["files"] = self.files - other.files
