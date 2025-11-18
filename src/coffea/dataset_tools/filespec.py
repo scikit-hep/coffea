@@ -373,6 +373,7 @@ class InputFiles(
                     self.root[k] = CoffeaParquetFileSpec(v)
                 preprocessed[k] = True
             except Exception:
+                # we failed to promote to the concrete spec, do nothing else
                 pass
         if all(preprocessed.values()):
             try:
@@ -419,6 +420,7 @@ class PreprocessedFiles(
                     self.root[k] = CoffeaParquetFileSpec(v)
                 preprocessed[k] = True
             except Exception:
+                # we failed to promote to the concrete spec, do nothing else
                 pass
         if all(preprocessed.values()):
             return self
