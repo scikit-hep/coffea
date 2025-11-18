@@ -747,10 +747,6 @@ class DataGroupSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
         else:
             new_dict = dict(self)
         if filter_callable is not None:
-            import rich
-
-            rich.print(new_dict)
-            rich.print(new_dict.keys())
             new_dict = {k: v for k, v in new_dict.items() if filter_callable(v)}
         return type(self)(new_dict)
 
