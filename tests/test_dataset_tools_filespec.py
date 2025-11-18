@@ -1854,37 +1854,28 @@ class TestMainMethodScenarios:
 
             # Test with num_entries
             for num_entries in [None, 100]:
-                try:
-                    spec = CoffeaROOTFileSpecOptional(
-                        object_path="example_path",
-                        steps=steps,
-                        num_entries=num_entries,
-                    )
-                    assert spec.object_path == "example_path"
-                except ValueError:
-                    pass
+                spec = CoffeaROOTFileSpecOptional(
+                    object_path="example_path",
+                    steps=steps,
+                    num_entries=num_entries,
+                )
+                assert spec.object_path == "example_path"
 
             # Test with uuid
             for uuid in [None, "hello-there"]:
-                try:
-                    spec1 = CoffeaROOTFileSpecOptional(
-                        object_path="example_path",
-                        steps=steps,
-                        uuid=uuid,
-                    )
-                    assert spec1.object_path == "example_path"
-                except ValueError:
-                    pass
+                spec1 = CoffeaROOTFileSpecOptional(
+                    object_path="example_path",
+                    steps=steps,
+                    uuid=uuid,
+                )
+                assert spec1.object_path == "example_path"
 
-                try:
-                    spec2 = CoffeaParquetFileSpecOptional(
-                        object_path=None,
-                        steps=steps,
-                        uuid=uuid,
-                    )
-                    assert spec2.object_path is None
-                except ValueError:
-                    pass
+                spec2 = CoffeaParquetFileSpecOptional(
+                    object_path=None,
+                    steps=steps,
+                    uuid=uuid,
+                )
+                assert spec2.object_path is None
 
             # Test concrete specs
             num_entries, uuid = 100, "hello-there"

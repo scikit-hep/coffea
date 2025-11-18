@@ -23,11 +23,12 @@ from coffea.dataset_tools.filespec import (
 )
 
 
-# protocol for pydantic types that implement limit_files
 @runtime_checkable
 class LimitFilesProtocol(Protocol):
     # handle both limit_files with max_files and max_files + per_dataset
     def limit_files(self, max_files: int | slice, per_dataset: bool = True) -> Self: ...
+
+
 @runtime_checkable
 class LimitStepsProtocol(Protocol):
     def limit_steps(
@@ -210,7 +211,7 @@ def slice_files(fileset: DataGroupSpec, theslice: Any = slice(None)) -> DataGrou
     Returns
     -------
         out : DataGroupSpec
-            The reduce fileset with only the files specified by theslice left.
+            The reduced fileset with only the files specified by theslice left.
     """
     if isinstance(fileset, LimitFilesProtocol):
         return fileset.limit_files(theslice)
@@ -260,7 +261,7 @@ def filter_files(
     Returns
     -------
         out : DataGroupSpec
-            The reduce fileset with only the files specified by thefilter left.
+            The reduced fileset with only the files specified by thefilter left.
     """
     out = copy.deepcopy(fileset)
     for name, entry in fileset.items():
