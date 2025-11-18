@@ -4,7 +4,6 @@ from pytest_mock import MockerFixture
 
 from coffea.compute.context import ContextDataElement, ContextInput
 from coffea.compute.data import (
-    Chunk,
     ContextDataGroup,
     ContextDataset,
     ContextFile,
@@ -12,10 +11,10 @@ from coffea.compute.data import (
     Dataset,
     File,
     FileContextDataGroup,
-    FileElement,
     InputDataGroup,
     InputDataset,
-    OpenFile,
+    OpenROOTFile,
+    ROOTFileElement,
     StepContextDataGroup,
     StepContextDataset,
     StepElement,
@@ -167,15 +166,15 @@ def test_make_fileiterables():
 
     expected = [
         ContextDataElement(
-            FileElement(path="file1.root"),
+            ROOTFileElement(path="file1.root"),
             FileContextDataGroup("singlemuon", None, "my_analysis"),
         ),
         ContextDataElement(
-            FileElement(path="file2.root"),
+            ROOTFileElement(path="file2.root"),
             FileContextDataGroup("singlemuon", None, "my_analysis"),
         ),
         ContextDataElement(
-            FileElement(path="file3.root"),
+            ROOTFileElement(path="file3.root"),
             FileContextDataGroup("drellyan", 1.0, "my_analysis"),
         ),
     ]
@@ -210,7 +209,7 @@ def fake_uproot_open(path: str, **kwargs):
     return FakeReadOnlyDirectory(path)
 
 
-def make_up_steps(item: ContextInput[OpenFile, Any]) -> list[File]:
+def make_up_steps(item: ContextInput[OpenROOTFile, Any]) -> list[File]:
     return [
         File(
             path=item.data.file_path,
@@ -280,7 +279,7 @@ def test_prepare(mocker: MockerFixture) -> None:
     result = sum((f() for f in computable), 0)
     assert result == 400  # 2 files * 2 steps * 100 events each
 
-    def count_steps_func(chunk: Chunk[StepContextDataset]) -> int:
+    def count_steps_func(chunk: ContextInput[EventsArray, StepContextDataset]) -> int:
         chunk.context.uuid
         return len(chunk.data)
 
@@ -288,7 +287,7 @@ def test_prepare(mocker: MockerFixture) -> None:
     result = sum((f() for f in computable), 0)
     assert result == 400  # 2 files * 2 steps * 100 events
 
-    def count_steps_func2(chunk: Chunk[ContextFile]) -> int:
+    def count_steps_func2(chunk: ContextInput[EventsArray, StepContextDataset]) -> int:
         chunk.context.uuid
         return len(chunk.data)
 

@@ -1,6 +1,7 @@
 from collections.abc import Callable, Sized
 from typing import Protocol
 
+from coffea.compute.context import ContextInput, Ctx_co
 from coffea.compute.protocol import ResultT
 
 
@@ -27,3 +28,14 @@ class Processor(Protocol[ResultT]):
     def process(self, events: EventsArray) -> ResultT:
         """Process a chunk of events and return a result."""
         ...
+
+
+def process_chunk(
+    func: Processor[ResultT], chunk: ContextInput[EventsArray, Ctx_co]
+) -> ResultT:
+    """Toss away the context and just call the processor on the events.
+
+    TODO: this is until we define how Processors handle context properly.
+    """
+
+    return func.process(chunk.data)

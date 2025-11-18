@@ -1,12 +1,8 @@
-from coffea.compute.data import DataGroup, Dataset, File, StepElement
-from coffea.compute.errors import ErrorPolicy
-from coffea.compute.func import EventsArray
+from coffea.compute import backends, data, errors, func
 
 __all__ = [
-    "DataGroup",
-    "Dataset",
-    "File",
-    "StepElement",
-    "ErrorPolicy",
-    "EventsArray",
+    "data",
+    "errors",
+    "func",
+    "backends",
 ]

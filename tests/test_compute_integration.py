@@ -1,8 +1,9 @@
 import time
 
-from coffea.compute import Dataset, ErrorPolicy, EventsArray, File
 from coffea.compute.backends.threaded import SingleThreadedBackend
-from coffea.compute.data import ContextDataset
+from coffea.compute.data import ContextDataset, Dataset, File
+from coffea.compute.errors import ErrorPolicy
+from coffea.compute.func import EventsArray
 
 
 class DummyProcessor:
