@@ -1,4 +1,17 @@
 from coffea.dataset_tools.apply_processor import apply_to_dataset, apply_to_fileset
+from coffea.dataset_tools.filespec import (
+    CoffeaParquetFileSpec,
+    CoffeaParquetFileSpecOptional,
+    CoffeaROOTFileSpec,
+    CoffeaROOTFileSpecOptional,
+    DataGroupSpec,
+    DatasetSpec,
+    InputFiles,
+    ModelFactory,
+    ParquetFileSpec,
+    PreprocessedFiles,
+    ROOTFileSpec,
+)
 from coffea.dataset_tools.manipulations import (
     filter_files,
     get_failed_steps_for_dataset,
@@ -23,4 +36,15 @@ __all__ = [
     "slice_files",
     "get_failed_steps_for_dataset",
     "get_failed_steps_for_fileset",
+    "ROOTFileSpec",
+    "ParquetFileSpec",
+    "CoffeaROOTFileSpec",
+    "CoffeaROOTFileSpecOptional",
+    "CoffeaParquetFileSpec",
+    "CoffeaParquetFileSpecOptional",
+    "InputFiles",
+    "PreprocessedFiles",
+    "DatasetSpec",
+    "DataGroupSpec",
+    "ModelFactory",
 ]

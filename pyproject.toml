@@ -62,6 +62,7 @@ dependencies = [
   "mplhep>=0.1.18",
   "packaging",
   "pandas",
+  "pydantic",
   "hist>=2",
   "cachetools",
   "requests",
@@ -128,7 +129,7 @@ addopts = [
   "-rfesxX",
   "-v",
 ]
-log_level = "DEBUG"
+log_level = "INFO"
 filterwarnings = [
   "ignore:There is no current event loop",
 ]
