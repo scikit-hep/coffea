@@ -113,20 +113,9 @@ def boolean_masks_to_categorical_integers(
         mask_inputs.insert(0, awkward.ones_like(mask_inputs[0], dtype=bool))
     if insert_commonmask_as_zeros is not None:
         mask_inputs.insert(0, insert_commonmask_as_zeros[:, None])
-    irregular_masks = []
-    # TODO: _generate_slices is used to work around the issue addressed in awkward PR https://github.com/scikit-hep/awkward/pull/3312
-    # which was merged in awkward v2.7.2 (https://github.com/scikit-hep/awkward/releases/tag/v2.7.2) and this can be removed when it becomes the minimum version for coffea
-    for slc in _generate_slices(len(mask_inputs), max_elements=128):
-        # create subarrays of the masks to concatenate, to work around issue prior to awkward v2.7.2
-        irregular_masks.append(
-            awkward.from_regular(awkward.concatenate(mask_inputs[slc], axis=1), axis=1)
-        )
-    if len(irregular_masks) == 1:
-        # unwrap the new concatenated (irregular) masks if there is only one
-        irregular_mask = irregular_masks[0]
-    else:
-        # if multiple irregular masks were created, concatenate them a final time
-        irregular_mask = awkward.concatenate(irregular_masks, axis=1)
+    irregular_mask = awkward.from_regular(
+        awkward.concatenate(mask_inputs, axis=1), axis=1
+    )
     if return_mask:
         return irregular_mask
     # convert the boolean masks to categorical integers by calling local index and remove elements whose mask entry was false
