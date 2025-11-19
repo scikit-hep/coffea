@@ -139,7 +139,8 @@ class ThreadedTask(Generic[InputT, ResultT]):
         self._state = _TaskState()
         self._cv = Condition()
 
-    def result(self) -> ResultT | EmptyResult:
+    def result(self) -> ResultT:
+        # TODO: if backend is shutdown without waiting on all tasks, raise an error here
         self.wait()
         if self._state.failures:
             # Reraise the first error encountered
@@ -151,7 +152,9 @@ class ThreadedTask(Generic[InputT, ResultT]):
                 " The first error is shown in the chained exception above."
             )
             raise RuntimeError(msg) from self._state.failures[0].exception
-        return self._state.output
+        out = self._state.output
+        assert not isinstance(out, EmptyResult)
+        return out
 
     def partial_result(
         self,

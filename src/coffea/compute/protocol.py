@@ -143,8 +143,11 @@ class Task(Protocol[InputT, ResultT]):
     A Task is created by a Backend when a Computable is submitted for execution.
     """
 
-    def result(self) -> ResultT | EmptyResult:
-        """Get the full final result of the computation. Blocking."""
+    def result(self) -> ResultT:
+        """Get the full final result of the computation. Blocking.
+
+        Either the complete result is returned or an exception is raised if the computation failed.
+        """
         ...
 
     def partial_result(
