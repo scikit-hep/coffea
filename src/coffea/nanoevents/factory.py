@@ -787,8 +787,10 @@ class NanoEventsFactory:
                 backend="cpu",
                 byteorder=awkward._util.native_byteorder,
                 allow_noncanonical_form=False,
-                disable_virtual_array_caching=(
-                    False if self._buffer_cache is None else True
+                disable_virtualarray_caching=(
+                    False
+                    if self._buffer_cache is None
+                    else lambda attribute: attribute == "data"
                 ),
                 highlevel=True,
                 behavior=self._schema.behavior(),
