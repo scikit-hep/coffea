@@ -64,6 +64,7 @@ class NanoAODSchema(BaseSchema):
         "IsoTrack": "PtEtaPhiMCollection",
         "SoftActivityJet": "PtEtaPhiMCollection",
         "TrigObj": "PtEtaPhiMCollection",
+        "CorrT1METJet": "PtEtaPhiMCollection",
         # True lorentz: pt, eta, phi, mass
         "FatJet": "FatJet",
         "GenDressedLepton": "PtEtaPhiMCollection",
@@ -313,6 +314,22 @@ class NanoAODSchema(BaseSchema):
             branch_forms["Electron_regrEnergy"] = branch_forms.pop("Electron_energy")
         if "Photon_energy" in branch_forms:
             branch_forms["Photon_regrEnergy"] = branch_forms.pop("Photon_energy")
+
+        # Alias CorrT1METJet_rawPt to CorrT1METJet_pt and add zero mass for CorrT1METJet collection
+        if "oCorrT1METJet" in branch_forms:
+            if "CorrT1METJet_pt" not in branch_forms:
+                branch_forms["CorrT1METJet_pt"] = branch_forms["CorrT1METJet_rawPt"]
+            if "CorrT1METJet_mass" not in branch_forms:
+                branch_forms["CorrT1METJet_mass"] = transforms.zeros_from_offsets_form(
+                    branch_forms["oCorrT1METJet"]
+                )
+
+        # Add zero mass to the trigger objects
+        if "oTrigObj" in branch_forms:
+            if "TrigObj_mass" not in branch_forms:
+                branch_forms["TrigObj_mass"] = transforms.zeros_from_offsets_form(
+                    branch_forms["oTrigObj"]
+                )
 
         output = {}
         for name in collections:
