@@ -510,16 +510,20 @@ def preprocess(
         out_updated = DataGroupSpec(out_updated)
     return out_available, out_updated
 
-def _normalize_parquet_file_info(file_info):
+def _normalize_parquet_file_info(file_info, return_form_or_metadata=False):
     """
     Structure file info akin to _normalize_file_info for uproot files, which returns a list of (filename, object_path, steps, num_entries, uuid) tuples.
     """
     normed_files = None
+    form = None
+    metadata = None
     if isinstance(file_info, list):
         normed_files = [(file, None, None, None, None) for file in file_info]
     elif(isinstance(file_info, dict) and "files" not in file_info):
         normed_files = [(file, object_path, None, None, None) for file, object_path in file_info.items()]
     elif isinstance(file_info, dict) and "files" in file_info:
+        form = file_info.get("form", None)
+        metadata = file_info.get("metadata", None)
         normed_files = []
         for filename, maybe_nested in file_info["files"].items():
             if isinstance(maybe_nested, dict):
@@ -534,6 +538,8 @@ def _normalize_parquet_file_info(file_info):
                 raise ValueError(
                     f"The file_info dictionary must contain either a string, dictionary, or None as the value. _normalize_parquet_file_info got {file_info}"
                 )
+    if return_form_or_metadata:
+        return normed_files, form, metadata
     return normed_files
 
 def get_parquet_form_uuid_steps(
