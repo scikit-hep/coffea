@@ -511,7 +511,9 @@ def preprocess(
     return out_available, out_updated
 
 
-def _normalize_parquet_file_info(datasetspec: DatasetSpec, return_compressedform_or_metadata=False):
+def _normalize_parquet_file_info(
+    datasetspec: DatasetSpec, return_compressedform_or_metadata=False
+):
     """
     Structure file info akin to _normalize_file_info for uproot files, which returns a list of (filename, object_path, steps, num_entries, uuid) tuples.
     """
@@ -521,7 +523,15 @@ def _normalize_parquet_file_info(datasetspec: DatasetSpec, return_compressedform
         )
     normed_files = []
     for filename, fileinfo in datasetspec.files.items():
-        normed_files.append((filename, fileinfo.object_path, fileinfo.steps, fileinfo.num_entries, fileinfo.uuid))
+        normed_files.append(
+            (
+                filename,
+                fileinfo.object_path,
+                fileinfo.steps,
+                fileinfo.num_entries,
+                fileinfo.uuid,
+            )
+        )
     if return_compressedform_or_metadata:
         return normed_files, datasetspec.compressed_form, datasetspec.metadata
     return normed_files
@@ -829,9 +839,9 @@ def _preprocess_parquet(
             ["file", "object_path", "steps", "num_entries", "uuid"]
         ]
 
-        compressed_forms = processed_files[["file", "form", "form_hash_md5", "num_entries"]][
-            ~awkward.is_none(processed_files.form_hash_md5)
-        ]
+        compressed_forms = processed_files[
+            ["file", "form", "form_hash_md5", "num_entries"]
+        ][~awkward.is_none(processed_files.form_hash_md5)]
 
         _, unique_forms_idx = numpy.unique(
             compressed_forms.form_hash_md5.to_numpy(), return_index=True
@@ -923,8 +933,12 @@ def _preprocess_parquet(
         out_available[name]["files"] = files_available
 
         compressed_union_form = None
-        compressed_union_form = compress_form(union_form_jsonstr) if union_form_jsonstr else None
+        compressed_union_form = (
+            compress_form(union_form_jsonstr) if union_form_jsonstr else None
+        )
         out_updated[name]["compressed_form"] = compressed_union_form
         out_available[name]["compressed_form"] = compressed_union_form
 
-    return DataGroupSpec.model_validate(out_available), DataGroupSpec.model_validate(out_updated)
+    return DataGroupSpec.model_validate(out_available), DataGroupSpec.model_validate(
+        out_updated
+    )
