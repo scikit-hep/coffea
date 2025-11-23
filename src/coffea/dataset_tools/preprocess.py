@@ -511,39 +511,19 @@ def preprocess(
     return out_available, out_updated
 
 
-def _normalize_parquet_file_info(file_info, return_form_or_metadata=False):
+def _normalize_parquet_file_info(datasetspec: DatasetSpec, return_compressedform_or_metadata=False):
     """
     Structure file info akin to _normalize_file_info for uproot files, which returns a list of (filename, object_path, steps, num_entries, uuid) tuples.
     """
-    normed_files = None
-    form = None
-    metadata = None
-    if isinstance(file_info, list):
-        normed_files = [(file, None, None, None, None) for file in file_info]
-    elif isinstance(file_info, dict) and "files" not in file_info:
-        normed_files = [
-            (file, object_path, None, None, None)
-            for file, object_path in file_info.items()
-        ]
-    elif isinstance(file_info, dict) and "files" in file_info:
-        form = file_info.get("form", None)
-        metadata = file_info.get("metadata", None)
-        normed_files = []
-        for filename, maybe_nested in file_info["files"].items():
-            if isinstance(maybe_nested, dict):
-                object_path = maybe_nested.get("object_path", None)
-                steps = maybe_nested.get("steps", None)
-                num_entries = maybe_nested.get("num_entries", None)
-                uuid = maybe_nested.get("uuid", None)
-                normed_files.append((filename, object_path, steps, num_entries, uuid))
-            elif isinstance(maybe_nested, str) or maybe_nested is None:
-                normed_files.append((filename, maybe_nested, None, None, None))
-            else:
-                raise ValueError(
-                    f"The file_info dictionary must contain either a string, dictionary, or None as the value. _normalize_parquet_file_info got {file_info}"
-                )
-    if return_form_or_metadata:
-        return normed_files, form, metadata
+    if not isinstance(datasetspec, DatasetSpec):
+        raise ValueError(
+            f"_normalize_parquet_file_info expects a DatasetSpec, got {type(datasetspec)}"
+        )
+    normed_files = []
+    for filename, fileinfo in datasetspec.files.items():
+        normed_files.append((filename, fileinfo.object_path, fileinfo.steps, fileinfo.num_entries, fileinfo.uuid))
+    if return_compressedform_or_metadata:
+        return normed_files, datasetspec.compressed_form, datasetspec.metadata
     return normed_files
 
 
@@ -706,19 +686,19 @@ def get_parquet_form_uuid_steps(
 
 
 def _preprocess_parquet(
-    fileset: FilesetSpecOptional,
+    datagroupspec: DataGroupSpec,
     step_size: None | int = None,
     use_row_groups: bool = False,
     recalculate_steps: bool = False,
     files_per_batch: int = 1,
     skip_bad_files: bool = False,
     file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
-    save_form: bool = False,
+    save_form: bool = True,
     scheduler: None | Callable | str = None,
     parquet_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
-) -> tuple[FilesetSpec, FilesetSpecOptional]:
+) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Given a list of normalized files, determine the form, steps, and add the metadata for each file according to the supplied processing options.
 
@@ -756,12 +736,12 @@ def _preprocess_parquet(
         out_updated : FilesetSpecOptional
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
-    out_updated = copy.deepcopy(fileset)
-    out_available = copy.deepcopy(fileset)
+    out_updated = datagroupspec.model_dump()
+    out_available = datagroupspec.model_dump()
 
     all_ak_norm_files = {}
     files_to_preprocess = {}
-    for name, info in fileset.items():
+    for name, info in datagroupspec.items():
         norm_files = _normalize_parquet_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
         ak_norm_files = awkward.from_iter(norm_files)
@@ -845,16 +825,16 @@ def _preprocess_parquet(
             ["file", "object_path", "steps", "num_entries", "uuid"]
         ]
 
-        forms = processed_files[["file", "form", "form_hash_md5", "num_entries"]][
+        compressed_forms = processed_files[["file", "form", "form_hash_md5", "num_entries"]][
             ~awkward.is_none(processed_files.form_hash_md5)
         ]
 
         _, unique_forms_idx = numpy.unique(
-            forms.form_hash_md5.to_numpy(), return_index=True
+            compressed_forms.form_hash_md5.to_numpy(), return_index=True
         )
 
         dataset_forms = []
-        unique_forms = forms[unique_forms_idx]
+        unique_forms = compressed_forms[unique_forms_idx]
         for thefile, formstr, num_entries in zip(
             unique_forms.file, unique_forms.form, unique_forms.num_entries
         ):
@@ -935,28 +915,12 @@ def _preprocess_parquet(
                 "uuid": item["uuid"],
             }
 
-        if "files" in out_updated[name]:
-            out_updated[name]["files"] = files_out
-            out_available[name]["files"] = files_available
-        else:
-            out_updated[name] = {"files": files_out, "metadata": None, "form": None}
-            out_available[name] = {
-                "files": files_available,
-                "metadata": None,
-                "form": None,
-            }
+        out_updated[name]["files"] = files_out
+        out_available[name]["files"] = files_available
 
         compressed_union_form = None
-        if union_form_jsonstr is not None:
-            compressed_union_form = compress_form(union_form_jsonstr)
-            out_updated[name]["form"] = compressed_union_form
-            out_available[name]["form"] = compressed_union_form
-        else:
-            out_updated[name]["form"] = None
-            out_available[name]["form"] = None
+        compressed_union_form = compress_form(union_form_jsonstr) if union_form_jsonstr else None
+        out_updated[name]["compressed_form"] = compressed_union_form
+        out_available[name]["compressed_form"] = compressed_union_form
 
-        if "metadata" not in out_updated[name]:
-            out_updated[name]["metadata"] = None
-            out_available[name]["metadata"] = None
-
-    return out_available, out_updated
+    return DataGroupSpec.model_validate(out_available), DataGroupSpec.model_validate(out_updated)
