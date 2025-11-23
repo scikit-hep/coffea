@@ -704,7 +704,7 @@ def _preprocess_parquet(
 
     Parameters
     ----------
-        fileset: FilesetSpecOptional
+        fileset: DataGroupSpec
             The set of datasets whose files will be preprocessed.
         step_size: int | None, default None
             If specified, the size of the steps to make when analyzing the input files.
@@ -731,11 +731,15 @@ def _preprocess_parquet(
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
     Returns
     -------
-        out_available : FilesetSpec
+        out_available : DataGroupSpec
             The subset of files in each dataset that were successfully preprocessed, organized by dataset.
-        out_updated : FilesetSpecOptional
+        out_updated : DataGroupSpec
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
+    if not isinstance(datagroupspec, DataGroupSpec):
+        raise ValueError(
+            f"_preprocess_parquet expects a DataGroupSpec, got {type(datagroupspec)}"
+        )
     out_updated = datagroupspec.model_dump()
     out_available = datagroupspec.model_dump()
 
