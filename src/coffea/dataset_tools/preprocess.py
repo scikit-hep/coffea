@@ -189,8 +189,7 @@ def get_steps(
 
 def _normalize_file_info(file_info):
     normed_files = None
-    is_datasetspec = isinstance(file_info, DatasetSpec)
-    if is_datasetspec:
+    if isinstance(file_info, DatasetSpec):
         normed_files = uproot._util.regularize_files(
             ModelFactory.datasetspec_to_dict(file_info, coerce_filespec_to_dict=True)[
                 "files"
@@ -243,33 +242,33 @@ def preprocess_legacy(
 
     Parameters
     ----------
-        fileset: dict
+        fileset : dict
             The set of datasets whose files will be preprocessed.
-        step_size: int | None, default None
+        step_size : int | None, default None
             If specified, the size of the steps to make when analyzing the input files.
-        align_clusters: bool, default False
+        align_clusters : bool, default False
             Round to the cluster size in a root file, when chunks are specified. Reduces data transfer in
             analysis.
-        recalculate_steps: bool, default False
+        recalculate_steps : bool, default False
             If steps are present in the input normed files, force the recalculation of those steps,
             instead of only recalculating the steps if the uuid has changed.
-        files_per_batch: int, default 1
+        files_per_batch : int, default 1
             The number of files to preprocess in a single batch.
             Large values will result in fewer dask tasks but each task will have to do more work.
-        skip_bad_files: bool, False
+        skip_bad_files : bool, False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions: Exception | Warning | tuple[Exception | Warning], default (FileNotFoundError, OSError)
+        file_exceptions : Exception | Warning | tuple[Exception | Warning], default (FileNotFoundError, OSError)
             What exceptions to catch when skipping bad files.
-        save_form: bool, default False
+        save_form : bool, default False
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
-        scheduler: None | Callable | str, default None
+        scheduler : None | Callable | str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
-        uproot_options: dict, default {}
+        uproot_options : dict, default {}
             Options to pass to get_steps for opening files with uproot.
-        step_size_safety_factor: float, default 0.5
+        step_size_safety_factor : float, default 0.5
             When using align_clusters, if a resulting step is larger than step_size by this factor
             warn the user that the resulting steps may be highly irregular.
-        allow_empty_datasets: bool, default False
+        allow_empty_datasets : bool, default False
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
     Returns
@@ -528,22 +527,22 @@ def get_parquet_form_uuid_steps(
 
     Parameters
     ----------
-        normed_files: awkward.Array | dask_awkward.Array
+        normed_files : awkward.Array | dask_awkward.Array
             The list of normalized file descriptions to process for steps.
-        step_size: int | None, default None
+        step_size : int | None, default None
             If specified, the size of the steps to make when analyzing the input files.
-        use_row_groups: bool, default False
+        use_row_groups : bool, default False
             Calculate steps according to the row_groups in the parquet files.
-        recalculate_steps: bool, default False
+        recalculate_steps : bool, default False
             If steps are present in the input normed files, force the recalculation of those steps, instead
             of only recalculating the steps if the uuid has changed.
-        skip_bad_files: bool, False
+        skip_bad_files : bool, False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions: Exception | Warning | tuple[Exception | Warning], default (OSError,)
+        file_exceptions : Exception | Warning | tuple[Exception | Warning], default (OSError,)
             What exceptions to catch when skipping bad files.
-        save_form: bool, default False
+        save_form : bool, default False
             Extract the form of the TTree from the file so we can skip opening files later.
-        step_size_safety_factor: float, default 0.5
+        step_size_safety_factor : float, default 0.5
             When using align_clusters, if a resulting step is larger than step_size by this factor
             warn the user that the resulting steps may be highly irregular.
 
@@ -760,29 +759,29 @@ def preprocess_parquet(
 
     Parameters
     ----------
-        fileset: DataGroupSpec
+        fileset : DataGroupSpec
             The set of datasets whose files will be preprocessed.
-        step_size: int | None, default None
+        step_size : int | None, default None
             If specified, the size of the steps to make when analyzing the input files.
-        use_row_groups: bool, default False
+        use_row_groups : bool, default False
             Use the row groups in the parquet files to determine the steps.
-        recalculate_steps: bool, default False
+        recalculate_steps : bool, default False
             If steps are present in the input normed files, force the recalculation of those steps,
             instead of only recalculating the steps if the uuid has changed.
-        skip_bad_files: bool, False
+        skip_bad_files : bool, False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions: Exception | Warning | tuple[Exception | Warning], default (FileNotFoundError, OSError)
+        file_exceptions : Exception | Warning | tuple[Exception | Warning], default (FileNotFoundError, OSError)
             What exceptions to catch when skipping bad files.
-        save_form: bool, default True
+        save_form : bool, default True
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
-        scheduler: None | Callable | str, default None
+        scheduler : None | Callable | str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
-        parquet_options: dict, default {}
+        parquet_options : dict, default {}
             Options to pass to get_parquet_form_uuid_steps for opening files
-        step_size_safety_factor: float, default 0.5
+        step_size_safety_factor : float, default 0.5
             When using use_row_groups, if a resulting step is larger than step_size by this factor
             warn the user that the resulting steps may be highly irregular.
-        allow_empty_datasets: bool, default False
+        allow_empty_datasets : bool, default False
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
     Returns
@@ -1095,7 +1094,7 @@ def preprocess(
         allow_empty_datasets : bool, default False
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
-        preprocess_legacy_root: bool, default False
+        preprocess_legacy_root : bool, default False
             Use the legacy root preprocessing function for all files, even if the fileset is a DataGroupSpec.
             Not compatible with parquet files.
         use_row_groups : bool, default False
