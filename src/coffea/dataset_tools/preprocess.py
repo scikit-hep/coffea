@@ -18,9 +18,7 @@ from uproot._util import no_filter
 from coffea.dataset_tools.filespec import (
     DataGroupSpec,
     DatasetSpec,
-    InputFiles,
     ModelFactory,
-    PreprocessedFiles,
 )
 from coffea.util import _is_interpretable, compress_form, decompress_form
 
@@ -157,7 +155,7 @@ def get_steps(
                 "steps": out_steps,
                 "num_entries": num_entries,
                 "uuid": out_uuid,
-                "compressed_form": form_json,
+                "form": form_json,
                 "form_hash_md5": form_hash,
             }
         )
@@ -171,7 +169,7 @@ def get_steps(
                     "steps": [[0, 0]],
                     "num_entries": 0,
                     "uuid": "junk",
-                    "compressed_form": "junk",
+                    "form": "junk",
                     "form_hash_md5": "junk",
                 },
                 None,
@@ -226,8 +224,8 @@ def _normalize_file_info(file_info):
 _trivial_file_fields = {"run", "luminosityBlock", "event"}
 
 
-def preprocess(
-    fileset: DataGroupSpec | dict,
+def preprocess_legacy(
+    fileset: dict,
     step_size: None | int = None,
     align_clusters: bool = False,
     recalculate_steps: bool = False,
@@ -239,58 +237,55 @@ def preprocess(
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
-) -> tuple[DataGroupSpec, DataGroupSpec] | tuple[dict, dict]:
+) -> tuple[dict, dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
 
     Parameters
     ----------
-        fileset : DataGroupSpec | dict
+        fileset: dict
             The set of datasets whose files will be preprocessed.
-        step_size : int or None, default None
+        step_size: int | None, default None
             If specified, the size of the steps to make when analyzing the input files.
-        align_clusters : bool, default False
+        align_clusters: bool, default False
             Round to the cluster size in a root file, when chunks are specified. Reduces data transfer in
             analysis.
-        recalculate_steps : bool, default False
+        recalculate_steps: bool, default False
             If steps are present in the input normed files, force the recalculation of those steps,
             instead of only recalculating the steps if the uuid has changed.
-        files_per_batch : int, default 1
+        files_per_batch: int, default 1
             The number of files to preprocess in a single batch.
             Large values will result in fewer dask tasks but each task will have to do more work.
-        skip_bad_files : bool, default False
+        skip_bad_files: bool, False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (FileNotFoundError, OSError)
+        file_exceptions: Exception | Warning | tuple[Exception | Warning], default (FileNotFoundError, OSError)
             What exceptions to catch when skipping bad files.
-        save_form : bool, default False
+        save_form: bool, default False
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
-        scheduler : None or Callable or str, default None
+        scheduler: None | Callable | str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
-        uproot_options : dict, default {}
+        uproot_options: dict, default {}
             Options to pass to get_steps for opening files with uproot.
-        step_size_safety_factor : float, default 0.5
+        step_size_safety_factor: float, default 0.5
             When using align_clusters, if a resulting step is larger than step_size by this factor
             warn the user that the resulting steps may be highly irregular.
-        allow_empty_datasets : bool, default False
+        allow_empty_datasets: bool, default False
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
     Returns
     -------
-        out_available : DataGroupSpec | dict
+        out_available : dict
             The subset of files in each dataset that were successfully preprocessed, organized by dataset.
-        out_updated : DataGroupSpec | dict
+        out_updated : dict
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
+
     out_updated = copy.deepcopy(fileset)
     out_available = copy.deepcopy(fileset)
 
     all_ak_norm_files = {}
     files_to_preprocess = {}
-    is_DataGroupSpec = isinstance(fileset, DataGroupSpec)
     for name, info in fileset.items():
-        is_datasetspec = isinstance(info, DatasetSpec)
-        if is_datasetspec:
-            is_DataGroupSpec = True
         norm_files = _normalize_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
         ak_norm_files = awkward.from_iter(norm_files)
@@ -374,9 +369,9 @@ def preprocess(
             ["file", "object_path", "steps", "num_entries", "uuid"]
         ]
 
-        forms = processed_files[
-            ["file", "compressed_form", "form_hash_md5", "num_entries"]
-        ][~awkward.is_none(processed_files.form_hash_md5)]
+        forms = processed_files[["file", "form", "form_hash_md5", "num_entries"]][
+            ~awkward.is_none(processed_files.form_hash_md5)
+        ]
 
         _, unique_forms_idx = numpy.unique(
             forms.form_hash_md5.to_numpy(), return_index=True
@@ -385,7 +380,7 @@ def preprocess(
         dataset_forms = []
         unique_forms = forms[unique_forms_idx]
         for thefile, formstr, num_entries in zip(
-            unique_forms.file, unique_forms.compressed_form, unique_forms.num_entries
+            unique_forms.file, unique_forms.form, unique_forms.num_entries
         ):
             # skip trivially filled or empty files
             form = awkward.forms.from_json(decompress_form(formstr))
@@ -464,54 +459,34 @@ def preprocess(
                 "uuid": item["uuid"],
             }
 
-        if is_datasetspec:
-            out_updated[name].files = InputFiles(files_out)
-            out_available[name].files = PreprocessedFiles(files_available)
-        elif "files" in out_updated[name]:
+        if "files" in out_updated[name]:
             out_updated[name]["files"] = files_out
             out_available[name]["files"] = files_available
         else:
-            out_updated[name] = {
-                "files": files_out,
-                "metadata": None,
-                "compressed_form": None,
-            }
+            out_updated[name] = {"files": files_out, "metadata": None, "form": None}
             out_available[name] = {
                 "files": files_available,
                 "metadata": None,
-                "compressed_form": None,
+                "form": None,
             }
 
         compressed_union_form = None
         if union_form_jsonstr is not None:
             compressed_union_form = compress_form(union_form_jsonstr)
-            if is_datasetspec:
-                out_updated[name].compressed_form = compressed_union_form
-                out_available[name].compressed_form = compressed_union_form
-            else:
-                out_updated[name]["compressed_form"] = compressed_union_form
-                out_available[name]["compressed_form"] = compressed_union_form
+            out_updated[name]["form"] = compressed_union_form
+            out_available[name]["form"] = compressed_union_form
         else:
-            if is_datasetspec:
-                out_updated[name].compressed_form = None
-                out_available[name].compressed_form = None
-            else:
-                out_updated[name]["compressed_form"] = None
-                out_available[name]["compressed_form"] = None
+            out_updated[name]["form"] = None
+            out_available[name]["form"] = None
 
-        if is_datasetspec:
-            pass
-        elif "metadata" not in out_updated[name]:
+        if "metadata" not in out_updated[name]:
             out_updated[name]["metadata"] = None
             out_available[name]["metadata"] = None
 
-    if is_DataGroupSpec:
-        out_available = DataGroupSpec(out_available)
-        out_updated = DataGroupSpec(out_updated)
     return out_available, out_updated
 
 
-def _normalize_parquet_file_info(
+def _normalize_pydantic_file_info(
     datasetspec: DatasetSpec, return_compressedform_or_metadata=False
 ):
     """
@@ -519,7 +494,7 @@ def _normalize_parquet_file_info(
     """
     if not isinstance(datasetspec, DatasetSpec):
         raise ValueError(
-            f"_normalize_parquet_file_info expects a DatasetSpec, got {type(datasetspec)}"
+            f"_normalize_pydantic_file_info expects a DatasetSpec, got {type(datasetspec)}"
         )
     normed_files = []
     for filename, fileinfo in datasetspec.files.items():
@@ -695,7 +670,78 @@ def get_parquet_form_uuid_steps(
     return array
 
 
-def _preprocess_parquet(
+def preprocess_root(
+    datagroupspec: DataGroupSpec,
+    step_size: None | int = None,
+    align_clusters: bool = False,
+    recalculate_steps: bool = False,
+    files_per_batch: int = 1,
+    skip_bad_files: bool = False,
+    file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
+    save_form: bool = True,
+    scheduler: None | Callable | str = None,
+    uproot_options: dict = {},
+    step_size_safety_factor: float = 0.5,
+    allow_empty_datasets: bool = False,
+) -> tuple[DataGroupSpec, DataGroupSpec]:
+    """
+    Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
+
+    Parameters
+    ----------
+        datagroupspec : DataGroupSpec
+            The set of datasets whose files will be preprocessed.
+        step_size : int or None, default None
+            If specified, the size of the steps to make when analyzing the input files.
+        align_clusters : bool, default False
+            Round to the cluster size in a root file, when chunks are specified. Reduces data transfer in
+            analysis.
+        recalculate_steps : bool, default False
+            If steps are present in the input normed files, force the recalculation of those steps,
+            instead of only recalculating the steps if the uuid has changed.
+        files_per_batch : int, default 1
+            The number of files to preprocess in a single batch.
+            Large values will result in fewer dask tasks but each task will have to do more work.
+        skip_bad_files : bool, default False
+            Instead of failing, catch exceptions specified by file_exceptions and return null data.
+        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (FileNotFoundError, OSError)
+            What exceptions to catch when skipping bad files.
+        save_form : bool, default True
+            Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
+        scheduler : None or Callable or str, default None
+            Specifies the scheduler that dask should use to execute the preprocessing task graph.
+        uproot_options : dict, default {}
+            Options to pass to get_steps for opening files with uproot.
+        step_size_safety_factor : float, default 0.5
+            When using align_clusters, if a resulting step is larger than step_size by this factor
+            warn the user that the resulting steps may be highly irregular.
+        allow_empty_datasets : bool, default False
+            When a dataset query comes back completely empty, this is normally considered a processing error.
+            Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
+    Returns
+    -------
+        out_available : DataGroupSpec
+            The subset of files in each dataset that were successfully preprocessed, organized by dataset.
+        out_updated : DataGroupSpec
+            The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
+    """
+    return _preprocess_pydantic(
+        datagroupspec=datagroupspec,
+        step_size=step_size,
+        use_alignment_boundaries=align_clusters,
+        recalculate_steps=recalculate_steps,
+        files_per_batch=files_per_batch,
+        skip_bad_files=skip_bad_files,
+        file_exceptions=file_exceptions,
+        save_form=save_form,
+        scheduler=scheduler,
+        filetype_options=uproot_options,
+        step_size_safety_factor=step_size_safety_factor,
+        allow_empty_datasets=allow_empty_datasets,
+    )
+
+
+def preprocess_parquet(
     datagroupspec: DataGroupSpec,
     step_size: None | int = None,
     use_row_groups: bool = False,
@@ -727,7 +773,7 @@ def _preprocess_parquet(
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
         file_exceptions: Exception | Warning | tuple[Exception | Warning], default (FileNotFoundError, OSError)
             What exceptions to catch when skipping bad files.
-        save_form: bool, default False
+        save_form: bool, default True
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
         scheduler: None | Callable | str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
@@ -746,9 +792,44 @@ def _preprocess_parquet(
         out_updated : DataGroupSpec
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
+    return _preprocess_pydantic(
+        datagroupspec=datagroupspec,
+        step_size=step_size,
+        use_alignment_boundaries=use_row_groups,
+        recalculate_steps=recalculate_steps,
+        files_per_batch=files_per_batch,
+        skip_bad_files=skip_bad_files,
+        file_exceptions=file_exceptions,
+        save_form=save_form,
+        scheduler=scheduler,
+        filetype_options=parquet_options,
+        step_size_safety_factor=step_size_safety_factor,
+        allow_empty_datasets=allow_empty_datasets,
+    )
+
+
+def _preprocess_pydantic(
+    datagroupspec: DataGroupSpec,
+    step_size: None | int = None,
+    use_alignment_boundaries: bool = False,
+    recalculate_steps: bool = False,
+    files_per_batch: int = 1,
+    skip_bad_files: bool = False,
+    file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
+    save_form: bool = True,
+    scheduler: None | Callable | str = None,
+    filetype_options: dict = {},
+    step_size_safety_factor: float = 0.5,
+    allow_empty_datasets: bool = False,
+) -> tuple[DataGroupSpec, DataGroupSpec]:
+    """
+    Function to preprocess either root or parquet DatasetSpecs in a DataGroupSpec.
+    ROOT TTrees: Maps align_clusters and uproot_options to use_alignment_boundaries and filetype_options respectively.
+    Parquet: Maps use_row_groups and parquet_options to use_alignment_boundaries and filetype_options respectively
+    """
     if not isinstance(datagroupspec, DataGroupSpec):
         raise ValueError(
-            f"_preprocess_parquet expects a DataGroupSpec, got {type(datagroupspec)}"
+            f"_preprocess_pydantic expects a DataGroupSpec, got {type(datagroupspec)}"
         )
     out_updated = datagroupspec.model_dump()
     out_available = datagroupspec.model_dump()
@@ -756,7 +837,7 @@ def _preprocess_parquet(
     all_ak_norm_files = {}
     files_to_preprocess = {}
     for name, info in datagroupspec.items():
-        norm_files = _normalize_parquet_file_info(info)
+        norm_files = _normalize_pydantic_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
         ak_norm_files = awkward.from_iter(norm_files)
         ak_norm_files = awkward.Array(
@@ -780,19 +861,38 @@ def _preprocess_parquet(
         files_trl_name = f"{files_trl_label}-{files_trl_token}"
         files_trl_tree_node_name = f"{files_trl_label}-tree-node-{files_trl_token}"
 
-        files_part = dask_awkward.map_partitions(
-            get_parquet_form_uuid_steps,
-            dak_norm_files,
-            step_size=step_size,
-            use_row_groups=use_row_groups,
-            recalculate_steps=recalculate_steps,
-            skip_bad_files=skip_bad_files,
-            file_exceptions=file_exceptions,
-            save_form=save_form,
-            step_size_safety_factor=step_size_safety_factor,
-            parquet_options=parquet_options,
-            meta=dask_awkward.lib.core.empty_typetracer(),
-        )
+        if info.format == "root":
+            files_part = dask_awkward.map_partitions(
+                get_steps,
+                dak_norm_files,
+                step_size=step_size,
+                align_clusters=use_alignment_boundaries,
+                recalculate_steps=recalculate_steps,
+                skip_bad_files=skip_bad_files,
+                file_exceptions=file_exceptions,
+                save_form=save_form,
+                step_size_safety_factor=step_size_safety_factor,
+                uproot_options=filetype_options,
+                meta=dask_awkward.lib.core.empty_typetracer(),
+            )
+        elif info.format == "parquet":
+            files_part = dask_awkward.map_partitions(
+                get_parquet_form_uuid_steps,
+                dak_norm_files,
+                step_size=step_size,
+                use_row_groups=use_alignment_boundaries,
+                recalculate_steps=recalculate_steps,
+                skip_bad_files=skip_bad_files,
+                file_exceptions=file_exceptions,
+                save_form=save_form,
+                step_size_safety_factor=step_size_safety_factor,
+                parquet_options=filetype_options,
+                meta=dask_awkward.lib.core.empty_typetracer(),
+            )
+        else:
+            raise ValueError(
+                f"Dataset {name} has unsupported format {info.format}, supported formats are 'root' and 'parquet'."
+            )
 
         files_trl = dask_awkward.layers.layers.AwkwardTreeReductionLayer(
             name=files_trl_name,
@@ -942,3 +1042,158 @@ def _preprocess_parquet(
     return DataGroupSpec.model_validate(out_available), DataGroupSpec.model_validate(
         out_updated
     )
+
+
+def preprocess(
+    fileset: DataGroupSpec | dict,
+    step_size: None | int = None,
+    align_clusters: bool = False,
+    recalculate_steps: bool = False,
+    files_per_batch: int = 1,
+    skip_bad_files: bool = False,
+    file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
+    save_form: bool = True,
+    scheduler: None | Callable | str = None,
+    uproot_options: dict = {},
+    step_size_safety_factor: float = 0.5,
+    allow_empty_datasets: bool = False,
+    preprocess_legacy_root: bool = False,
+    use_row_groups: bool = False,
+    parquet_options: dict = {},
+) -> tuple[DataGroupSpec, DataGroupSpec] | tuple[dict, dict]:
+    """
+    Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
+
+    Parameters
+    ----------
+        fileset : DataGroupSpec | dict
+            The set of datasets whose files will be preprocessed.
+        step_size : int or None, default None
+            If specified, the size of the steps to make when analyzing the input files.
+        align_clusters : bool, default False
+            Round to the cluster size in a root file, when chunks are specified. Reduces data transfer in
+            analysis.
+        recalculate_steps : bool, default False
+            If steps are present in the input normed files, force the recalculation of those steps,
+            instead of only recalculating the steps if the uuid has changed.
+        files_per_batch : int, default 1
+            The number of files to preprocess in a single batch.
+            Large values will result in fewer dask tasks but each task will have to do more work.
+        skip_bad_files : bool, default False
+            Instead of failing, catch exceptions specified by file_exceptions and return null data.
+        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (FileNotFoundError, OSError)
+            What exceptions to catch when skipping bad files.
+        save_form : bool, default False
+            Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
+        scheduler : None or Callable or str, default None
+            Specifies the scheduler that dask should use to execute the preprocessing task graph.
+        uproot_options : dict, default {}
+            Options to pass to get_steps for opening files with uproot.
+        step_size_safety_factor : float, default 0.5
+            When using align_clusters, if a resulting step is larger than step_size by this factor
+            warn the user that the resulting steps may be highly irregular.
+        allow_empty_datasets : bool, default False
+            When a dataset query comes back completely empty, this is normally considered a processing error.
+            Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
+        preprocess_legacy_root: bool, default False
+            Use the legacy root preprocessing function for all files, even if the fileset is a DataGroupSpec.
+            Not compatible with parquet files.
+        use_row_groups : bool, default False
+            Calculate steps according to the row_groups in the parquet files (only applies to DataGroupSpec datasets with parquet files).
+        parquet_options : dict, default {}
+            Options to pass to get_parquet_form_uuid_steps for opening parquet files (only applies to DataGroupSpec datasets with parquet files).
+    Returns
+    -------
+        out_available : DataGroupSpec | dict
+            The subset of files in each dataset that were successfully preprocessed, organized by dataset.
+        out_updated : DataGroupSpec | dict
+            The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
+    """
+    if preprocess_legacy_root:
+        # use the legacy root TTree preprocessing function if requested
+        return preprocess_legacy(
+            fileset.model_dump() if isinstance(fileset, DataGroupSpec) else fileset,
+            step_size=step_size,
+            align_clusters=align_clusters,
+            recalculate_steps=recalculate_steps,
+            files_per_batch=files_per_batch,
+            skip_bad_files=skip_bad_files,
+            file_exceptions=file_exceptions,
+            save_form=save_form,
+            scheduler=scheduler,
+            uproot_options=uproot_options,
+            step_size_safety_factor=step_size_safety_factor,
+            allow_empty_datasets=allow_empty_datasets,
+        )
+    else:
+        if isinstance(fileset, DataGroupSpec):
+            datasetspecs = fileset
+        else:
+            DeprecationWarning(
+                "Passing a dict to preprocess is deprecated. Converting to DataGroupSpec and proceeding."
+                "To remove this warning, pass a DataGroupSpec object instead of a dict."
+                "To use the legacy preprocessing function, set preprocess_legacy_root=True."
+                "If automatic conversion is not possible, please submit your fileset to the coffea team."
+            )
+            datasetspecs = DataGroupSpec.model_validate(fileset)
+        # split datasetspecs into uproot and parquet files, keeping track of original order
+        original_order = list(datasetspecs.keys())
+        formats = [dss.format for dss in datasetspecs.values()]
+        if len(set(formats)) > 1 and align_clusters != use_row_groups:
+            warnings.warn(
+                "When preprocessing a mixed fileset, align_clusters and use_row_groups serve a similar function. If you didn't intend to treat root and parquet files' boundary alignments differently, set both to the same value."
+            )
+        out_available_uproot, out_updated_uproot = preprocess_root(
+            datasetspecs.filter_datasets(
+                filter_callable=lambda ds: ds.format == "root"
+            ),
+            step_size=step_size,
+            align_clusters=align_clusters,
+            recalculate_steps=recalculate_steps,
+            files_per_batch=files_per_batch,
+            skip_bad_files=skip_bad_files,
+            file_exceptions=file_exceptions,
+            save_form=save_form,
+            scheduler=scheduler,
+            uproot_options=uproot_options,
+            step_size_safety_factor=step_size_safety_factor,
+            allow_empty_datasets=allow_empty_datasets,
+        )
+        out_available_parquet, out_updated_parquet = preprocess_parquet(
+            datasetspecs.filter_datasets(
+                filter_callable=lambda ds: ds.format == "parquet"
+            ),
+            step_size=step_size,
+            use_row_groups=use_row_groups,
+            recalculate_steps=recalculate_steps,
+            files_per_batch=files_per_batch,
+            skip_bad_files=skip_bad_files,
+            file_exceptions=file_exceptions,
+            save_form=save_form,
+            scheduler=scheduler,
+            parquet_options=parquet_options,
+            step_size_safety_factor=step_size_safety_factor,
+            allow_empty_datasets=allow_empty_datasets,
+        )
+        # recombine outputs in original order
+        out_available = DataGroupSpec(
+            {
+                k: (
+                    out_available_uproot[k]
+                    if k in out_available_uproot
+                    else out_available_parquet[k]
+                )
+                for k in original_order
+            }
+        )
+        out_updated = DataGroupSpec(
+            {
+                k: (
+                    out_updated_uproot[k]
+                    if k in out_updated_uproot
+                    else out_updated_parquet[k]
+                )
+                for k in original_order
+            }
+        )
+        return out_available, out_updated
