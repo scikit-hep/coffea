@@ -790,7 +790,7 @@ class NanoEventsFactory:
                 disable_virtualarray_caching=(
                     False
                     if self._buffer_cache is None
-                    else lambda attribute: attribute == "data"
+                    else lambda form_key, attribute: attribute == "data"
                 ),
                 highlevel=True,
                 behavior=self._schema.behavior(),
