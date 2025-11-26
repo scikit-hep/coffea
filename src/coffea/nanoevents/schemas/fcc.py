@@ -684,8 +684,8 @@ class FCC:
     Notes
     -----
     FCCSchema: This schema has been made keeping the Spring2021 pre-generated samples (pre-edm4hep1).
-    It's also tested with Winter2023 samples with the ``uproot_options={"filter_name": lambda x : "PARAMETERS" not in x}``
-    parameter when loading the fileset. This removes the "PARAMETERS" branch that is unreadable in uproot.
+    It's also tested with Winter2023 samples with the ``uproot_options={"filter_name": "/^(?!.*(PARAMETERS|_.*Map))/"}``
+    parameter when loading the fileset. This removes the "PARAMETERS" branch and all its subbranches which are unreadable by uproot.
     More Schema variants could be added later.
 
     FCCSchema_edm4hep1: This schema supports FCC samples produced with edm4hep version >= 1. It inherits
