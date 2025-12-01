@@ -5,8 +5,6 @@ from collections.abc import Callable
 from functools import partial
 
 import awkward as ak
-from awkward._nplikes.shape import unknown_length
-from awkward.forms.form import regularize_buffer_key
 
 from coffea.nanoevents.util import unquote
 
@@ -38,165 +36,35 @@ def _make_length_zero_one_tracer(
 ) -> tuple[ak.Array, list]:
     form = ak.forms.from_dict(events.attrs["@form"])
     buffer_key = events.attrs["@buffer_key"]
-    buffer_keys = form.expected_from_buffers(buffer_key=buffer_key).keys()
 
     report = []
+
+    if length == 0:
+        tmp_array = form.length_zero_array()
+    elif length == 1:
+        tmp_array = form.length_one_array()
+    else:
+        raise ValueError("length must be 0 or 1")
+
+    def getkey(layout, form, attribute):
+        return buffer_key(
+            form_key=form.form_key,
+            attribute=attribute,
+            form=form,
+        )
+
+    # buffers = ak.to_buffers(tmp_array, byteorder=ak._util.native_byteorder)[2].values()
+    container = {}
+    tmp_array._to_buffers(
+        form, getkey, container, events._layout.backend, ak._util.native_byteorder
+    )
 
     def generate(buffer, report, buffer_key):
         report.append(buffer_key)
         return buffer
 
-    if length == 0:
-        buffers = {key: b"\x00\x00\x00\x00\x00\x00\x00\x00" for key in buffer_keys}
-
-        container = {}
-        for key, buffer in buffers.items():
-            container[key] = partial(
-                generate, buffer=buffer, report=report, buffer_key=key
-            )
-
-    elif length == 1:
-        buffers = {}
-        getkey = regularize_buffer_key(buffer_key)
-
-        def prepare_empty(form):
-            form_key = form.form_key
-
-            if isinstance(form, (ak.forms.BitMaskedForm, ak.forms.ByteMaskedForm)):
-                buffers[getkey(form, "mask")] = b""
-                return form.copy(content=prepare_empty(form.content), form_key=form_key)
-
-            elif isinstance(form, ak.forms.IndexedOptionForm):
-                buffers[getkey(form, "index")] = b""
-                return form.copy(content=prepare_empty(form.content), form_key=form_key)
-
-            elif isinstance(form, ak.forms.EmptyForm):
-                return form
-
-            elif isinstance(form, ak.forms.UnmaskedForm):
-                return form.copy(content=prepare_empty(form.content))
-
-            elif isinstance(form, (ak.forms.IndexedForm, ak.forms.ListForm)):
-                buffers[getkey(form, "index")] = b""
-                return form.copy(content=prepare_empty(form.content), form_key=form_key)
-
-            elif isinstance(form, ak.forms.ListOffsetForm):
-                buffers[getkey(form, "offsets")] = b""
-                return form.copy(content=prepare_empty(form.content), form_key=form_key)
-
-            elif isinstance(form, ak.forms.RegularForm):
-                return form.copy(content=prepare_empty(form.content))
-
-            elif isinstance(form, ak.forms.NumpyForm):
-                buffers[getkey(form, "data")] = b""
-                return form.copy(form_key=form_key)
-
-            elif isinstance(form, ak.forms.RecordForm):
-                return form.copy(contents=[prepare_empty(x) for x in form.contents])
-
-            elif isinstance(form, ak.forms.UnionForm):
-                # both tags and index will get this buffer
-                buffers[getkey(form, "tags")] = b""
-                buffers[getkey(form, "index")] = b""
-                return form.copy(
-                    contents=[prepare_empty(x) for x in form.contents],
-                    form_key=form_key,
-                )
-
-            else:
-                raise AssertionError(f"not a Form: {form!r}")
-
-        def prepare(form, multiplier):
-            form_key = form.form_key
-
-            if isinstance(form, (ak.forms.BitMaskedForm, ak.forms.ByteMaskedForm)):
-                if form.valid_when:
-                    buffers[getkey(form, "mask")] = b"\x00" * multiplier
-                else:
-                    buffers[getkey(form, "mask")] = b"\xff" * multiplier
-                # switch from recursing down `prepare` to `prepare_empty`
-                return form.copy(content=prepare_empty(form.content), form_key=form_key)
-
-            elif isinstance(form, ak.forms.IndexedOptionForm):
-                buffers[getkey(form, "index")] = (
-                    b"\xff\xff\xff\xff\xff\xff\xff\xff"  # -1
-                )
-                # switch from recursing down `prepare` to `prepare_empty`
-                return form.copy(content=prepare_empty(form.content), form_key=form_key)
-
-            elif isinstance(form, ak.forms.EmptyForm):
-                # no error if protected by non-recursing node type
-                raise TypeError(
-                    "cannot generate a length_one_array from a Form with an "
-                    "unknowntype that cannot be hidden (EmptyForm not within "
-                    "BitMaskedForm, ByteMaskedForm, or IndexedOptionForm)"
-                )
-
-            elif isinstance(form, ak.forms.UnmaskedForm):
-                return form.copy(content=prepare(form.content, multiplier))
-
-            elif isinstance(form, (ak.forms.IndexedForm, ak.forms.ListForm)):
-                buffers[getkey(form, "index")] = b"\x00" * (8 * multiplier)
-                buffers[getkey(form, "starts")] = b"\x00" * (8 * multiplier)
-                buffers[getkey(form, "stops")] = b"\x00" * (8 * multiplier)
-                return form.copy(
-                    content=prepare(form.content, multiplier), form_key=form_key
-                )
-
-            elif isinstance(form, ak.forms.ListOffsetForm):
-                # offsets length == array length + 1
-                buffers[getkey(form, "offsets")] = b"\x00" * (8 * (multiplier + 1))
-                return form.copy(
-                    content=prepare(form.content, multiplier), form_key=form_key
-                )
-
-            elif isinstance(form, ak.forms.RegularForm):
-                size = form.size
-
-                # https://github.com/scikit-hep/awkward/pull/2499#discussion_r1220503454
-                if size is unknown_length:
-                    size = 1
-
-                return form.copy(content=prepare(form.content, multiplier * size))
-
-            elif isinstance(form, ak.forms.NumpyForm):
-                dtype = ak.types.numpytype.primitive_to_dtype(form._primitive)
-                size = multiplier * dtype.itemsize
-                for x in form.inner_shape:
-                    if x is not unknown_length:
-                        size *= x
-
-                buffers[getkey(form, "data")] = b"\x00" * size
-                return form.copy(form_key=form_key)
-
-            elif isinstance(form, ak.forms.RecordForm):
-                return form.copy(
-                    # recurse down all contents
-                    contents=[prepare(x, multiplier) for x in form.contents]
-                )
-
-            elif isinstance(form, ak.forms.UnionForm):
-                # both tags and index will get this buffer, but index is 8 bytes
-                buffers[getkey(form, "tags")] = b"\x00" * (8 * multiplier)
-                buffers[getkey(form, "index")] = b"\x00" * (8 * multiplier)
-                # recurse down contents[0] with `prepare`, but others with `prepare_empty`
-                contents = [prepare(form.contents[0], multiplier)]
-                for x in form.contents[1:]:
-                    contents.append(prepare_empty(x))
-                return form.copy(contents=contents, form_key=form_key)
-
-            else:
-                raise AssertionError(f"not a Form: {form!r}")
-
-        form = prepare(form, 1)
-        container = {}
-        for key, buffer in buffers.items():
-            container[key] = partial(
-                generate, buffer=buffer, report=report, buffer_key=key
-            )
-
-    else:
-        raise ValueError("length must be 0 or 1")
+    for key, buffer in container.items():
+        container[key] = partial(generate, buffer=buffer, report=report, buffer_key=key)
 
     array = ak.from_buffers(
         form=form,
