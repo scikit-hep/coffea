@@ -37,8 +37,6 @@ def _make_length_zero_one_tracer(
     form = ak.forms.from_dict(events.attrs["@form"])
     buffer_key = events.attrs["@buffer_key"]
 
-    report = []
-
     if length == 0:
         tmp_array = form.length_zero_array()
     elif length == 1:
@@ -58,6 +56,8 @@ def _make_length_zero_one_tracer(
     tmp_array._to_buffers(
         form, getkey, container, events._layout.backend, ak._util.native_byteorder
     )
+
+    report = []
 
     def generate(buffer, report, buffer_key):
         report.append(buffer_key)
