@@ -51,7 +51,6 @@ def _make_length_zero_one_tracer(
             form=form,
         )
 
-    # buffers = ak.to_buffers(tmp_array, byteorder=ak._util.native_byteorder)[2].values()
     container = {}
     tmp_array._to_buffers(
         form, getkey, container, events._layout.backend, ak._util.native_byteorder
