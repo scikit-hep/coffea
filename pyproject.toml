@@ -92,6 +92,9 @@ rucio = [
 xrootd = [
   "fsspec-xrootd>=0.5.1",
 ]
+triton = [
+  "tritonclient[grpc,http]>=2.56.0",
+]
 dev = [
   "pre-commit",
   "flake8",
