@@ -1,7 +1,6 @@
 import concurrent.futures
 import json
 import math
-import multiprocessing
 import os
 import pickle
 import time
@@ -30,6 +29,7 @@ from typing import (
 
 import awkward
 import cloudpickle
+import loky
 import lz4.frame as lz4f
 import toml
 import uproot
@@ -512,54 +512,6 @@ class IterativeExecutor(ExecutorBase):
             )
 
 
-# forking cloudpickler plugin
-class _ForkingCloudPickler(
-    multiprocessing.reduction.ForkingPickler, cloudpickle.Pickler
-):
-
-    @classmethod
-    def dumps(cls, obj, protocol=None):
-        print("calling _ForkingCloudPickler.dumps()")
-        buf = BytesIO()
-        cloudpickle.dump(obj, buf, protocol=protocol)
-        return buf.getbuffer()
-
-    loads = cloudpickle.loads
-
-
-def _CloudPickleDump(obj, file, protocol=None):
-    """Replacement for pickle.dump() using _ForkingCloudPickler."""
-    _ForkingCloudPickler(file, protocol).dump(obj)
-
-
-class _CloudPickleReducer(multiprocessing.reduction.AbstractReducer):
-    ForkingPickler = _ForkingCloudPickler
-    register = _ForkingCloudPickler.register
-    dump = _CloudPickleDump
-
-
-# this class changes the default pickler of ProcessPoolExecutor to the default cloudpickle.Pickler
-class _CloudPickleProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
-    def __init__(
-        self,
-        max_workers=None,
-        mp_context=None,
-        initializer=None,
-        initargs=(),
-        max_tasks_per_child=None,
-    ):
-        if mp_context is None:
-            mp_context = multiprocessing.get_context()
-            mp_context.reducer = _CloudPickleReducer
-        super().__init__(
-            max_workers=max_workers,
-            mp_context=mp_context,
-            initializer=initializer,
-            initargs=initargs,
-            max_tasks_per_child=max_tasks_per_child,
-        )
-
-
 @dataclass
 class FuturesExecutor(ExecutorBase):
     """Execute using multiple local cores using python futures
@@ -573,7 +525,7 @@ class FuturesExecutor(ExecutorBase):
         accumulator : Accumulatable
             An accumulator to collect the output of the function
         pool : concurrent.futures.Executor class or instance, optional
-            The type of futures executor to use, defaults to _CloudPickleProcessPoolExecutor.
+            The type of futures executor to use, defaults to loky.ProcessPoolExecutor.
             You can pass an instance instead of a class to reuse an executor
         workers : int, optional
             Number of parallel processes for futures (default 1)
@@ -614,7 +566,7 @@ class FuturesExecutor(ExecutorBase):
 
     pool: (
         Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor
-    ) = _CloudPickleProcessPoolExecutor  # fmt: skip
+    ) = loky.ProcessPoolExecutor  # fmt: skip
     mergepool: None | (
         Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor | bool
     ) = None
