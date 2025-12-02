@@ -460,14 +460,6 @@ class Photon(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic)
     "cutBased selection minimum value"
 
     @property
-    def mass(self):
-        return awkward.zeros_like(self.pt)
-
-    @property
-    def charge(self):
-        return awkward.zeros_like(self.pt)
-
-    @property
     def isLoose(self):
         """Returns a boolean array marking loose cut-based photons"""
         # For NanoAOD v9+ the cutBasedBitmap was changed to a cutBased integer
@@ -577,10 +569,6 @@ class Jet(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
     "jetId bit position"
 
     @property
-    def charge(self):
-        return awkward.zeros_like(self.pt)
-
-    @property
     def isLoose(self):
         """Returns a boolean array marking loose jets according to jetId index"""
         return (self.jetId & (1 << self.LOOSE)) != 0
@@ -673,10 +661,6 @@ class FatJet(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic)
     "jetId bit position"
     TIGHTLEPVETO = 2
     "jetId bit position"
-
-    @property
-    def charge(self):
-        return awkward.zeros_like(self.pt)
 
     @property
     def isLoose(self):

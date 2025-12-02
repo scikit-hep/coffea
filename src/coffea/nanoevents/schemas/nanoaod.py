@@ -169,6 +169,8 @@ class NanoAODSchema(BaseSchema):
     zeros_items = {
         "Photon_mass": (transforms.zeros_from_offsets_form, ("oPhoton",)),
         "Photon_charge": (transforms.zeros_from_offsets_form, ("oPhoton",)),
+        "Jet_charge": (transforms.zeros_from_offsets_form, ("oJet",)),
+        "FatJet_charge": (transforms.zeros_from_offsets_form, ("oFatJet",)),
         "TrigObj_mass": (transforms.zeros_from_offsets_form, ("oTrigObj",)),
         "CorrT1METJet_mass": (transforms.zeros_from_offsets_form, ("oCorrT1METJet",)),
     }
