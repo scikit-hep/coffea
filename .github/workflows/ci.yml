@@ -65,9 +65,8 @@ jobs:
         # c.f. https://github.com/astral-sh/uv/issues/3437
         uv pip install torch --index-url https://download.pytorch.org/whl/cpu
         uv pip install xgboost
-        uv pip install 'tritonclient[grpc,http]!=2.41.0'
         # install checked out coffea
-        uv pip install -q '.[dev,parsl,dask]' --upgrade
+        uv pip install -q '.[dev,parsl,dask,triton]' --upgrade
         uv pip list
     - name: Install dependencies (MacOS)
       if: matrix.os == 'macOS-latest'
