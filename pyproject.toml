@@ -49,6 +49,7 @@ dependencies = [
   "dask[array]>=2024.3.0",
   "dask-awkward>=2025.9.0",
   "dask-histogram>=2025.2.0",
+  "loky>=3.5.6",
   "vector>=1.4.1,!=1.6.0",
   "correctionlib>=2.6.0",
   "pyarrow>=6.0.0",
@@ -65,6 +66,7 @@ dependencies = [
   "mplhep>=0.1.18",
   "packaging",
   "pandas",
+  "pydantic",
   "hist>=2",
   "cachetools",
   "requests",
@@ -93,6 +95,9 @@ rucio = [
 ]
 xrootd = [
   "fsspec-xrootd>=0.5.1",
+]
+triton = [
+  "tritonclient[grpc,http]>=2.56.0",
 ]
 dev = [
   "pre-commit",
@@ -129,7 +134,7 @@ addopts = [
   "-rfesxX",
   "-v",
 ]
-log_level = "DEBUG"
+log_level = "INFO"
 filterwarnings = [
   "ignore:There is no current event loop",
 ]

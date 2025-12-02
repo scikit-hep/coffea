@@ -22,7 +22,7 @@ jobs:
     name: pre-commit
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - uses: actions/setup-python@v6
       with:
         python-version: "3.14"
@@ -42,7 +42,7 @@ jobs:
     name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}, ${{ matrix.dask-client }} dask
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
@@ -65,9 +65,8 @@ jobs:
         # c.f. https://github.com/astral-sh/uv/issues/3437
         uv pip install torch --index-url https://download.pytorch.org/whl/cpu
         uv pip install xgboost
-        uv pip install 'tritonclient[grpc,http]!=2.41.0'
         # install checked out coffea
-        uv pip install -q '.[dev,parsl,dask]' --upgrade
+        uv pip install -q '.[dev,parsl,dask,triton]' --upgrade
         uv pip list
     - name: Install dependencies (MacOS)
       if: matrix.os == 'macOS-latest'
@@ -138,7 +137,7 @@ jobs:
         python-version: ["3.14"]
     name: test coffea-taskvine
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: Set up Conda
       uses: conda-incubator/setup-miniconda@v3
       env:
@@ -198,7 +197,7 @@ jobs:
     name: deploy release
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v6
       with:
