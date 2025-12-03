@@ -44,6 +44,7 @@ class PHYSLITESchema(BaseSchema):
     """
 
     mixins = {
+        "Photons": "Particle",
         "Electrons": "Electron",
         "Muons": "Muon",
         "Jets": "Particle",
