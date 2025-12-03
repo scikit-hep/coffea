@@ -121,7 +121,7 @@ outfiles, outsites, sites_counts = get_dataset_files_replicas(
 )
 
 # chose site from which to extract files
-site = max(sites_counts, key=sites_counts.get) 
+site = max(sites_counts, key=sites_counts.get)
 files_by_site = []
 for i, (files, sites) in enumerate(zip(outfiles, outsites)):
     iS = sites.index(site)
