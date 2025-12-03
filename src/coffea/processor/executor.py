@@ -29,6 +29,7 @@ from typing import (
 
 import awkward
 import cloudpickle
+import loky
 import lz4.frame as lz4f
 import toml
 import uproot
@@ -524,7 +525,7 @@ class FuturesExecutor(ExecutorBase):
         accumulator : Accumulatable
             An accumulator to collect the output of the function
         pool : concurrent.futures.Executor class or instance, optional
-            The type of futures executor to use, defaults to ProcessPoolExecutor.
+            The type of futures executor to use, defaults to loky.ProcessPoolExecutor.
             You can pass an instance instead of a class to reuse an executor
         workers : int, optional
             Number of parallel processes for futures (default 1)
@@ -565,7 +566,7 @@ class FuturesExecutor(ExecutorBase):
 
     pool: (
         Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor
-    ) = concurrent.futures.ProcessPoolExecutor  # fmt: skip
+    ) = loky.ProcessPoolExecutor  # fmt: skip
     mergepool: None | (
         Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor | bool
     ) = None
