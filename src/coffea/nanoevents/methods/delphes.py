@@ -85,6 +85,11 @@ class ScalarHT(base.NanoCollection): ...
 _set_repr_name("ScalarHT")
 
 
+behavior.update(
+    awkward._util.copy_behaviors("SphericalThreeVector", "MissingET", behavior)
+)
+
+
 @awkward.mixin_class(behavior)
 class MissingET(vector.SphericalThreeVector, base.NanoCollection): ...
 
