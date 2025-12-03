@@ -285,8 +285,11 @@ class DelphesSchema(BaseSchema):
             }
             # add appropriate aliases expected from scikit-hep/vector
             if mixin == "MissingET":
-                content["phi"] = content["Phi"]
+                content["rho"] = transforms.met_to_rho_form(
+                    content["MET"], content["Eta"]
+                )
                 content["eta"] = content["Eta"]
+                content["phi"] = content["Phi"]
             elif mixin == "Vertex":
                 content["t"] = content["T"]
                 content["x"] = content["X"]

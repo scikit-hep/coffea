@@ -574,6 +574,35 @@ def qoverp_to_p(stack):
     stack.append(1.0 / numpy.abs(source))
 
 
+# For Delphes:
+
+
+def met_to_rho_form(met, eta):
+    if not (met["class"] == "NumpyArray" or met["class"].startswith("ListOffset")):
+        raise RuntimeError
+    if not (eta["class"] == "NumpyArray" or eta["class"].startswith("ListOffset")):
+        raise RuntimeError
+    if not (met["class"] == eta["class"]):
+        raise RuntimeError
+    form = copy.deepcopy(met)
+    if form["class"] == "NumpyArray":
+        form["form_key"] = concat(met["form_key"], eta["form_key"], "!met_to_rho")
+        form["parameters"].pop("__doc__", None)
+    elif form["class"].startswith("ListOffset"):
+        form["content"]["form_key"] = concat(
+            met["form_key"], eta["form_key"], "!met_to_rho", "!content"
+        )
+        form["parameters"].pop("__doc__", None)
+        form["content"]["parameters"].pop("__doc__", None)
+    return form
+
+
+def met_to_rho(stack):
+    eta = stack.pop()
+    met = stack.pop()
+    stack.append(met * numpy.cosh(eta))
+
+
 # For EDM4HEPSchema and FCCSChema:
 
 

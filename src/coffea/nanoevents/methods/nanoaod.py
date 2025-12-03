@@ -729,11 +729,6 @@ behavior.update(awkward._util.copy_behaviors("PolarTwoVector", "MissingET", beha
 class MissingET(vector.PolarTwoVector, base.NanoCollection, base.Systematic):
     """NanoAOD Missing transverse energy object"""
 
-    @property
-    def r(self):
-        """Distance from origin in XY plane"""
-        return self["pt"]
-
 
 _set_repr_name("MissingET")
 

@@ -4,7 +4,6 @@ See https://cp3.irmp.ucl.ac.be/projects/delphes/wiki/WorkBook/RootTreeDescriptio
 """
 
 import awkward
-import numpy
 
 from coffea.nanoevents.methods import base, candidate, vector
 
@@ -87,17 +86,21 @@ _set_repr_name("ScalarHT")
 
 
 @awkward.mixin_class(behavior)
-class MissingET(vector.SphericalThreeVector, base.NanoCollection):
-    @property
-    def rho(self):
-        return self["MET"] * numpy.cosh(self.eta)
-
-    @property
-    def theta(self):
-        return 2 * numpy.arctan(numpy.exp(-self.eta))
+class MissingET(vector.SphericalThreeVector, base.NanoCollection): ...
 
 
 _set_repr_name("MissingET")
+
+
+MissingETArray.ProjectionClass2D = vector.PolarTwoVectorArray  # noqa: F821
+MissingETArray.ProjectionClass3D = MissingETArray  # noqa: F821
+MissingETArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
+MissingETArray.MomentumClass = MissingETArray  # noqa: F821
+MissingETRecord.ProjectionClass2D = vector.PolarTwoVectorRecord  # noqa: F821
+MissingETRecord.ProjectionClass3D = MissingETRecord  # noqa: F821
+MissingETRecord.ProjectionClass4D = vector.LorentzVectorRecord  # noqa: F821
+MissingETRecord.MomentumClass = MissingETRecord  # noqa: F821
+
 
 behavior.update(awkward._util.copy_behaviors("LorentzVector", "Vertex", behavior))
 
