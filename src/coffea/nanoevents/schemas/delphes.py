@@ -309,8 +309,8 @@ class DelphesSchema(BaseSchema):
                 content["pt"] = content["PT"]
                 content["eta"] = content["Eta"]
                 content["phi"] = content["Phi"]
-                content["mass"] = transforms.zeros_from_offsets_form(
-                    branch_forms[f"o{name}"]
+                content["mass"] = transforms.full_like_from_offsets_form(
+                    branch_forms[f"o{name}"], 0.0
                 )
 
             output[name] = zip_forms(content, name, record_name=mixin, offsets=offsets)

@@ -2,6 +2,7 @@ import copy
 import warnings
 from collections import defaultdict
 
+from coffea.nanoevents import transforms
 from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
 from coffea.nanoevents.util import quote
 
@@ -125,10 +126,16 @@ class PHYSLITESchema(BaseSchema):
                     )
                 to_zip[sub_key] = form
             try:
+                mixin = self.mixins.get(objname, None)
+                if mixin == "TrackParticle":
+                    to_zip["p"] = transforms.qoverp_to_p_form(to_zip["qOverP"])
+                    to_zip["tau"] = transforms.full_like_from_content_form(
+                        to_zip["theta"], 139.570
+                    )
                 contents[objname] = zip_forms(
                     to_zip,
                     objname,
-                    self.mixins.get(objname, None),
+                    mixin,
                     bypass=False,
                 )
             except NotImplementedError:

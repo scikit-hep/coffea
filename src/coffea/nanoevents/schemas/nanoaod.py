@@ -166,15 +166,18 @@ class NanoAODSchema(BaseSchema):
         ),
     }
     """Special arrays, where the callable and input arrays are specified in the value"""
-    zeros_items = {
-        "Photon_mass": (transforms.zeros_from_offsets_form, ("oPhoton",)),
-        "Photon_charge": (transforms.zeros_from_offsets_form, ("oPhoton",)),
-        "Jet_charge": (transforms.zeros_from_offsets_form, ("oJet",)),
-        "FatJet_charge": (transforms.zeros_from_offsets_form, ("oFatJet",)),
-        "TrigObj_mass": (transforms.zeros_from_offsets_form, ("oTrigObj",)),
-        "CorrT1METJet_mass": (transforms.zeros_from_offsets_form, ("oCorrT1METJet",)),
+    full_like_items = {
+        "Photon_mass": (transforms.full_like_from_offsets_form, ("oPhoton", 0.0)),
+        "Photon_charge": (transforms.full_like_from_offsets_form, ("oPhoton", 0.0)),
+        "Jet_charge": (transforms.full_like_from_offsets_form, ("oJet", 0.0)),
+        "FatJet_charge": (transforms.full_like_from_offsets_form, ("oFatJet", 0.0)),
+        "TrigObj_mass": (transforms.full_like_from_offsets_form, ("oTrigObj", 0.0)),
+        "CorrT1METJet_mass": (
+            transforms.full_like_from_offsets_form,
+            ("oCorrT1METJet", 0.0),
+        ),
     }
-    """Arrays that should be filled with zeros if not present to satisfy 4-vector requirements"""
+    """Arrays that should be filled with constant values if not present to satisfy 4-vector requirements"""
     rename_items = {
         "Electron_energy": "Electron_regrEnergy",
         "Photon_energy": "Photon_regrEnergy",
@@ -315,10 +318,10 @@ class NanoAODSchema(BaseSchema):
             if all(k in branch_forms for k in args):
                 branch_forms[name] = fcn(*(branch_forms[k] for k in args))
 
-        # Create zeros arrays
-        for name, (fcn, args) in self.zeros_items.items():
-            if all(k in branch_forms for k in args):
-                branch_forms[name] = fcn(*(branch_forms[k] for k in args))
+        # Create full-like arrays
+        for name, (fcn, args) in self.full_like_items.items():
+            if name not in branch_forms and args[0] in branch_forms:
+                branch_forms[name] = fcn(branch_forms[args[0]], args[1])
 
         # Rename arrays
         for old_name, new_name in self.rename_items.items():
