@@ -283,6 +283,36 @@ class DelphesSchema(BaseSchema):
                 for k in branch_forms
                 if k.startswith(name + "/" + name)
             }
+            # add appropriate aliases expected from scikit-hep/vector
+            if mixin == "MissingET":
+                content["phi"] = content["Phi"]
+                content["eta"] = content["Eta"]
+            elif mixin == "Vertex":
+                content["t"] = content["T"]
+                content["x"] = content["X"]
+                content["y"] = content["Y"]
+                content["z"] = content["Z"]
+            elif mixin == "Particle" or mixin == "Jet" or mixin == "Track":
+                content["pt"] = content["PT"]
+                content["eta"] = content["Eta"]
+                content["phi"] = content["Phi"]
+                content["mass"] = content["Mass"]
+            elif (
+                mixin == "MasslessParticle"
+                or mixin == "Photon"
+                or mixin == "Electron"
+                or mixin == "Muon"
+                or mixin == "Tower"
+            ):
+                if "PT" not in content and "ET" in content:
+                    content["PT"] = content["ET"]
+                content["pt"] = content["PT"]
+                content["eta"] = content["Eta"]
+                content["phi"] = content["Phi"]
+                content["mass"] = transforms.zeros_from_offsets_form(
+                    branch_forms[f"o{name}"]
+                )
+
             output[name] = zip_forms(content, name, record_name=mixin, offsets=offsets)
 
             # update docstrings as needed

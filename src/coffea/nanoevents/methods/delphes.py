@@ -96,14 +96,6 @@ class MissingET(vector.SphericalThreeVector, base.NanoCollection):
     def theta(self):
         return 2 * numpy.arctan(numpy.exp(-self.eta))
 
-    @property
-    def phi(self):
-        return self["Phi"]
-
-    @property
-    def eta(self):
-        return self["Eta"]
-
 
 _set_repr_name("MissingET")
 
@@ -113,22 +105,6 @@ behavior.update(awkward._util.copy_behaviors("LorentzVector", "Vertex", behavior
 @awkward.mixin_class(behavior)
 class Vertex(vector.LorentzVector):
     """Generic vertex collection that has Lorentz vector properties"""
-
-    @property
-    def t(self):
-        return self["T"]
-
-    @property
-    def x(self):
-        return self["X"]
-
-    @property
-    def y(self):
-        return self["Y"]
-
-    @property
-    def z(self):
-        return self["Z"]
 
 
 _set_repr_name("Vertex")
@@ -167,22 +143,6 @@ class Particle(vector.PtEtaPhiMLorentzVector):
      - Z: particle vertex position (z component)
     """
 
-    @property
-    def pt(self):
-        return self["PT"]
-
-    @property
-    def eta(self):
-        return self["Eta"]
-
-    @property
-    def phi(self):
-        return self["Phi"]
-
-    @property
-    def mass(self):
-        return self["Mass"]
-
 
 _set_repr_name("Particle")
 
@@ -199,10 +159,7 @@ behavior.update(awkward._util.copy_behaviors("Particle", "MasslessParticle", beh
 
 
 @awkward.mixin_class(behavior)
-class MasslessParticle(Particle, base.NanoCollection):
-    @property
-    def mass(self):
-        return awkward.zeros_like(self.pt)
+class MasslessParticle(Particle, base.NanoCollection): ...
 
 
 _set_repr_name("MasslessParticle")
@@ -310,10 +267,7 @@ behavior.update(awkward._util.copy_behaviors("MasslessParticle", "Tower", behavi
 
 
 @awkward.mixin_class(behavior)
-class Tower(MasslessParticle, base.NanoCollection):
-    @property
-    def pt(self):
-        return self["ET"]
+class Tower(MasslessParticle, base.NanoCollection): ...
 
 
 _set_repr_name("Tower")
