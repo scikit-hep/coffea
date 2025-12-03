@@ -111,20 +111,26 @@ Chunks can span files in different storage systems; coffea relies on uproot to s
 
 ## Discover files programmatically
 
-`coffea.dataset_tools` helps when the list of files lives in Rucio or in JSON manifests.
+`coffea.dataset_tools.rucio_utils` helps when the list of files lives in Rucio or in JSON manifests.
 
 ```python
-from coffea.dataset_tools import extract_files_from_rucio
+from coffea.dataset_tools.rucio_utils import get_dataset_files_replicas
 
-files_list = extract_files_from_rucio(
-    datasets=["/DYJetsToLL_M-50_TuneCP5_13p6TeV/NANOAODSIM"],
-    rse="FNAL_DCACHE",
+outfiles, outsites, sites_counts = get_dataset_files_replicas(
+    dataset="/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
 )
+
+# chose site from which to extract files
+site = max(sites_counts, key=sites_counts.get) 
+files_by_site = []
+for i, (files, sites) in enumerate(zip(outfiles, outsites)):
+    iS = sites.index(site)
+    files_by_site.append(files[iS])
 
 # Convert list to dict mapping files to tree name (Format 1)
 fileset = {
     "DYJets": {
-        "files": {f: "Events" for f in files_list},
+        "files": {f: "Events" for f in files_by_site},
         "metadata": {"is_mc": True},
     }
 }
@@ -133,7 +139,7 @@ fileset = {
 fileset_alt = {
     "DYJets": {
         "treename": "Events",
-        "files": files_list,
+        "files": files_by_site,
         "metadata": {"is_mc": True},
     }
 }
