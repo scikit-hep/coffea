@@ -36,20 +36,26 @@ def _make_length_zero_one_tracer(
 ) -> tuple[ak.Array, list]:
     form = ak.forms.from_dict(events.attrs["@form"])
     buffer_key = events.attrs["@buffer_key"]
-    buffer_keys = form.expected_from_buffers(buffer_key=buffer_key).keys()
+    expected_buffer_keys = form.expected_from_buffers(buffer_key=buffer_key).keys()
 
     if length == 0:
-        buffers = ak.to_buffers(
-            form.length_zero_array(),
-            byteorder=ak._util.native_byteorder,
-        )[2].values()
+        tmp_array = form.length_zero_array()
     elif length == 1:
-        buffers = ak.to_buffers(
-            form.length_one_array(),
-            byteorder=ak._util.native_byteorder,
-        )[2].values()
+        tmp_array = form.length_one_array()
     else:
         raise ValueError("length must be 0 or 1")
+
+    def getkey(layout, form, attribute):
+        return buffer_key(
+            form_key=form.form_key,
+            attribute=attribute,
+            form=form,
+        )
+
+    container = {}
+    tmp_array._to_buffers(
+        form, getkey, container, events._layout.backend, ak._util.native_byteorder
+    )
 
     report = []
 
@@ -57,9 +63,12 @@ def _make_length_zero_one_tracer(
         report.append(buffer_key)
         return buffer
 
-    container = {}
-    for key, buffer in zip(buffer_keys, buffers):
+    for key, buffer in container.items():
         container[key] = partial(generate, buffer=buffer, report=report, buffer_key=key)
+
+    assert list(container.keys()) == list(
+        expected_buffer_keys
+    ), "length zero/one array buffer keys do not match the expected ones"
     array = ak.from_buffers(
         form=form,
         length=length,

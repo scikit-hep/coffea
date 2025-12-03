@@ -487,28 +487,31 @@ def eventindex(stack):
     stack.append(out)
 
 
-def zeros_from_content_form(source_form):
+def full_like_from_content_form(source_form, fill_value):
     form = copy.deepcopy(source_form)
     if not (form["class"] == "NumpyArray" or form["class"].startswith("ListOffset")):
         raise RuntimeError
     if form["class"] == "NumpyArray":
-        form["form_key"] = concat(source_form["form_key"], "!zeros_from_content")
+        form["form_key"] = concat(
+            source_form["form_key"], f"{fill_value},!full_like_from_content"
+        )
         form["parameters"].pop("__doc__", None)
     elif form["class"].startswith("ListOffset"):
         form["content"]["form_key"] = concat(
-            source_form["form_key"], "!zeros_from_content", "!content"
+            source_form["form_key"], f"{fill_value},!full_like_from_content", "!content"
         )
         form["parameters"].pop("__doc__", None)
         form["content"]["parameters"].pop("__doc__", None)
     return form
 
 
-def zeros_from_content(stack):
+def full_like_from_content(stack):
+    fill_value = float(stack.pop())
     source = stack.pop()
-    stack.append(awkward.zeros_like(source))
+    stack.append(awkward.full_like(source, fill_value))
 
 
-def zeros_from_offsets_form(offsets_form):
+def full_like_from_offsets_form(offsets_form, fill_value):
     if not offsets_form["class"].startswith("NumpyArray"):
         raise RuntimeError
 
@@ -521,18 +524,23 @@ def zeros_from_offsets_form(offsets_form):
             "itemsize": 4,
             "format": "i",
             "form_key": concat(
-                offsets_form["form_key"], "!zeros_from_offsets", "!content"
+                offsets_form["form_key"],
+                f"{fill_value},!full_like_from_offsets",
+                "!content",
             ),
         },
-        "form_key": concat(offsets_form["form_key"], "!zeros_from_offsets"),
+        "form_key": concat(
+            offsets_form["form_key"], f"{fill_value},!full_like_from_offsets"
+        ),
     }
     return form
 
 
-def zeros_from_offsets(stack):
+def full_like_from_offsets(stack):
+    fill_value = float(stack.pop())
     offsets = ensure_array(stack.pop())
     n_elements = offsets[-1]
-    content = numpy.zeros(n_elements, dtype=numpy.float32)
+    content = numpy.full(n_elements, fill_value, dtype=numpy.float32)
     out = awkward.Array(
         awkward.contents.ListOffsetArray(
             awkward.index.Index64(offsets),
@@ -540,6 +548,59 @@ def zeros_from_offsets(stack):
         )
     )
     stack.append(out)
+
+
+# For PHYSLITE and PDUNE:
+
+
+def qoverp_to_p_form(source_form):
+    form = copy.deepcopy(source_form)
+    if not (form["class"] == "NumpyArray" or form["class"].startswith("ListOffset")):
+        raise RuntimeError
+    if form["class"] == "NumpyArray":
+        form["form_key"] = concat(source_form["form_key"], "!qoverp_to_p")
+        form["parameters"].pop("__doc__", None)
+    elif form["class"].startswith("ListOffset"):
+        form["content"]["form_key"] = concat(
+            source_form["form_key"], "!qoverp_to_p", "!content"
+        )
+        form["parameters"].pop("__doc__", None)
+        form["content"]["parameters"].pop("__doc__", None)
+    return form
+
+
+def qoverp_to_p(stack):
+    source = stack.pop()
+    stack.append(1.0 / numpy.abs(source))
+
+
+# For Delphes:
+
+
+def met_to_rho_form(met, eta):
+    if not (met["class"] == "NumpyArray" or met["class"].startswith("ListOffset")):
+        raise RuntimeError
+    if not (eta["class"] == "NumpyArray" or eta["class"].startswith("ListOffset")):
+        raise RuntimeError
+    if not (met["class"] == eta["class"]):
+        raise RuntimeError
+    form = copy.deepcopy(met)
+    if form["class"] == "NumpyArray":
+        form["form_key"] = concat(met["form_key"], eta["form_key"], "!met_to_rho")
+        form["parameters"].pop("__doc__", None)
+    elif form["class"].startswith("ListOffset"):
+        form["content"]["form_key"] = concat(
+            met["form_key"], eta["form_key"], "!met_to_rho", "!content"
+        )
+        form["parameters"].pop("__doc__", None)
+        form["content"]["parameters"].pop("__doc__", None)
+    return form
+
+
+def met_to_rho(stack):
+    eta = stack.pop()
+    met = stack.pop()
+    stack.append(met * numpy.cosh(eta))
 
 
 # For EDM4HEPSchema and FCCSChema:
