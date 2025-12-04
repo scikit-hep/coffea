@@ -156,7 +156,7 @@ print("\nfileset_alt:\n", fileset_alt)
 ```python
 site:
  T2_DE_DESY
- 
+
 fileset:
  {'DYJets':
     {'files':
@@ -189,7 +189,7 @@ fileset:
 }
 
 fileset_alt:
- {'DYJets': 
+ {'DYJets':
    {'treename': 'Events',
     'files': ['root://dcache-cms-xrootd.desy.de:1094//store/mc/RunIISummer20UL18NanoAODv9/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/120000/0CF0CDED-7582-7A49-84CD-0E5F73DE27B0.root',
               'root://dcache-cms-xrootd.desy.de:1094//store/mc/RunIISummer20UL18NanoAODv9/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/120000/0E17EB7B-5779-2741-ABBE-3465CC7C6174.root',
