@@ -31,6 +31,9 @@ from ..util import _exception_chain, _hash, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .processor import ProcessorABC
 
+from pathlib import Path
+from typing import Generator, Optional, Mapping
+
 _PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
 DEFAULT_METADATA_CACHE: MutableMapping = LRUCache(100000)
 
@@ -1039,6 +1042,7 @@ class Runner:
     use_skyhook: Optional[bool] = False
     skyhook_options: Optional[dict] = field(default_factory=dict)
     format: str = "root"
+    cache_file: Path = field(default=Path(".coffea_metadata_cache.pkl"), init=False)
 
     @staticmethod
     def read_coffea_config():
@@ -1068,7 +1072,9 @@ class Runner:
         ), "Expected pre_executor to derive from ExecutorBase"
 
         if self.metadata_cache is None:
-            self.metadata_cache = DEFAULT_METADATA_CACHE
+            self.metadata_cache = self._load_cache()
+            if not self.metadata_cache:
+                self.metadata_cache = DEFAULT_METADATA_CACHE
 
         assert self.format in ("root", "parquet")
 
@@ -1212,6 +1218,30 @@ class Runner:
             )
         return out
 
+    def _load_cache(self):
+        """Load metadata cache from disk if it exists"""
+        if self.cache_file.exists():
+            try:
+                with open(self.cache_file, 'rb') as f:
+                    cache = pickle.load(f)
+                print(f"Loaded {len(cache)} entries from metadata cache")
+                return cache
+            except Exception as e:
+                print(f"Warning: Could not load cache file: {e}")
+                return {}
+        return {}
+
+    def _save_cache(self):
+        """Save metadata cache to disk"""
+        try:
+            # Write to a temporary file first, then rename for atomic operation
+            temp_file = self.cache_file.with_suffix('.tmp')
+            with open(temp_file, 'wb') as f:
+                pickle.dump(self.metadata_cache, f, protocol=pickle.HIGHEST_PROTOCOL)
+            temp_file.replace(self.cache_file)
+        except Exception as e:
+            print(f"Warning: Could not save cache file: {e}")
+
     def _preprocess_fileset_root(self, fileset: dict) -> None:
         # this is a bit of an abuse of map-reduce but ok
         to_get = {
@@ -1242,9 +1272,15 @@ class Runner:
                 ),
             )
             out, _ = pre_executor(to_get, closure, out)
+            cache_updated = False
             while out:
                 item = out.pop()
                 self.metadata_cache[item] = item.metadata
+                cache_updated = True
+
+            if cache_updated:
+                self._save_cache()
+
             for filemeta in fileset:
                 filemeta.maybe_populate(self.metadata_cache)
 
