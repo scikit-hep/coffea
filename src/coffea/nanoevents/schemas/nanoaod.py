@@ -326,10 +326,13 @@ class NanoAODSchema(BaseSchema):
 
         # Add zero mass to the trigger objects
         if "oTrigObj" in branch_forms:
-            if "TrigObj_mass" not in branch_forms:
-                branch_forms["TrigObj_mass"] = transforms.zeros_from_offsets_form(
-                    branch_forms["oTrigObj"]
+            if "TrigObj_mass" in branch_forms:
+                warnings.warn(
+                    "TrigObj_mass branch is present but will be replaced with zeros"
                 )
+            branch_forms["TrigObj_mass"] = transforms.zeros_from_offsets_form(
+                branch_forms["oTrigObj"]
+            )
 
         output = {}
         for name in collections:
