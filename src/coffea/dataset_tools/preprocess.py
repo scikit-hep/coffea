@@ -83,6 +83,15 @@ def get_steps(
 
         num_entries = tree.num_entries
 
+        if num_entries == 0:
+            if skip_bad_files:
+                array.append(None)
+                continue
+            else:
+                raise ValueError(
+                    f"The tree '{arg.object_path}' in file '{arg.file}' has zero entries!"
+                )
+
         form_json = None
         form_hash = None
         if save_form:
