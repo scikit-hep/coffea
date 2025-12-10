@@ -56,6 +56,9 @@ class NanoEventsProcessor(processor.ProcessorABC):
             metaname, metavalue = self.expected_usermeta[dataset]
             assert metavalue == events.metadata[metaname]
 
+        assert "filesource" in events.metadata
+        assert events.metadata["filesource"] is not None
+
         # mapping = events.behavior["__events_factory__"]._mapping
         muon_pt = events.Muon.pt
         # if isinstance(mapping, nanoevents.mapping.CachedMapping):

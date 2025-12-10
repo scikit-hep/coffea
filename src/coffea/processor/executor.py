@@ -1479,6 +1479,11 @@ class Runner:
             ) from e
 
         with filecontext as file:
+            if isinstance(file, uproot.ReadOnlyDirectory):
+                metadata["filesource"] = file.file.source
+            else:
+                metadata["filesource"] = None
+
             if schema is None:
                 raise ValueError("Schema must be set")
             elif issubclass(schema, schemas.BaseSchema):
