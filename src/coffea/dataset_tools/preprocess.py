@@ -83,15 +83,6 @@ def get_steps(
 
         num_entries = tree.num_entries
 
-        if num_entries == 0:
-            if skip_bad_files:
-                array.append(None)
-                continue
-            else:
-                raise ValueError(
-                    f"The tree '{arg.object_path}' in file '{arg.file}' has zero entries!"
-                )
-
         form_json = None
         form_hash = None
         if save_form:
@@ -115,6 +106,20 @@ def get_steps(
 
         out_uuid = arg.uuid
         out_steps = arg.steps
+
+        if num_entries == 0:
+            array.append(
+                {
+                    "file": arg.file,
+                    "object_path": arg.object_path,
+                    "steps": [[0, 0]],
+                    "num_entries": num_entries,
+                    "uuid": file_uuid,
+                    "compressed_form": form_json,
+                    "form_hash_md5": form_hash,
+                }
+            )
+            continue
 
         if out_uuid != file_uuid or recalculate_steps:
             if align_clusters:
