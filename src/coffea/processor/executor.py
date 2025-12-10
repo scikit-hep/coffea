@@ -1745,6 +1745,11 @@ class Runner:
             )
 
         chunks = list(chunks)
+        if len(chunks) == 0:
+            raise ValueError(
+                "No chunks survived preprocessing.\n"
+                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
+            )
 
         exe_args = {
             "unit": "chunk",
@@ -1762,8 +1767,8 @@ class Runner:
         wrapped_out, e = executor(chunks, closure, None)
         if wrapped_out is None:
             raise ValueError(
-                "No chunks returned results, verify ``processor`` instance structure.\n\
-                if you used skipbadfiles=True or similar, it is possible all your files are bad."
+                "No chunks returned results, verify ``processor`` instance structure.\n"
+                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
             )
         wrapped_out["exception"] = e
 
