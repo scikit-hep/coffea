@@ -107,6 +107,20 @@ def get_steps(
         out_uuid = arg.uuid
         out_steps = arg.steps
 
+        if num_entries == 0:
+            array.append(
+                {
+                    "file": arg.file,
+                    "object_path": arg.object_path,
+                    "steps": [[0, 0]],
+                    "num_entries": num_entries,
+                    "uuid": file_uuid,
+                    "compressed_form": form_json,
+                    "form_hash_md5": form_hash,
+                }
+            )
+            continue
+
         if out_uuid != file_uuid or recalculate_steps:
             if align_clusters:
                 clusters = tree.common_entry_offsets()
