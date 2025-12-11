@@ -31,7 +31,7 @@ def test_taskvine_executor_with_virtual_arrays():
     }
 
     # Create the same processor as used in local executors
-    processor = NanoEventsProcessor(mode="virtual", check_filesource=True)
+    processor = NanoEventsProcessor(mode="virtual", check_filehandle=True)
 
     # Create Runner with TaskVineExecutor
     from coffea.processor import Runner
