@@ -69,7 +69,7 @@ if __name__ == "__main__":
             "Data": "/mnt/cephfs/nanoevents/Data",
         },
         "Events",
-        processor_instance=NanoEventsProcessor(),
+        processor_instance=NanoEventsProcessor(check_filesource=True),
     )
 
     assert hists["cutflow"]["ZJets_pt"] == 108
@@ -93,7 +93,7 @@ if __name__ == "__main__":
             "Data": "/mnt/cephfs/nanoevents/Data",
         },
         "Events",
-        processor_instance=NanoEventsProcessor(),
+        processor_instance=NanoEventsProcessor(check_filesource=True),
     )
 
     assert hists["cutflow"]["ZJets_pt"] == 108
