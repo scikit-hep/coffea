@@ -1479,6 +1479,11 @@ class Runner:
             ) from e
 
         with filecontext as file:
+            if isinstance(file, uproot.ReadOnlyDirectory):
+                metadata["filehandle"] = file
+            else:
+                metadata["filehandle"] = None
+
             if schema is None:
                 raise ValueError("Schema must be set")
             elif issubclass(schema, schemas.BaseSchema):
@@ -1550,6 +1555,10 @@ class Runner:
                     )
                 # save the output
                 checkpointer.save(out, metadata, processor_instance)
+
+            # avoid potential dangling references to file
+            del metadata["filehandle"]
+
             return out
 
     def __call__(
