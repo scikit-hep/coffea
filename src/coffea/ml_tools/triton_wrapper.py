@@ -4,6 +4,8 @@ import warnings
 
 import numpy
 
+from .helper import nonserializable_attribute, numpy_call_wrapper
+
 # For triton specific handling
 _triton_import_error = None
 try:
@@ -12,8 +14,6 @@ try:
     import tritonclient.utils
 except (ImportError, ModuleNotFoundError) as err:
     _triton_import_error = err
-
-from .helper import nonserializable_attribute, numpy_call_wrapper
 
 
 class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):

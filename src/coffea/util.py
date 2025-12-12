@@ -3,10 +3,14 @@
 import base64
 import gzip
 import hashlib
+import warnings
+from functools import partial
 from typing import Any
 
 import awkward
+import cloudpickle
 import dask_awkward
+import fsspec
 import hist
 import numba
 import numpy
@@ -29,11 +33,6 @@ dak = dask_awkward
 np = numpy
 nb = numba
 
-import warnings
-from functools import partial
-
-import cloudpickle
-import fsspec
 
 __all__ = [
     "load",
