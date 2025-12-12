@@ -145,10 +145,7 @@ ignore = ["F403", "F405", "E402"]
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["osx-arm64"]
-
-[tool.pixi.pypi-dependencies]
-coffea = { path = ".", editable = true }
+platforms = ["osx-arm64", "osx-64", "linux-64", "win-64"]
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
@@ -158,9 +155,5 @@ parsl = { features = ["parsl"], solve-group = "default" }
 rucio = { features = ["rucio"], solve-group = "default" }
 triton = { features = ["triton"], solve-group = "default" }
 xrootd = { features = ["xrootd"], solve-group = "default" }
-dev-xrootd-dask = ["dev", "xrootd", "dask"]
 
 [tool.pixi.tasks]
-
-[tool.pixi.dependencies]
-xrootd = ">=5.8.4,<6"
