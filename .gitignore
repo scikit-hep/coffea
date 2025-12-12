@@ -116,3 +116,7 @@ dask-worker-space/
 src/coffea/_version.py
 
 .DS_Store
+
+# pixi environments
+.pixi
+*.egg-info
