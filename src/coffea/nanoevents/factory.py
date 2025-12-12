@@ -750,6 +750,11 @@ class NanoEventsFactory:
         start, stop = (int(x) for x in entryrange.split("-"))
         return stop - start
 
+    @property
+    def access_log(self):
+        """List of accessed branches, populated when columns are lazily loaded."""
+        return getattr(self._mapping, "_access_log", None)
+
     def events(self):
         """
         Build events
