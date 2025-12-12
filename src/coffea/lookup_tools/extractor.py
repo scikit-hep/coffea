@@ -7,7 +7,14 @@ from coffea.lookup_tools.json_converters import (
     convert_pileup_json_file,
 )
 from coffea.lookup_tools.root_converters import convert_histo_root_file
-from coffea.lookup_tools.txt_converters import *
+from coffea.lookup_tools.txt_converters import (
+    convert_effective_area_file,
+    convert_jec_txt_file,
+    convert_jersf_txt_file,
+    convert_jr_txt_file,
+    convert_junc_txt_file,
+    convert_l5flavor_jes_txt_file,
+)
 
 file_converters = {
     "root": {"default": convert_histo_root_file, "histo": convert_histo_root_file},
