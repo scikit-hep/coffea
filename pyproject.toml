@@ -142,3 +142,25 @@ line-length = 160
 
 [tool.ruff.lint]
 ignore = ["F403", "F405", "E402"]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[tool.pixi.pypi-dependencies]
+coffea = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dask = { features = ["dask"], solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+parsl = { features = ["parsl"], solve-group = "default" }
+rucio = { features = ["rucio"], solve-group = "default" }
+triton = { features = ["triton"], solve-group = "default" }
+xrootd = { features = ["xrootd"], solve-group = "default" }
+dev-xrootd-dask = ["dev", "xrootd", "dask"]
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+xrootd = ">=5.8.4,<6"
