@@ -564,9 +564,9 @@ class FuturesExecutor(ExecutorBase):
             Number of retries for failed tasks (default: 3)
     """
 
-    pool: (
-        Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor
-    ) = loky.ProcessPoolExecutor  # fmt: skip
+    pool: Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor = (
+        loky.ProcessPoolExecutor
+    )
     mergepool: None | (
         Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor | bool
     ) = None
