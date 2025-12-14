@@ -285,6 +285,8 @@ class DelphesSchema(BaseSchema):
             }
             # add appropriate aliases expected from scikit-hep/vector
             if mixin == "MissingET":
+                # see the discussion in https://github.com/scikit-hep/coffea/pull/1481
+                # regarding why MET has an eta
                 content["rho"] = transforms.met_to_rho_form(
                     content["MET"], content["Eta"]
                 )
