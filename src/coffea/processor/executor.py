@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from io import BytesIO
 from itertools import repeat
+from pathlib import Path
 from typing import (
     Any,
     Literal,
@@ -41,9 +42,6 @@ from ..util import _exception_chain, _hash, deprecate, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .checkpointer import CheckpointerABC
 from .processor import ProcessorABC
-
-from pathlib import Path
-from typing import Generator, Optional, Mapping
 
 _PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
 DEFAULT_METADATA_CACHE: MutableMapping = LRUCache(100000)
@@ -1268,7 +1266,7 @@ class Runner:
         """Load metadata cache from disk if it exists"""
         if self.cache_file.exists():
             try:
-                with open(self.cache_file, 'rb') as f:
+                with open(self.cache_file, "rb") as f:
                     cache = pickle.load(f)
                 print(f"Loaded {len(cache)} entries from metadata cache")
                 return cache
@@ -1281,8 +1279,8 @@ class Runner:
         """Save metadata cache to disk"""
         try:
             # Write to a temporary file first, then rename for atomic operation
-            temp_file = self.cache_file.with_suffix('.tmp')
-            with open(temp_file, 'wb') as f:
+            temp_file = self.cache_file.with_suffix(".tmp")
+            with open(temp_file, "wb") as f:
                 pickle.dump(self.metadata_cache, f, protocol=pickle.HIGHEST_PROTOCOL)
             temp_file.replace(self.cache_file)
         except Exception as e:
