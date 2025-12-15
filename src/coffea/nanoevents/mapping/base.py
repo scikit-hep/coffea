@@ -1,12 +1,18 @@
 from abc import abstractmethod
 from collections.abc import Mapping
 from functools import partial
+from typing import NamedTuple
 
 import numpy
 from cachetools import LRUCache
 
 from coffea.nanoevents import transforms
 from coffea.nanoevents.util import key_to_tuple, tuple_to_key
+
+
+class Accessed(NamedTuple):
+    branch: str
+    buffer_key: str
 
 
 class UUIDOpener:
@@ -30,6 +36,7 @@ class BaseSourceMapping(Mapping):
         access_log=None,
         use_ak_forth=False,
         virtual=False,
+        buffer_cache=None,
     ):
         self._fileopener = fileopener
         self._cache = cache
@@ -38,11 +45,14 @@ class BaseSourceMapping(Mapping):
         self._stop = stop
         self._use_ak_forth = use_ak_forth
         self._virtual = virtual
+        self._buffer_cache = buffer_cache
         self.setup()
 
     def setup(self):
         if self._cache is None:
             self._cache = LRUCache(1)
+        if self._buffer_cache is None:
+            self._buffer_cache = LRUCache(1)
 
     @classmethod
     @abstractmethod
@@ -81,13 +91,25 @@ class BaseSourceMapping(Mapping):
             nodes.append("!" + layoutattr[0])
         elif len(layoutattr) > 1:
             raise RuntimeError(f"Malformed key: {key}")
-        return uuid, treepath, start, stop, nodes
+        return uuid, treepath, start, stop, partition, nodes
 
     def __getitem__(self, key):
         def _getitem(key):
-            uuid, treepath, start, stop, nodes = self.interpret_key(key)
+            if key in self._buffer_cache:
+                return self._buffer_cache[key]
+            uuid, treepath, start, stop, partition, nodes = self.interpret_key(key)
             if self._debug:
-                print("Getting (", key, ") :", uuid, treepath, start, stop, nodes)
+                print(
+                    "Getting (",
+                    key,
+                    ") :",
+                    uuid,
+                    treepath,
+                    start,
+                    stop,
+                    partition,
+                    nodes,
+                )
             stack = []
             skip = False
             for node in nodes:
@@ -100,7 +122,9 @@ class BaseSourceMapping(Mapping):
                 elif node.startswith("!load"):
                     handle_name = stack.pop()
                     if self._access_log is not None:
-                        self._access_log.append(handle_name)
+                        self._access_log.append(
+                            Accessed(branch=handle_name, buffer_key=key)
+                        )
                     allow_missing = node == "!loadallowmissing"
                     handle = self.get_column_handle(
                         self._column_source(uuid, treepath), handle_name, allow_missing
@@ -139,6 +163,7 @@ class BaseSourceMapping(Mapping):
                     raise RuntimeError(
                         f"Left with non-bare array after evaluating form key {nodes}"
                     )
+            self._buffer_cache[key] = out
             return out
 
         if self._virtual:

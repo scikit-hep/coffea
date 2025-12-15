@@ -13,7 +13,7 @@ A clear and concise description of what the bug is.
 **To Reproduce**
 Steps to reproduce the behavior:
 1. write analysis operation '...'
-2. if applicable: run on scaleout platform '...' (local multiprocessing, spark, ...)
+2. if applicable: run on scaleout platform '...' (local multiprocessing, dask, ...)
 3. if applicable: make plots like '...'
 4. See error
 

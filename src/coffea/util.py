@@ -3,7 +3,7 @@
 import base64
 import gzip
 import hashlib
-from typing import Any, Optional
+from typing import Any
 
 import awkward
 import dask_awkward
@@ -33,43 +33,45 @@ import warnings
 from functools import partial
 
 import cloudpickle
-import lz4.frame
+import fsspec
+
+__all__ = [
+    "load",
+    "save",
+    "rich_bar",
+    "deprecate",
+    "awkward_rewrap",
+    "maybe_map_partitions",
+    "compress_form",
+    "decompress_form",
+    "coffea_console",
+]
 
 
-def load(filename):
-    """Load a coffea file from disk"""
-    with lz4.frame.open(filename) as fin:
+def load(filename, compression="lz4"):
+    """Load a coffea file from disk
+
+    ``compression`` specified the algorithm to use to decompress the file.
+    It must be one of the ``fsspec`` supported compression string names.
+    These compression algorithms may have dependencies that need to be installed separately.
+    If it is ``None``, it means no compression.
+    """
+    with fsspec.open(filename, "rb", compression=compression) as fin:
         output = cloudpickle.load(fin)
     return output
 
 
-def save(output, filename, fast=True):
+def save(output, filename, compression="lz4"):
     """Save a coffea object or collection thereof to disk.
 
     This function can accept any picklable object.  Suggested suffix: ``.coffea``
 
-    If `fast` is set to `True`, it will use fast mode of the python pickler
-    (see https://docs.python.org/3/library/pickle.html).
-    This has no memory overhead, while the default creates a copy in memory.
-    However, it could in principle cause issues with recursive objects, so
-    care should be taken.
+    ``compression`` can be one of the ``fsspec`` supported compression string names.
+    These compression algorithms may have dependencies that need to be installed separately.
+    If it is ``None``, it means no compression.
     """
-    try:
-        with lz4.frame.open(filename, "wb") as fout:
-            p = cloudpickle.Pickler(fout)
-            p.fast = fast
-            p.dump(output)
-    except ValueError as e:
-        if fast:
-            # Try again without fast on a cyclic error
-            save(output, filename, fast=False)
-            warnings.warn(
-                f"Could not save object to path '{filename}' "
-                "in fast mode due to possible recursion in object. "
-                "Falling back to default saving."
-            )
-        else:
-            raise e
+    with fsspec.open(filename, "wb", compression=compression) as fout:
+        cloudpickle.dump(output, fout)
 
 
 def _hex(string):
@@ -151,7 +153,7 @@ def _exception_chain(exc: BaseException) -> list[BaseException]:
 class SpeedColumn(ProgressColumn):
     """Renders human readable transfer speed."""
 
-    def __init__(self, fmt: str = ".1f", table_column: Optional[Column] = None):
+    def __init__(self, fmt: str = ".1f", table_column: Column | None = None):
         self.fmt = fmt
         super().__init__(table_column=table_column)
 
@@ -260,6 +262,17 @@ def decompress_form(form_compressedb64):
 
 
 def _is_interpretable(branch, emit_warning=True):
+    if isinstance(branch, uproot.behaviors.RNTuple.HasFields):
+        # These are collections made by the RNTuple Importer
+        # Once "real" (i.e. non-converted) RNTuples start to be written,
+        # these should not be here and this check can be removed
+        if branch.path.startswith("_collection"):
+            return False
+        # Subfields should be accessed via the parent branch since
+        # the way forms are set up for subfields
+        if "." in branch.path:
+            return False
+        return True
     if isinstance(
         branch.interpretation, uproot.interpretation.identify.uproot.AsGrouped
     ):

@@ -19,6 +19,28 @@ from dask_awkward.utils import IncompatiblePartitions
 
 import coffea.processor
 import coffea.util
+from coffea.util import coffea_console
+
+__all__ = [
+    "WeightStatistics",
+    "Weights",
+    "NminusOne",
+    "Cutflow",
+    "PackedSelection",
+]
+
+# rich colors for console output
+# from https://mk.bcgsc.ca/colorblind/palettes.mhtml
+_rcol = {
+    0: "#000000",  # black
+    1: "#2271B2",  # honolulu blue
+    2: "#3DB7E9",  # summer sky
+    3: "#F748A5",  # barbie pink
+    4: "#359B73",  # ocean green
+    5: "#D55E00",  # bamboo
+    6: "#E69F00",  # gambage
+    7: "#F0E442",  # paris daisy
+}
 
 
 def _generate_slices(array_length, max_elements=128):
@@ -56,7 +78,7 @@ def boolean_masks_to_categorical_integers(
     masks : list of boolean numpy.ndarray, awkward.Array or dask_awkward.lib.core.Array objects
         The boolean mask arrays to convert to categorical integers
     insert_unmasked_as_zeros : bool, optional
-        Whether to insert a zero entry representing an 'unmasked' state, equivalent to the first mask satisfying `ak.all(mask == True)`. Default is False.
+        Whether to insert a zero entry representing an 'unmasked' state, equivalent to the first mask satisfying ``ak.all(mask == True)``. Default is False.
     insert_commonmask_as_zeros : boolean numpy.ndarray, awkward.Array, or dask_awkward.lib.core.Array, optional
         If not None, insert a zero entry representing a 'commonmasked' state. Default is None. Not compatible with insert_unmasked_as_zeros=True.
     return_mask : bool, optional
@@ -91,20 +113,9 @@ def boolean_masks_to_categorical_integers(
         mask_inputs.insert(0, awkward.ones_like(mask_inputs[0], dtype=bool))
     if insert_commonmask_as_zeros is not None:
         mask_inputs.insert(0, insert_commonmask_as_zeros[:, None])
-    irregular_masks = []
-    # TODO: _generate_slices is used to work around the issue addressed in awkward PR https://github.com/scikit-hep/awkward/pull/3312
-    # which was merged in awkward v2.7.2 (https://github.com/scikit-hep/awkward/releases/tag/v2.7.2) and this can be removed when it becomes the minimum version for coffea
-    for slc in _generate_slices(len(mask_inputs), max_elements=128):
-        # create subarrays of the masks to concatenate, to work around issue prior to awkward v2.7.2
-        irregular_masks.append(
-            awkward.from_regular(awkward.concatenate(mask_inputs[slc], axis=1), axis=1)
-        )
-    if len(irregular_masks) == 1:
-        # unwrap the new concatenated (irregular) masks if there is only one
-        irregular_mask = irregular_masks[0]
-    else:
-        # if multiple irregular masks were created, concatenate them a final time
-        irregular_mask = awkward.concatenate(irregular_masks, axis=1)
+    irregular_mask = awkward.from_regular(
+        awkward.concatenate(mask_inputs, axis=1), axis=1
+    )
     if return_mask:
         return irregular_mask
     # convert the boolean masks to categorical integers by calling local index and remove elements whose mask entry was false
@@ -119,15 +130,15 @@ class WeightStatistics:
 
     Parameters
     ----------
-        sumw: float
+        sumw : float
             The sum of weights
-        sumw2: float
+        sumw2 : float
             The sum of squared weights
-        minw: float
+        minw : float
             The minimum weight
-        maxw: float
+        maxw : float
             The maximum weight
-        n: int
+        n : int
             The number of entries
     """
 
@@ -153,7 +164,7 @@ class WeightStatistics:
 
         Parameters
         ----------
-            other: WeightStatistics
+            other : WeightStatistics
                 The other WeightStatistics object to add to this one
         """
         self.sumw += other.sumw
@@ -179,7 +190,7 @@ class Weights:
 
     Parameters
     ----------
-        size : int | None
+        size : int or None
             size of the weight arrays to be handled (i.e. the number of events / instances).
             If None then we expect to operate in delayed mode.
         storeIndividual : bool, optional
@@ -615,17 +626,42 @@ class Weights:
 
 
 class NminusOneToNpz:
-    """Object to be returned by NminusOne.to_npz()"""
+    """Object to be returned by NminusOne.to_npz()
 
-    def __init__(self, file, labels, nev, masks, saver):
+    Parameters
+    ----------
+        includeweights : bool, optional
+            Whether to include the weights in the saved npz file. Default is None, which includes the weights if the NminusOne was instantiated with weights
+            and excludes them otherwise.
+    """
+
+    def __init__(
+        self,
+        file,
+        labels,
+        nev,
+        masks,
+        saver,
+        commonmask=None,
+        wgtev=None,
+        weights=None,
+        weightsmodifier=None,
+        includeweights=None,
+    ):
         self._file = file
         self._labels = labels
         self._nev = nev
         self._masks = masks
         self._saver = saver
+        self._commonmask = commonmask
+        self._wgtev = wgtev
+        self._weights = weights if includeweights is not False else None
+        self._weightsmodifier = weightsmodifier
+        self._commonmasked = self.commonmask is not None
+        self._weighted = self._wgtev is not None
 
     def __repr__(self):
-        return f"NminusOneToNpz(file={self._file}), labels={self._labels})"
+        return f"NminusOneToNpz(file={self._file}), labels={self._labels}, commonmasked={self._commonmasked}, weighted={self._weighted}, weightsmodifier={self._weightsmodifier})"
 
     @property
     def file(self):
@@ -643,10 +679,59 @@ class NminusOneToNpz:
     def masks(self):
         return self._masks
 
+    @property
+    def commonmask(self):
+        return self._commonmask
+
+    @property
+    def wgtevonecut(self):
+        return self._wgtev
+
+    @property
+    def weights(self):
+        return self._weights
+
+    @property
+    def weightsmodifier(self):
+        return self._weightsmodifier
+
     def compute(self):
-        self._nev = list(dask.compute(*self._nev))
-        self._masks = list(dask.compute(*self._masks))
-        self._saver(self._file, labels=self._labels, nev=self._nev, masks=self._masks)
+        (
+            self._nev,
+            self._commonmask,
+            self._wgtev,
+            self._masks,
+            self._weights_wmodifier,
+        ) = dask.compute(
+            self._nev,
+            self._commonmask,
+            self._wgtev,
+            self._masks,
+            (
+                self._weights.weight(self._weightsmodifier)
+                if self._weights is not None
+                else None
+            ),
+        )
+        self._nev = list(self._nev)
+        self._masks = list(self._masks)
+        self._commonmask = list(self._commonmask) if self._commonmasked else None
+        self._wgtev = list(self._wgtev) if self._weighted else None
+        self._weights_wmodifier = (
+            list(self._weights_wmodifier) if self._weights is not None else None
+        )
+        to_save = {
+            "labels": self._labels,
+            "nev": self._nev,
+            "masks": self._masks,
+        }
+        if self._commonmask is not None:
+            to_save["commonmask"] = self._commonmask
+        if self._weighted:
+            to_save["wgtev"] = self._wgtev
+        if self._weights is not None:
+            to_save["weights"] = self._weights_wmodifier
+        self._saver(self._file, **to_save)
 
 
 class CutflowToNpz:
@@ -795,34 +880,93 @@ class CutflowToNpz:
 class NminusOne:
     """Object to be returned by PackedSelection.nminusone()"""
 
-    def __init__(self, names, nev, masks, delayed_mode):
+    def __init__(
+        self,
+        names,
+        nev,
+        masks,
+        delayed_mode,
+        commonmask=None,
+        wgtev=None,
+        weights=None,
+        weightsmodifier=None,
+    ):
         self._names = names
         self._nev = nev
         self._masks = masks
         self._delayed_mode = delayed_mode
+        self._commonmask = commonmask
+        self._wgtev = wgtev
+        self._weights = weights
+        self._weightsmodifier = weightsmodifier
+        self._commonmasked = self._commonmask is not None
+        self._weighted = self._weights is not None
 
     def __repr__(self):
-        return f"NminusOne(selections={self._names})"
+        return f"NminusOne(selections={self._names}, commonmasked={self._commonmasked}, weighted={self._weighted}, weightsmodifier={self._weightsmodifier})"
 
-    def result(self):
+    def result(self, includeweights=None):
         """Returns the results of the N-1 selection as a namedtuple
 
+        Parameters
+        ----------
+            includeweights : bool, optional
+                Whether to include the weights in the result. Default is None, which includes the weights if the Cutflow was instantiated with weights
+                and excludes them otherwise.
         Returns
         -------
-            result : NminusOneResult
-                A namedtuple with the following attributes:
+            result : NminusOneResult or ExtendedNminusOneResult
+                A namedtuple with the following attributes.
+                If includeweights is False or weights were not provided, returns NminusOneResult.
+                If includeweights is True and weights were provided, returns ExtendedNminusOneResult.
 
-                nev : list of integers or dask_awkward.lib.core.Scalar objects
+                NminusOneResult attributes:
+
+                - nev : list of integers or dask_awkward.lib.core.Scalar objects
                     The number of events in each step of the N-1 selection as a list of integers or delayed integers
-                masks : list of boolean numpy.ndarray or dask_awkward.lib.core.Array objects
+                - masks : list of boolean numpy.ndarray or dask_awkward.lib.core.Array objects
                     The boolean mask vectors of which events pass the N-1 selection each time as a list of materialized or delayed boolean arrays
 
-        """
-        NminusOneResult = namedtuple("NminusOneResult", ["labels", "nev", "masks"])
-        labels = ["initial"] + [f"N - {i}" for i in self._names] + ["N"]
-        return NminusOneResult(labels, self._nev, self._masks)
+                ExtendedNminusOneResult additional attributes:
 
-    def to_npz(self, file, compressed=False, compute=False):
+                - commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array object, or None if no common mask was provided
+                - wgtev : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
+                    The weighted number of events in each step of the N-1 selection as a list of floats or delayed floats
+                - weights : float numpy.ndarray or dask_awkward.lib.core.Array object, or None if no weights were provided
+                    The Weights.weight(modifier) array provided as input. Must be masked by masks elements to get the corresponding weights
+                - weightsmodifier : str or None
+                    The modifier passed to Weights.weight([modifier]) if weights were provided
+
+        """
+        _include_weights = self._weighted if includeweights is None else includeweights
+        NminusOneResult = namedtuple("NminusOneResult", ["labels", "nev", "masks"])
+        ExtendedNminusOneResult = namedtuple(
+            "ExtendedNminusOneResult",
+            [
+                "labels",
+                "nev",
+                "masks",
+                "commonmask",
+                "wgtev",
+                "weights",
+                "weightsmodifier",
+            ],
+        )
+        labels = ["initial"] + [f"N - {i}" for i in self._names] + ["N"]
+        if self._weighted or self._commonmasked:
+            return ExtendedNminusOneResult(
+                labels,
+                self._nev,
+                self._masks,
+                self._commonmask,
+                self._wgtev,
+                self._weights if _include_weights else None,
+                self._weightsmodifier if _include_weights else None,
+            )
+        else:
+            return NminusOneResult(labels, self._nev, self._masks)
+
+    def to_npz(self, file, compressed=False, compute=False, includeweights=None):
         """Saves the results of the N-1 selection to a .npz file
 
         Parameters
@@ -839,6 +983,8 @@ class NminusOne:
                 Whether to immediately start writing or to return an object
                 that the user can choose when to start writing by calling compute().
                 Default is False.
+            includeweights : bool, optional
+                Whether to save the weights in the npz file. Default is None, which saves the weights if the NminusOne was instantiated with weights
 
         Returns
         -------
@@ -846,50 +992,124 @@ class NminusOne:
                 If ``compute=True``, returns None. Otherwise, returns an object
                 that can be used to start writing the data by calling compute().
         """
-        labels, nev, masks = self.result()
+        (
+            labels,
+            nev,
+            masks,
+            *packed_info,
+        ) = self.result(includeweights=includeweights)
+
+        if self._weighted or self._commonmasked:
+            (
+                commonmask,
+                wgtev,
+                weights,
+                weightsmodifier,
+            ) = packed_info
+        else:
+            (
+                commonmask,
+                wgtev,
+                weights,
+                weightsmodifier,
+            ) = (None, None, None, None)
 
         if compressed:
             saver = numpy.savez_compressed
         else:
             saver = numpy.savez
 
-        out = NminusOneToNpz(file, labels, nev, masks, saver)
+        out = NminusOneToNpz(
+            file,
+            labels,
+            nev,
+            masks,
+            saver,
+            commonmask,
+            wgtev,
+            weights,
+            weightsmodifier,
+            includeweights=includeweights,
+        )
         if compute:
             out.compute()
             return None
         else:
             return out
 
-    def print(self):
-        """Prints the statistics of the N-1 selection"""
+    def print(self, weighted=None, scale=None):
+        """Prints the statistics of the N-1 selection
+
+        Parameters
+        ----------
+            weighted : bool, optional
+                Whether to print the weighted statistics. Default is None, which prints the weighted statistics
+                if the nminusone was instantiated with weights and unweighted statistics otherwise.
+            scale : float, optional
+                A scale factor to apply to the nminusone statistics. Default is None, which does not apply any scaling.
+        """
+        do_weighted = self._weighted if weighted is None else weighted
+        do_scaled = scale is not None
+        if do_scaled:
+            if isinstance(scale, (int, float)):
+                pass
+            else:
+                raise ValueError(
+                    f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
+                )
 
         if self._delayed_mode:
             warnings.warn(
                 "Printing the N-1 selection statistics is going to compute dask_awkward objects."
             )
-            self._nev = list(dask.compute(*self._nev))
+            (self._nev, self._wgtev) = dask.compute(self._nev, self._wgtev)
 
-        nev = self._nev
-        print("N-1 selection stats:")
+        xev = self._nev if not do_weighted else self._wgtev
+        header = f"\n[{_rcol[6]}]N-1 selection stats:[/{_rcol[6]}]"
+        if do_weighted:
+            header += (
+                f" [{_rcol[3]} bold underline](weighted)[/{_rcol[3]} bold underline]"
+            )
+        if do_scaled:
+            header += f" ([{_rcol[4]} bold underline]scaled[/{_rcol[4]} bold underline] by {scale})"
+            xev = [x * scale for x in xev]
+        coffea_console.print(header)
         for i, name in enumerate(self._names):
             stats = (
-                f"Ignoring {name:<20}"
-                f"pass = {nev[i+1]:<20}"
-                f"all = {nev[0]:<20}"
-                f"-- eff = {nev[i+1]*100/nev[0]:.1f} %"
+                f"Ignoring [{_rcol[5]}]{name:<20}[/{_rcol[5]}]"
+                f"pass = {xev[i+1]:<20}"
+                f"all = {xev[0]:<20}"
+                f"-- eff = {xev[i+1]*100/xev[0]:.1f} %"
             )
-            print(stats)
+            coffea_console.print(stats)
 
         stats_all = (
-            f"All cuts {'':<20}"
-            f"pass = {nev[-1]:<20}"
-            f"all = {nev[0]:<20}"
-            f"-- eff = {nev[-1]*100/nev[0]:.1f} %"
+            f"[{_rcol[6]}]All cuts[/{_rcol[6]}] {'':<20}"
+            f"pass = {xev[-1]:<20}"
+            f"all = {xev[0]:<20}"
+            f"-- eff = {xev[-1]*100/xev[0]:.1f} %"
         )
-        print(stats_all)
+        coffea_console.print(stats_all)
 
-    def yieldhist(self):
+    def yieldhist(self, weighted=None, scale=None, categorical=None):
         """Returns the N-1 selection yields as a ``hist.Hist`` object
+
+        Parameters
+        ----------
+            weighted : bool, optional
+                Whether to fill the histograms with weights. Default is None, which applies the weights
+                if the nminusone was instantiated with weights and unweighted statistics otherwise.
+            categorical : dict, optional
+                A dictionary with the following keys:
+
+                    axis : hist.axis object
+                        The axis to be used as a categorical axis
+                    values : list
+                        The array to be filled in the categorical axis, must be the same length as the masks
+                    labels : list
+                        The labels corresponding to the values in the categorical axis
+
+                Default is None, which does not apply any categorical axis.
 
         Returns
         -------
@@ -897,19 +1117,106 @@ class NminusOne:
                 Histogram of the number of events surviving the N-1 selection
             labels : list of strings
                 The bin labels of the histogram
+            catlabels : list of strings
+                The labels of the categorical axis
         """
+        do_weighted = self._weighted if weighted is None else weighted
+        do_categorical = categorical is not None
+        do_commonmasked = self._commonmasked
+        do_scaled = scale is not None
+        if do_scaled:
+            if isinstance(scale, (int, float)):
+                pass
+            else:
+                raise ValueError(
+                    f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
+                )
+        Hist = hist.Hist if not self._delayed_mode else hist.dask.Hist
         labels = ["initial"] + [f"N - {i}" for i in self._names] + ["N"]
-        if not self._delayed_mode:
-            h = hist.Hist(hist.axis.Integer(0, len(labels), name="N-1"))
-            h.fill(numpy.arange(len(labels), dtype=int), weight=self._nev)
-
+        axes = [hist.axis.Integer(0, len(labels), name="nminusone", label="N-1")]
+        if do_categorical:
+            catax = categorical.get("axis")
+            catvar = categorical.get("values")
+            catlabels = categorical.get("labels")
+            axes.append(catax)
         else:
-            h = hist.dask.Hist(hist.axis.Integer(0, len(labels), name="N-1"))
-            for i, weight in enumerate(self._masks, 1):
-                h.fill(dask_awkward.full_like(weight, i, dtype=int), weight=weight)
-            h.fill(dask_awkward.zeros_like(weight, dtype=int))
+            catlabels = None
+        if do_weighted:
+            axes.append(hist.storage.Weight())
+        if not self._delayed_mode and not do_categorical:
+            if categorical is not None:
+                raise NotImplementedError(
+                    "yieldhist is not implemented for non-delayed mode (v1) with categorical"
+                )
+            h = hist.Hist(*axes)
+            weighttofill = self._wgtev if do_weighted else self._nev
+            if do_scaled:
+                weighttofill = [wgt * scale for wgt in weighttofill]
+            h.fill(numpy.arange(len(labels), dtype=int), weight=weighttofill)
+        elif self._delayed_mode and not do_categorical:
+            if categorical is not None:
+                raise NotImplementedError(
+                    "yieldhist is not implemented for non-delayed mode (v1) with categorical"
+                )
+            h = Hist(*axes)
 
-        return h, labels
+            for i, mask in enumerate(self._masks, 1):
+                weight = (
+                    self._weights.weight(self._weightsmodifier)[mask]
+                    if do_weighted
+                    else mask
+                )
+                if do_scaled:
+                    weight = weight * scale
+                h.fill(dask_awkward.full_like(weight, i, dtype=int), weight=weight)
+            weight = (
+                self._weights.weight(self._weightsmodifier)
+                if do_weighted
+                else dask_awkward.ones_like(self._masks[0], dtype=bool)
+            )
+            if do_scaled:
+                weight = weight * scale
+            if do_commonmasked:
+                weight = weight[self._commonmask]
+            h.fill(dask_awkward.zeros_like(weight, dtype=int), weight=weight)
+        else:
+            h = Hist(*axes)
+
+            weight = (
+                self._weights.weight(self._weightsmodifier)
+                if do_weighted
+                else awkward.ones_like(self._masks[0], dtype=numpy.float32)
+            )
+            if do_scaled:
+                weight = weight * scale
+            if self._commonmasked:
+                to_broadcast = {
+                    "nminusone": boolean_masks_to_categorical_integers(
+                        self._masks, insert_commonmask_as_zeros=self._commonmask
+                    )
+                }
+            else:
+                to_broadcast = {
+                    "nminusone": boolean_masks_to_categorical_integers(
+                        self._masks, insert_unmasked_as_zeros=True
+                    )
+                }
+            if do_categorical:
+                to_broadcast[catax.name] = catvar
+            to_broadcast["weight"] = weight
+            to_broadcast = zip(
+                to_broadcast.keys(),
+                awkward.broadcast_arrays(*to_broadcast.values()),
+            )
+            nminusoneargs = {
+                k: awkward.flatten(arr, axis=None) for k, arr in to_broadcast
+            }
+            h.fill(**nminusoneargs)
+
+        if do_categorical:
+            return h, labels, catlabels
+        else:
+            return h, labels
 
     def plot_vars(
         self,
@@ -920,6 +1227,9 @@ class NminusOne:
         stop=None,
         edges=None,
         transform=None,
+        weighted=None,
+        scale=None,
+        categorical=None,
     ):
         """Plot the histograms of variables for each step of the N-1 selection
 
@@ -947,6 +1257,22 @@ class NminusOne:
             transform : iterable of hist.axis.transform objects or Nones, optional
                 The transforms to apply to each variable histogram axis. If not specified, it defaults to None.
                 Must be the same length as ``vars``.
+            weighted : bool, optional
+                Whether to fill the histograms with weights. Default is None, which applies the weights
+                if the nminusone was instantiated with weights and unweighted distributions otherwise.
+            scale: float, optional
+                A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
+            categorical : dict, optional
+                A dictionary with the following keys:
+
+                    axis : hist.axis object
+                        The axis to be used as a categorical axis
+                    values : list
+                        The array to be filled in the categorical axis, must be the same length as the masks
+                    labels : list
+                        The labels corresponding to the values in the categorical axis
+
+                Default is None, which does not apply any categorical axis.
 
         Returns
         -------
@@ -955,11 +1281,33 @@ class NminusOne:
                 The first axis is the variable, the second axis is the N-1 selection step.
             labels : list of strings
                 The bin labels of y axis of the histogram.
+            catlabels : list of strings, optional
+                The labels of the categorical axis
         """
+        do_weighted = self._weighted if weighted is None else weighted
+        do_categorical = categorical is not None
+        do_scaled = scale is not None
+        if do_scaled:
+            if isinstance(scale, (int, float)):
+                pass
+            else:
+                raise ValueError(
+                    f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
+                )
+        Hist = hist.dask.Hist if self._delayed_mode else hist.Hist
+        if do_categorical:
+            catax = categorical.get("axis")
+            catvar = categorical.get("values")
+            catlabels = categorical.get("labels")
         if self._delayed_mode:
             for name, var in vars.items():
                 if not compatible_partitions(var, self._masks[0]):
                     raise IncompatiblePartitions("plot_vars", var, self._masks[0])
+            if do_categorical:
+                if not compatible_partitions(catvar, self._masks[0]):
+                    raise IncompatiblePartitions(
+                        "plot_vars (categorical values)", catvar, self._masks[0]
+                    )
         else:
             for name, var in vars.items():
                 if len(var) != len(self._masks[0]):
@@ -996,33 +1344,67 @@ class NminusOne:
                 "vars, axes, bins, start, stop, edges, and transform must be the same length"
             )
 
-        if not self._delayed_mode:
-            for (name, var), axis in zip(vars.items(), axes):
-                h = hist.Hist(
-                    axis,
-                    hist.axis.Integer(0, len(labels), name="N-1"),
-                )
-                arr = awkward.flatten(var)
-                h.fill(arr, awkward.zeros_like(arr, dtype=int))
-                for i, mask in enumerate(self.result().masks, 1):
-                    arr = awkward.flatten(var[mask])
-                    h.fill(arr, awkward.full_like(arr, i, dtype=int))
-                hists.append(h)
+        for (name, var), axis in zip(vars.items(), axes):
+            constructor_args = [
+                axis,
+                hist.axis.Integer(0, len(labels), name="nminusone"),
+            ]
+            fill_args = {name: var}
+            if do_categorical:
+                constructor_args.append(catax)
+                fill_args[catax.name] = catvar
+            if do_weighted:
+                constructor_args.append(hist.storage.Weight())
+            fill_args["weight"] = (
+                self._weights.weight(self._weightsmodifier)
+                if do_weighted
+                else awkward.ones_like(self._masks[0], dtype=numpy.float32)
+            )
+            if do_scaled:
+                fill_args["weight"] = fill_args["weight"] * scale
+            h = Hist(*constructor_args)
 
+            # initial fill is special, needs to have commonmask applied if it exists
+            to_fill_initial = (
+                {k: v[self.result().commonmask] for k, v in fill_args.items()}
+                if self._commonmasked
+                else fill_args
+            )
+            to_fill_initial = dict(
+                zip(
+                    to_fill_initial.keys(),
+                    [
+                        awkward.flatten(arr)
+                        for arr in awkward.broadcast_arrays(*to_fill_initial.values())
+                    ],
+                )
+            )
+            h.fill(
+                nminusone=awkward.zeros_like(to_fill_initial[name], dtype=int),
+                **to_fill_initial,
+            )
+
+            for i, mask in enumerate(self.result().masks, 1):
+                to_fill_iter = {k: v[mask] for k, v in fill_args.items()}
+                to_fill_iter = dict(
+                    zip(
+                        to_fill_iter.keys(),
+                        [
+                            awkward.flatten(arr)
+                            for arr in awkward.broadcast_arrays(*to_fill_iter.values())
+                        ],
+                    )
+                )
+                h.fill(
+                    nminusone=awkward.full_like(to_fill_iter[name], i, dtype=int),
+                    **to_fill_iter,
+                )
+            hists.append(h)
+
+        if do_categorical:
+            return hists, labels, catlabels
         else:
-            for (name, var), axis in zip(vars.items(), axes):
-                h = hist.dask.Hist(
-                    axis,
-                    hist.axis.Integer(0, len(labels), name="N-1"),
-                )
-                arr = dask_awkward.flatten(var)
-                h.fill(arr, dask_awkward.zeros_like(arr, dtype=int))
-                for i, mask in enumerate(self.result().masks, 1):
-                    arr = dask_awkward.flatten(var[mask])
-                    h.fill(arr, dask_awkward.full_like(arr, i, dtype=int))
-                hists.append(h)
-
-        return hists, labels
+            return hists, labels
 
 
 class Cutflow:
@@ -1086,6 +1468,7 @@ class Cutflow:
                 A namedtuple with the CutflowResult properties and additionally the following:
 
                 commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array object, or None if no common mask was provided
+                    The eventwise mask for the for the cutflow.
                 wgtevonecut : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
                     The weighted number of events that survive each cut alone as a list of floats or delayed floats
                 wgtevcutflow : list of floats or dask_awkward.lib.core.Scalar objects, or None if no weights were provided
@@ -1259,24 +1642,26 @@ class Cutflow:
         xevonecut = self._nevonecut if not do_weighted else self._wgtevonecut
         xevcutflow = self._nevcutflow if not do_weighted else self._wgtevcutflow
 
-        header = "Cutflow stats:"
+        header = f"\n[{_rcol[6]}]Cutflow selection stats:[/{_rcol[6]}]"
         if do_weighted:
-            header += " (weighted)"
+            header += (
+                f" [{_rcol[3]} bold underline](weighted)[/{_rcol[3]} bold underline]"
+            )
         if do_scaled:
-            header += f" (scaled by {scale})"
+            header += f" ([{_rcol[4]} bold underline]scaled[/{_rcol[4]} bold underline] by {scale})"
             xevonecut = [x * scale for x in xevonecut]
             xevcutflow = [x * scale for x in xevcutflow]
-        print(header)
+        coffea_console.print(header)
         for i, name in enumerate(self._names):
             stats = (
-                f"Cut {name:<20}:"
+                f"Cut [{_rcol[5]}]{name:<20}[/{_rcol[5]}]:"
                 f"pass = {xevonecut[i+1]:<20}"
                 f"cumulative pass = {xevcutflow[i+1]:<20}"
                 f"all = {xevonecut[0]:<20}"
                 f"-- eff = {xevonecut[i+1]*100/xevonecut[0]:.1f} %{'':<20}"
                 f"-- cumulative eff = {xevcutflow[i+1]*100/xevcutflow[0]:.1f} %"
             )
-            print(stats)
+            coffea_console.print(stats)
 
     def yieldhist(self, weighted=None, scale=None, categorical=None):
         """Returns the cutflow yields as ``hist.Hist`` objects
@@ -1286,6 +1671,8 @@ class Cutflow:
             weighted : bool, optional
                 Whether to fill the histograms with weights. Default is None, which applies the weights
                 if the cutflow was instantiated with weights and unweighted statistics otherwise.
+            scale: float, optional
+                A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
             categorical : dict, optional
                 A dictionary with the following keys:
                     axis : hist.axis object
@@ -1294,6 +1681,7 @@ class Cutflow:
                         The array to be filled in the categorical axis, must be the same length as the masks
                     labels : list
                         The labels corresponding to the values in the categorical axis
+
                 Default is None, which does not apply any categorical axis.
 
         Returns
@@ -1319,7 +1707,6 @@ class Cutflow:
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
         Hist = hist.Hist if not self._delayed_mode else hist.dask.Hist
-        ak_or_dak = awkward if not self._delayed_mode else dask_awkward
         labels = ["initial"] + list(self._names)
         axes = [hist.axis.Integer(0, len(labels), name="onecut")]
         if do_categorical:
@@ -1406,7 +1793,7 @@ class Cutflow:
             weight = (
                 self._weights.weight(self._weightsmodifier)
                 if do_weighted
-                else ak_or_dak.ones_like(self._masksonecut[0], dtype=numpy.float32)
+                else awkward.ones_like(self._masksonecut[0], dtype=numpy.float32)
             )
             if do_scaled:
                 weight = weight * scale
@@ -1439,17 +1826,17 @@ class Cutflow:
             to_broadcastcutflow["weight"] = weight
             broadcastedonecut = zip(
                 to_broadcastonecut.keys(),
-                ak_or_dak.broadcast_arrays(*to_broadcastonecut.values()),
+                awkward.broadcast_arrays(*to_broadcastonecut.values()),
             )
             broadcastedcutflow = zip(
                 to_broadcastcutflow.keys(),
-                ak_or_dak.broadcast_arrays(*to_broadcastcutflow.values()),
+                awkward.broadcast_arrays(*to_broadcastcutflow.values()),
             )
             onecutargs = {
-                k: ak_or_dak.flatten(arr, axis=None) for k, arr in broadcastedonecut
+                k: awkward.flatten(arr, axis=None) for k, arr in broadcastedonecut
             }
             cutflowargs = {
-                k: ak_or_dak.flatten(arr, axis=None) for k, arr in broadcastedcutflow
+                k: awkward.flatten(arr, axis=None) for k, arr in broadcastedcutflow
             }
             honecut.fill(**onecutargs)
             hcutflow.fill(**cutflowargs)
@@ -1501,6 +1888,19 @@ class Cutflow:
             weighted : bool, optional
                 Whether to fill the histograms with weights. Default is None, which applies the weights
                 if the cutflow was instantiated with weights and unweighted distributions otherwise.
+            scale: float, optional
+                A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
+            categorical : dict, optional
+                A dictionary with the following keys:
+
+                    axis : hist.axis object
+                        The axis to be used as a categorical axis
+                    values : list
+                        The array to be filled in the categorical axis, must be the same length as the masks
+                    labels : list
+                        The labels corresponding to the values in the categorical axis
+
+                Default is None, which does not apply any categorical axis.
 
         Returns
         -------
@@ -1526,7 +1926,6 @@ class Cutflow:
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
         Hist = hist.dask.Hist if self._delayed_mode else hist.Hist
-        ak_or_dak = dask_awkward if self._delayed_mode else awkward
         if do_categorical:
             catax = categorical.get("axis")
             catvar = categorical.get("values")
@@ -1587,7 +1986,7 @@ class Cutflow:
             fill_args["weight"] = (
                 self._weights.weight(self._weightsmodifier)
                 if do_weighted
-                else ak_or_dak.ones_like(self._masksonecut[0], dtype=numpy.float32)
+                else awkward.ones_like(self._masksonecut[0], dtype=numpy.float32)
             )
             if do_scaled:
                 fill_args["weight"] = fill_args["weight"] * scale
@@ -1605,13 +2004,13 @@ class Cutflow:
                 zip(
                     to_fill_initial.keys(),
                     [
-                        ak_or_dak.flatten(arr)
-                        for arr in ak_or_dak.broadcast_arrays(*to_fill_initial.values())
+                        awkward.flatten(arr)
+                        for arr in awkward.broadcast_arrays(*to_fill_initial.values())
                     ],
                 )
             )
             honecut.fill(
-                onecut=ak_or_dak.zeros_like(to_fill_initial[name], dtype=int),
+                onecut=awkward.zeros_like(to_fill_initial[name], dtype=int),
                 **to_fill_initial,
             )
 
@@ -1621,21 +2020,19 @@ class Cutflow:
                     zip(
                         to_fill_iter.keys(),
                         [
-                            ak_or_dak.flatten(arr)
-                            for arr in ak_or_dak.broadcast_arrays(
-                                *to_fill_iter.values()
-                            )
+                            awkward.flatten(arr)
+                            for arr in awkward.broadcast_arrays(*to_fill_iter.values())
                         ],
                     )
                 )
                 honecut.fill(
-                    onecut=ak_or_dak.full_like(to_fill_iter[name], i, dtype=int),
+                    onecut=awkward.full_like(to_fill_iter[name], i, dtype=int),
                     **to_fill_iter,
                 )
             histsonecut.append(honecut)
 
             hcutflow.fill(
-                cutflow=ak_or_dak.zeros_like(to_fill_initial[name], dtype=int),
+                cutflow=awkward.zeros_like(to_fill_initial[name], dtype=int),
                 **to_fill_initial,
             )
             for i, mask in enumerate(self.result().maskscutflow, 1):
@@ -1644,15 +2041,13 @@ class Cutflow:
                     zip(
                         to_fill_iter.keys(),
                         [
-                            ak_or_dak.flatten(arr)
-                            for arr in ak_or_dak.broadcast_arrays(
-                                *to_fill_iter.values()
-                            )
+                            awkward.flatten(arr)
+                            for arr in awkward.broadcast_arrays(*to_fill_iter.values())
                         ],
                     )
                 )
                 hcutflow.fill(
-                    cutflow=ak_or_dak.full_like(to_fill_iter[name], i, dtype=int),
+                    cutflow=awkward.full_like(to_fill_iter[name], i, dtype=int),
                     **to_fill_iter,
                 )
             histscutflow.append(hcutflow)
@@ -1709,8 +2104,8 @@ class PackedSelection:
 
         Returns
         -------
-            res: bool
-                True if the PackedSelection is in delayed mode
+            bool
+                True if the PackedSelection is in delayed mode.
         """
         if isinstance(self._data, dask_awkward.Array):
             return True
@@ -1729,8 +2124,8 @@ class PackedSelection:
 
         Returns
         -------
-            res: bool
-                The maximum supported number of selections
+            int
+                Maximum number of selections that can be stored given the current dtype.
         """
         return PackedSelection._supported_types[self._dtype]
 
@@ -1924,7 +2319,7 @@ class PackedSelection:
             consider |= 1 << idx
         return (self._data & self._dtype.type(consider)) != 0
 
-    def nminusone(self, *names):
+    def nminusone(self, *names, commonmask=None, weights=None, weightsmodifier=None):
         """Compute the "N-1" style selection for a set of selections
 
         The N-1 style selection for a set of selections, returns an object which can return a list of the number of events
@@ -1940,11 +2335,17 @@ class PackedSelection:
         ----------
             ``*names`` : args
                 The named selections to use, need to be a subset of the selections already added
+            ``commonmask`` : boolean numpy.ndarray or dask_awkward.lib.core.Array, optional
+                A common mask which is applied for all the selections, including the initial one. Default is None.
+            ``weights`` : coffea.analysis_tools.Weights instance, optional
+                The Weights object to use for the cutflow. If not provided, the cutflow will be unweighted.
+            ``modifier`` : str, optional
+                The modifier to use for the weights. Default is None which results in Weights.weight() being called without a modifier.
 
         Returns
         -------
-            res: coffea.analysis_tools.NminusOne
-                A wrapper class for the results, see the documentation for that class for more details
+            NminusOne
+                Wrapper class describing the N-1 results. See the ``NminusOne`` documentation for details.
         """
         for cut in names:
             if not isinstance(cut, str) or cut not in self._names:
@@ -1953,21 +2354,65 @@ class PackedSelection:
                 )
 
         masks = []
+        if weights is not None:
+            wgts, wgtev = [], []
+        else:
+            wgts, wgtev = (
+                None,
+                None,
+            )
         for i, cut in enumerate(names):
             mask = self.all(*(names[:i] + names[i + 1 :]))
+            if commonmask is not None:
+                mask = mask & commonmask
             masks.append(mask)
+            if weights is not None:
+                wgts.append(weights.weight(weightsmodifier)[mask])
         mask = self.all(*names)
+        if commonmask is not None:
+            mask = mask & commonmask
         masks.append(mask)
+        if weights is not None:
+            wgts.append(weights.weight(weightsmodifier)[mask])
 
         if not self.delayed_mode:
-            nev = [len(self._data)]
+            nev = [numpy.sum(commonmask) if commonmask is not None else len(self._data)]
             nev.extend(numpy.sum(masks, axis=1))
+            if weights is not None:
+                if commonmask is not None:
+                    wgtev = [numpy.sum(weights.weight(weightsmodifier)[commonmask])]
+                else:
+                    wgtev = [numpy.sum(weights.weight(weightsmodifier))]
+                wgtev.extend([numpy.sum(wgt) for wgt in wgts])
 
         else:
-            nev = [dask_awkward.count(self._data, axis=0)]
+            nev = [
+                (
+                    dask_awkward.sum(commonmask)
+                    if commonmask is not None
+                    else dask_awkward.count(self._data, axis=0)
+                )
+            ]
             nev.extend([dask_awkward.sum(mask) for mask in masks])
+            if weights is not None:
+                if commonmask is not None:
+                    wgtev = [
+                        dask_awkward.sum(weights.weight(weightsmodifier)[commonmask])
+                    ]
+                else:
+                    wgtev = [dask_awkward.sum(weights.weight(weightsmodifier))]
+                wgtev.extend([dask_awkward.sum(wgt) for wgt in wgts])
 
-        return NminusOne(names, nev, masks, self.delayed_mode)
+        return NminusOne(
+            names,
+            nev,
+            masks,
+            self.delayed_mode,
+            commonmask,
+            wgtev,
+            weights,
+            weightsmodifier,
+        )
 
     def cutflow(self, *names, commonmask=None, weights=None, weightsmodifier=None):
         """Compute the cutflow for a set of selections
@@ -1984,17 +2429,17 @@ class PackedSelection:
         ----------
             ``*names`` : args
                 The named selections to use, need to be a subset of the selections already added
-            commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array, optional
+            ``commonmask`` : boolean numpy.ndarray or dask_awkward.lib.core.Array, optional
                 A common mask which is applied for all the selections, including the initial one. Default is None.
-            weights : coffea.analysis_tools.Weights instance, optional
+            ``weights`` : coffea.analysis_tools.Weights instance, optional
                 The Weights object to use for the cutflow. If not provided, the cutflow will be unweighted.
-            modifier : str, optional
+            ``modifier`` : str, optional
                 The modifier to use for the weights. Default is None which results in Weights.weight() being called without a modifier.
 
         Returns
         -------
-            res: coffea.analysis_tools.Cutflow
-                A wrapper class for the results, see the documentation for that class for more details
+            Cutflow
+                Wrapper class describing the cutflow results. See the ``Cutflow`` documentation for details.
         """
         for cut in names:
             if not isinstance(cut, str) or cut not in self._names:

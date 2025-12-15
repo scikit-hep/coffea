@@ -4,10 +4,8 @@ import copy
 import hashlib
 import math
 import warnings
-from collections.abc import Hashable
-from dataclasses import dataclass
+from collections.abc import Callable
 from functools import partial
-from typing import Any, Callable
 
 import awkward
 import dask
@@ -17,6 +15,13 @@ import numpy
 import uproot
 from uproot._util import no_filter
 
+from coffea.dataset_tools.filespec import (
+    DataGroupSpec,
+    DatasetSpec,
+    InputFiles,
+    ModelFactory,
+    PreprocessedFiles,
+)
 from coffea.util import _is_interpretable, compress_form, decompress_form
 
 
@@ -36,29 +41,29 @@ def get_steps(
 
     Parameters
     ----------
-        normed_files: awkward.Array | dask_awkward.Array
+        normed_files : awkward.Array or dask_awkward.Array
             The list of normalized file descriptions to process for steps.
-        step_size: int | None, default None
+        step_size : int or None, default None
             If specified, the size of the steps to make when analyzing the input files.
-        align_clusters: bool, default False
+        align_clusters : bool, default False
             Round to the cluster size in a root file, when chunks are specified. Reduces data transfer in
             analysis.
-        recalculate_steps: bool, default False
+        recalculate_steps : bool, default False
             If steps are present in the input normed files, force the recalculation of those steps, instead
             of only recalculating the steps if the uuid has changed.
-        skip_bad_files: bool, False
+        skip_bad_files : bool, default False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions: Exception | Warning | tuple[Exception | Warning], default (OSError,)
+        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (OSError,)
             What exceptions to catch when skipping bad files.
-        save_form: bool, default False
+        save_form : bool, default False
             Extract the form of the TTree from the file so we can skip opening files later.
-        step_size_safety_factor: float, default 0.5
+        step_size_safety_factor : float, default 0.5
             When using align_clusters, if a resulting step is larger than step_size by this factor
             warn the user that the resulting steps may be highly irregular.
 
     Returns
     -------
-        array : awkward.Array | dask_awkward.Array
+        array : awkward.Array or dask_awkward.Array
             The normalized file descriptions, appended with the calculated steps for those files.
     """
     nf_backend = awkward.backend(normed_files)
@@ -152,7 +157,7 @@ def get_steps(
                 "steps": out_steps,
                 "num_entries": num_entries,
                 "uuid": out_uuid,
-                "form": form_json,
+                "compressed_form": form_json,
                 "form_hash_md5": form_hash,
             }
         )
@@ -166,7 +171,7 @@ def get_steps(
                     "steps": [[0, 0]],
                     "num_entries": 0,
                     "uuid": "junk",
-                    "form": "junk",
+                    "compressed_form": "junk",
                     "form_hash_md5": "junk",
                 },
                 None,
@@ -184,47 +189,17 @@ def get_steps(
     return array
 
 
-@dataclass
-class UprootFileSpec:
-    object_path: str
-    steps: list[list[int]] | list[int] | None
-
-
-@dataclass
-class CoffeaFileSpec(UprootFileSpec):
-    steps: list[list[int]]
-    num_entries: int
-    uuid: str
-
-
-@dataclass
-class CoffeaFileSpecOptional(CoffeaFileSpec):
-    steps: list[list[int]] | None
-    num_entriees: int | None
-    uuid: str | None
-
-
-@dataclass
-class DatasetSpec:
-    files: dict[str, CoffeaFileSpec]
-    metadata: dict[Hashable, Any] | None
-    form: str | None
-
-
-@dataclass
-class DatasetSpecOptional(DatasetSpec):
-    files: (
-        dict[str, str] | list[str] | dict[str, UprootFileSpec | CoffeaFileSpecOptional]
-    )
-
-
-FilesetSpecOptional = dict[str, DatasetSpecOptional]
-FilesetSpec = dict[str, DatasetSpec]
-
-
 def _normalize_file_info(file_info):
     normed_files = None
-    if isinstance(file_info, list) or (
+    is_datasetspec = isinstance(file_info, DatasetSpec)
+    if is_datasetspec:
+        normed_files = uproot._util.regularize_files(
+            ModelFactory.datasetspec_to_dict(file_info, coerce_filespec_to_dict=True)[
+                "files"
+            ],
+            steps_allowed=True,
+        )
+    elif isinstance(file_info, list) or (
         isinstance(file_info, dict) and "files" not in file_info
     ):
         normed_files = uproot._util.regularize_files(file_info, steps_allowed=True)
@@ -252,7 +227,7 @@ _trivial_file_fields = {"run", "luminosityBlock", "event"}
 
 
 def preprocess(
-    fileset: FilesetSpecOptional,
+    fileset: DataGroupSpec | dict,
     step_size: None | int = None,
     align_clusters: bool = False,
     recalculate_steps: bool = False,
@@ -264,46 +239,46 @@ def preprocess(
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
-) -> tuple[FilesetSpec, FilesetSpecOptional]:
+) -> tuple[DataGroupSpec, DataGroupSpec] | tuple[dict, dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
 
     Parameters
     ----------
-        fileset: FilesetSpecOptional
+        fileset : DataGroupSpec | dict
             The set of datasets whose files will be preprocessed.
-        step_size: int | None, default None
+        step_size : int or None, default None
             If specified, the size of the steps to make when analyzing the input files.
-        align_clusters: bool, default False
+        align_clusters : bool, default False
             Round to the cluster size in a root file, when chunks are specified. Reduces data transfer in
             analysis.
-        recalculate_steps: bool, default False
+        recalculate_steps : bool, default False
             If steps are present in the input normed files, force the recalculation of those steps,
             instead of only recalculating the steps if the uuid has changed.
-        files_per_batch: int, default 1
+        files_per_batch : int, default 1
             The number of files to preprocess in a single batch.
             Large values will result in fewer dask tasks but each task will have to do more work.
-        skip_bad_files: bool, False
+        skip_bad_files : bool, default False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions: Exception | Warning | tuple[Exception | Warning], default (FileNotFoundError, OSError)
+        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (FileNotFoundError, OSError)
             What exceptions to catch when skipping bad files.
-        save_form: bool, default False
+        save_form : bool, default False
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
-        scheduler: None | Callable | str, default None
+        scheduler : None or Callable or str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
-        uproot_options: dict, default {}
+        uproot_options : dict, default {}
             Options to pass to get_steps for opening files with uproot.
-        step_size_safety_factor: float, default 0.5
+        step_size_safety_factor : float, default 0.5
             When using align_clusters, if a resulting step is larger than step_size by this factor
             warn the user that the resulting steps may be highly irregular.
-        allow_empty_datasets: bool, default False
+        allow_empty_datasets : bool, default False
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
     Returns
     -------
-        out_available : FilesetSpec
+        out_available : DataGroupSpec | dict
             The subset of files in each dataset that were successfully preprocessed, organized by dataset.
-        out_updated : FilesetSpecOptional
+        out_updated : DataGroupSpec | dict
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
     out_updated = copy.deepcopy(fileset)
@@ -311,7 +286,11 @@ def preprocess(
 
     all_ak_norm_files = {}
     files_to_preprocess = {}
+    is_DataGroupSpec = isinstance(fileset, DataGroupSpec)
     for name, info in fileset.items():
+        is_datasetspec = isinstance(info, DatasetSpec)
+        if is_datasetspec:
+            is_DataGroupSpec = True
         norm_files = _normalize_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
         ak_norm_files = awkward.from_iter(norm_files)
@@ -395,9 +374,9 @@ def preprocess(
             ["file", "object_path", "steps", "num_entries", "uuid"]
         ]
 
-        forms = processed_files[["file", "form", "form_hash_md5", "num_entries"]][
-            ~awkward.is_none(processed_files.form_hash_md5)
-        ]
+        forms = processed_files[
+            ["file", "compressed_form", "form_hash_md5", "num_entries"]
+        ][~awkward.is_none(processed_files.form_hash_md5)]
 
         _, unique_forms_idx = numpy.unique(
             forms.form_hash_md5.to_numpy(), return_index=True
@@ -406,7 +385,7 @@ def preprocess(
         dataset_forms = []
         unique_forms = forms[unique_forms_idx]
         for thefile, formstr, num_entries in zip(
-            unique_forms.file, unique_forms.form, unique_forms.num_entries
+            unique_forms.file, unique_forms.compressed_form, unique_forms.num_entries
         ):
             # skip trivially filled or empty files
             form = awkward.forms.from_json(decompress_form(formstr))
@@ -485,28 +464,48 @@ def preprocess(
                 "uuid": item["uuid"],
             }
 
-        if "files" in out_updated[name]:
+        if is_datasetspec:
+            out_updated[name].files = InputFiles(files_out)
+            out_available[name].files = PreprocessedFiles(files_available)
+        elif "files" in out_updated[name]:
             out_updated[name]["files"] = files_out
             out_available[name]["files"] = files_available
         else:
-            out_updated[name] = {"files": files_out, "metadata": None, "form": None}
+            out_updated[name] = {
+                "files": files_out,
+                "metadata": None,
+                "compressed_form": None,
+            }
             out_available[name] = {
                 "files": files_available,
                 "metadata": None,
-                "form": None,
+                "compressed_form": None,
             }
 
         compressed_union_form = None
         if union_form_jsonstr is not None:
             compressed_union_form = compress_form(union_form_jsonstr)
-            out_updated[name]["form"] = compressed_union_form
-            out_available[name]["form"] = compressed_union_form
+            if is_datasetspec:
+                out_updated[name].compressed_form = compressed_union_form
+                out_available[name].compressed_form = compressed_union_form
+            else:
+                out_updated[name]["compressed_form"] = compressed_union_form
+                out_available[name]["compressed_form"] = compressed_union_form
         else:
-            out_updated[name]["form"] = None
-            out_available[name]["form"] = None
+            if is_datasetspec:
+                out_updated[name].compressed_form = None
+                out_available[name].compressed_form = None
+            else:
+                out_updated[name]["compressed_form"] = None
+                out_available[name]["compressed_form"] = None
 
-        if "metadata" not in out_updated[name]:
+        if is_datasetspec:
+            pass
+        elif "metadata" not in out_updated[name]:
             out_updated[name]["metadata"] = None
             out_available[name]["metadata"] = None
 
+    if is_DataGroupSpec:
+        out_available = DataGroupSpec(out_available)
+        out_updated = DataGroupSpec(out_updated)
     return out_available, out_updated

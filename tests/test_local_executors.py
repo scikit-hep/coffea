@@ -5,20 +5,27 @@ import pytest
 from coffea import processor
 from coffea.nanoevents import schemas
 from coffea.processor.executor import UprootMissTreeError
+from coffea.processor.test_items import NanoEventsProcessor
+
+_exceptions = (FileNotFoundError, UprootMissTreeError)
 
 
 @pytest.mark.parametrize("filetype", ["root", "parquet"])
-@pytest.mark.parametrize("skipbadfiles", [True, False])
+@pytest.mark.parametrize("skipbadfiles", [False, True, _exceptions])
 @pytest.mark.parametrize("maxchunks", [None, 1000])
 @pytest.mark.parametrize("compression", [None, 0, 2])
 @pytest.mark.parametrize(
     "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
 )
 @pytest.mark.parametrize("mode", ["eager", "virtual"])
+@pytest.mark.parametrize("processor_type", ["ProcessorABC", "Callable"])
 def test_nanoevents_analysis(
-    executor, compression, maxchunks, skipbadfiles, filetype, mode
+    executor, compression, maxchunks, skipbadfiles, filetype, mode, processor_type
 ):
-    from coffea.processor.test_items import NanoEventsProcessor
+    if processor_type == "Callable":
+        processor_instance = NanoEventsProcessor(mode=mode)
+    else:
+        processor_instance = NanoEventsProcessor(mode=mode).process
 
     if filetype == "parquet":
         pytest.xfail("parquet nanoevents not supported yet")
@@ -60,10 +67,10 @@ def test_nanoevents_analysis(
         format=filetype,
     )
 
-    if skipbadfiles:
+    if skipbadfiles == _exceptions:
         hists = run(
             filelist,
-            processor_instance=NanoEventsProcessor(mode=mode),
+            processor_instance=processor_instance,
             treename="Events",
         )
         assert hists["cutflow"]["ZJets_pt"] == 18
@@ -74,16 +81,15 @@ def test_nanoevents_analysis(
         assert hists["cutflow"]["Data_mass"] == 66
 
     else:
-        LookForError = (FileNotFoundError, UprootMissTreeError)
-        with pytest.raises(LookForError):
+        with pytest.raises(_exceptions):
             hists = run(
                 filelist,
-                processor_instance=NanoEventsProcessor(mode=mode),
+                processor_instance=processor_instance,
                 treename="Events",
             )
-        with pytest.raises(LookForError):
+        with pytest.raises(_exceptions):
             hists = run(
                 filelist,
-                processor_instance=NanoEventsProcessor(mode=mode),
+                processor_instance=processor_instance,
                 treename="NotEvents",
             )

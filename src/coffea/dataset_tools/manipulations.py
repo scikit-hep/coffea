@@ -1,74 +1,145 @@
 from __future__ import annotations
 
 import copy
-from typing import Any, Callable
+import sys
+from collections.abc import Callable
+from typing import Any, Protocol, runtime_checkable
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 import awkward
 import numpy
 
-from coffea.dataset_tools.preprocess import CoffeaFileSpec, DatasetSpec, FilesetSpec
+from coffea.dataset_tools.filespec import (
+    CoffeaParquetFileSpec,
+    CoffeaROOTFileSpec,
+    DataGroupSpec,
+    DatasetSpec,
+    InputFiles,
+    PreprocessedFiles,
+)
 
 
-def max_chunks(fileset: FilesetSpec, maxchunks: int | None = None) -> FilesetSpec:
+@runtime_checkable
+class LimitFilesProtocol(Protocol):
+    # handle both limit_files with max_files and max_files + per_dataset
+    def limit_files(self, max_files: int | slice, per_dataset: bool = True) -> Self: ...
+
+
+@runtime_checkable
+class LimitStepsProtocol(Protocol):
+    def limit_steps(
+        self, max_steps: int | slice, per_file: bool = False, per_dataset: bool = True
+    ) -> Self: ...
+
+
+def max_chunks(
+    fileset: LimitStepsProtocol | DataGroupSpec, maxchunks: int | None = None
+) -> DataGroupSpec:
     """
     Modify the input fileset so that only the first "maxchunks" chunks of each dataset will be processed.
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets reduce to max-chunks row-ranges.
-        maxchunks: int | None, default None
+        maxchunks : int or None, default None
             How many chunks to keep for each file.
 
     Returns
     -------
-        out : FilesetSpec
+        out : DataGroupSpec
             The reduced fileset with only the first maxchunks event ranges left in.
     """
     return slice_chunks(fileset, slice(maxchunks))
 
 
 def max_chunks_per_file(
-    fileset: FilesetSpec, maxchunks: int | None = None
-) -> FilesetSpec:
+    fileset: LimitStepsProtocol | DataGroupSpec, maxchunks: int | None = None
+) -> DataGroupSpec:
     """
     Modify the input fileset so that only the first "maxchunks" chunks of each file will be processed.
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets reduce to max-chunks row-ranges.
-        maxchunks: int | None, default None
+        maxchunks : int or None, default None
             How many chunks to keep for each file.
 
     Returns
     -------
-        out : FilesetSpec
+        out : DataGroupSpec
             The reduced fileset with only the first maxchunks event ranges left in.
     """
     return slice_chunks(fileset, slice(maxchunks), bydataset=False)
 
 
+def _concatenated_step_slice(
+    stepdict: dict[str, Any], theslice: int | slice
+) -> dict[str, Any]:
+    """
+    Modify the input step description to only contain the steps specified by the input slice.
+
+    Parameters
+    ----------
+        stepdict : dict[str, Any]
+            The step description to be sliced.
+        theslice : int | slice
+            How to slice the array of row-ranges (steps) in the input step description.
+
+    Returns
+    -------
+        out : dict[str, Any]
+            The reduced step description with only the row-ranges specified by theslice left.
+    """
+    if isinstance(theslice, int):
+        theslice = slice(theslice)
+    out = {key: [] for key in stepdict}
+
+    # 1) build a flat list of (key, step)
+    flat: list[tuple[str, Any]] = []
+    for key, steps in stepdict.items():
+        for step in steps:
+            flat.append((key, step))
+
+    # 2) slice that flat list
+    kept = flat[theslice]
+
+    # 3) repopulate in order, up to maxchunks total
+    for key, step in kept:
+        out[key].append(step)
+    return out  # {key: steps for key, steps in out.items() if steps}
+
+
 def slice_chunks(
-    fileset: FilesetSpec, theslice: Any = slice(None), bydataset: bool = True
-) -> FilesetSpec:
+    fileset: LimitStepsProtocol | DataGroupSpec,
+    theslice: Any = slice(None),
+    bydataset: bool = True,
+) -> DataGroupSpec:
     """
     Modify the input fileset so that only the chunks of each file or each dataset specified by the input slice are processed.
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets to be sliced.
-        theslice: Any, default slice(None)
+        theslice : Any, default slice(None)
             How to slice the array of row-ranges (steps) in the input fileset.
-        bydataset: bool, default True
+        bydataset : bool, default True
             If True, slices across all steps in all files in each dataset, otherwise slices each file individually.
 
     Returns
     -------
-        out : FilesetSpec
+        out : DataGroupSpec
             The reduced fileset with only the row-ranges specified by theslice left.
     """
+    if isinstance(fileset, LimitStepsProtocol):
+        return fileset.limit_steps(theslice, per_file=not bydataset)
+
     if not isinstance(theslice, slice):
         theslice = slice(theslice)
 
@@ -104,45 +175,47 @@ def slice_chunks(
             for fname, finfo in out[dname]["files"].items()
             if finfo["steps"]
         }
-
     return out
 
 
-def max_files(fileset: FilesetSpec, maxfiles: int | None = None) -> FilesetSpec:
+def max_files(fileset: DataGroupSpec, maxfiles: int | None = None) -> DataGroupSpec:
     """
     Modify the input fileset so that only the first "maxfiles" files of each dataset will be processed.
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets reduce to max-files files per dataset.
-        maxfiles: int | None, default None
+        maxfiles : int or None, default None
             How many files to keep for each dataset.
 
     Returns
     -------
-        out : FilesetSpec
+        out : DataGroupSpec
             The reduced fileset with only the first maxfiles files left in.
     """
     return slice_files(fileset, slice(maxfiles))
 
 
-def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpec:
+def slice_files(fileset: DataGroupSpec, theslice: Any = slice(None)) -> DataGroupSpec:
     """
     Modify the input fileset so that only the files of each dataset specified by the input slice are processed.
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets to be sliced.
-        theslice: Any, default slice(None)
+        theslice : Any, default slice(None)
             How to slice the array of files in the input datasets. We slice in key-order.
 
     Returns
     -------
-        out : FilesetSpec
-            The reduce fileset with only the files specified by theslice left.
+        out : DataGroupSpec
+            The reduced fileset with only the files specified by theslice left.
     """
+    if isinstance(fileset, LimitFilesProtocol):
+        return fileset.limit_files(theslice)
+
     if not isinstance(theslice, slice):
         theslice = slice(theslice)
 
@@ -158,53 +231,70 @@ def slice_files(fileset: FilesetSpec, theslice: Any = slice(None)) -> FilesetSpe
 
 def _default_filter(name_and_spec):
     name, spec = name_and_spec
-    num_entries = spec["num_entries"]
+    num_entries = (
+        spec.num_entries if hasattr(spec, "num_entries") else spec["num_entries"]
+    )
     return num_entries is not None and num_entries > 0
 
 
 def filter_files(
-    fileset: FilesetSpec,
-    thefilter: Callable[[tuple[str, CoffeaFileSpec]], bool] = _default_filter,
-) -> FilesetSpec:
+    fileset: DataGroupSpec,
+    thefilter: Callable[
+        [
+            tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec]
+            | InputFiles
+            | PreprocessedFiles
+        ],
+        bool,
+    ] = _default_filter,
+) -> DataGroupSpec:
     """
     Modify the input fileset so that only the files of each dataset that pass the filter remain.
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets to be sliced.
-        thefilter: Callable[[tuple[str, CoffeaFileSpec]], bool], default filters empty files
+        thefilter: Callable[[tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | InputFiles | PreprocessedFiles], bool], default filters empty files
             How to filter the files in the each dataset.
 
     Returns
     -------
-        out : FilesetSpec
-            The reduce fileset with only the files specified by thefilter left.
+        out : DataGroupSpec
+            The reduced fileset with only the files specified by thefilter left.
     """
     out = copy.deepcopy(fileset)
     for name, entry in fileset.items():
-        out[name]["files"] = dict(filter(thefilter, out[name]["files"].items()))
+        is_datasetspec = isinstance(entry, DatasetSpec)
+        to_apply_to = getattr(entry, "files") if is_datasetspec else entry["files"]
+        updated = dict(filter(thefilter, to_apply_to.items()))
+        if is_datasetspec:
+            out[name].files = InputFiles(updated)
+        else:
+            out[name]["files"] = updated
     return out
 
 
 def get_failed_steps_for_dataset(
-    dataset: DatasetSpec, report: awkward.Array
-) -> DatasetSpec:
+    dataset: dict | DatasetSpec, report: awkward.Array
+) -> dict | DatasetSpec:
     """
     Modify the input dataset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
 
     Parameters
     ----------
-        dataset: DatasetSpec
+        dataset: DatasetSpec | dict
             The dataset to be reduced to only contain files and row-ranges that have previously encountered failed file access.
-        report: awkward.Array
+        report : awkward.Array
             The computed file-access error report from dask-awkward.
 
     Returns
     -------
-        out : DatasetSpec
+        out : DatasetSpec | dict
             The reduced dataset with only the row-ranges and files that failed processing, according to the input report.
     """
+    is_datasetspec = isinstance(dataset, DatasetSpec)
+    dataset = dataset.model_dump() if is_datasetspec else dataset
     failed_dataset = copy.deepcopy(dataset)
     failed_dataset["files"] = {}
     failures = report[~awkward.is_none(report.exception)]
@@ -241,30 +331,37 @@ def get_failed_steps_for_dataset(
             failed_dataset["files"][fname] = copy.deepcopy(dataset["files"][fname])
             failed_dataset["files"][fname]["steps"] = [[start, stop]]
 
-    return failed_dataset
+    return DatasetSpec(**failed_dataset) if is_datasetspec else failed_dataset
 
 
 def get_failed_steps_for_fileset(
-    fileset: FilesetSpec, report_dict: dict[str, awkward.Array]
+    fileset: DataGroupSpec, report_dict: dict[str, awkward.Array]
 ):
     """
     Modify the input fileset to only contain the files and row-ranges for *failed* processing jobs as specified in the supplied report.
 
     Parameters
     ----------
-        fileset: FilesetSpec
+        fileset : DataGroupSpec
             The set of datasets to be reduced to only contain files and row-ranges that have previously encountered failed file access.
-        report_dict: dict[str, awkward.Array]
+        report_dict : dict[str, awkward.Array]
             The computed file-access error reports from dask-awkward, indexed by dataset name.
 
     Returns
     -------
-        out : FilesetSpec
+        out : DataGroupSpec
             The reduced dataset with only the row-ranges and files that failed processing, according to the input report.
     """
     failed_fileset = {}
-    for name, dataset in fileset.items():
-        failed_dataset = get_failed_steps_for_dataset(dataset, report_dict[name])
-        if len(failed_dataset["files"]) > 0:
-            failed_fileset[name] = failed_dataset
-    return failed_fileset
+    if isinstance(fileset, DataGroupSpec):
+        for name, dataset in fileset.items():
+            failed_dataset = get_failed_steps_for_dataset(dataset, report_dict[name])
+            if len(failed_dataset.files) > 0:
+                failed_fileset[name] = failed_dataset
+        return DataGroupSpec(failed_fileset)
+    else:
+        for name, dataset in fileset.items():
+            failed_dataset = get_failed_steps_for_dataset(dataset, report_dict[name])
+            if len(failed_dataset["files"]) > 0:
+                failed_fileset[name] = failed_dataset
+        return failed_fileset

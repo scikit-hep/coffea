@@ -7,7 +7,7 @@ name = "coffea"
 description = "Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis."
 readme = "README.rst"
 license = {text = "BSD-3-Clause"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
   { name = "Lindsey Gray", email = "lagray@fnal.gov" },
   { name = "Nick Smith", email = "ncsmith@fnal.gov" },
@@ -31,6 +31,11 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: Information Analysis",
   "Topic :: Scientific/Engineering :: Mathematics",
@@ -44,6 +49,7 @@ dependencies = [
   "dask[array]>=2024.3.0",
   "dask-awkward>=2025.9.0",
   "dask-histogram>=2025.2.0",
+  "loky>=3.5.6",
   "vector>=1.4.1,!=1.6.0",
   "correctionlib>=2.6.0",
   "pyarrow>=6.0.0",
@@ -58,10 +64,14 @@ dependencies = [
   "mplhep>=0.1.18",
   "packaging",
   "pandas",
+  "pydantic",
   "hist>=2",
   "cachetools",
   "requests",
   "aiohttp",
+  "fsspec",
+  "rich",
+  "ipywidgets",
 ]
 dynamic = ["version"]
 
@@ -73,11 +83,7 @@ Homepage = "https://github.com/coffeateam/coffea"
 dask = [
   "distributed>=2024.3.0",
   "bokeh!=3.0.*,>=2.4.2",
-]
-spark = [
-  "ipywidgets",
-  "pyspark>=3.3.0",
-  "jinja2",
+  "blosc2",
 ]
 parsl = [
   "parsl>=2024.12.09"
@@ -87,6 +93,9 @@ rucio = [
 ]
 xrootd = [
   "fsspec-xrootd>=0.5.1",
+]
+triton = [
+  "tritonclient[grpc,http]>=2.56.0",
 ]
 dev = [
   "pre-commit",
@@ -105,6 +114,8 @@ dev = [
   "pyinstrument",
   "ipython",
   "distributed>=2023.4.0",
+  "myst-nb",
+  "pydata-sphinx-theme",
 ]
 
 #[project.entry-points."dask.sizeof"]
@@ -121,7 +132,7 @@ addopts = [
   "-rfesxX",
   "-v",
 ]
-log_cli_level = "DEBUG"
+log_level = "INFO"
 filterwarnings = [
   "ignore:There is no current event loop",
 ]

@@ -43,38 +43,29 @@ class FCCSchema(BaseSchema):
     https://edm4hep.web.cern.ch/index.html
 
     FCCSchema inherits from the BaseSchema and returns all the collections as a base.Nanoevents record.
-    - Branches with vector components like
-            "ReconstructedParticles/ReconstructedParticles.referencePoint.x",
-            "ReconstructedParticles/ReconstructedParticles.referencePoint.y" and
-            "ReconstructedParticles/ReconstructedParticles.referencePoint.z",
-            are zipped together to form the "ReconstructedParticles/ReconstructedParticles.referencePoint" subcollection.
-            (see FCCSchema._create_subcollections)
-        This is done for all the branches except the momentum.[x,y,z] branches
-    - Branches like
-            "ReconstructedParticles/ReconstructedParticles.energy",
-            "ReconstructedParticles/ReconstructedParticles.charge",
-            "ReconstructedParticles/ReconstructedParticles.mass",
-            "ReconstructedParticles/ReconstructedParticles.referencePoint"(subcollection containing x,y,z),
-            ...
-            etc
-            are zipped together to form the "ReconstructedParticles" collection.
-            (see FCCSchema._main_collections)
-        The momentum.[x,y,z] branches along with the energy branch (if available) are used to provide the vector.LorentzVector behavior to the collection.
-    - Branches with ObjectIDs(indices to another collection) , example
-            "ReconstructedParticles#0/ReconstructedParticles#0.index"
-             and
-            "ReconstructedParticles#0/ReconstructedParticles#0.collectionID"
-            are zipped together to form the ""ReconstructedParticlesidx0" collection.
-            (see FCCSchema._idx_collections)
-    - Branches with a trailing underscore followed by an integer, example
-            "EFlowTrack_1/EFlowTrack_1.location",
-            "EFlowTrack_1/EFlowTrack_1.D0",
-            "EFlowTrack_1/EFlowTrack_1.phi",
-            ...
-            etc
-            are zipped together to form the "EFlowTrack_1" collection.
-            (see FCCSchema._trailing_underscore_collections)
-    - Other Unknown, empty, or faulty branches are dealt by FCCSchema._unknown_collections on a case by case basis
+
+    - Branches with vector components like "ReconstructedParticles/ReconstructedParticles.referencePoint.x",
+      "ReconstructedParticles/ReconstructedParticles.referencePoint.y" and
+      "ReconstructedParticles/ReconstructedParticles.referencePoint.z" are zipped together to form
+      the "ReconstructedParticles/ReconstructedParticles.referencePoint" subcollection
+      (see FCCSchema._create_subcollections). This is done for all the branches except the momentum.[x,y,z] branches.
+
+    - Branches like "ReconstructedParticles/ReconstructedParticles.energy",
+      "ReconstructedParticles/ReconstructedParticles.charge", "ReconstructedParticles/ReconstructedParticles.mass",
+      "ReconstructedParticles/ReconstructedParticles.referencePoint"(subcollection containing x,y,z), etc. are zipped
+      together to form the "ReconstructedParticles" collection (see FCCSchema._main_collections).
+      The momentum.[x,y,z] branches along with the energy branch (if available) are used to provide the
+      vector.LorentzVector behavior to the collection.
+
+    - Branches with ObjectIDs (indices to another collection), example "ReconstructedParticles#0/ReconstructedParticles#0.index"
+      and "ReconstructedParticles#0/ReconstructedParticles#0.collectionID" are zipped together to form
+      the "ReconstructedParticlesidx0" collection (see FCCSchema._idx_collections).
+
+    - Branches with a trailing underscore followed by an integer, example "EFlowTrack_1/EFlowTrack_1.location",
+      "EFlowTrack_1/EFlowTrack_1.D0", "EFlowTrack_1/EFlowTrack_1.phi", etc. are zipped together to form
+      the "EFlowTrack_1" collection (see FCCSchema._trailing_underscore_collections).
+
+    - Other Unknown, empty, or faulty branches are dealt by FCCSchema._unknown_collections on a case by case basis.
     """
 
     __dask_capable__ = True
@@ -677,21 +668,28 @@ class FCCSchema_edm4hep1(EDM4HEPSchema):
 
 
 class FCC:
-    """
-    Class to choose the required variant of FCCSchema
-    Example: from coffea.nanoevents import FCC
-             FCC.get_schema(version='latest')
-             latest --> FCCSchema_edm4hep1
-             pre-edm4hep1 --> FCCSchema
-             edm4hep1 --> FCCSchema_edm4hep1
+    """Class to choose the required variant of FCCSchema.
 
-    Note: FCCSchema --> This schema has been made keeping the Spring2021 pre-generated samples (pre-edm4hep1).
-          Its also tested with Winter2023 samples with the uproot_options={"filter_name": lambda x : "PARAMETERS" not in x}
-          parameter when loading the fileset. This removes the "PARAMETERS" branch that is unreadable in uproot afaik.
-          More Schema variants could be added later.
+    Example usage::
 
-          FCCSchema_edm4hep1 --> This schema supports FCC samples produced with edm4hep version >= 1. It inherits
-          from the EDM4HEPSchema and adds a few more functionality.
+        from coffea.nanoevents import FCC
+        FCC.get_schema(version='latest')
+
+    Available versions:
+
+    - "latest" -> FCCSchema_edm4hep1
+    - "pre-edm4hep1" -> FCCSchema
+    - "edm4hep1" -> FCCSchema_edm4hep1
+
+    Notes
+    -----
+    FCCSchema: This schema has been made keeping the Spring2021 pre-generated samples (pre-edm4hep1).
+    It's also tested with Winter2023 samples with the ``uproot_options={"filter_name": "/^(?!.*(PARAMETERS|_.*Map))/"}``
+    parameter when loading the fileset. This removes the "PARAMETERS" branch and all its subbranches which are unreadable by uproot.
+    More Schema variants could be added later.
+
+    FCCSchema_edm4hep1: This schema supports FCC samples produced with edm4hep version >= 1. It inherits
+    from the EDM4HEPSchema and adds a few more functionality.
     """
 
     def __init__(self, version="latest"):

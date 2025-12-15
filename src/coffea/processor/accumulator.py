@@ -3,7 +3,7 @@ import operator
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable, MutableMapping, MutableSet
-from typing import Optional, TypeVar, Union
+from typing import TypeVar, Union
 
 try:
     from typing import Protocol, runtime_checkable  # type: ignore
@@ -88,8 +88,8 @@ def iadd(a: Accumulatable, b: Accumulatable) -> Accumulatable:
 
 
 def accumulate(
-    items: Iterable[Optional[Accumulatable]], accum: Optional[Accumulatable] = None
-) -> Optional[Accumulatable]:
+    items: Iterable[Accumulatable | None], accum: Accumulatable | None = None
+) -> Accumulatable | None:
     gen = (x for x in items if x is not None)
     try:
         if accum is None:
@@ -259,8 +259,8 @@ class set_accumulator(set, AccumulatorABC):
 
         Note
         ----
-        This replaces `set.add` behavior, unfortunately.
-        A workaround is to use `set.update`, e.g. ``a.update({'val'})``
+        This replaces ``set.add`` behavior, unfortunately.
+        A workaround is to use ``set.update``, e.g. ``a.update({'val'})``
         """
         if isinstance(other, MutableSet):
             set.update(self, other)

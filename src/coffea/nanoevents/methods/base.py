@@ -2,14 +2,14 @@
 
 import re
 from abc import abstractmethod
+from collections.abc import Callable
 from functools import partial
-from typing import Any, Callable, Union
+from typing import Any
 
 import awkward
 import dask_awkward
 from dask_awkward import dask_method, dask_property
 
-import coffea
 from coffea.util import awkward_rewrap, rewrap_recordarray
 
 behavior = {}
@@ -19,7 +19,7 @@ def _add_systematic_wrapper(
     self,
     name: str,
     kind: str,
-    what: Union[str, list[str], tuple[str]],
+    what: str | list[str] | tuple[str],
     varying_function: Callable,
 ):
     self.add_systematic(name, kind, what, varying_function)
@@ -58,11 +58,11 @@ class Systematic:
         Register a type of systematic variation, which must fulfill the base class interface. Types of
         systematic variations must be registered here before an actual systematic of that type can be
         added. For example, by default an up/down systematic is registered, as described in
-        `coffea.nanoevents.methods.systematics.UpDownSystematic`.
+        ``coffea.nanoevents.methods.systematics.UpDownSystematic``.
 
         Parameters
         ----------
-            kind: str
+            kind : str
                 The name of the type of systematic described by this class
         """
         cls._systematic_kinds.add(kind)
@@ -106,16 +106,19 @@ class Systematic:
     def _build_variations(
         self,
         name: str,
-        what: Union[str, list[str], tuple[str]],
+        what: str | list[str] | tuple[str],
         varying_function: Callable,
     ):
         """
-        name: str, name of the systematic variation / uncertainty source
-        what: Union[str, List[str], Tuple[str]], name what gets varied,
-              this could be a list or tuple of column names
-        varying_function: Union[function, bound method, partial], a function that describes how 'what' is varied
-        define how to manipulate the output of varying_function to produce all systematic variations. Varying function
-        must close over all non-event-data arguments.
+        Parameters
+        ----------
+            name : str
+                Name of the systematic variation or uncertainty source.
+            what : str or list[str] or tuple[str]
+                Which fields are varied by this systematic.
+            varying_function : Callable
+                Callable that describes how ``what`` is varied. The function must close
+                over all non event-data arguments.
         """
         pass
 
@@ -139,7 +142,7 @@ class Systematic:
         self,
         name: str,
         kind: str,
-        what: Union[str, list[str], tuple[str]],
+        what: str | list[str] | tuple[str],
         varying_function: Callable,
     ):
         """
@@ -148,13 +151,13 @@ class Systematic:
 
         Parameters
         ----------
-            name: str
+            name : str
                 Name of the systematic variation / uncertainty source
-            kind: str
+            kind : str
                 The name of the kind of systematic variation
-            what: Union[str, List[str], Tuple[str]]
+            what : str or list[str, tuple[str]]
                 Name what gets varied, this could be a list or tuple of column names
-            varying_function: Union[function, bound method]
+            varying_function : Callable
                 A function that describes how 'what' is varied, it must close over all non-event-data arguments.
         """
 
@@ -171,11 +174,7 @@ class Systematic:
         wrap = partial(
             awkward_rewrap, like_what=self["__systematics__"], gfunc=rewrap_recordarray
         )
-        flat = (
-            self
-            if isinstance(self, coffea.nanoevents.methods.base.NanoEvents)
-            else awkward.flatten(self)
-        )
+        flat = self if self.ndim == 1 else awkward.flatten(self)
 
         if what == "weight" and "__ones__" not in awkward.fields(
             flat["__systematics__"]
@@ -220,7 +219,7 @@ class Systematic:
         dask_array,
         name: str,
         kind: str,
-        what: Union[str, list[str], tuple[str]],
+        what: str | list[str] | tuple[str],
         varying_function: Callable,
     ):
         dask_array._ensure_systematics()
