@@ -569,7 +569,6 @@ def test_inherited_method_transpose(lcoord, threecoord, twocoord):
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_dask_metric_table_and_nearest(optimization_enabled):
     import dask
-    from dask_awkward.lib.testutils import assert_eq
 
     from coffea.nanoevents import NanoEventsFactory
 
@@ -592,9 +591,9 @@ def test_dask_metric_table_and_nearest(optimization_enabled):
                 daskevents.TrigObj, return_combinations=True
             )
         )
-        assert_eq(mval_eager, mval_dask)
-        assert_eq(a_eager, a_dask)
-        assert_eq(b_eager, b_dask)
+        assert ak.array_equal(mval_eager, mval_dask)
+        assert ak.array_equal(a_eager, a_dask)
+        assert ak.array_equal(b_eager, b_dask)
 
         out_eager, metric_eager = eagerevents.Electron.nearest(
             eagerevents.TrigObj, return_metric=True
@@ -602,8 +601,8 @@ def test_dask_metric_table_and_nearest(optimization_enabled):
         out_dask, metric_dask = dask.compute(
             *daskevents.Electron.nearest(daskevents.TrigObj, return_metric=True)
         )
-        assert_eq(out_eager, out_dask)
-        assert_eq(metric_eager, metric_dask)
+        assert ak.array_equal(out_eager, out_dask)
+        assert ak.array_equal(metric_eager, metric_dask)
 
         out_eager_thresh, metric_eager_thresh = eagerevents.Electron.nearest(
             eagerevents.TrigObj, return_metric=True, threshold=0.4
@@ -613,14 +612,13 @@ def test_dask_metric_table_and_nearest(optimization_enabled):
                 daskevents.TrigObj, return_metric=True, threshold=0.4
             )
         )
-        assert_eq(out_eager_thresh, out_dask_thresh)
-        assert_eq(metric_eager_thresh, metric_dask_thresh)
+        assert ak.array_equal(out_eager_thresh, out_dask_thresh)
+        assert ak.array_equal(metric_eager_thresh, metric_dask_thresh)
 
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_photon_zero_mass_charge(optimization_enabled):
     import dask
-    from dask_awkward.lib.testutils import assert_eq
 
     from coffea.nanoevents import NanoEventsFactory
 
@@ -680,6 +678,8 @@ def test_photon_zero_mass_charge(optimization_enabled):
                 - np.cos(daskdiphotons.tag.phi - daskdiphotons.probe.phi)
             )
         )
-        assert_eq(eagerdiphotons.mass, eagermll)
-        assert_eq(daskdiphotons.mass, daskmll)
-        assert_eq(eagerdiphotons.mass, daskdiphotons.mass)
+        assert ak.almost_equal(eagerdiphotons["mass"], eagermll, check_parameters=False)
+        assert ak.almost_equal(
+            daskdiphotons["mass"].compute(), daskmll.compute(), check_parameters=False
+        )
+        assert ak.almost_equal(eagerdiphotons["mass"], daskdiphotons["mass"].compute())
