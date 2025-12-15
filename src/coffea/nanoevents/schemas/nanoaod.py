@@ -172,19 +172,16 @@ class NanoAODSchema(BaseSchema):
         "Jet_charge": (transforms.full_like_from_offsets_form, ("oJet", 0.0)),
         "FatJet_charge": (transforms.full_like_from_offsets_form, ("oFatJet", 0.0)),
         "TrigObj_mass": (transforms.full_like_from_offsets_form, ("oTrigObj", 0.0)),
-        "CorrT1METJet_mass": (
-            transforms.full_like_from_offsets_form,
-            ("oCorrT1METJet", 0.0),
-        ),
     }
     """Arrays that should be filled with constant values if not present to satisfy 4-vector requirements"""
     rename_items = {
-        "Electron_energy": "Electron_regrEnergy",
-        "Photon_energy": "Photon_regrEnergy",
+        "Electron_regrEnergy": "Electron_energy",
+        "Photon_regrEnergy": "Photon_energy",
     }
     """Arrays that should be renamed to ensure proper 4-vector behavior"""
     alias_items = {
         "CorrT1METJet_pt": "CorrT1METJet_rawPt",
+        "CorrT1METJet_mass": "CorrT1METJet_rawMass",
     }
     """Arrays that should be aliased to ensure proper 4-vector behavior"""
 
@@ -320,17 +317,32 @@ class NanoAODSchema(BaseSchema):
 
         # Create full-like arrays
         for name, (fcn, args) in self.full_like_items.items():
-            if name not in branch_forms and args[0] in branch_forms:
+            if args[0] in branch_forms:
+                if name in branch_forms:
+                    warnings.warn(
+                        f"Branch {name} already exists but will be replaced with zeros",
+                        RuntimeWarning,
+                    )
                 branch_forms[name] = fcn(branch_forms[args[0]], args[1])
 
         # Rename arrays
-        for old_name, new_name in self.rename_items.items():
+        for new_name, old_name in self.rename_items.items():
             if old_name in branch_forms:
+                if new_name in branch_forms:
+                    warnings.warn(
+                        f"Branch {new_name} already exists but will be replaced with {old_name}",
+                        RuntimeWarning,
+                    )
                 branch_forms[new_name] = branch_forms.pop(old_name)
 
         # Alias arrays
         for alias_name, original_name in self.alias_items.items():
             if original_name in branch_forms:
+                if alias_name in branch_forms:
+                    warnings.warn(
+                        f"Branch {alias_name} already exists but will be replaced with {original_name}",
+                        RuntimeWarning,
+                    )
                 branch_forms[alias_name] = branch_forms[original_name]
 
         output = {}
