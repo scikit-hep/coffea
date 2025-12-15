@@ -1551,8 +1551,6 @@ class Runner:
                 # save the output
                 checkpointer.save(out, metadata, processor_instance)
 
-            # avoid potential dangling references to file
-            del factory._mapping._file_handle
 
             return out
 
