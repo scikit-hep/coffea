@@ -210,3 +210,39 @@ def test_missing_eventIds_warning_dask(tests_directory):
             mode="dask",
         ).events()
         events.Muon.pt.compute()
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
+def test_access_log(tests_directory, mode):
+    """Test that access_log is available on the factory."""
+    path = f"{tests_directory}/samples/nano_dy.root:Events"
+
+    # Without passing access_log, it should be None
+    factory = NanoEventsFactory.from_root(
+        path,
+        schemaclass=NanoAODSchema,
+        mode=mode,
+    )
+    assert factory.access_log is None
+
+    # With access_log passed, it should be populated when columns are accessed
+    access_log = []
+    factory = NanoEventsFactory.from_root(
+        path,
+        schemaclass=NanoAODSchema,
+        mode=mode,
+        access_log=access_log,
+    )
+    events = factory.events()
+
+    assert factory.access_log is access_log
+    if mode == "eager":
+        assert len(factory.access_log) > 1500
+
+    elif mode == "virtual":
+        # In virtual mode, access_log starts empty until columns are accessed
+        assert len(factory.access_log) == 0
+        # Access a column to trigger lazy loading
+        _ = ak.materialize(events.Muon.pt)
+        branches = {entry.branch for entry in factory.access_log}
+        assert branches == {"nMuon", "Muon_pt"}
