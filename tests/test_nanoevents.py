@@ -236,14 +236,13 @@ def test_access_log(tests_directory, mode):
     events = factory.events()
 
     assert factory.access_log is access_log
+    if mode == "eager":
+        assert len(factory.access_log) > 1500
 
-    if mode == "virtual":
+    elif mode == "virtual":
         # In virtual mode, access_log starts empty until columns are accessed
-        assert len(access_log) == 0
+        assert len(factory.access_log) == 0
         # Access a column to trigger lazy loading
-        _ = events.Muon.pt
-
-    # In both modes, access_log should be populated after accessing data
-    assert len(access_log) > 0
-    branches = {entry.branch for entry in access_log}
-    assert "Muon_pt" in branches or "nMuon" in branches
+        _ = ak.materialize(events.Muon.pt)
+        branches = {entry.branch for entry in factory.access_log}
+        assert branches == {"nMuon", "Muon_pt"}
