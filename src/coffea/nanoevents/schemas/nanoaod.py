@@ -75,6 +75,7 @@ class NanoAODSchema(BaseSchema):
         "LHEPart": "PtEtaPhiMCollection",
         "SubGenJetAK8": "PtEtaPhiMCollection",
         "SubJet": "PtEtaPhiMCollection",
+        "CorrT1METJet": "PtEtaPhiMCollection",
         # Candidate: lorentz + charge
         "Electron": "Electron",
         "LowPtElectron": "LowPtElectron",
@@ -332,6 +333,26 @@ class NanoAODSchema(BaseSchema):
         for alias_name, original_name in self.alias_items.items():
             if original_name in branch_forms:
                 branch_forms[alias_name] = branch_forms[original_name]
+
+        # Alias CorrT1METJet_rawPt to CorrT1METJet_pt and CorrT1METJet_rawMass to CorrT1METJet_mass
+        if "oCorrT1METJet" in branch_forms:
+            if "CorrT1METJet_pt" not in branch_forms:
+                branch_forms["CorrT1METJet_pt"] = branch_forms["CorrT1METJet_rawPt"]
+            if (
+                "CorrT1METJet_mass" not in branch_forms
+                and "CorrT1METJet_rawMass" in branch_forms
+            ):
+                branch_forms["CorrT1METJet_mass"] = branch_forms["CorrT1METJet_rawMass"]
+
+        # Add zero mass to the trigger objects
+        if "oTrigObj" in branch_forms:
+            if "TrigObj_mass" in branch_forms:
+                warnings.warn(
+                    "TrigObj_mass branch is present but will be replaced with zeros"
+                )
+            branch_forms["TrigObj_mass"] = transforms.zeros_from_offsets_form(
+                branch_forms["oTrigObj"]
+            )
 
         output = {}
         for name in collections:
