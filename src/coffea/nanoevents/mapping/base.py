@@ -34,6 +34,7 @@ class BaseSourceMapping(Mapping):
         stop,
         cache=None,
         access_log=None,
+        file_handle=None,
         use_ak_forth=False,
         virtual=False,
         buffer_cache=None,
@@ -41,6 +42,7 @@ class BaseSourceMapping(Mapping):
         self._fileopener = fileopener
         self._cache = cache
         self._access_log = access_log
+        self._file_handle = file_handle
         self._start = start
         self._stop = stop
         self._use_ak_forth = use_ak_forth

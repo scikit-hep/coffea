@@ -2,6 +2,7 @@ from pathlib import Path
 
 import awkward as ak
 import pytest
+import uproot
 from distributed import Client
 
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
@@ -246,3 +247,47 @@ def test_access_log(tests_directory, mode):
         _ = ak.materialize(events.Muon.pt)
         branches = {entry.branch for entry in factory.access_log}
         assert branches == {"nMuon", "Muon_pt"}
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
+def test_file_handle_from_path(tests_directory, mode):
+    """Test that file_handle is available when opening from path string."""
+    path = f"{tests_directory}/samples/nano_dy.root:Events"
+
+    factory = NanoEventsFactory.from_root(
+        path,
+        schemaclass=NanoAODSchema,
+        mode=mode,
+    )
+
+    # file_handle should be ReadOnlyFile when opened from path
+    assert factory.file_handle is not None
+    assert isinstance(factory.file_handle, uproot.reading.ReadOnlyFile)
+
+    _ = factory.events()
+
+    # file_handle still accessible after events() call
+    assert factory.file_handle is not None
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
+def test_file_handle_from_directory(tests_directory, mode):
+    """Test that file_handle is available when passing ReadOnlyDirectory."""
+    filepath = f"{tests_directory}/samples/nano_dy.root"
+
+    with uproot.open(filepath) as file:
+        factory = NanoEventsFactory.from_root(
+            file,
+            treepath="Events",
+            schemaclass=NanoAODSchema,
+            mode=mode,
+        )
+
+        # file_handle should be ReadOnlyDirectory when passed directly
+        assert factory.file_handle is not None
+        assert isinstance(factory.file_handle, uproot.ReadOnlyDirectory)
+
+        _ = factory.events()
+
+        # file_handle still accessible after events() call
+        assert factory.file_handle is not None

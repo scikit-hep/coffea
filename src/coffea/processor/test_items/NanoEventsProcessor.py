@@ -58,8 +58,8 @@ class NanoEventsProcessor(processor.ProcessorABC):
             assert metavalue == events.metadata[metaname]
 
         if self.check_filehandle:
-            assert "filehandle" in events.metadata
-            assert events.metadata["filehandle"] is not None
+            factory = events.attrs["@events_factory"]
+            assert factory.file_handle is not None
 
         # mapping = events.behavior["__events_factory__"]._mapping
         muon_pt = events.Muon.pt
