@@ -320,7 +320,7 @@ class NanoAODSchema(BaseSchema):
             if args[0] in branch_forms:
                 if name in branch_forms:
                     warnings.warn(
-                        f"Branch {name} already exists but will be replaced with zeros",
+                        f"Branch {name} already exists but its values will be replaced with {args[1]}",
                         RuntimeWarning,
                     )
                 branch_forms[name] = fcn(branch_forms[args[0]], args[1])
@@ -330,7 +330,7 @@ class NanoAODSchema(BaseSchema):
             if old_name in branch_forms:
                 if new_name in branch_forms:
                     warnings.warn(
-                        f"Branch {new_name} already exists but will be replaced with {old_name}",
+                        f"Branch {new_name} already exists but it will be replaced with {old_name}",
                         RuntimeWarning,
                     )
                 branch_forms[new_name] = branch_forms.pop(old_name)
@@ -340,7 +340,7 @@ class NanoAODSchema(BaseSchema):
             if original_name in branch_forms:
                 if alias_name in branch_forms:
                     warnings.warn(
-                        f"Branch {alias_name} already exists but will be replaced with {original_name}",
+                        f"Branch {alias_name} already exists but it will be replaced with {original_name}",
                         RuntimeWarning,
                     )
                 branch_forms[alias_name] = branch_forms[original_name]
