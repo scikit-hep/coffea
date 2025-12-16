@@ -1570,6 +1570,7 @@ class Runner:
                     )
                 # save the output
                 checkpointer.save(out, metadata, processor_instance)
+
             return out
 
     def __call__(

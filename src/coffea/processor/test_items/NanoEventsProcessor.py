@@ -6,10 +6,11 @@ from coffea import processor
 
 
 class NanoEventsProcessor(processor.ProcessorABC):
-    def __init__(self, columns=[], canaries=[], mode="dask"):
+    def __init__(self, columns=[], canaries=[], mode="dask", check_filehandle=False):
         self._columns = columns
         self._canaries = canaries
         self.mode = mode
+        self.check_filehandle = check_filehandle
 
         self.expected_usermeta = {
             "ZJets": ("someusermeta", "hello"),
@@ -55,6 +56,10 @@ class NanoEventsProcessor(processor.ProcessorABC):
         if "checkusermeta" in events.metadata:
             metaname, metavalue = self.expected_usermeta[dataset]
             assert metavalue == events.metadata[metaname]
+
+        if self.check_filehandle:
+            factory = events.attrs["@events_factory"]
+            assert factory.file_handle is not None
 
         # mapping = events.behavior["__events_factory__"]._mapping
         muon_pt = events.Muon.pt
