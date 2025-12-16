@@ -221,7 +221,7 @@ class NanoEventsFactory:
     the constructor args are properly set.
     """
 
-    def __init__(self, schema, mapping, partition_key, mode, buffer_cache):
+    def __init__(self, schema, mapping, partition_key, mode="eager"):
         if mode not in _allowed_modes:
             raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
         self._mode = mode
@@ -229,7 +229,6 @@ class NanoEventsFactory:
         self._mapping = mapping
         self._partition_key = partition_key
         self._events = lambda: None
-        self._buffer_cache = buffer_cache
 
     def __getstate__(self):
         return {
@@ -747,7 +746,6 @@ class NanoEventsFactory:
             mapping,
             tuple_to_key(partition_key),
             mode=mode,
-            buffer_cache=buffer_cache,
         )
 
     def __len__(self):
@@ -764,6 +762,11 @@ class NanoEventsFactory:
     def file_handle(self):
         """The file handle used to open the source file, if available."""
         return getattr(self._mapping, "_file_handle", None)
+
+    @property
+    def buffer_cache(self):
+        """The buffer cache used to store loaded buffers, if available."""
+        return getattr(self._mapping, "_buffer_cache", None)
 
     def events(self):
         """
@@ -802,7 +805,7 @@ class NanoEventsFactory:
                 allow_noncanonical_form=False,
                 enable_virtualarray_caching=(
                     True
-                    if self._buffer_cache is None
+                    if self.buffer_cache is None
                     else lambda form_key, attribute: attribute != "data"
                 ),
                 highlevel=True,

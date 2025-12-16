@@ -53,8 +53,6 @@ class BaseSourceMapping(Mapping):
     def setup(self):
         if self._cache is None:
             self._cache = LRUCache(1)
-        if self._buffer_cache is None:
-            self._buffer_cache = LRUCache(1)
 
     @classmethod
     @abstractmethod
@@ -97,7 +95,7 @@ class BaseSourceMapping(Mapping):
 
     def __getitem__(self, key):
         def _getitem(key):
-            if key in self._buffer_cache:
+            if self._buffer_cache is not None and key in self._buffer_cache:
                 return self._buffer_cache[key]
             uuid, treepath, start, stop, partition, nodes = self.interpret_key(key)
             if self._debug:
@@ -165,7 +163,8 @@ class BaseSourceMapping(Mapping):
                     raise RuntimeError(
                         f"Left with non-bare array after evaluating form key {nodes}"
                     )
-            self._buffer_cache[key] = out
+            if self._buffer_cache is not None:
+                self._buffer_cache[key] = out
             return out
 
         if self._virtual:
