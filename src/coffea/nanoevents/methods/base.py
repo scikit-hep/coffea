@@ -247,7 +247,7 @@ class Systematic:
 behavior[("__typestr__", "Systematic")] = "Systematic"
 
 # initialize all systematic variation types
-from coffea.nanoevents.methods import systematics #  noqa: E402
+from coffea.nanoevents.methods import systematics  # noqa: E402
 
 for kind in systematics.__all__:
     Systematic.add_kind(kind)
