@@ -74,6 +74,7 @@ class NanoAODSchema(BaseSchema):
         "LHEPart": "PtEtaPhiMCollection",
         "SubGenJetAK8": "PtEtaPhiMCollection",
         "SubJet": "PtEtaPhiMCollection",
+        "CorrT1METJet": "PtEtaPhiMCollection",
         # Candidate: lorentz + charge
         "Electron": "Electron",
         "LowPtElectron": "LowPtElectron",
@@ -165,6 +166,24 @@ class NanoAODSchema(BaseSchema):
         ),
     }
     """Special arrays, where the callable and input arrays are specified in the value"""
+    full_like_items = {
+        "Photon_mass": (transforms.full_like_from_offsets_form, ("oPhoton", 0.0)),
+        "Photon_charge": (transforms.full_like_from_offsets_form, ("oPhoton", 0.0)),
+        "Jet_charge": (transforms.full_like_from_offsets_form, ("oJet", 0.0)),
+        "FatJet_charge": (transforms.full_like_from_offsets_form, ("oFatJet", 0.0)),
+        "TrigObj_mass": (transforms.full_like_from_offsets_form, ("oTrigObj", 0.0)),
+    }
+    """Arrays that should be filled with constant values if not present to satisfy 4-vector requirements"""
+    rename_items = {
+        "Electron_regrEnergy": "Electron_energy",
+        "Photon_regrEnergy": "Photon_energy",
+    }
+    """Arrays that should be renamed to ensure proper 4-vector behavior"""
+    alias_items = {
+        "CorrT1METJet_pt": "CorrT1METJet_rawPt",
+        "CorrT1METJet_mass": "CorrT1METJet_rawMass",
+    }
+    """Arrays that should be aliased to ensure proper 4-vector behavior"""
 
     def __init__(self, base_form, version="latest"):
         super().__init__(base_form)
@@ -296,23 +315,35 @@ class NanoAODSchema(BaseSchema):
             if all(k in branch_forms for k in args):
                 branch_forms[name] = fcn(*(branch_forms[k] for k in args))
 
-        # Add mass and charge fields for Photon collection (always zero for photons)
-        if "oPhoton" in branch_forms:
-            if "Photon_mass" not in branch_forms:
-                branch_forms["Photon_mass"] = transforms.zeros_from_offsets_form(
-                    branch_forms["oPhoton"]
-                )
-            if "Photon_charge" not in branch_forms:
-                branch_forms["Photon_charge"] = transforms.zeros_from_offsets_form(
-                    branch_forms["oPhoton"]
-                )
+        # Create full-like arrays
+        for name, (fcn, args) in self.full_like_items.items():
+            if args[0] in branch_forms:
+                if name in branch_forms:
+                    warnings.warn(
+                        f"Branch {name} already exists but its values will be replaced with {args[1]}",
+                        RuntimeWarning,
+                    )
+                branch_forms[name] = fcn(branch_forms[args[0]], args[1])
 
-        # Rename Electron/Photon_energy to Electron/Photon_regrEnergy to avoid conflict with mixin
-        # Present in EGamma NanoAOD flavor
-        if "Electron_energy" in branch_forms:
-            branch_forms["Electron_regrEnergy"] = branch_forms.pop("Electron_energy")
-        if "Photon_energy" in branch_forms:
-            branch_forms["Photon_regrEnergy"] = branch_forms.pop("Photon_energy")
+        # Rename arrays
+        for new_name, old_name in self.rename_items.items():
+            if old_name in branch_forms:
+                if new_name in branch_forms:
+                    warnings.warn(
+                        f"Branch {new_name} already exists but it will be replaced with {old_name}",
+                        RuntimeWarning,
+                    )
+                branch_forms[new_name] = branch_forms.pop(old_name)
+
+        # Alias arrays
+        for alias_name, original_name in self.alias_items.items():
+            if original_name in branch_forms:
+                if alias_name in branch_forms:
+                    warnings.warn(
+                        f"Branch {alias_name} already exists but it will be replaced with {original_name}",
+                        RuntimeWarning,
+                    )
+                branch_forms[alias_name] = branch_forms[original_name]
 
         output = {}
         for name in collections:

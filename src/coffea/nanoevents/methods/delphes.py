@@ -4,7 +4,6 @@ See https://cp3.irmp.ucl.ac.be/projects/delphes/wiki/WorkBook/RootTreeDescriptio
 """
 
 import awkward
-import numpy
 
 from coffea.nanoevents.methods import base, candidate, vector
 
@@ -86,26 +85,27 @@ class ScalarHT(base.NanoCollection): ...
 _set_repr_name("ScalarHT")
 
 
+behavior.update(
+    awkward._util.copy_behaviors("SphericalThreeVector", "MissingET", behavior)
+)
+
+
 @awkward.mixin_class(behavior)
-class MissingET(vector.SphericalThreeVector, base.NanoCollection):
-    @property
-    def rho(self):
-        return self["MET"] * numpy.cosh(self.eta)
-
-    @property
-    def theta(self):
-        return 2 * numpy.arctan(numpy.exp(-self.eta))
-
-    @property
-    def phi(self):
-        return self["Phi"]
-
-    @property
-    def eta(self):
-        return self["Eta"]
+class MissingET(vector.SphericalThreeVector, base.NanoCollection): ...
 
 
 _set_repr_name("MissingET")
+
+
+MissingETArray.ProjectionClass2D = vector.PolarTwoVectorArray  # noqa: F821
+MissingETArray.ProjectionClass3D = MissingETArray  # noqa: F821
+MissingETArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
+MissingETArray.MomentumClass = MissingETArray  # noqa: F821
+MissingETRecord.ProjectionClass2D = vector.PolarTwoVectorRecord  # noqa: F821
+MissingETRecord.ProjectionClass3D = MissingETRecord  # noqa: F821
+MissingETRecord.ProjectionClass4D = vector.LorentzVectorRecord  # noqa: F821
+MissingETRecord.MomentumClass = MissingETRecord  # noqa: F821
+
 
 behavior.update(awkward._util.copy_behaviors("LorentzVector", "Vertex", behavior))
 
@@ -113,22 +113,6 @@ behavior.update(awkward._util.copy_behaviors("LorentzVector", "Vertex", behavior
 @awkward.mixin_class(behavior)
 class Vertex(vector.LorentzVector):
     """Generic vertex collection that has Lorentz vector properties"""
-
-    @property
-    def t(self):
-        return self["T"]
-
-    @property
-    def x(self):
-        return self["X"]
-
-    @property
-    def y(self):
-        return self["Y"]
-
-    @property
-    def z(self):
-        return self["Z"]
 
 
 _set_repr_name("Vertex")
@@ -167,22 +151,6 @@ class Particle(vector.PtEtaPhiMLorentzVector):
      - Z: particle vertex position (z component)
     """
 
-    @property
-    def pt(self):
-        return self["PT"]
-
-    @property
-    def eta(self):
-        return self["Eta"]
-
-    @property
-    def phi(self):
-        return self["Phi"]
-
-    @property
-    def mass(self):
-        return self["Mass"]
-
 
 _set_repr_name("Particle")
 
@@ -199,10 +167,7 @@ behavior.update(awkward._util.copy_behaviors("Particle", "MasslessParticle", beh
 
 
 @awkward.mixin_class(behavior)
-class MasslessParticle(Particle, base.NanoCollection):
-    @property
-    def mass(self):
-        return awkward.zeros_like(self.pt)
+class MasslessParticle(Particle, base.NanoCollection): ...
 
 
 _set_repr_name("MasslessParticle")
@@ -310,10 +275,7 @@ behavior.update(awkward._util.copy_behaviors("MasslessParticle", "Tower", behavi
 
 
 @awkward.mixin_class(behavior)
-class Tower(MasslessParticle, base.NanoCollection):
-    @property
-    def pt(self):
-        return self["ET"]
+class Tower(MasslessParticle, base.NanoCollection): ...
 
 
 _set_repr_name("Tower")

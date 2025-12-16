@@ -23,9 +23,11 @@ def test_nanoevents_analysis(
     executor, compression, maxchunks, skipbadfiles, filetype, mode, processor_type
 ):
     if processor_type == "Callable":
-        processor_instance = NanoEventsProcessor(mode=mode)
+        processor_instance = NanoEventsProcessor(mode=mode, check_filehandle=True)
     else:
-        processor_instance = NanoEventsProcessor(mode=mode).process
+        processor_instance = NanoEventsProcessor(
+            mode=mode, check_filehandle=True
+        ).process
 
     if filetype == "parquet":
         pytest.xfail("parquet nanoevents not supported yet")
