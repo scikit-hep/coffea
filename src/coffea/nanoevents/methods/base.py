@@ -10,8 +10,6 @@ import awkward
 import dask_awkward
 from dask_awkward import dask_method, dask_property
 
-# initialize all systematic variation types
-from coffea.nanoevents.methods import systematics
 from coffea.util import awkward_rewrap, rewrap_recordarray
 
 behavior = {}
@@ -247,6 +245,9 @@ class Systematic:
 
 
 behavior[("__typestr__", "Systematic")] = "Systematic"
+
+# initialize all systematic variation types
+from coffea.nanoevents.methods import systematics
 
 for kind in systematics.__all__:
     Systematic.add_kind(kind)
