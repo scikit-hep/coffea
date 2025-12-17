@@ -2,13 +2,13 @@ import warnings
 
 import numpy
 
+from .helper import nonserializable_attribute, numpy_call_wrapper
+
 _tf_import_error = None
 try:
     import tensorflow
 except (ImportError, ModuleNotFoundError) as err:
     _tf_import_error = err
-
-from .helper import nonserializable_attribute, numpy_call_wrapper
 
 
 class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):

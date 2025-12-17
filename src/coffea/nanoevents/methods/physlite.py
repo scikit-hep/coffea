@@ -150,10 +150,6 @@ behavior.update(
 class Particle(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
     """Generic particle collection that has Lorentz vector properties"""
 
-    @property
-    def mass(self):
-        return self.m
-
 
 _set_repr_name("Particle")
 
@@ -176,34 +172,6 @@ class TrackParticle(vector.LorentzVector, base.NanoCollection):
     """Collection of track particles, following `xAOD::TrackParticle_v1
     <https://gitlab.cern.ch/atlas/athena/-/blob/21.2/Event/xAOD/xAODTracking/Root/TrackParticle_v1.cxx#L82>`_.
     """
-
-    @property
-    def theta(self):
-        return self["theta"]
-
-    @property
-    def phi(self):
-        return self["phi"]
-
-    @property
-    def p(self):
-        return 1.0 / numpy.abs(self.qOverP)
-
-    @property
-    def x(self):
-        return self.p * numpy.sin(self.theta) * numpy.cos(self.phi)
-
-    @property
-    def y(self):
-        return self.p * numpy.sin(self.theta) * numpy.sin(self.phi)
-
-    @property
-    def z(self):
-        return self.p * numpy.cos(self.theta)
-
-    @property
-    def t(self):
-        return numpy.sqrt(139.570**2 + self.x**2 + self.y**2 + self.z**2)
 
 
 _set_repr_name("TrackParticle")
@@ -327,26 +295,6 @@ class TruthParticle(vector.LorentzVector, base.NanoCollection):
     """Truth particle collection, following `xAOD::TruthParticle_v1
     <https://gitlab.cern.ch/atlas/athena/-/blob/21.2/Event/xAOD/xAODTruth/Root/TruthParticle_v1.cxx>`_.
     """
-
-    @property
-    def x(self):
-        return self["px"]
-
-    @property
-    def y(self):
-        return self["py"]
-
-    @property
-    def z(self):
-        return self["pz"]
-
-    @property
-    def t(self):
-        return self["e"]
-
-    @property
-    def mass(self):
-        return self["m"]
 
     @property
     def children(self):

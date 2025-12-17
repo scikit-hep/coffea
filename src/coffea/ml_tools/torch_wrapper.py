@@ -2,13 +2,13 @@ import warnings
 
 import numpy
 
+from .helper import nonserializable_attribute, numpy_call_wrapper
+
 _torch_import_error = None
 try:
     import torch
 except (ImportError, ModuleNotFoundError) as err:
     _torch_import_error = err
-
-from .helper import nonserializable_attribute, numpy_call_wrapper
 
 
 class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
