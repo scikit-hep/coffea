@@ -301,7 +301,7 @@ def hierarchical_cache(
     >>> from numcodecs import Blosc
     >>> inmemory = BufferCache()
     >>> inmemory_compressed = CompressedBufferCache(codec=Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE))
-    >>> ondisk = HDF5BufferCache(group=h5py.File("mycache.h5", "w"))
+    >>> ondisk = HDF5BufferCache(file_handle=open("mycache.h5", "wb+"))
     >>> cache = hierarchical_cache([
         (100_000_000, inmemory), # 100 MB
         (1_000_000_000, inmemory_compressed), # 1 GB
