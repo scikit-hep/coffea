@@ -229,6 +229,7 @@ class HDF5BufferCache(MutableMapping):
             create_dataset_opts = {}
         self._create_dataset_opts = create_dataset_opts
 
+        # Zig-like `defer`, handles file obj and h5py group closing before GC
         finalize(self, finalize_callback, self._file_handle, self._group)
 
     @property
