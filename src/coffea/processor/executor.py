@@ -132,6 +132,16 @@ class FileMeta:
                     chunks.append(c)
             if self.metadata["clusters"][-1] != chunks[-1]:
                 chunks.append(self.metadata["clusters"][-1])
+            if chunks == [0]:
+                yield WorkItem(
+                    self.dataset,
+                    self.filename,
+                    self.treename,
+                    0,
+                    0,
+                    self.metadata["uuid"],
+                    user_meta,
+                )
             for start, stop in zip(chunks[:-1], chunks[1:]):
                 yield WorkItem(
                     self.dataset,
@@ -147,6 +157,16 @@ class FileMeta:
             numentries = self.metadata["numentries"]
             update = True
             start = 0
+            if numentries == 0:
+                yield WorkItem(
+                    self.dataset,
+                    self.filename,
+                    self.treename,
+                    0,
+                    0,
+                    self.metadata["uuid"],
+                    user_meta,
+                )
             while start < numentries:
                 if update:
                     n = max(round((numentries - start) / target_chunksize), 1)
