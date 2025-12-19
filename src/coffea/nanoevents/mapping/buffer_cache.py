@@ -97,7 +97,7 @@ CompressedCache: tp.TypeAlias = dict[tp.Hashable, ByteBuffer]
 ShapeDTypeStructCache: tp.TypeAlias = dict[tp.Hashable, ShapeDTypeStruct]
 
 
-class CompressedBufferCache(MutableMapping):
+class CompressedBufferCache(NbytesAwareCache):
     """
     An in-memory compressed buffer cache. Supports all numcodecs.abc.Codec types.
 
@@ -192,7 +192,7 @@ def _gracefully_close(
         os.remove(os.path.abspath(file_handle.name))
 
 
-class HDF5BufferCache(MutableMapping):
+class HDF5BufferCache(NbytesAwareCache):
     """
     An file-backed hdf5 buffer cache. HDF5BufferCache will gracefully close
     provided file handles automatically through the ``finalize_callback``.
