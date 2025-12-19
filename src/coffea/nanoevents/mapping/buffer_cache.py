@@ -286,6 +286,33 @@ class HDF5BufferCache(MutableMapping):
 # - add blosc2 treestore cache (https://www.blosc.org/python-blosc2/reference/tree_store.html#blosc2.TreeStore)
 
 
+def lru_cache(
+    capacity: int,
+    *,
+    cache: NbytesAwareCache | None = None,
+) -> MutableMapping:
+    """
+    Wraps a given ``NbytesAwareCache`` into an LRU cache with a ``capacity`` (given in bytes).
+    If no ``cache`` is provided, a default ``BufferCache`` is used.
+
+    Example
+    -------
+    >>> lru_500MB = lru_cache(capacity=500_000_000) # 500 MB
+    >>> NanoEventsFactory.from_root(..., buffer_cache=lru_500MB),
+    """
+    import zict
+
+    if cache is None:
+        cache = BufferCache()
+
+    if not isinstance(cache, NbytesAwareCache):
+        raise TypeError(
+            f"cache must be an instance of NbytesAwareCache, got {type(cache)}"
+        )
+
+    return zict.LRU(n=int(capacity), d=cache, weight=cache.get_nbytes)
+
+
 def hierarchical_cache(
     layers: tp.Iterable[tuple[int, NbytesAwareCache]],
 ) -> MutableMapping:
