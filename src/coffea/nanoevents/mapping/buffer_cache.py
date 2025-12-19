@@ -203,7 +203,7 @@ class HDF5BufferCache(NbytesAwareCache):
     >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
     """
 
-    __slots__ = ("_group", "_file_handle", "_create_dataset_opts", "__weakref__")
+    __slots__ = ("_group", "_file_handle", "_create_dataset_opts")
 
     def __init__(
         self,
@@ -269,7 +269,7 @@ class HDF5BufferCache(NbytesAwareCache):
         return iter(self.group)
 
     def __len__(self) -> int:
-        return self.group.get_num_objs()
+        return self.group.id.get_num_objs()
 
     # overwrite .items() because zict.Buffer.weight loops over `.items()` to infer nbytes, see:
     # https://github.com/dask/zict/blob/main/zict/lru.py#L108
