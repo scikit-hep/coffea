@@ -274,7 +274,7 @@ class HDF5BufferCache(NbytesAwareCache):
     # https://github.com/dask/zict/blob/main/zict/lru.py#L108
     # the default implementation would decompress/load the array,
     # but we can access nbytes from metadata here
-    def items(self) -> tp.ItemsView[tp.Hashable, HDF5Dataset]:
+    def items(self) -> ItemsView[tp.Hashable, HDF5Dataset]:
         # avoid loading & decompressing the array
         return self.group.items()
 
