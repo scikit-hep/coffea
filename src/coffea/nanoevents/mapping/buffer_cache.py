@@ -3,7 +3,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 import typing as tp
-from collections.abc import MutableMapping
+from collections.abc import ItemsView, MutableMapping
 from io import BytesIO
 from weakref import finalize
 
@@ -63,8 +63,8 @@ class BufferCache(NbytesAwareCache):
 @dataclasses.dataclass(slots=True, frozen=True)
 class ShapeDTypeStruct:
     dtype: np.dtype
-    shape: tuple[int]
-    strides: tuple[int]
+    shape: tuple[int, ...]
+    strides: tuple[int, ...]
 
 
 ByteBuffer: tp.TypeAlias = bytes
@@ -112,7 +112,7 @@ class CompressedBufferCache(NbytesAwareCache):
     __slots__ = ("_codec", "_cache", "_meta")
 
     def __init__(self, codec: tp.Any) -> None:
-        import numcodecs
+        import numcodecs  # ty:ignore[unresolved-import]
 
         # auto-wrap for numcodecs.abc.Codec
         if isinstance(codec, numcodecs.abc.Codec):
@@ -159,7 +159,7 @@ class CompressedBufferCache(NbytesAwareCache):
         del self.cache[key]
         del self.meta[key]
 
-    def __iter__(self) -> tp.Iterable:
+    def __iter__(self) -> tp.Iterator[tp.Hashable]:
         return iter(self.cache)
 
     def __len__(self) -> int:
@@ -169,10 +169,9 @@ class CompressedBufferCache(NbytesAwareCache):
     # https://github.com/dask/zict/blob/main/zict/lru.py#L108
     # the default implementation would decompress/load the array,
     # but we can access nbytes from metadata here
-    def items(self) -> tp.Iterator[tuple[tp.Hashable, ByteBuffer]]:
-        for k in self.cache:
-            # avoid decompressing the array
-            yield (k, self.cache[k])
+    def items(self) -> ItemsView[tp.Hashable, ByteBuffer]:
+        # avoid decompressing the array
+        return self.cache.items()
 
 
 HDF5Group: tp.TypeAlias = tp.Any
@@ -265,7 +264,7 @@ class HDF5BufferCache(NbytesAwareCache):
     def __delitem__(self, key: tp.Hashable):
         del self.group[key]
 
-    def __iter__(self) -> tp.Iterable:
+    def __iter__(self) -> tp.Iterator[tp.Hashable]:
         return iter(self.group)
 
     def __len__(self) -> int:
@@ -275,10 +274,9 @@ class HDF5BufferCache(NbytesAwareCache):
     # https://github.com/dask/zict/blob/main/zict/lru.py#L108
     # the default implementation would decompress/load the array,
     # but we can access nbytes from metadata here
-    def items(self) -> tp.Iterator[tuple[tp.Hashable, HDF5Dataset]]:
-        for k in self.cache:
-            # avoid loading & decompressing the array
-            yield (k, self.group[k])
+    def items(self) -> tp.ItemsView[tp.Hashable, HDF5Dataset]:
+        # avoid loading & decompressing the array
+        return self.group.items()
 
 
 # Optionally TODO (pfackeldey: I don't think they bring anything beneficial on top of the hdf5 buffer cache?):
