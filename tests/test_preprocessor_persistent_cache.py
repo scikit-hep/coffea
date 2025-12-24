@@ -10,18 +10,16 @@ Tests focus on:
 """
 
 import pickle
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch, mock_open
+from unittest.mock import Mock, patch
 
-import pytest
 from cachetools import LRUCache
 
 from coffea.processor.executor import (
-    Runner, 
-    FileMeta, 
-    IterativeExecutor, 
+    DEFAULT_METADATA_CACHE,
+    FileMeta,
+    IterativeExecutor,
+    Runner,
     set_accumulator,
-    DEFAULT_METADATA_CACHE
 )
 
 # ============================================================================
@@ -172,7 +170,10 @@ def test_cache_save_failure_open_error(tmp_path, monkeypatch, capsys):
     with patch.object(Runner, "_preprocess_fileset_root"):
         runner = Runner(executor=IterativeExecutor())
 
-    runner.metadata_cache[FileMeta("ds", "f.root", "Events")] = {"numentries": 100, "uuid": b"uuid"}
+    runner.metadata_cache[FileMeta("ds", "f.root", "Events")] = {
+        "numentries": 100,
+        "uuid": b"uuid",
+    }
 
     # Act: Mock open to raise error
     with patch("builtins.open", side_effect=OSError("Disk full")):
@@ -193,7 +194,10 @@ def test_cache_save_failure_pickle_error(tmp_path, monkeypatch, capsys):
     with patch.object(Runner, "_preprocess_fileset_root"):
         runner = Runner(executor=IterativeExecutor())
 
-    runner.metadata_cache[FileMeta("ds", "f.root", "Events")] = {"numentries": 100, "uuid": b"uuid"}
+    runner.metadata_cache[FileMeta("ds", "f.root", "Events")] = {
+        "numentries": 100,
+        "uuid": b"uuid",
+    }
 
     # Act: Mock pickle.dump to fail
     with patch("pickle.dump", side_effect=pickle.PicklingError("Cannot pickle")):
@@ -435,9 +439,7 @@ def test_cache_update_triggers_save(tmp_path, monkeypatch):
     runner.pre_executor = mock_pre_executor
 
     # Act
-    runner._preprocess_fileset_root(
-        list(runner._normalize_fileset(fileset, "Events"))
-    )
+    runner._preprocess_fileset_root(list(runner._normalize_fileset(fileset, "Events")))
 
     # Assert: Cache file was created
     assert cache_file.exists()
@@ -529,12 +531,12 @@ def test_cache_save_unpicklable_content(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(Runner, "cache_file", cache_file)
 
     runner = Runner(executor=IterativeExecutor(), metadata_cache={})
-    
+
     # Add a lambda (unpicklable by standard pickle)
     runner.metadata_cache[FileMeta("ds", "f.root", "T")] = {"func": lambda x: x}
 
     runner._save_cache()
-    
+
     captured = capsys.readouterr()
     assert "Could not save cache file" in captured.out
     # Cache file should not exist or be incomplete
@@ -546,45 +548,52 @@ def test_default_cache_fallback(tmp_path, monkeypatch):
     # Point to non-existent path
     cache_file = tmp_path / "nonexistent" / ".coffea_metadata_cache.pkl"
     monkeypatch.setattr(Runner, "cache_file", cache_file)
-    
+
     with patch.object(Runner, "_preprocess_fileset_root"):
         runner = Runner(executor=IterativeExecutor(), metadata_cache=None)
-    
+
     # Check if it points to the global DEFAULT_METADATA_CACHE or is an empty LRU
     assert isinstance(runner.metadata_cache, (dict, LRUCache))
     # It should be the default cache when file doesn't exist
     if not cache_file.exists():
-        assert runner.metadata_cache is DEFAULT_METADATA_CACHE or len(runner.metadata_cache) == 0
+        assert (
+            runner.metadata_cache is DEFAULT_METADATA_CACHE
+            or len(runner.metadata_cache) == 0
+        )
 
 
 def test_full_roundtrip_persistence(tmp_path, monkeypatch):
     """Integration: Process -> Save -> New Runner -> Load."""
     cache_file = tmp_path / "persistent_cache.pkl"
     monkeypatch.setattr(Runner, "cache_file", cache_file)
-    
+
     fileset = {"dataset": ["file.root"]}
     filemeta = FileMeta("dataset", "file.root", "Events")
-    filemeta_with_meta = FileMeta("dataset", "file.root", "Events", {"numentries": 100, "uuid": b"abc"})
-    
+    filemeta_with_meta = FileMeta(
+        "dataset", "file.root", "Events", {"numentries": 100, "uuid": b"abc"}
+    )
+
     # 1. Setup first runner to "fetch" and save
     runner1 = Runner(executor=IterativeExecutor(), metadata_cache={})
     mock_acc = set_accumulator([filemeta_with_meta])
-    
+
     # Create a mock executor
     mock_pre_executor = Mock()
     mock_pre_executor.copy = Mock(return_value=mock_pre_executor)
     mock_pre_executor.return_value = (mock_acc, 0)
     runner1.pre_executor = mock_pre_executor
-    
+
     # Trigger preprocess which calls _save_cache
-    runner1._preprocess_fileset_root(list(runner1._normalize_fileset(fileset, "Events")))
-    
+    runner1._preprocess_fileset_root(
+        list(runner1._normalize_fileset(fileset, "Events"))
+    )
+
     assert cache_file.exists()
 
     # 2. Setup second runner to load that file
     with patch.object(Runner, "_preprocess_fileset_root"):
         runner2 = Runner(executor=IterativeExecutor(), metadata_cache=None)
-    
+
     assert filemeta in runner2.metadata_cache
     assert runner2.metadata_cache[filemeta]["numentries"] == 100
     assert runner2.metadata_cache[filemeta]["uuid"] == b"abc"
@@ -594,39 +603,39 @@ def test_align_clusters_cache_incomplete(tmp_path, monkeypatch):
     """Verify that align_clusters=True with incomplete cache triggers refetch."""
     cache_file = tmp_path / "cluster_cache.pkl"
     monkeypatch.setattr(Runner, "cache_file", cache_file)
-    
+
     # Cache has numentries and uuid, but NO clusters
     fm_key = FileMeta("ds", "f.root", "Events")
     with open(cache_file, "wb") as f:
         pickle.dump({fm_key: {"numentries": 10, "uuid": b"u"}}, f)
-    
-    runner = Runner(executor=IterativeExecutor(), metadata_cache=None, align_clusters=True)
-    
+
+    runner = Runner(
+        executor=IterativeExecutor(), metadata_cache=None, align_clusters=True
+    )
+
     # Load the filemeta and populate from cache
     normalized = list(runner._normalize_fileset({"ds": ["f.root"]}, "Events"))
     for fm in normalized:
         fm.maybe_populate(runner.metadata_cache)
-    
+
     # FileMeta.populated(clusters=True) should return False here
     assert not normalized[0].populated(clusters=True)
-    
+
     # Create complete metadata with clusters
-    filemeta_complete = FileMeta("ds", "f.root", "Events", {
-        "clusters": [0, 10], 
-        "numentries": 10, 
-        "uuid": b"u"
-    })
+    filemeta_complete = FileMeta(
+        "ds", "f.root", "Events", {"clusters": [0, 10], "numentries": 10, "uuid": b"u"}
+    )
     mock_acc = set_accumulator([filemeta_complete])
-    
+
     # Create a mock executor
     mock_pre_executor = Mock()
     mock_pre_executor.copy = Mock(return_value=mock_pre_executor)
     mock_pre_executor.return_value = (mock_acc, 0)
     runner.pre_executor = mock_pre_executor
-    
+
     # Run preprocessing
     runner._preprocess_fileset_root(normalized)
-    
+
     # Verify cache was updated with clusters
     assert "clusters" in runner.metadata_cache[fm_key]
     assert runner.metadata_cache[fm_key]["clusters"] == [0, 10]
