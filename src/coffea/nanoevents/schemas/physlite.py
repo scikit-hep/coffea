@@ -127,8 +127,12 @@ class PHYSLITESchema(BaseSchema):
                         else:
                             to_collect[(topkey, skleft)].append((skright, form))
             for (topkey, skleft), info in to_collect.items():
-                keys_and_form.append(((topkey, skleft), zip_forms({key: form for key, form in info},
-                                                              skleft)))
+                keys_and_form.append(
+                    (
+                        (topkey, skleft),
+                        zip_forms({key: form for key, form in info}, skleft),
+                    )
+                )
 
             to_zip = {}
             for (key, sub_key), form in keys_and_form:
@@ -153,10 +157,12 @@ class PHYSLITESchema(BaseSchema):
                     to_zip["tau"] = transforms.full_like_from_content_form(
                         to_zip["theta"], 139.570
                     )
-                if mixin == 'Muon':
+                if mixin == "Muon":
                     # at least as of p7019 we need to add in the muon mass for four-vectors to work
                     if "m" not in to_zip:
-                        to_zip["m"] = transforms.full_like_from_content_form(to_zip["pt"], 105.658)
+                        to_zip["m"] = transforms.full_like_from_content_form(
+                            to_zip["pt"], 105.658
+                        )
                 contents[objname] = zip_forms(
                     to_zip,
                     objname,

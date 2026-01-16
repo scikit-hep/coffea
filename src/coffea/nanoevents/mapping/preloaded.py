@@ -5,9 +5,9 @@ import awkward
 import numpy
 
 from coffea.nanoevents.mapping.base import BaseSourceMapping, UUIDOpener
-from coffea.nanoevents.util import quote, tuple_to_key
+from coffea.nanoevents.util import tuple_to_key
 
-from .uproot import _lazify_form, CannotBeNanoEvents
+from .uproot import CannotBeNanoEvents, _lazify_form
 
 
 class SimplePreloadedColumnSource(dict):
