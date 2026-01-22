@@ -1,11 +1,11 @@
 import json
 import os
+from uuid import uuid4
 
 import awkward as ak
 import dask
 import pytest
 import uproot
-from uuid import uuid4
 
 from coffea.nanoevents import NanoEventsFactory, PHYSLITESchema
 from coffea.nanoevents.mapping import SimplePreloadedColumnSource
@@ -61,16 +61,17 @@ def test_electron_track_links(do_slice, mode):
     if do_slice:
         events = events[::2]
     trackParticles = unwrapper(events.Electrons.trackParticles, mode)
-    for i, event in enumerate(unwrapper(events[["Electrons", "GSFTrackParticles"]], mode)):
+    for i, event in enumerate(
+        unwrapper(events[["Electrons", "GSFTrackParticles"]], mode)
+    ):
         for j, electron in enumerate(event.Electrons):
             for link_index, link in enumerate(electron.trackParticleLinks):
                 track_index = link.m_persIndex
                 assert (
-                    ( trackParticles[i][j][link_index] is None 
-                     and link.m_persKey == 0 )
-                    or
-                    ( event.GSFTrackParticles[track_index].z0
-                      == trackParticles[i][j][link_index].z0 )
+                    trackParticles[i][j][link_index] is None and link.m_persKey == 0
+                ) or (
+                    event.GSFTrackParticles[track_index].z0
+                    == trackParticles[i][j][link_index].z0
                 )
 
 
@@ -80,48 +81,65 @@ def test_muon_track_links(do_slice, mode):
     events = _events(mode=mode)
     if do_slice:
         events = events[::2]
-    for tpobj, tplinkname, tpcollection in [("trackParticle", "combinedTrackParticleLink", "CombinedMuonTrackParticles"),
-                                            ("combinedTrackParticle", "combinedTrackParticleLink", "CombinedMuonTrackParticles"),
-                                            ("inDetTrackParticle", "inDetTrackParticleLink", "InDetTrackParticles"),
-                                            ("extrapolatedMuonSpectrometerTrackParticle", "extrapolatedMuonSpectrometerTrackParticleLink",
-                                             "ExtrapolatedMuonTrackParticles")]:
+    for tpobj, tplinkname, tpcollection in [
+        ("trackParticle", "combinedTrackParticleLink", "CombinedMuonTrackParticles"),
+        (
+            "combinedTrackParticle",
+            "combinedTrackParticleLink",
+            "CombinedMuonTrackParticles",
+        ),
+        ("inDetTrackParticle", "inDetTrackParticleLink", "InDetTrackParticles"),
+        (
+            "extrapolatedMuonSpectrometerTrackParticle",
+            "extrapolatedMuonSpectrometerTrackParticleLink",
+            "ExtrapolatedMuonTrackParticles",
+        ),
+    ]:
         trackParticles = unwrapper(getattr(events.Muons, tpobj), mode)
         for i, event in enumerate(unwrapper(events[["Muons", tpcollection]], mode)):
             for j, muon in enumerate(event.Muons):
                 link = getattr(muon, tplinkname)
                 track_index = link.m_persIndex
-                assert (
-                    ( trackParticles[i][j] is None 
-                     and link.m_persKey == 0 ) or
-                    ( event[tpcollection][track_index].z0
-                    == trackParticles[i][j].z0 )
+                assert (trackParticles[i][j] is None and link.m_persKey == 0) or (
+                    event[tpcollection][track_index].z0 == trackParticles[i][j].z0
                 )
 
 
-@pytest.mark.parametrize("filt", [['*AuxDyn*'],
-                                  [
-                                                    r'/AnalysisMuonsAuxDyn\..*/i',
-                                                                    '/InDetTrackParticlesAuxDyn.(d0|z0|qOverP|theta)/i',
-                                                                   '/CombinedMuonTrackParticlesAuxDyn.(d0|z0|qOverP|theta)/i',
-                                                                   '/ExtrapolatedMuonTrackParticlesAuxDyn.(d0|z0|qOverP|theta)/i',
-                                                                   ]])
+@pytest.mark.parametrize(
+    "filt",
+    [
+        ["*AuxDyn*"],
+        [
+            r"/AnalysisMuonsAuxDyn\..*/i",
+            "/InDetTrackParticlesAuxDyn.(d0|z0|qOverP|theta)/i",
+            "/CombinedMuonTrackParticlesAuxDyn.(d0|z0|qOverP|theta)/i",
+            "/ExtrapolatedMuonTrackParticlesAuxDyn.(d0|z0|qOverP|theta)/i",
+        ],
+    ],
+)
 def test_muon_track_links_preloaded(filt):
     events = _awkward_events_stripped(filter=filt)
-    for tpobj, tplinkname, tpcollection in [("trackParticle", "combinedTrackParticleLink", "CombinedMuonTrackParticles"),
-                                            ("combinedTrackParticle", "combinedTrackParticleLink", "CombinedMuonTrackParticles"),
-                                            ("inDetTrackParticle", "inDetTrackParticleLink", "InDetTrackParticles"),
-                                            ("extrapolatedMuonSpectrometerTrackParticle", "extrapolatedMuonSpectrometerTrackParticleLink",
-                                             "ExtrapolatedMuonTrackParticles")]:
+    for tpobj, tplinkname, tpcollection in [
+        ("trackParticle", "combinedTrackParticleLink", "CombinedMuonTrackParticles"),
+        (
+            "combinedTrackParticle",
+            "combinedTrackParticleLink",
+            "CombinedMuonTrackParticles",
+        ),
+        ("inDetTrackParticle", "inDetTrackParticleLink", "InDetTrackParticles"),
+        (
+            "extrapolatedMuonSpectrometerTrackParticle",
+            "extrapolatedMuonSpectrometerTrackParticleLink",
+            "ExtrapolatedMuonTrackParticles",
+        ),
+    ]:
         trackParticle = getattr(events.Muons, tpobj)
         for i, event in enumerate(events[["Muons", tpcollection]]):
             for j, muon in enumerate(event.Muons):
                 link = getattr(muon, tplinkname)
                 track_index = link.m_persIndex
-                assert (
-                                        ( trackParticle[i][j] is None 
-                     and link.m_persKey == 0 ) or
-                    ( event[tpcollection][track_index].z0
-                    == trackParticle[i][j].z0 )
+                assert (trackParticle[i][j] is None and link.m_persKey == 0) or (
+                    event[tpcollection][track_index].z0 == trackParticle[i][j].z0
                 )
 
 
