@@ -44,6 +44,8 @@ def _element_link(target_collection, eventindex, index, key):
             "element linking must be done on two dask_awkward arrays or two awkward arrays not a mix of the two"
         )
 
+    if isinstance(key, Number):
+        key = numpy.array([key])
     global_index = _get_global_index(target_collection, eventindex, index)
     global_index = awkward.where(key != 0, global_index, -1)
     return target_collection._apply_global_index(global_index)
@@ -255,7 +257,7 @@ class Muon(Particle):
         return _element_link_method(
             self,
             "extrapolatedMuonSpectrometerTrackParticleLink",
-            "ExtrapolatedMuonSpectrometerTrackParticles",
+            "ExtrapolatedMuonTrackParticles",
             None,
         )
 
@@ -264,7 +266,7 @@ class Muon(Particle):
         return _element_link_method(
             self,
             "extrapolatedMuonSpectrometerTrackParticleLink",
-            "ExtrapolatedMuonSpectrometerTrackParticles",
+            "ExtrapolatedMuonTrackParticles",
             dask_array,
         )
 
