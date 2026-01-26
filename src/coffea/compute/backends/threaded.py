@@ -2,10 +2,13 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from itertools import starmap
 from queue import Queue
-from threading import Condition, Thread
+from threading import Thread
 from types import TracebackType
 from typing import TYPE_CHECKING, Generic
 
+from typing_extensions import Self
+
+from coffea.compute.backends._genericbkg import ConcurrentTask, TaskState, _Shutdown
 from coffea.compute.errors import (
     ErrorAction,
     ErrorPolicy,
@@ -42,11 +45,60 @@ class Continuation(Generic[InputT, ResultT]):
 
 
 @dataclass
-class _TaskState(Generic[InputT, ResultT]):
-    output: ResultT | EmptyResult = EmptyResult()
+class _ThreadedTaskState(TaskState[InputT, ResultT]):
+    _iter: Iterator[TaskElement[InputT, ResultT]]
+    "Iterator over the original computable's task elements input"
+    _output: ResultT | EmptyResult = EmptyResult()
     next_index: int = 0
     failures: list[FailedTaskElement[InputT, ResultT]] = field(default_factory=list)
-    status: TaskStatus = TaskStatus.PENDING
+    _status: TaskStatus = TaskStatus.PENDING
+
+    @property
+    def status(self) -> TaskStatus:
+        return self._status
+
+    @classmethod
+    def from_computable(cls, item: Computable[InputT, ResultT]) -> Self:
+        return cls(_iter=starmap(TaskElement, enumerate(item)))
+
+    def first_failure(self) -> FailedTaskElement[InputT, ResultT] | None:
+        if self.failures:
+            return self.failures[0]
+        return None
+
+    def num_failures(self) -> int:
+        return len(self.failures)
+
+    def output(self) -> ResultT | EmptyResult:
+        return self._output
+
+    def cancel(self) -> Self:
+        self._status = TaskStatus.CANCELLED
+        return self
+
+    def add_failure_and_cancel(
+        self, element: FailedTaskElement[InputT, ResultT]
+    ) -> Self:
+        self.next_index = self.next_index + 1
+        self.failures = self.failures + [element]
+        self._status = TaskStatus.CANCELLED
+        return self
+
+    def add_failure_and_continue(
+        self, element: FailedTaskElement[InputT, ResultT]
+    ) -> Self:
+        self.next_index = self.next_index + 1
+        self.failures = self.failures + [element]
+        self._status = TaskStatus.RUNNING
+        return self
+
+    # TODO: would like to have add_success_and_continue
+    # but it doesn't like ResultT being covariant
+    # def add_success_and_continue(self, result: ResultT) -> Self:
+    #     self._output = self._output + result
+    #     self.next_index = self.next_index + 1
+    #     self._status = TaskStatus.RUNNING
+    #     return self
 
     def get_continuation(
         self, original: Computable[InputT, ResultT]
@@ -58,160 +110,50 @@ class _TaskState(Generic[InputT, ResultT]):
             continue_at=self.next_index,
         )
 
-
-def _try_advance(
-    state: _TaskState[InputT, ResultT],
-    element: TaskElement[InputT, ResultT],
-    error_policy: ErrorPolicy,
-) -> _TaskState[InputT, ResultT]:
-    try:
-        result = element()
-    except Exception as ex:
-        new_element, action = error_policy.first_action(element, ex)
-        if action == ErrorAction.CANCEL:
-            return _TaskState(
-                output=state.output,
-                next_index=state.next_index + 1,
-                failures=state.failures + [new_element],
-                status=TaskStatus.CANCELLED,
-            )
-        elif action == ErrorAction.CONTINUE:
-            return _TaskState(
-                output=state.output,
-                next_index=state.next_index + 1,
-                failures=state.failures + [new_element],
-                status=TaskStatus.RUNNING,
-            )
-    else:
-        # This could use a more sophisticated merging strategy
-        return _TaskState(
-            output=state.output + result,
-            next_index=state.next_index + 1,
-            failures=state.failures,
-            status=TaskStatus.RUNNING,
-        )
-    # Now handle retries
-    assert action == ErrorAction.RETRY  # (proven by control flow)
-    while True:
+    def advance(self, error_policy: ErrorPolicy) -> Self:
         try:
-            result = new_element()
-        except Exception as ex:
-            new_element, action = error_policy.retry_action(new_element, ex)
-            if action == ErrorAction.CANCEL:
-                return _TaskState(
-                    output=state.output,
-                    next_index=state.next_index + 1,
-                    failures=state.failures + [new_element],
-                    status=TaskStatus.CANCELLED,
-                )
-            elif action == ErrorAction.CONTINUE:
-                return _TaskState(
-                    output=state.output,
-                    next_index=state.next_index + 1,
-                    failures=state.failures + [new_element],
-                    status=TaskStatus.RUNNING,
-                )
-        else:
-            # This could use a more sophisticated merging strategy
-            return _TaskState(
-                output=state.output + result,
-                next_index=state.next_index + 1,
-                failures=state.failures,
-                status=TaskStatus.RUNNING,
-            )
-        assert action == ErrorAction.RETRY
-
-
-class ThreadedTask(Generic[InputT, ResultT]):
-    item: Computable[InputT, ResultT]
-    error_policy: ErrorPolicy
-    _iter: Iterator[TaskElement[InputT, ResultT]]
-    _state: _TaskState[InputT, ResultT]
-    "To be modified only under _cv lock"
-    _cv: Condition
-
-    def __init__(
-        self, item: Computable[InputT, ResultT], error_policy: ErrorPolicy
-    ) -> None:
-        self.item = item
-        self.error_policy = error_policy
-        self._iter = starmap(TaskElement, enumerate(item))
-        self._state = _TaskState()
-        self._cv = Condition()
-
-    def result(self) -> ResultT:
-        # TODO: if backend is shutdown without waiting on all tasks, raise an error here
-        self.wait()
-        if self._state.failures:
-            # Reraise the first error encountered
-            msg = (
-                f"Computation failed with {len(self._state.failures)} errors;\n"
-                " use Task.partial_result() to access partial results and a\n"
-                " continuation Computable for the remaining work.\n"
-                " You can also adjust the ErrorPolicy to continue on certain errors.\n"
-                " The first error is shown in the chained exception above."
-            )
-            raise RuntimeError(msg) from self._state.failures[0].exception
-        out = self._state.output
-        assert not isinstance(out, EmptyResult)
-        return out
-
-    def partial_result(
-        self,
-    ) -> tuple[ResultT | EmptyResult, Continuation[InputT, ResultT]]:
-        # Hold lock so we get a consistent snapshot of state
-        with self._cv:
-            return self._state.output, self._state.get_continuation(self.item)
-
-    def wait(self) -> None:
-        with self._cv:
-            self._cv.wait_for(self.done)
-
-    def status(self) -> TaskStatus:
-        return self._state.status
-
-    def done(self) -> bool:
-        return self._state.status.done()
-
-    def cancel(self) -> None:
-        with self._cv:
-            self._state.status = TaskStatus.CANCELLED
-            self._cv.notify_all()
-
-    def _run(self) -> None:
-        """Run the task to completion.
-        This is intended to be called by a single worker thread.
-        """
-        for task_element in self._iter:
-            next_state = _try_advance(self._state, task_element, self.error_policy)
-            with self._cv:
-                # First check if we were aborted while working
-                if self._state.status == TaskStatus.CANCELLED:
-                    self._cv.notify_all()
-                    return
-                self._state = next_state
-                if self._state.status.done():
-                    self._cv.notify_all()
-                    return
-        with self._cv:
-            assert self._state.status == TaskStatus.RUNNING
-            if self._state.failures:
-                self._state.status = TaskStatus.INCOMPLETE
+            element = next(self._iter)
+        except StopIteration:
+            if self.num_failures() > 0:
+                self._status = TaskStatus.INCOMPLETE
             else:
-                self._state.status = TaskStatus.COMPLETE
-            self._cv.notify_all()
+                self._status = TaskStatus.COMPLETE
+            return self
+
+        try:
+            result = element()
+        except Exception as ex:
+            new_element, action = error_policy.first_action(element, ex)
+            if action == ErrorAction.CANCEL:
+                return self.add_failure_and_cancel(new_element)
+            elif action == ErrorAction.CONTINUE:
+                return self.add_failure_and_continue(new_element)
+        else:
+            self._output = self._output + result
+            self.next_index = self.next_index + 1
+            self._status = TaskStatus.RUNNING
+            return self
+
+        # Now handle retries
+        assert action == ErrorAction.RETRY  # (proven by control flow)
+        while True:
+            try:
+                result = new_element()
+            except Exception as ex:
+                new_element, action = error_policy.retry_action(new_element, ex)
+                if action == ErrorAction.CANCEL:
+                    return self.add_failure_and_cancel(new_element)
+                elif action == ErrorAction.CONTINUE:
+                    return self.add_failure_and_continue(new_element)
+            else:
+                self._output = self._output + result
+                self.next_index = self.next_index + 1
+                self._status = TaskStatus.RUNNING
+                return self
+            assert action == ErrorAction.RETRY
 
 
-class _Shutdown:
-    """A sentinel to signal worker threads to exit.
-
-    In python 3.13+, we can use queue.ShutDown directly.
-    """
-
-    pass
-
-
-def _work(task_queue: Queue[ThreadedTask]) -> None:  # type: ignore[type-arg]
+def _work(task_queue: Queue[ConcurrentTask]) -> None:  # type: ignore[type-arg]
     while True:
         task = task_queue.get()
         if isinstance(task, _Shutdown):
@@ -226,8 +168,17 @@ def _work(task_queue: Queue[ThreadedTask]) -> None:  # type: ignore[type-arg]
         task_queue.task_done()
 
 
+class ThreadedTask(ConcurrentTask[InputT, ResultT]):
+    @classmethod
+    def from_computable(
+        cls, item: Computable[InputT, ResultT], error_policy: ErrorPolicy
+    ) -> Self:
+        state = _ThreadedTaskState.from_computable(item)
+        return cls(item, error_policy, state)
+
+
 class SingleThreadedBackend:
-    _task_queue: Queue[ThreadedTask | _Shutdown] | None  # type: ignore[type-arg]
+    _task_queue: Queue[ConcurrentTask | _Shutdown] | None  # type: ignore[type-arg]
     _thread: Thread | None
 
     def __init__(self) -> None:
@@ -275,7 +226,7 @@ class RunningSingleThreadedBackend:
             )
         if hasattr(item, "__next__"):
             raise TypeError("Computable items must be iterables, not iterators")
-        task = ThreadedTask(item, error_policy)
+        task = ThreadedTask.from_computable(item, error_policy)
         self._backend._task_queue.put(task)
         return task
 
