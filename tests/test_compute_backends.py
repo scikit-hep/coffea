@@ -5,11 +5,11 @@ from itertools import repeat
 
 import pytest
 
-from coffea.compute.backends.threaded import SingleThreadedBackend
+from coffea.compute.backends.threaded import ThreadedBackend
 from coffea.compute.errors import ErrorPolicy
 from coffea.compute.protocol import Backend, TaskStatus
 
-BACKENDS: list[type[Backend]] = [SingleThreadedBackend]
+BACKENDS: list[type[Backend]] = [ThreadedBackend]
 
 
 def func(x: int):
@@ -83,13 +83,15 @@ def test_backend_partial_result(backend_class):
             raise TimeoutError("Task did not reach desired state in time")
 
         t0 = time.monotonic()
-        while task.partial_result()[0] == 0 and time.monotonic() - t0 < 5:
+        part, resumable = task.partial_result()
+        while part == 0 and time.monotonic() - t0 < 5:
             time.sleep(0.01)
-        if task.partial_result()[0] == 0:
+            part, resumable = task.partial_result()
+        if part == 0:
             raise TimeoutError("Task did not produce partial result in time")
 
-        part, resumable = task.partial_result()
         assert len(list(resumable)) < 100
+        assert len(list(resumable)) > 0
 
         task.wait()
         assert task.status() == TaskStatus.COMPLETE

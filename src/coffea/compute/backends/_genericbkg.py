@@ -6,8 +6,10 @@ This is a private module as it is only intended for use by compute backends.
 """
 
 from abc import ABC, abstractmethod
-from threading import Condition
-from typing import Generic
+from queue import Queue
+from threading import Condition, Thread
+from types import TracebackType
+from typing import Generic, TypeVar
 
 from typing_extensions import Self
 
@@ -192,3 +194,97 @@ class ConcurrentTask(ABC, Generic[InputT, ResultT]):
                 if self._state.status.done():
                     self._cv.notify_all()
                     return
+                # let other threads have a chance to access the state
+                # TODO: this is not reliable, we should use some sort of channel
+                self._cv.wait(timeout=0)
+
+
+TaskType = TypeVar("TaskType", bound=ConcurrentTask)
+
+
+class GenericBackend(ABC, Generic[TaskType]):
+    """A generic backend that runs tasks in a single background thread.
+
+    This is intended as a base class for backends that want a background thread
+    to manage task execution.
+    """
+
+    _task_queue: Queue[TaskType | _Shutdown] | None  # type: ignore[type-arg]
+    _thread: Thread | None
+
+    @classmethod
+    @abstractmethod
+    def _work(cls, task_queue: Queue[TaskType | _Shutdown]) -> None:
+        """The worker function to run tasks from the task queue.
+
+        This is intended to be run in a background thread.
+        """
+        ...
+
+    @abstractmethod
+    def _create_task(
+        self, item: Computable[InputT, ResultT], error_policy: ErrorPolicy
+    ) -> TaskType:
+        """Create a ConcurrentTask for the given Computable and ErrorPolicy.
+
+        To be used by the running backend to create tasks.
+        It should also enqueue the task for execution.
+
+        Args:
+            item: The Computable to create the task for.
+            error_policy: The ErrorPolicy to use when handling errors.
+
+        Returns:
+            A ConcurrentTask representing the computation.
+        """
+        ...
+
+    def __init__(self) -> None:
+        self._task_queue = None
+        self._thread = None
+
+    def __enter__(self) -> Self:
+        self._task_queue = Queue()
+        self._thread = Thread(
+            target=self._work,
+            name=str(self.__class__.__name__) + "-worker",
+            args=(self._task_queue,),
+        )
+        self._thread.start()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        assert self._thread and self._task_queue
+        self._task_queue.put(_Shutdown())
+        self._thread.join()
+        self._task_queue = None
+        self._thread = None
+
+    def compute(
+        self,
+        item: Computable[InputT, ResultT],
+        /,
+        error_policy: ErrorPolicy = ErrorPolicy(),
+    ) -> TaskType:
+        if hasattr(item, "__next__"):
+            raise TypeError("Computable items must be iterables, not iterators")
+        return self._create_task(item, error_policy)
+
+    def wait_all(self, progress: bool = False) -> None:
+        """Wait for all tasks in the backend to complete.
+
+        Parameters
+        ----------
+        progress : bool, optional
+            If True, display a progress bar while waiting, by default False.
+        """
+        if progress:
+            raise NotImplementedError("Progress bars are not yet implemented")
+        else:
+            if self._task_queue:
+                self._task_queue.join()

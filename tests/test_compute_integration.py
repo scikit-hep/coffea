@@ -1,6 +1,6 @@
 import time
 
-from coffea.compute.backends.threaded import SingleThreadedBackend
+from coffea.compute.backends.threaded import ThreadedBackend
 from coffea.compute.data import ContextDataset, Dataset, File
 from coffea.compute.errors import ErrorPolicy
 from coffea.compute.func import EventsArray
@@ -37,7 +37,7 @@ def test_threaded_backend_compute():
         metadata=ContextDataset(dataset_name="test_dataset", cross_section=1.0),
     )
 
-    with SingleThreadedBackend() as backend:
+    with ThreadedBackend() as backend:
         # Binding the processor to the dataset makes the computable object not easy to serialize
         computable = dataset.map_steps(DummyProcessor())
         tic = time.monotonic()

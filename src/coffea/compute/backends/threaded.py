@@ -2,13 +2,16 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from itertools import starmap
 from queue import Queue
-from threading import Thread
-from types import TracebackType
 from typing import TYPE_CHECKING, Generic
 
 from typing_extensions import Self
 
-from coffea.compute.backends._genericbkg import ConcurrentTask, TaskState, _Shutdown
+from coffea.compute.backends._genericbkg import (
+    ConcurrentTask,
+    GenericBackend,
+    TaskState,
+    _Shutdown,
+)
 from coffea.compute.errors import (
     ErrorAction,
     ErrorPolicy,
@@ -129,6 +132,7 @@ class _ThreadedTaskState(TaskState[InputT, ResultT]):
             elif action == ErrorAction.CONTINUE:
                 return self.add_failure_and_continue(new_element)
         else:
+            # return add_success_and_continue(result)
             self._output = self._output + result
             self.next_index = self.next_index + 1
             self._status = TaskStatus.RUNNING
@@ -153,21 +157,6 @@ class _ThreadedTaskState(TaskState[InputT, ResultT]):
             assert action == ErrorAction.RETRY
 
 
-def _work(task_queue: Queue[ConcurrentTask]) -> None:  # type: ignore[type-arg]
-    while True:
-        task = task_queue.get()
-        if isinstance(task, _Shutdown):
-            task_queue.task_done()
-            break
-        try:
-            task._run()
-        except Exception:
-            # Any exceptions not caught by the task itself are bugs in the backend
-            # TODO: find a way to report these in the user thread
-            task.cancel()
-        task_queue.task_done()
-
-
 class ThreadedTask(ConcurrentTask[InputT, ResultT]):
     @classmethod
     def from_computable(
@@ -177,75 +166,37 @@ class ThreadedTask(ConcurrentTask[InputT, ResultT]):
         return cls(item, error_policy, state)
 
 
-class SingleThreadedBackend:
-    _task_queue: Queue[ConcurrentTask | _Shutdown] | None  # type: ignore[type-arg]
-    _thread: Thread | None
+class ThreadedBackend(GenericBackend[ThreadedTask]):
+    @classmethod
+    def _work(cls, task_queue: Queue[ThreadedTask | _Shutdown]) -> None:
+        while True:
+            task = task_queue.get()
+            if isinstance(task, _Shutdown):
+                task_queue.task_done()
+                break
+            try:
+                task._run()
+            except Exception:
+                # Any exceptions not caught by the task itself are bugs in the backend
+                # TODO: find a way to report these in the user thread
+                task.cancel()
+            task_queue.task_done()
 
-    def __init__(self) -> None:
-        self._task_queue = None
-        self._thread = None
-
-    def __enter__(self) -> "RunningSingleThreadedBackend":
-        self._task_queue = Queue()
-        self._thread = Thread(
-            target=_work,
-            name="SingleThreadedBackend",
-            args=(self._task_queue,),
-        )
-        self._thread.start()
-        return RunningSingleThreadedBackend(self)
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        assert self._thread and self._task_queue
-        self._task_queue.put(_Shutdown())
-        self._thread.join()
-        self._task_queue = None
-        self._thread = None
-
-
-class RunningSingleThreadedBackend:
-    _backend: SingleThreadedBackend
-
-    def __init__(self, backend: SingleThreadedBackend):  # type: ignore[type-arg]
-        self._backend = backend
-
-    def compute(
+    def _create_task(
         self,
         item: Computable[InputT, ResultT],
-        /,
         error_policy: ErrorPolicy = ErrorPolicy(),
     ) -> ThreadedTask[InputT, ResultT]:
-        if self._backend._task_queue is None:
+        if self._task_queue is None:
             raise RuntimeError(
                 "Cannot compute on a backend that has been exited from its context manager"
             )
-        if hasattr(item, "__next__"):
-            raise TypeError("Computable items must be iterables, not iterators")
         task = ThreadedTask.from_computable(item, error_policy)
-        self._backend._task_queue.put(task)
+        self._task_queue.put(task)
         return task
-
-    def wait_all(self, progress: bool = False) -> None:
-        """Wait for all tasks in the backend to complete.
-
-        Parameters
-        ----------
-        progress : bool, optional
-            If True, display a progress bar while waiting, by default False.
-        """
-        if progress:
-            raise NotImplementedError("Progress bars are not yet implemented")
-        else:
-            if self._backend._task_queue:
-                self._backend._task_queue.join()
 
 
 if TYPE_CHECKING:
     # TODO: is this the best way to do this?
     check1: type[Task] = ThreadedTask
-    check2: type[Backend] = SingleThreadedBackend
+    check2: type[Backend] = ThreadedBackend
