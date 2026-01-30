@@ -3,22 +3,22 @@ from datetime import datetime
 from enum import Enum
 from typing import Generic
 
-from coffea.compute.protocol import InputT, ResultT, WorkElement
+from coffea.compute.protocol import ResultT, WorkElement
 
 
 @dataclass(slots=True, frozen=True)
-class TaskElement(Generic[InputT, ResultT]):
+class TaskElement(Generic[ResultT]):
     """A wrapper of WorkElement with an index for tracking."""
 
     index: int
-    work: WorkElement[InputT, ResultT]
+    work: WorkElement[ResultT]
 
     def __call__(self) -> ResultT:
         return self.work()
 
 
 @dataclass(slots=True, frozen=True)
-class FailedTaskElement(TaskElement[InputT, ResultT]):
+class FailedTaskElement(TaskElement[ResultT]):
     exception: Exception
     retries: int
     last_attempt: datetime = field(default_factory=datetime.now)
@@ -45,8 +45,8 @@ class ErrorPolicy:
     All other exceptions will cause task cancellation after max retries."""
 
     def first_action(
-        self, element: TaskElement[InputT, ResultT], exception: Exception
-    ) -> tuple[FailedTaskElement[InputT, ResultT], ErrorAction]:
+        self, element: TaskElement[ResultT], exception: Exception
+    ) -> tuple[FailedTaskElement[ResultT], ErrorAction]:
         """Determine action to take on first failure of a task element."""
         new_element = FailedTaskElement(
             index=element.index,
@@ -61,8 +61,8 @@ class ErrorPolicy:
         return new_element, ErrorAction.RETRY
 
     def retry_action(
-        self, element: FailedTaskElement[InputT, ResultT], exception: Exception
-    ) -> tuple[FailedTaskElement[InputT, ResultT], ErrorAction]:
+        self, element: FailedTaskElement[ResultT], exception: Exception
+    ) -> tuple[FailedTaskElement[ResultT], ErrorAction]:
         """Determine action to take on retry failure of a task element."""
         new_element = FailedTaskElement(
             index=element.index,

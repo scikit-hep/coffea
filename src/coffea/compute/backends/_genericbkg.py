@@ -17,7 +17,7 @@ from coffea.compute.errors import (
     ErrorPolicy,
     FailedTaskElement,
 )
-from coffea.compute.protocol import Computable, EmptyResult, InputT, ResultT, TaskStatus
+from coffea.compute.protocol import Computable, EmptyResult, ResultT, TaskStatus
 
 
 class _Shutdown:
@@ -29,7 +29,7 @@ class _Shutdown:
     pass
 
 
-class TaskState(ABC, Generic[InputT, ResultT]):
+class TaskState(ABC, Generic[ResultT]):
     """A base implementation for internal task state to be used by backend ConcurrentTask implementations."""
 
     @property
@@ -40,7 +40,7 @@ class TaskState(ABC, Generic[InputT, ResultT]):
 
     @classmethod
     @abstractmethod
-    def from_computable(cls, item: Computable[InputT, ResultT]) -> Self:
+    def from_computable(cls, item: Computable[ResultT]) -> Self:
         """Create an initial TaskState from a Computable.
 
         Args:
@@ -53,7 +53,7 @@ class TaskState(ABC, Generic[InputT, ResultT]):
         ...
 
     @abstractmethod
-    def first_failure(self) -> FailedTaskElement[InputT, ResultT] | None:
+    def first_failure(self) -> FailedTaskElement[ResultT] | None:
         """Return the first failure encountered, or None if no failures occurred.
 
         If not None, the ConcurrentTask.result() will raise the exception from this failure.
@@ -81,9 +81,7 @@ class TaskState(ABC, Generic[InputT, ResultT]):
         ...
 
     @abstractmethod
-    def get_continuation(
-        self, original: Computable[InputT, ResultT]
-    ) -> Computable[InputT, ResultT]:
+    def get_continuation(self, original: Computable[ResultT]) -> Computable[ResultT]:
         """Get a continuation Computable for the remaining work.
 
         Args:
@@ -110,7 +108,7 @@ class TaskState(ABC, Generic[InputT, ResultT]):
         ...
 
 
-class ConcurrentTask(ABC, Generic[InputT, ResultT]):
+class ConcurrentTask(ABC, Generic[ResultT]):
     """A generic concurrent task implementation. It is to be used by compute backends.
 
     The backend can derive from this class and a corresponding TaskState implementation
@@ -118,17 +116,17 @@ class ConcurrentTask(ABC, Generic[InputT, ResultT]):
     the non-blocking compute.Task protocol to users.
     """
 
-    item: Computable[InputT, ResultT]
+    item: Computable[ResultT]
     error_policy: ErrorPolicy
-    _state: TaskState[InputT, ResultT]
+    _state: TaskState[ResultT]
     "To be modified only under _cv lock."
     _cv: Condition
 
     def __init__(
         self,
-        item: Computable[InputT, ResultT],
+        item: Computable[ResultT],
         error_policy: ErrorPolicy,
-        _state: TaskState[InputT, ResultT],
+        _state: TaskState[ResultT],
     ) -> None:
         self.item = item
         self.error_policy = error_policy
@@ -138,7 +136,7 @@ class ConcurrentTask(ABC, Generic[InputT, ResultT]):
     @classmethod
     @abstractmethod
     def from_computable(
-        cls, item: Computable[InputT, ResultT], error_policy: ErrorPolicy
+        cls, item: Computable[ResultT], error_policy: ErrorPolicy
     ) -> Self:
         """Create a ConcurrentTask from a Computable and ErrorPolicy."""
         ...
@@ -163,7 +161,7 @@ class ConcurrentTask(ABC, Generic[InputT, ResultT]):
 
     def partial_result(
         self,
-    ) -> tuple[ResultT | EmptyResult, Computable[InputT, ResultT]]:
+    ) -> tuple[ResultT | EmptyResult, Computable[ResultT]]:
         # Hold lock so we get a consistent snapshot of state
         with self._cv:
             return self._state.output(), self._state.get_continuation(self.item)
@@ -223,7 +221,7 @@ class GenericBackend(ABC, Generic[TaskType]):
 
     @abstractmethod
     def _create_task(
-        self, item: Computable[InputT, ResultT], error_policy: ErrorPolicy
+        self, item: Computable[ResultT], error_policy: ErrorPolicy
     ) -> TaskType:
         """Create a ConcurrentTask for the given Computable and ErrorPolicy.
 
@@ -267,7 +265,7 @@ class GenericBackend(ABC, Generic[TaskType]):
 
     def compute(
         self,
-        item: Computable[InputT, ResultT],
+        item: Computable[ResultT],
         /,
         error_policy: ErrorPolicy = ErrorPolicy(),
     ) -> TaskType:

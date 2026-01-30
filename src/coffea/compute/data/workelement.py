@@ -5,21 +5,7 @@ from dataclasses import dataclass
 from itertools import repeat
 from typing import Generic
 
-from coffea.compute.protocol import DataElement, InputT, ResultT
-
-
-@dataclass(frozen=True)
-class DataWorkElement(Generic[InputT, ResultT]):
-    """Concrete WorkElement, applies func to loaded item.
-
-    TODO: do we really need a protocol and a concrete class for this or can it just be the concrete class?
-    """
-
-    func: Callable[[InputT], ResultT]
-    item: DataElement[InputT]
-
-    def __call__(self) -> ResultT:
-        return self.func(self.item.load())
+from coffea.compute.protocol import DataElement, InputT, ResultT, WorkElement
 
 
 @dataclass(frozen=True)
@@ -31,11 +17,10 @@ class MapData(Generic[InputT, ResultT]):
     make_iter: Callable[[], Iterator[DataElement[InputT]]]
     "Callable to make an iterator over DataElements. Must be pure to allow re-iteration."
 
-    def __iter__(self) -> Iterator[DataWorkElement[InputT, ResultT]]:
-        return map(DataWorkElement, repeat(self.func), self.make_iter())
+    def __iter__(self) -> Iterator[WorkElement[ResultT]]:
+        return map(WorkElement, repeat(self.func), self.make_iter())
 
 
 __all__ = [
-    "DataWorkElement",
     "MapData",
 ]

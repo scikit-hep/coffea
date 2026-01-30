@@ -1,7 +1,7 @@
 from collections.abc import Callable, Iterator
 from enum import Enum
 from types import TracebackType
-from typing import Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypeVar
 
 T = TypeVar("T")
 
@@ -62,39 +62,39 @@ This is the same as the DataT of DataElement, but it needs to be invariant.
 """
 
 
-class WorkElement(Protocol[InputT, ResultT]):
+class WorkElement(Generic[ResultT]):
     """A work element pairs a function with a data element to be processed.
 
-    We enforce that this is used over, say partial(func, item.load()) so that:
-    - We can type the input and output types separately
-    - We can avoid capturing item.load() in a closure
-    - We can later add metadata to this class if needed
-    - We can isolate the data element as it is generally more serializable than a partial function
+    We enforce that this is used over, say partial(func, item.load()) so that
+    we can optionally preload data in advance, and have more control over
+    serialization. This is a concrete type, if we need to extend it, maybe
+    better to use composition.
 
-    Concrete implementations should be in the data module where DataElement is defined.
-    They will generally only be generic in ResultT, as InputT is tied to the DataElement.
+    The input type is erased by this wrapper, so we are only generic in the output type.
     """
 
-    @property
-    def func(self) -> Callable[[InputT], ResultT]: ...
+    def __init__(
+        self,
+        func: Callable[[InputT], ResultT],
+        item: DataElement[InputT],
+    ):
+        self._func = func
+        self._item = item
 
-    @property
-    def item(self) -> DataElement[InputT]: ...
+    def __reduce__(self) -> tuple[Any, ...]:
+        return (self.__class__, (self._func, self._item))
+
+    def preload(self):
+        self._loaded = self._item.load()
 
     def __call__(self) -> ResultT:
-        """Execute the work element by loading the data and applying the function.
-
-        Concrete implementations should define this method rather than inheriting the protocol.
-        They MUST implement the method exactly as specified here.
-
-        Backends MAY call `item.load()` to preload data while working on another element,
-        as DataElement.load is assumed to be IO-bound.
-        """
-        return self.func(self.item.load())
+        if hasattr(self, "_loaded"):
+            return self._func(self._loaded)
+        return self._func(self._item.load())
 
 
-class Computable(Protocol[InputT, ResultT]):
-    def __iter__(self) -> Iterator[WorkElement[InputT, ResultT]]:
+class Computable(Protocol[ResultT]):
+    def __iter__(self) -> Iterator[WorkElement[ResultT]]:
         """Return an iterator over callables that each compute a part of the result.
 
         This establishes a global index over the computation. We can use filters
@@ -137,7 +137,7 @@ class TaskStatus(Enum):
         )
 
 
-class Task(Protocol[InputT, ResultT]):
+class Task(Protocol[ResultT]):
     """Task represents an ongoing or completed computation.
 
     A Task is created by a Backend when a Computable is submitted for execution.
@@ -152,7 +152,7 @@ class Task(Protocol[InputT, ResultT]):
 
     def partial_result(
         self,
-    ) -> tuple[ResultT | EmptyResult, Computable[InputT, ResultT]]:
+    ) -> tuple[ResultT | EmptyResult, Computable[ResultT]]:
         """Get a partial result and the corresponding continuation computation. Non-blocking.
 
         The partial result may either be because the task is not yet complete,
@@ -194,7 +194,7 @@ class RunningBackend(Protocol):
     from computation submission.
     """
 
-    def compute(self, item: Computable[InputT, ResultT], /) -> Task[InputT, ResultT]:
+    def compute(self, item: Computable[ResultT], /) -> Task[ResultT]:
         """Launch a computation and return a Task representing it.
 
         Note: a trivial implementation of this is `sum((f() for f in item), EmptyResult())`

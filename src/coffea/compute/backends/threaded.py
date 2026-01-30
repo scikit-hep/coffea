@@ -22,7 +22,6 @@ from coffea.compute.protocol import (
     Backend,
     Computable,
     EmptyResult,
-    InputT,
     ResultT,
     Task,
     TaskStatus,
@@ -31,8 +30,8 @@ from coffea.compute.protocol import (
 
 
 @dataclass
-class Continuation(Generic[InputT, ResultT]):
-    original: Computable[InputT, ResultT]
+class Continuation(Generic[ResultT]):
+    original: Computable[ResultT]
     "The original computable item."
     status: TaskStatus
     "The status of the original computation task."
@@ -41,19 +40,19 @@ class Continuation(Generic[InputT, ResultT]):
     continue_at: int
     "Index to continue processing from, in the case where the original task was cancelled."
 
-    def __iter__(self) -> Iterator[WorkElement[InputT, ResultT]]:
+    def __iter__(self) -> Iterator[WorkElement[ResultT]]:
         for i, task_element in enumerate(self.original):
             if i in self.failed_indices or i >= self.continue_at:
                 yield task_element
 
 
 @dataclass
-class _ThreadedTaskState(TaskState[InputT, ResultT]):
-    _iter: Iterator[TaskElement[InputT, ResultT]]
+class _ThreadedTaskState(TaskState[ResultT]):
+    _iter: Iterator[TaskElement[ResultT]]
     "Iterator over the original computable's task elements input"
     _output: ResultT | EmptyResult = EmptyResult()
     next_index: int = 0
-    failures: list[FailedTaskElement[InputT, ResultT]] = field(default_factory=list)
+    failures: list[FailedTaskElement[ResultT]] = field(default_factory=list)
     _status: TaskStatus = TaskStatus.PENDING
 
     @property
@@ -61,10 +60,10 @@ class _ThreadedTaskState(TaskState[InputT, ResultT]):
         return self._status
 
     @classmethod
-    def from_computable(cls, item: Computable[InputT, ResultT]) -> Self:
+    def from_computable(cls, item: Computable[ResultT]) -> Self:
         return cls(_iter=starmap(TaskElement, enumerate(item)))
 
-    def first_failure(self) -> FailedTaskElement[InputT, ResultT] | None:
+    def first_failure(self) -> FailedTaskElement[ResultT] | None:
         if self.failures:
             return self.failures[0]
         return None
@@ -79,17 +78,13 @@ class _ThreadedTaskState(TaskState[InputT, ResultT]):
         self._status = TaskStatus.CANCELLED
         return self
 
-    def add_failure_and_cancel(
-        self, element: FailedTaskElement[InputT, ResultT]
-    ) -> Self:
+    def add_failure_and_cancel(self, element: FailedTaskElement[ResultT]) -> Self:
         self.next_index = self.next_index + 1
         self.failures = self.failures + [element]
         self._status = TaskStatus.CANCELLED
         return self
 
-    def add_failure_and_continue(
-        self, element: FailedTaskElement[InputT, ResultT]
-    ) -> Self:
+    def add_failure_and_continue(self, element: FailedTaskElement[ResultT]) -> Self:
         self.next_index = self.next_index + 1
         self.failures = self.failures + [element]
         self._status = TaskStatus.RUNNING
@@ -103,9 +98,7 @@ class _ThreadedTaskState(TaskState[InputT, ResultT]):
     #     self._status = TaskStatus.RUNNING
     #     return self
 
-    def get_continuation(
-        self, original: Computable[InputT, ResultT]
-    ) -> Continuation[InputT, ResultT]:
+    def get_continuation(self, original: Computable[ResultT]) -> Continuation[ResultT]:
         return Continuation(
             original=original,
             status=self.status,
@@ -157,10 +150,10 @@ class _ThreadedTaskState(TaskState[InputT, ResultT]):
             assert action == ErrorAction.RETRY
 
 
-class ThreadedTask(ConcurrentTask[InputT, ResultT]):
+class ThreadedTask(ConcurrentTask[ResultT]):
     @classmethod
     def from_computable(
-        cls, item: Computable[InputT, ResultT], error_policy: ErrorPolicy
+        cls, item: Computable[ResultT], error_policy: ErrorPolicy
     ) -> Self:
         state = _ThreadedTaskState.from_computable(item)
         return cls(item, error_policy, state)
@@ -184,9 +177,9 @@ class ThreadedBackend(GenericBackend[ThreadedTask]):
 
     def _create_task(
         self,
-        item: Computable[InputT, ResultT],
+        item: Computable[ResultT],
         error_policy: ErrorPolicy = ErrorPolicy(),
-    ) -> ThreadedTask[InputT, ResultT]:
+    ) -> ThreadedTask[ResultT]:
         if self._task_queue is None:
             raise RuntimeError(
                 "Cannot compute on a backend that has been exited from its context manager"
