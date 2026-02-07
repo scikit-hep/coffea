@@ -95,3 +95,112 @@ def test_nanoevents_analysis(
                 processor_instance=processor_instance,
                 treename="NotEvents",
             )
+
+
+@pytest.mark.parametrize("align_clusters", [False, True])
+def test_preprocessing(align_clusters):
+    fileset = {
+        "only_empty": {
+            "files": {
+                "tests/samples/nano_dy_empty.root": "Events",
+            },
+        },
+        "nonempty_and_empty": {
+            "files": {
+                "tests/samples/nano_dy.root": "Events",
+                "tests/samples/nano_dy_empty.root": "Events",
+            },
+        },
+        "empty_and_nonempty": {
+            "files": {
+                "tests/samples/nano_dy_empty.root": "Events",
+                "tests/samples/nano_dy.root": "Events",
+            },
+        },
+        "only_nonempty": {
+            "files": {
+                "tests/samples/nano_dy.root": "Events",
+            },
+        },
+    }
+
+    executor = processor.IterativeExecutor()
+    run = processor.Runner(
+        executor=executor,
+        schema=schemas.NanoAODSchema,
+        chunksize=7,
+        align_clusters=align_clusters,
+    )
+    chunks = list(run.preprocess(fileset))
+    if align_clusters:
+        assert len(chunks) == 6
+        for chunk in chunks:
+            if chunk.dataset == "only_empty":
+                assert chunk.filename == "tests/samples/nano_dy_empty.root"
+                assert chunk.entrystart == 0
+                assert chunk.entrystop == 0
+            elif (
+                chunk.dataset == "nonempty_and_empty"
+                or chunk.dataset == "empty_and_nonempty"
+            ):
+                assert chunk.filename in [
+                    "tests/samples/nano_dy.root",
+                    "tests/samples/nano_dy_empty.root",
+                ]
+                if chunk.filename == "tests/samples/nano_dy.root":
+                    assert chunk.entrystart == 0
+                    assert chunk.entrystop == 40
+                else:
+                    assert chunk.entrystart == 0
+                    assert chunk.entrystop == 0
+            elif chunk.dataset == "only_nonempty":
+                assert chunk.filename == "tests/samples/nano_dy.root"
+                assert chunk.entrystart == 0
+                assert chunk.entrystop == 40
+    else:
+        assert len(chunks) == 21
+        for chunk in chunks:
+            if chunk.dataset == "only_empty":
+                assert chunk.filename == "tests/samples/nano_dy_empty.root"
+                assert chunk.entrystart == 0
+                assert chunk.entrystop == 0
+            elif (
+                chunk.dataset == "nonempty_and_empty"
+                or chunk.dataset == "empty_and_nonempty"
+            ):
+                assert chunk.filename in [
+                    "tests/samples/nano_dy.root",
+                    "tests/samples/nano_dy_empty.root",
+                ]
+                if chunk.filename == "tests/samples/nano_dy.root":
+                    assert chunk.entrystart in [0, 7, 14, 21, 28, 35]
+                    assert (
+                        chunk.entrystop == chunk.entrystart + 7
+                        if chunk.entrystart != 35
+                        else 40
+                    )
+                else:
+                    assert chunk.entrystart == 0
+                    assert chunk.entrystop == 0
+            elif chunk.dataset == "only_nonempty":
+                assert chunk.filename == "tests/samples/nano_dy.root"
+                assert chunk.entrystart in [0, 7, 14, 21, 28, 35]
+                assert (
+                    chunk.entrystop == chunk.entrystart + 7
+                    if chunk.entrystart != 35
+                    else 40
+                )
+
+        def data_manipulation(events):
+            dataset = events.metadata["dataset"]
+            n_events = len(events)
+            assert events.attrs["@events_factory"].access_log == []
+            return {dataset: n_events}
+
+        out = run(chunks, data_manipulation)
+        assert out == {
+            "only_empty": 0,
+            "nonempty_and_empty": 40,
+            "empty_and_nonempty": 40,
+            "only_nonempty": 40,
+        }
