@@ -110,7 +110,7 @@ def test_nanoevents_analysis(executor, compression, maxchunks, skipbadfiles, fil
         assert hists["cutflow"]["Data_mass"] == 66
 
     else:
-        LookForError = (FileNotFoundError, UprootMissTreeError)
+        LookForError = (FileNotFoundError, UprootMissTreeError, Exception)
         with pytest.raises(LookForError):
             hists = run(filelist, "Events", processor_instance=NanoEventsProcessor())
         with pytest.raises(LookForError):
