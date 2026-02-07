@@ -31,7 +31,7 @@ def _ensure_systematics_wrapper(array):
         x = awkward.Array(awkward.Array([{}]).layout.to_typetracer(forget_length=True))
         array["__systematics__"] = x
         return array
-    array["__systematics__"] = awkward.broadcast_arrays(array, {})[1]
+    array["__systematics__"] = awkward.contents.RecordArray([], [], len(array))
     return array
 
 
@@ -73,7 +73,7 @@ class Systematic:
         Make sure that the parent object always has a field called '__systematics__'.
         """
         if "__systematics__" not in awkward.fields(self):
-            self["__systematics__"] = awkward.broadcast_arrays(self, {})[1]
+            self["__systematics__"] = awkward.contents.RecordArray([], [], len(self))
 
     @_ensure_systematics.dask
     def _ensure_systematics(self, dask_array):
