@@ -85,15 +85,18 @@ class FileMeta(object):
         self.metadata = metadata
 
     def __str__(self):
-        return "FileMeta(%s:%s)" % (self.filename, self.treename)
+        return "FileMeta(%s:%s:%s)" % (self.dataset, self.filename, self.treename)
 
     def __hash__(self):
-        # As used to lookup metadata, no need for dataset
-        return _hash((self.filename, self.treename))
+        return _hash((self.dataset, self.filename, self.treename))
 
     def __eq__(self, other):
         # In case of hash collisions
-        return self.filename == other.filename and self.treename == other.treename
+        return (
+            self.dataset == other.dataset
+            and self.filename == other.filename
+            and self.treename == other.treename
+        )
 
     def maybe_populate(self, cache):
         if cache and self in cache:
@@ -1756,16 +1759,21 @@ class Runner:
         if not isinstance(processor_instance, ProcessorABC):
             processor_instance = cloudpickle.loads(lz4f.decompress(processor_instance))
 
-        if format == "root":
-            filecontext = uproot.open(
-                {item.filename: None},
-                timeout=xrootdtimeout,
-                file_handler=uproot.MemmapSource
-                if mmap
-                else uproot.MultithreadedFileSource,
-            )
-        elif format == "parquet":
-            filecontext = ParquetFileContext(item.filename)
+        try:
+            if format == "root":
+                filecontext = uproot.open(
+                    {item.filename: None},
+                    timeout=xrootdtimeout,
+                    file_handler=uproot.MemmapSource
+                    if mmap
+                    else uproot.MultithreadedFileSource,
+                )
+            elif format == "parquet":
+                filecontext = ParquetFileContext(item.filename)
+        except Exception as e:
+            raise Exception(
+                f"Failed to open file: {item!r}. The error was: {e!r}."
+            ) from e
 
         metadata = {
             "dataset": item.dataset,
@@ -1794,41 +1802,46 @@ class Runner:
                     tree, item.entrystart, item.entrystop, metadata=metadata
                 )
             elif issubclass(schema, schemas.BaseSchema):
-                # change here
-                if format == "root":
-                    materialized = []
-                    factory = NanoEventsFactory.from_root(
-                        file=file,
-                        treepath=item.treename,
-                        entry_start=item.entrystart,
-                        entry_stop=item.entrystop,
-                        persistent_cache=cache_function(),
-                        schemaclass=schema,
-                        metadata=metadata,
-                        access_log=materialized,
-                    )
-                    events = factory.events()
-                elif format == "parquet":
-                    skyhook_options = {}
-                    if ":" in item.filename:
-                        (
-                            ceph_config_path,
-                            ceph_data_pool,
-                            filename,
-                        ) = item.filename.split(":")
-                        # patch back filename into item
-                        item = WorkItem(**dict(asdict(item), filename=filename))
-                        skyhook_options["ceph_config_path"] = ceph_config_path
-                        skyhook_options["ceph_data_pool"] = ceph_data_pool
+                try:
+                    # change here
+                    if format == "root":
+                        materialized = []
+                        factory = NanoEventsFactory.from_root(
+                            file=file,
+                            treepath=item.treename,
+                            entry_start=item.entrystart,
+                            entry_stop=item.entrystop,
+                            persistent_cache=cache_function(),
+                            schemaclass=schema,
+                            metadata=metadata,
+                            access_log=materialized,
+                        )
+                        events = factory.events()
+                    elif format == "parquet":
+                        skyhook_options = {}
+                        if ":" in item.filename:
+                            (
+                                ceph_config_path,
+                                ceph_data_pool,
+                                filename,
+                            ) = item.filename.split(":")
+                            # patch back filename into item
+                            item = WorkItem(**dict(asdict(item), filename=filename))
+                            skyhook_options["ceph_config_path"] = ceph_config_path
+                            skyhook_options["ceph_data_pool"] = ceph_data_pool
 
-                    factory = NanoEventsFactory.from_parquet(
-                        file=item.filename,
-                        treepath=item.treename,
-                        schemaclass=schema,
-                        metadata=metadata,
-                        skyhook_options=skyhook_options,
-                    )
-                    events = factory.events()
+                        factory = NanoEventsFactory.from_parquet(
+                            file=item.filename,
+                            treepath=item.treename,
+                            schemaclass=schema,
+                            metadata=metadata,
+                            skyhook_options=skyhook_options,
+                        )
+                        events = factory.events()
+                except Exception as e:
+                    raise Exception(
+                        f"Failed creating nanoevents: {item!r}. The error was: {e!r}."
+                    ) from e
             else:
                 raise ValueError(
                     "Expected schema to derive from nanoevents.BaseSchema, instead got %r"
@@ -1838,7 +1851,9 @@ class Runner:
             try:
                 out = processor_instance.process(events)
             except Exception as e:
-                raise Exception(f"Failed processing file: {item!r}") from e
+                raise Exception(
+                    f"Failed processing file: {item!r}. The error was: {e!r}."
+                ) from e
             if out is None:
                 raise ValueError(
                     "Output of process() should not be None. Make sure your processor's process() function returns an accumulator."
@@ -1919,10 +1934,6 @@ class Runner:
             self._preprocess_fileset(fileset)
             fileset = self._filter_badfiles(fileset)
 
-            # reverse fileset list to match the order of files as presented in version
-            # v0.7.4. This fixes tests using maxchunks.
-            fileset.reverse()
-
         return self._chunk_generator(fileset, treename)
 
     def run(
@@ -2000,18 +2011,14 @@ class Runner:
                 processor_instance=pi_to_send,
             )
 
-        if self.format == "root" and isinstance(
-            self.executor, (TaskVineExecutor, WorkQueueExecutor)
-        ):
-            # keep chunks in generator, use a copy to count number of events
-            # this is cheap, as we are reading from the cache
-            chunks_to_count = self.preprocess(fileset, treename)
-        else:
-            # materialize chunks to list, then count that list
-            chunks = list(chunks)
-            chunks_to_count = chunks
+        chunks = list(chunks)
+        if len(chunks) == 0:
+            raise ValueError(
+                "No chunks survived preprocessing.\n"
+                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
+            )
 
-        events_total = sum(len(c) for c in chunks_to_count)
+        events_total = sum(len(c) for c in chunks)
 
         exe_args = {
             "unit": "chunk",
@@ -2035,8 +2042,8 @@ class Runner:
         wrapped_out, e = executor(chunks, closure, None)
         if wrapped_out is None:
             raise ValueError(
-                "No chunks returned results, verify ``processor`` instance structure.\n\
-                if you used skipbadfiles=True, it is possible all your files are bad."
+                "No chunks returned results, verify ``processor`` instance structure.\n"
+                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
             )
         wrapped_out["exception"] = e
 
@@ -2047,7 +2054,7 @@ class Runner:
             if isinstance(self.executor, (TaskVineExecutor, WorkQueueExecutor)):
                 wrapped_out["metrics"]["chunks"] = len(wrapped_out["processed"])
             else:
-                wrapped_out["metrics"]["chunks"] = len(chunks_to_count)
+                wrapped_out["metrics"]["chunks"] = len(chunks)
 
             for k, v in wrapped_out["metrics"].items():
                 if isinstance(v, set):
