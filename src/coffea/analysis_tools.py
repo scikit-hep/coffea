@@ -1062,7 +1062,7 @@ class NminusOne:
             warnings.warn(
                 "Printing the N-1 selection statistics is going to compute dask_awkward objects."
             )
-            (self._nev, self._wgtev) = dask.compute(self._nev, self._wgtev)
+            self._nev, self._wgtev = dask.compute(self._nev, self._wgtev)
 
         xev = self._nev if not do_weighted else self._wgtev
         header = f"\n[{_rcol[6]}]N-1 selection stats:[/{_rcol[6]}]"
