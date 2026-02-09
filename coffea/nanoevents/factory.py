@@ -60,8 +60,8 @@ class NanoEventsFactory:
         schemaclass=NanoAODSchema,
         metadata=None,
         uproot_options={},
-        access_log=None,
         iteritems_options={},
+        access_log=None,
     ):
         """Quickly build NanoEvents from a root file
 
@@ -88,6 +88,8 @@ class NanoEventsFactory:
                 Arbitrary metadata to add to the `base.NanoEvents` object
             uproot_options : dict, optional
                 Any options to pass to ``uproot.open``
+            iteritems_options : dict, optional
+                Any options to pass to ``tree.iteritems`` when iterating over the tree's branches to extract the form.
             access_log : list, optional
                 Pass a list instance to record which branches were lazily accessed by this instance
         """

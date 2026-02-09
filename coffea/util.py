@@ -22,27 +22,36 @@ ak = awkward
 np = numpy
 nb = numba
 
-import lz4.frame
+import fsspec
 import cloudpickle
 import warnings
 from functools import partial
 
 
-def load(filename):
-    """Load a coffea file from disk"""
-    with lz4.frame.open(filename) as fin:
+def load(filename, compression="lz4"):
+    """Load a coffea file from disk
+
+    ``compression`` specified the algorithm to use to decompress the file.
+    It must be one of the ``fsspec`` supported compression string names.
+    These compression algorithms may have dependencies that need to be installed separately.
+    If it is ``None``, it means no compression.
+    """
+    with fsspec.open(filename, "rb", compression=compression) as fin:
         output = cloudpickle.load(fin)
     return output
 
 
-def save(output, filename):
-    """Save a coffea object or collection thereof to disk
+def save(output, filename, compression="lz4"):
+    """Save a coffea object or collection thereof to disk.
 
     This function can accept any picklable object.  Suggested suffix: ``.coffea``
+
+    ``compression`` can be one of the ``fsspec`` supported compression string names.
+    These compression algorithms may have dependencies that need to be installed separately.
+    If it is ``None``, it means no compression.
     """
-    with lz4.frame.open(filename, "wb") as fout:
-        thepickle = cloudpickle.dumps(output)
-        fout.write(thepickle)
+    with fsspec.open(filename, "wb", compression=compression) as fout:
+        cloudpickle.dump(output, fout)
 
 
 def _hex(string):

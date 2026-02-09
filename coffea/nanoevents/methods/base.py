@@ -4,7 +4,6 @@ import numpy
 from abc import abstractmethod
 from functools import partial
 import re
-import coffea
 from coffea.util import rewrap_recordarray, awkward_rewrap
 from typing import (
     List,
@@ -35,7 +34,7 @@ class Systematic:
         Make sure that the parent object always has a field called '__systematics__'.
         """
         if "__systematics__" not in awkward.fields(self):
-            self["__systematics__"] = {}
+            self["__systematics__"] = awkward.layout.RecordArray([], [], len(self))
 
     @property
     def systematics(self):
@@ -108,11 +107,7 @@ class Systematic:
         wrap = partial(
             awkward_rewrap, like_what=self["__systematics__"], gfunc=rewrap_recordarray
         )
-        flat = (
-            self
-            if isinstance(self, coffea.nanoevents.methods.base.NanoEvents)
-            else awkward.flatten(self)
-        )
+        flat = self if self.ndim == 1 else awkward.flatten(self)
 
         if what == "weight" and "__ones__" not in awkward.fields(
             flat["__systematics__"]
