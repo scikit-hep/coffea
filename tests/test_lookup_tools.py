@@ -56,6 +56,7 @@ def correctionlib_jec_stack():
         evaluate_fn=_evaluate,
     )
 
+
 # From make_expected_lookup.py
 _testSF2d_expected_output = np.array(
     [
@@ -229,7 +230,10 @@ def test_correctionlib_wrapper_jec_stack_detection():
     class DummyCorrection:
         def __init__(self):
             self.metadata = {"type": "jec", "jec_stack": True}
-            self.inputs = [SimpleNamespace(name="JetPt"), SimpleNamespace(name="systematic")]
+            self.inputs = [
+                SimpleNamespace(name="JetPt"),
+                SimpleNamespace(name="systematic"),
+            ]
             self.name = "MyJECStack"
             self.called_with = None
 

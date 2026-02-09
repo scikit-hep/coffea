@@ -1195,7 +1195,9 @@ def test_correctionlib_resolver_skips_auto_inference(tmp_path):
     jet_algo = "AK4PFchs"
 
     _write_minimal_jec_json(json_repo / year, jec_tag, jet_algo)
-    resolver_path = _write_minimal_jec_json(tmp_path / "resolver_repo", jec_tag, jet_algo)
+    resolver_path = _write_minimal_jec_json(
+        tmp_path / "resolver_repo", jec_tag, jet_algo
+    )
 
     stack = JECStack(
         use_clib=True,
@@ -1338,6 +1340,5 @@ def test_correctionlib_cache_reuses_files(tmp_path, monkeypatch):
 
     assert load_counter["count"] == 1
     assert (
-        stack_one.corrections["Test_L1_AK4PF"]
-        is stack_two.corrections["Test_L1_AK4PF"]
+        stack_one.corrections["Test_L1_AK4PF"] is stack_two.corrections["Test_L1_AK4PF"]
     )

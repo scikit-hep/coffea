@@ -39,7 +39,9 @@ class JECStack:
     json_path: Optional[Union[str, PathLike]] = None
     year: Optional[Union[int, str]] = None
     json_search_dirs: Optional[List[Union[str, PathLike]]] = None
-    correction_set: Optional[Union[clib.CorrectionSet, clib.schemav2.CorrectionSet]] = None
+    correction_set: Optional[
+        Union[clib.CorrectionSet, clib.schemav2.CorrectionSet]
+    ] = None
     resolver: Optional[
         Union[
             str,
@@ -187,11 +189,11 @@ class JECStack:
                     "jer_tag": self.jer_tag,
                     "jet_algo": self.jet_algo,
                 }
-                source = self.resolver.format(**{k: v for k, v in format_map.items() if v is not None})
-            else:
-                raise TypeError(
-                    "resolver must be a callable or a string path template"
+                source = self.resolver.format(
+                    **{k: v for k, v in format_map.items() if v is not None}
                 )
+            else:
+                raise TypeError("resolver must be a callable or a string path template")
 
         if isinstance(source, (clib.CorrectionSet, clib.schemav2.CorrectionSet)):
             cset = self._ensure_highlevel_cset(source)

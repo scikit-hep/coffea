@@ -14,9 +14,15 @@ class correctionlib_wrapper(lookup_base):
         meta = getattr(payload, "metadata", {}) or {}
         name = getattr(payload, "name", "") or ""
 
-        meta_markers = {str(meta.get(k, "")).lower() for k in ("type", "origin", "source")}
+        meta_markers = {
+            str(meta.get(k, "")).lower() for k in ("type", "origin", "source")
+        }
 
-        return "jec" in meta_markers or meta.get("jec_stack", False) or "jecstack" in name.lower()
+        return (
+            "jec" in meta_markers
+            or meta.get("jec_stack", False)
+            or "jecstack" in name.lower()
+        )
 
     def _evaluate(self, *args, **kwargs):
         if self._is_jec_stack:
@@ -39,7 +45,8 @@ class correctionlib_wrapper(lookup_base):
             inputs.update({inp.name: arg for inp, arg in zip(ordered_inputs, args)})
 
         if "systematic" not in inputs and any(
-            getattr(inp, "name", "") == "systematic" for inp in getattr(self._corr, "inputs", [])
+            getattr(inp, "name", "") == "systematic"
+            for inp in getattr(self._corr, "inputs", [])
         ):
             inputs["systematic"] = "nom"
 
