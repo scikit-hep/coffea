@@ -203,6 +203,157 @@ _updated_result = {
     },
 }
 
+_fileset_with_empty_files = {
+    "only_empty": {
+        "files": {
+            "tests/samples/nano_dy_empty.root": "Events",
+        },
+    },
+    "nonempty_and_empty": {
+        "files": {
+            "tests/samples/nano_dy.root": "Events",
+            "tests/samples/nano_dy_empty.root": "Events",
+        },
+    },
+    "empty_and_nonempty": {
+        "files": {
+            "tests/samples/nano_dy_empty.root": "Events",
+            "tests/samples/nano_dy.root": "Events",
+        },
+    },
+    "only_nonempty": {
+        "files": {
+            "tests/samples/nano_dy.root": "Events",
+        },
+    },
+}
+
+_fileset_with_empty_files_preprocessed = {
+    "only_empty": {
+        "files": {
+            "tests/samples/nano_dy_empty.root": {
+                "object_path": "Events",
+                "steps": [[0, 0]],
+                "num_entries": 0,
+                "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
+            }
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+    "nonempty_and_empty": {
+        "files": {
+            "tests/samples/nano_dy.root": {
+                "object_path": "Events",
+                "steps": [[0, 7], [7, 14], [14, 21], [21, 28], [28, 35], [35, 40]],
+                "num_entries": 40,
+                "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
+            },
+            "tests/samples/nano_dy_empty.root": {
+                "object_path": "Events",
+                "steps": [[0, 0]],
+                "num_entries": 0,
+                "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
+            },
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+    "empty_and_nonempty": {
+        "files": {
+            "tests/samples/nano_dy_empty.root": {
+                "object_path": "Events",
+                "steps": [[0, 0]],
+                "num_entries": 0,
+                "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
+            },
+            "tests/samples/nano_dy.root": {
+                "object_path": "Events",
+                "steps": [[0, 7], [7, 14], [14, 21], [21, 28], [28, 35], [35, 40]],
+                "num_entries": 40,
+                "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
+            },
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+    "only_nonempty": {
+        "files": {
+            "tests/samples/nano_dy.root": {
+                "object_path": "Events",
+                "steps": [[0, 7], [7, 14], [14, 21], [21, 28], [28, 35], [35, 40]],
+                "num_entries": 40,
+                "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
+            }
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+}
+
+_fileset_with_empty_files_preprocessed_aligned = {
+    "only_empty": {
+        "files": {
+            "tests/samples/nano_dy_empty.root": {
+                "object_path": "Events",
+                "steps": [[0, 0]],
+                "num_entries": 0,
+                "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
+            }
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+    "nonempty_and_empty": {
+        "files": {
+            "tests/samples/nano_dy.root": {
+                "object_path": "Events",
+                "steps": [[0, 40]],
+                "num_entries": 40,
+                "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
+            },
+            "tests/samples/nano_dy_empty.root": {
+                "object_path": "Events",
+                "steps": [[0, 0]],
+                "num_entries": 0,
+                "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
+            },
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+    "empty_and_nonempty": {
+        "files": {
+            "tests/samples/nano_dy_empty.root": {
+                "object_path": "Events",
+                "steps": [[0, 0]],
+                "num_entries": 0,
+                "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
+            },
+            "tests/samples/nano_dy.root": {
+                "object_path": "Events",
+                "steps": [[0, 40]],
+                "num_entries": 40,
+                "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
+            },
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+    "only_nonempty": {
+        "files": {
+            "tests/samples/nano_dy.root": {
+                "object_path": "Events",
+                "steps": [[0, 40]],
+                "num_entries": 40,
+                "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
+            }
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+}
+
 
 def _my_analysis_output_2(events):
     return events.Electron.pt, events.Muon.pt
@@ -369,7 +520,7 @@ def test_preprocess(the_fileset):
 
 @pytest.mark.dask_client
 @pytest.mark.parametrize("the_fileset", [{}, DataGroupSpec({})])
-def test_preprocess_empty(the_fileset):
+def test_preprocess_empty_fileset(the_fileset):
     with Client() as _:
         dataset_runnable, dataset_updated = preprocess(
             the_fileset,
@@ -384,6 +535,52 @@ def test_preprocess_empty(the_fileset):
     else:
         assert dataset_runnable == {}
         assert dataset_updated == {}
+
+
+@pytest.mark.dask_client
+@pytest.mark.parametrize(
+    "the_fileset", [_fileset_with_empty_files, DataGroupSpec(_fileset_with_empty_files)]
+)
+@pytest.mark.parametrize("align_clusters", [False, True])
+def test_preprocess_empty_files(the_fileset, align_clusters):
+    with Client() as _:
+        dataset_runnable, dataset_updated = preprocess(
+            the_fileset,
+            step_size=7,
+            align_clusters=align_clusters,
+            files_per_batch=10,
+            skip_bad_files=True,
+        )
+
+    if align_clusters:
+        expected_runnable = _fileset_with_empty_files_preprocessed_aligned
+        expected_updated = _fileset_with_empty_files_preprocessed_aligned
+    else:
+        expected_runnable = _fileset_with_empty_files_preprocessed
+        expected_updated = _fileset_with_empty_files_preprocessed
+    if isinstance(the_fileset, DataGroupSpec):
+        expected_runnable = DataGroupSpec(expected_runnable)
+        expected_updated = DataGroupSpec(expected_updated)
+    assert dataset_runnable == expected_runnable
+    assert dataset_updated == expected_updated
+
+    def data_manipulation(events):
+        return len(events)
+
+    with Client() as _:
+        to_compute = apply_to_fileset(
+            data_manipulation,
+            dataset_runnable,
+            schemaclass=NanoAODSchema,
+        )
+        out = dask.compute(to_compute)[0]
+
+    assert out == {
+        "only_empty": 0,
+        "nonempty_and_empty": 40,
+        "empty_and_nonempty": 40,
+        "only_nonempty": 40,
+    }
 
 
 @pytest.mark.dask_client
