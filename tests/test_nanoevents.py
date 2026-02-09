@@ -152,7 +152,7 @@ def test_read_nanodata(suffix):
 
 
 @pytest.mark.parametrize("kind", ["UpDownSystematic", "UpDownMultiSystematic"])
-def test_single_field_variation(kind):
+def test_systematics_single_field_variation(kind):
     access_log = []
     events = NanoEventsFactory.from_root(
         os.path.abspath("tests/samples/nano_dy.root"),
@@ -225,7 +225,7 @@ def test_single_field_variation(kind):
     assert sorted(access_log) == ["Jet_pt", "MET_pt", "Muon_pt", "nJet", "nMuon"]
 
 
-def test_multi_field_variation():
+def test_systematics_multi_field_variation():
     access_log = []
     events = NanoEventsFactory.from_root(
         os.path.abspath("tests/samples/nano_dy.root"),
@@ -317,7 +317,7 @@ def test_multi_field_variation():
     ]
 
 
-def test_single_and_multi_field_variation():
+def test_systematics_single_and_multi_field_variation():
     access_log = []
     events = NanoEventsFactory.from_root(
         os.path.abspath("tests/samples/nano_dy.root"),
