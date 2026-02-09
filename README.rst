@@ -83,7 +83,109 @@ The following are installed automatically when you install coffea with pip:
 - `matplotlib <https://matplotlib.org/>`__ as a plotting backend;
 - and other utility packages, as enumerated in ``setup.py``.
 
+Running the test suite
+======================
+
+The pytest suite ships with the minimal ROOT and parquet fixtures required to
+exercise coffea's features, so it does not need network access or
+experiment-specific packages.  After installing the development dependencies
+simply run:
+
+.. code-block:: bash
+
+    pytest tests
+
+The tests detect accidental imports of disallowed optional packages and fail
+fast so that a clean environment continues to work out of the box.
+
 .. inclusion-marker-3-do-not-remove
+
+Configuring correctionlib-based JEC inputs
+=========================================
+
+``coffea.jetmet_tools.JECStack`` can be pointed at any correctionlib JSON or
+an in-memory :class:`correctionlib.schemav2.CorrectionSet` without relying on
+CVMFS defaults.  When running in environments without CVMFS, provide a
+``resolver`` callable or string template that returns the path to your JSON,
+or pass the already-loaded correction set directly:
+
+.. code-block:: python
+
+    from coffea.jetmet_tools import JECStack
+    import correctionlib.schemav2 as cs
+
+    # Use a path template
+    stack = JECStack(
+        use_clib=True,
+        jec_tag="Summer22_V1",
+        jec_levels=["L1", "L2L3"],
+        jet_algo="AK4PFchs",
+        resolver="/site/local/corrections/{jec_tag}_{jet_algo}.json",
+    )
+
+    # Or provide a fully-materialized correction set
+    stack = JECStack(
+        use_clib=True,
+        jec_tag="Local",
+        jec_levels=["L1"],
+        jet_algo="AK4PF",
+        correction_set=cs.CorrectionSet.from_file("./local.json"),
+    )
+
+The resolved path and correction set are then consumed automatically by
+``CorrectedJetsFactory`` during evaluation.
+
+When running in environments where the official ``JME-JSONs`` repository is
+available (for example via CVMFS) you can ask ``JECStack`` to auto-discover the
+correctionlib payload by providing the ``year`` and a list of search directories
+or by setting the ``COFFEA_JME_JSONS`` environment variable:
+
+.. code-block:: python
+
+    stack = JECStack(
+        use_clib=True,
+        jec_tag="Summer22Run3_V1_MC",
+        jec_levels=["L1", "L2L3"],
+        jet_algo="AK8PFPuppi",
+        year=2022,
+        json_search_dirs=["/cvmfs/cms.cern.ch/rsync/cms-jet/JME-JSONs"],
+    )
+
+The stack sets ``json_path`` automatically based on ``{jec_tag}_{jet_algo}``
+within the provided directory (preferring year-specific subdirectories), so
+downstream factories do not need to construct algorithm-specific file names.
+
+Requesting specific correction levels
+=====================================
+
+``CorrectedJetsFactory`` now exposes lightweight accessors for multiplying the
+corrections up to a named level without materializing a column per step.  The
+``correction_factors`` method returns an awkward array matching the jet
+structure and accepts ``target_level`` strings that align with the
+``jec_levels`` provided to ``JECStack`` (``"L1"``, ``"L2Relative"``, etc.) or
+the fully qualified correction names:
+
+.. code-block:: python
+
+    jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+    jec_cache = cachetools.Cache(np.inf)
+
+    # Retrieve the correction factors up to the L1 step
+    l1_factors = jet_factory.correction_factors(
+        jets,
+        lazy_cache=jec_cache,
+        target_level="L1",
+    )
+
+    # Build jets using only corrections up to L2
+    partially_corrected = jet_factory.build(
+        jets,
+        lazy_cache=jec_cache,
+        target_level="L2",
+    )
+
+If ``target_level`` is omitted the factory multiplies all available JEC levels
+as before.
 
 Documentation
 =============
