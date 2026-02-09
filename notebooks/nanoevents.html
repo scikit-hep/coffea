@@ -1,0 +1,577 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reading data with coffea NanoEvents &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css?v=2aa19091" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Applying corrections to columnar data" href="applying_corrections.html" />
+    <link rel="prev" title="Coffea by Example" href="../examples.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../examples.html">Coffea by Example</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Reading data with coffea NanoEvents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="applying_corrections.html">Applying corrections to columnar data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="accumulators.html">Analysis tools and accumulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor.html">Coffea Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="histograms.html">Coffea Histograms (deprecated)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">API Reference Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../examples.html">Coffea by Example</a></li>
+      <li class="breadcrumb-item active">Reading data with coffea NanoEvents</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/notebooks/nanoevents.ipynb.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="Reading-data-with-coffea-NanoEvents">
+<h1>Reading data with coffea NanoEvents<a class="headerlink" href="#Reading-data-with-coffea-NanoEvents" title="Link to this heading"></a></h1>
+<p>This is a rendered copy of <a class="reference external" href="https://github.com/CoffeaTeam/coffea/blob/master/binder/nanoevents.ipynb">nanoevents.ipynb</a>. You can optionally run it interactively on <a class="reference external" href="https://mybinder.org/v2/gh/coffeateam/coffea/master?filepath=binder%2Fnanoevents.ipynb">binder at this link</a></p>
+<p>NanoEvents is a Coffea utility to wrap flat nTuple structures (such as the CMS <a class="reference external" href="https://www.epj-conferences.org/articles/epjconf/pdf/2019/19/epjconf_chep2018_06021.pdf">NanoAOD</a> format) into a single awkward array with appropriate object methods (such as Lorentz vector methods<span class="math notranslate nohighlight">\(^*\)</span>), cross references, and nested objects, all lazily accessed<span class="math notranslate nohighlight">\(^\dagger\)</span> from the source ROOT TTree via uproot. The interpretation of the TTree data is configurable via <a class="reference external" href="https://coffea-hep.readthedocs.io/en/backports-v0.7.x/modules/coffea.nanoevents.html#classes">schema
+objects</a>, which are community-supplied for various source file types. These schema objects allow a richer interpretation of the file contents than the <a class="reference external" href="https://uproot4.readthedocs.io/en/latest/uproot4.behaviors.TBranch.lazy.html">uproot.lazy</a> methods. Currently available schemas include:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">BaseSchema</span></code>, which provides a simple representation of the input TTree, where each branch is available verbatim as <code class="docutils literal notranslate"><span class="pre">events.branch_name</span></code>, effectively the same behavior as <code class="docutils literal notranslate"><span class="pre">uproot.lazy</span></code>. Any branches that uproot supports at “full speed” (i.e. that are fully split and either flat or single-jagged) can be read by this schema;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NanoAODSchema</span></code>, which is optimized to provide all methods and cross-references in CMS NanoAOD format;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PFNanoAODSchema</span></code>, which builds a double-jagged particle flow candidate colllection <code class="docutils literal notranslate"><span class="pre">events.jet.constituents</span></code> from compatible PFNanoAOD input files;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">TreeMakerSchema</span></code> which is designed to read TTrees made by <a class="reference external" href="https://github.com/TreeMaker/TreeMaker">TreeMaker</a>, an alternative CMS nTuplization format;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PHYSLITESchema</span></code>, for the ATLAS DAOD_PHYSLITE derivation, a compact centrally-produced data format similar to CMS NanoAOD; and</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DelphesSchema</span></code>, for reading Delphes fast simulation <a class="reference external" href="https://cp3.irmp.ucl.ac.be/projects/delphes/wiki/WorkBook/RootTreeDescription">nTuples</a>.</p></li>
+</ul>
+<p>We welcome contributions for new schemas, and can assist with the design of them.</p>
+<p><span class="math notranslate nohighlight">\(^*\)</span> Vector methods are currently made possible via the <a class="reference external" href="https://coffea-hep.readthedocs.io/en/backports-v0.7.x/modules/coffea.nanoevents.methods.vector.html">coffea vector</a> methods mixin class structure. In a future version of coffea, they will instead be provided by the dedicated scikit-hep <a class="reference external" href="https://vector.readthedocs.io/en/latest/">vector</a> library, which provides a more rich feature set. The coffea vector methods predate the release of the vector library.</p>
+<p><span class="math notranslate nohighlight">\(^\dagger\)</span> <em>Lazy</em> access refers to only fetching the needed data from the (possibly remote) file when a sub-array is first accessed. The sub-array is then <em>materialized</em> and subsequent access of the sub-array uses a cached value in memory. As such, fully materializing a <code class="docutils literal notranslate"><span class="pre">NanoEvents</span></code> object may require a significant amount of memory.</p>
+<p>In this demo, we will use NanoEvents to read a small CMS NanoAOD sample. The events object can be instantiated as follows:</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">awkward</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ak</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">coffea.nanoevents</span><span class="w"> </span><span class="kn">import</span> <span class="n">NanoEventsFactory</span><span class="p">,</span> <span class="n">NanoAODSchema</span>
+
+<span class="n">fname</span> <span class="o">=</span> <span class="s2">&quot;https://raw.githubusercontent.com/CoffeaTeam/coffea/master/tests/samples/nano_dy.root&quot;</span>
+<span class="n">events</span> <span class="o">=</span> <span class="n">NanoEventsFactory</span><span class="o">.</span><span class="n">from_root</span><span class="p">(</span>
+    <span class="n">fname</span><span class="p">,</span>
+    <span class="n">schemaclass</span><span class="o">=</span><span class="n">NanoAODSchema</span><span class="o">.</span><span class="n">v6</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="s2">&quot;DYJets&quot;</span><span class="p">},</span>
+<span class="p">)</span><span class="o">.</span><span class="n">events</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<p>In the factory constructor, we also pass the desired schema version (the latest version of NanoAOD can be built with <code class="docutils literal notranslate"><span class="pre">schemaclass=NanoAODSchema</span></code>) for this file and some extra metadata that we can later access with <code class="docutils literal notranslate"><span class="pre">events.metadata</span></code>. In a later example, we will show how to set up this metadata in coffea processors where the <code class="docutils literal notranslate"><span class="pre">events</span></code> object is pre-created for you. Consider looking at the
+<a class="reference external" href="https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.nanoevents.NanoEventsFactory.html#coffea.nanoevents.NanoEventsFactory.from_root">from_root</a> class method to see all optional arguments.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">events</span></code> object is an awkward array, which at its top level is a record array with one record for each “collection”, where a collection is a grouping of fields (TBranches) based on the naming conventions of <a class="reference external" href="https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.nanoevents.NanoAODSchema.html">NanoAODSchema</a>. For example, in the file we opened, the branches:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>Generator_binvar
+Generator_scalePDF
+Generator_weight
+Generator_x1
+Generator_x2
+Generator_xpdf1
+Generator_xpdf2
+Generator_id1
+Generator_id2
+</pre></div>
+</div>
+<p>are grouped into one sub-record named <code class="docutils literal notranslate"><span class="pre">Generator</span></code> which can be accessed using either getitem or getattr syntax, i.e. <code class="docutils literal notranslate"><span class="pre">events[&quot;Generator&quot;]</span></code> or <code class="docutils literal notranslate"><span class="pre">events.Generator</span></code>. e.g.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">events</span><span class="o">.</span><span class="n">Generator</span><span class="o">.</span><span class="n">id1</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [1, -1, -1, 21, 21, ... 2, -2, -1, 2, 1] type=&#39;40 * int32[parameters={&#34;__...&#39;&gt;
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># all names can be listed with:</span>
+<span class="n">events</span><span class="o">.</span><span class="n">Generator</span><span class="o">.</span><span class="n">fields</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[&#39;binvar&#39;, &#39;scalePDF&#39;, &#39;weight&#39;, &#39;x1&#39;, &#39;x2&#39;, &#39;xpdf1&#39;, &#39;xpdf2&#39;, &#39;id1&#39;, &#39;id2&#39;]
+</pre></div></div>
+</div>
+<p>In CMS NanoAOD, each TBranch has a self-documenting help string embedded in the title field, which is carried into the NanoEvents, e.g. executing the following cell should produce a help pop-up:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>Type:            Array
+String form:     [1, -1, -1, 21, 21, 4, 2, -2, 2, 1, 3, 1, ... -1, -1, 1, -2, 2, 1, 2, -2, -1, 2, 1]
+Length:          40
+File:            ~/src/awkward-1.0/awkward1/highlevel.py
+Docstring:       id of first parton
+Class docstring: ...
+</pre></div>
+</div>
+<p>where the <code class="docutils literal notranslate"><span class="pre">Docstring</span></code> shows information about the content of this array.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>events.Generator.id1<span class="o">?</span>
+</pre></div>
+</div>
+</div>
+<p>Based on a collection’s name or contents, some collections acquire additional <em>methods</em>, which are extra features exposed by the code in the mixin classes of the <code class="docutils literal notranslate"><span class="pre">coffea.nanoevents.methods</span></code> modules. For example, although <code class="docutils literal notranslate"><span class="pre">events.GenJet</span></code> has the fields:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">events</span><span class="o">.</span><span class="n">GenJet</span><span class="o">.</span><span class="n">fields</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[&#39;eta&#39;, &#39;mass&#39;, &#39;phi&#39;, &#39;pt&#39;, &#39;partonFlavour&#39;, &#39;hadronFlavour&#39;]
+</pre></div></div>
+</div>
+<p>we can access additional attributes associated to each generated jet by virtue of the fact that they can be interpreted as <a class="reference external" href="https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.nanoevents.methods.vector.LorentzVector.html#coffea.nanoevents.methods.vector.LorentzVector">Lorentz vectors</a>:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">events</span><span class="o">.</span><span class="n">GenJet</span><span class="o">.</span><span class="n">energy</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [[217, 670, 258], ... 16], [76.9]] type=&#39;40 * var * float32&#39;&gt;
+</pre></div></div>
+</div>
+<p>We can call more complex methods, like computing the distance <span class="math notranslate nohighlight">\(\Delta R = \sqrt{\Delta \eta^2 + \Delta \phi ^2}\)</span> between two LorentzVector objects:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># find distance between leading jet and all electrons in each event</span>
+<span class="n">dr</span> <span class="o">=</span> <span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">delta_r</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="p">)</span>
+<span class="n">dr</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [[], [3.13], [3.45, ... 0.0858], [], []] type=&#39;40 * var * float32&#39;&gt;
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># find minimum distance</span>
+<span class="n">ak</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">dr</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [None, 3.13, 2.18, ... None, None] type=&#39;40 * ?float32&#39;&gt;
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># a convenience method for this operation on all jets is available</span>
+<span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="o">.</span><span class="n">nearest</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;ElectronArray [[None, None, None, ... [None, None]] type=&#39;40 * var * ?electron&#39;&gt;
+</pre></div></div>
+</div>
+<p>The assignment of methods classes to collections is done inside the schema object during the initial creation of the array, governed by the awkward array’s <code class="docutils literal notranslate"><span class="pre">__record__</span></code> parameter and the associated behavior. See <a class="reference external" href="https://awkward-array.readthedocs.io/en/latest/ak.behavior.html">ak.behavior</a> for a more detailed explanation of array behaviors.</p>
+<p>Additional methods provide convenience functions for interpreting some branches, e.g. CMS NanoAOD packs several jet identification flag bits into a single integer, <code class="docutils literal notranslate"><span class="pre">jetId</span></code>. By implementing the bit-twiddling in the <a class="reference external" href="https://github.com/CoffeaTeam/coffea/blob/7045c06b9448d2be4315e65d432e6d8bd117d6d7/coffea/nanoevents/methods/nanoaod.py#L279-L282">Jet mixin</a>, the analsyis code becomes more clear:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="o">.</span><span class="n">jetId</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="o">.</span><span class="n">isTight</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[[6, 6, 6, 6, 6], [6, 2, 6, 6, 6, 6, 6, 0], ... 6], [6], [6, 6, 0, 6, 6, 6], [6, 6]]
+[[True, True, True, True, True], [True, ... False, True, True, True], [True, True]]
+</pre></div></div>
+</div>
+<p>We can also define convenience functions to unpack and apply some mask to a set of flags, e.g. for generated particles:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Raw status flags: </span><span class="si">{</span><span class="n">events</span><span class="o">.</span><span class="n">GenPart</span><span class="o">.</span><span class="n">statusFlags</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">events</span><span class="o">.</span><span class="n">GenPart</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="s1">&#39;isPrompt&#39;</span><span class="p">,</span> <span class="s1">&#39;isLastCopy&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Raw status flags: [[10625, 27009, 4481, 22913, 257, 257, ... 13884, 13884, 12876, 12876, 12876, 12876]]
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [[True, True, False, ... False, False]] type=&#39;40 * var * bool&#39;&gt;
+</pre></div></div>
+</div>
+<p>CMS NanoAOD also contains pre-computed cross-references for some types of collections. For example, there is a TBranch <code class="docutils literal notranslate"><span class="pre">Electron_genPartIdx</span></code> which indexes the <code class="docutils literal notranslate"><span class="pre">GenPart</span></code> collection per event to give the matched generated particle, and <code class="docutils literal notranslate"><span class="pre">-1</span></code> if no match is found. NanoEvents transforms these indices into an awkward <em>indexed array</em> pointing to the collection, so that one can directly access the matched particle using getattr syntax:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">matched_gen</span><span class="o">.</span><span class="n">pdgId</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [[], [-11], [-11, ... [None], [], []] type=&#39;40 * var * ?int32[parameters=...&#39;&gt;
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">events</span><span class="o">.</span><span class="n">Muon</span><span class="p">[</span><span class="n">ak</span><span class="o">.</span><span class="n">num</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Muon</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">matched_jet</span><span class="o">.</span><span class="n">pt</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [[84.4, 29.4], [31.1, ... 26.1], [25.8]] type=&#39;12 * var * ?float32[parame...&#39;&gt;
+</pre></div></div>
+</div>
+<p>For generated particles, the parent index is similarly mapped:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">events</span><span class="o">.</span><span class="n">GenPart</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">pdgId</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [[None, None, 1, 1, ... 111, 111, 111]] type=&#39;40 * var * ?int32[parameter...&#39;&gt;
+</pre></div></div>
+</div>
+<p>In addition, using the parent index, a helper method computes the inverse mapping, namely, <code class="docutils literal notranslate"><span class="pre">children</span></code>. As such, one can find particle siblings with:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">events</span><span class="o">.</span><span class="n">GenPart</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">children</span><span class="o">.</span><span class="n">pdgId</span>
+<span class="c1"># notice this is a doubly-jagged array</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [[None, None, [23, 21, ... [22, 22]]] type=&#39;40 * var * option[var * ?int3...&#39;&gt;
+</pre></div></div>
+</div>
+<p>Since often one wants to shortcut repeated particles in a decay sequence, a helper method <code class="docutils literal notranslate"><span class="pre">distinctParent</span></code> is also available. Here we use it to find the parent particle ID for all prompt electrons:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">events</span><span class="o">.</span><span class="n">GenPart</span><span class="p">[</span>
+    <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">GenPart</span><span class="o">.</span><span class="n">pdgId</span><span class="p">)</span> <span class="o">==</span> <span class="mi">11</span><span class="p">)</span>
+    <span class="o">&amp;</span> <span class="n">events</span><span class="o">.</span><span class="n">GenPart</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="s1">&#39;isPrompt&#39;</span><span class="p">,</span> <span class="s1">&#39;isLastCopy&#39;</span><span class="p">])</span>
+<span class="p">]</span><span class="o">.</span><span class="n">distinctParent</span><span class="o">.</span><span class="n">pdgId</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [[], [23, 23], [23, ... [23, 23], []] type=&#39;40 * var * ?int32[parameters=...&#39;&gt;
+</pre></div></div>
+</div>
+<p>Events can be filtered like any other awkward array using boolean fancy-indexing</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">mmevents</span> <span class="o">=</span> <span class="n">events</span><span class="p">[</span><span class="n">ak</span><span class="o">.</span><span class="n">num</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Muon</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">]</span>
+<span class="n">zmm</span> <span class="o">=</span> <span class="n">mmevents</span><span class="o">.</span><span class="n">Muon</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">mmevents</span><span class="o">.</span><span class="n">Muon</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="n">zmm</span><span class="o">.</span><span class="n">mass</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [94.6, 87.6, 88, 90.4, 89.1, 31.6] type=&#39;6 * float32&#39;&gt;
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># a convenience method is available to sum vectors along an axis:</span>
+<span class="n">mmevents</span><span class="o">.</span><span class="n">Muon</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mass</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [94.6, 87.6, 88, 90.4, 89.1, 31.6] type=&#39;6 * float32&#39;&gt;
+</pre></div></div>
+</div>
+<p>As expected for this sample, most of the dimuon events have a pair invariant mass close to that of a Z boson. But what about the last event? Let’s take a look at the generator information:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">mmevents</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">Muon</span><span class="o">.</span><span class="n">matched_gen</span><span class="o">.</span><span class="n">pdgId</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mmevents</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">Muon</span><span class="o">.</span><span class="n">matched_gen</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="s2">&quot;isPrompt&quot;</span><span class="p">]))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[-13, 13]
+[False, False]
+</pre></div></div>
+</div>
+<p>So they are real generated muons, but they are not prompt (i.e. from the initial decay of a heavy resonance)</p>
+<p>Let’s look at their parent particles:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">mmevents</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">Muon</span><span class="o">.</span><span class="n">matched_gen</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">pdgId</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [-15, 15] type=&#39;2 * ?int32[parameters={&#34;__doc__&#34;: &#34;PDG id&#34;}]&#39;&gt;
+</pre></div></div>
+</div>
+<p>aha! They are muons coming from tau lepton decays, and hence a fair amount of the Z mass is carried away by the neutrinos:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">mmevents</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">Muon</span><span class="o">.</span><span class="n">matched_gen</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">mass</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mmevents</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">Muon</span><span class="o">.</span><span class="n">matched_gen</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">mass</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+31.265271292167853
+91.68363205830444
+</pre></div></div>
+</div>
+<p>One can assign new variables to the arrays, with some caveats:</p>
+<ul class="simple">
+<li><p>Assignment must use setitem (<code class="docutils literal notranslate"><span class="pre">events[&quot;path&quot;,</span> <span class="pre">&quot;to&quot;,</span> <span class="pre">&quot;name&quot;]</span> <span class="pre">=</span> <span class="pre">value</span></code>)</p></li>
+<li><p>Assignment to a sliced <code class="docutils literal notranslate"><span class="pre">events</span></code> won’t be accessible from the original variable</p></li>
+<li><p>New variables are not visible from cross-references</p></li>
+</ul>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">mmevents</span><span class="p">[</span><span class="s2">&quot;Electron&quot;</span><span class="p">,</span> <span class="s2">&quot;myvariable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mmevents</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">pt</span> <span class="o">+</span> <span class="n">zmm</span><span class="o">.</span><span class="n">mass</span>
+<span class="n">mmevents</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">myvariable</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [[], [121], [], [], [], []] type=&#39;6 * var * float32&#39;&gt;
+</pre></div></div>
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../examples.html" class="btn btn-neutral float-left" title="Coffea by Example" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="applying_corrections.html" class="btn btn-neutral float-right" title="Applying corrections to columnar data" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

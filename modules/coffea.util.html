@@ -1,0 +1,221 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>coffea.util &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="awkward_rewrap" href="../api/coffea.util.awkward_rewrap.html" />
+    <link rel="prev" title="work_queue_executor" href="../api/coffea.processor.work_queue_executor.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.hist.html">coffea.hist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.html">coffea.nanoevents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">coffea.util</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#functions">Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.util.awkward_rewrap.html">awkward_rewrap</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.util.deprecate.html">deprecate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.util.load.html">load</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.util.rewrap_recordarray.html">rewrap_recordarray</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.util.rich_bar.html">rich_bar</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.util.save.html">save</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#classes">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.util.SpeedColumn.html">SpeedColumn</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+      <li class="breadcrumb-item active">coffea.util</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/modules/coffea.util.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-coffea.util">
+<span id="coffea-util"></span><h1>coffea.util<a class="headerlink" href="#module-coffea.util" title="Link to this heading"></a></h1>
+<p>Utility functions</p>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.util.awkward_rewrap.html#coffea.util.awkward_rewrap" title="coffea.util.awkward_rewrap"><code class="xref py py-obj docutils literal notranslate"><span class="pre">awkward_rewrap</span></code></a>(arr, like_what, gfunc)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.util.deprecate.html#coffea.util.deprecate" title="coffea.util.deprecate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">deprecate</span></code></a>(exception, version[, date])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.util.load.html#coffea.util.load" title="coffea.util.load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load</span></code></a>(filename[, compression])</p></td>
+<td><p>Load a coffea file from disk</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.util.rewrap_recordarray.html#coffea.util.rewrap_recordarray" title="coffea.util.rewrap_recordarray"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rewrap_recordarray</span></code></a>(layout, depth, data)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.util.rich_bar.html#coffea.util.rich_bar" title="coffea.util.rich_bar"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rich_bar</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.util.save.html#coffea.util.save" title="coffea.util.save"><code class="xref py py-obj docutils literal notranslate"><span class="pre">save</span></code></a>(output, filename[, compression])</p></td>
+<td><p>Save a coffea object or collection thereof to disk.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Any</span></code>(*args, **kwargs)</p></td>
+<td><p>Special type indicating an unconstrained type.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">BarColumn</span></code>([bar_width, style, ...])</p></td>
+<td><p>Renders a visual progress bar.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Column</span></code>(header, footer, header_style, ...)</p></td>
+<td><p>Defines a column within a ~Table.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Progress</span></code>(*columns[, console, auto_refresh, ...])</p></td>
+<td><p>Renders an auto-updating progress bar(s).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ProgressColumn</span></code>([table_column])</p></td>
+<td><p>Base class for a widget to use in progress display.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.util.SpeedColumn.html#coffea.util.SpeedColumn" title="coffea.util.SpeedColumn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SpeedColumn</span></code></a>([fmt, table_column])</p></td>
+<td><p>Renders human readable transfer speed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Text</span></code>([text, style, justify, overflow, ...])</p></td>
+<td><p>Text with color / style.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextColumn</span></code>(text_format[, style, justify, ...])</p></td>
+<td><p>A column containing text.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">TimeElapsedColumn</span></code>([table_column])</p></td>
+<td><p>Renders time elapsed.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">TimeRemainingColumn</span></code>([compact, ...])</p></td>
+<td><p>Renders estimated time remaining.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">partial</span></code></p></td>
+<td><p>partial(func, <a href="#id1"><span class="problematic" id="id2">*</span></a>args, <a href="#id3"><span class="problematic" id="id4">**</span></a>keywords) - new function with partial application of the given arguments and keywords.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="class-inheritance-diagram">
+<h2>Class Inheritance Diagram<a class="headerlink" href="#class-inheritance-diagram" title="Link to this heading"></a></h2>
+<div class="graphviz"><img src="../_images/inheritance-56ecbd802dfbf5c1dfb28f10472845eb1c9505ef.png" alt="Inheritance diagram of coffea.util.SpeedColumn" usemap="#inheritance71903b615a" class="inheritance graphviz" /></div>
+<map id="inheritance71903b615a" name="inheritance71903b615a">
+<area shape="rect" id="node1" href="https://docs.python.org/3/library/abc.html#abc.ABC" target="_top" title="Helper class that provides a standard way to create an ABC using" alt="" coords="5,5,77,31"/>
+<area shape="rect" id="node3" href="../api/coffea.util.SpeedColumn.html#coffea.util.SpeedColumn" target="_top" title="Renders human readable transfer speed." alt="" coords="301,5,413,31"/>
+</map></section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../api/coffea.processor.work_queue_executor.html" class="btn btn-neutral float-left" title="work_queue_executor" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/coffea.util.awkward_rewrap.html" class="btn btn-neutral float-right" title="awkward_rewrap" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

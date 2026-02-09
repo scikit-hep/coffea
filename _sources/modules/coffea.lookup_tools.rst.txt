@@ -1,0 +1,5 @@
+coffea.lookup_tools
+===================
+
+.. automodapi:: coffea.lookup_tools
+    :no-heading:

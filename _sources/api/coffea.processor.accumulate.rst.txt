@@ -1,0 +1,6 @@
+accumulate
+==========
+
+.. currentmodule:: coffea.processor
+
+.. autofunction:: accumulate

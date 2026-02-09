@@ -1,0 +1,5 @@
+<map id="inheritanceeb23f38945" name="inheritanceeb23f38945">
+<area shape="rect" id="node1" href="../api/coffea.lumi_tools.LumiData.html#coffea.lumi_tools.LumiData" target="_top" title="Holds per&#45;lumiSection integrated lumi values" alt="" coords="7,104,93,129"/>
+<area shape="rect" id="node2" href="../api/coffea.lumi_tools.LumiList.html#coffea.lumi_tools.LumiList" target="_top" title="Mergeable list of unique (run, lumiSection) values" alt="" coords="11,55,89,80"/>
+<area shape="rect" id="node3" href="../api/coffea.lumi_tools.LumiMask.html#coffea.lumi_tools.LumiMask" target="_top" title="Holds a luminosity mask index, and provides vectorized lookup" alt="" coords="5,5,95,31"/>
+</map>

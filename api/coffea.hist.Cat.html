@@ -1,0 +1,222 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="StringBin" href="coffea.hist.StringBin.html" />
+    <link rel="prev" title="Interval" href="coffea.hist.Interval.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../modules/coffea.hist.html">coffea.hist</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../modules/coffea.hist.html#functions">Functions</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../modules/coffea.hist.html#classes">Classes</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="coffea.hist.Hist.html">Hist</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.hist.Bin.html">Bin</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.hist.Interval.html">Interval</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">Cat</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.hist.StringBin.html">StringBin</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../modules/coffea.hist.html#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.html">coffea.nanoevents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+          <li class="breadcrumb-item"><a href="../modules/coffea.hist.html">coffea.hist</a></li>
+      <li class="breadcrumb-item active">Cat</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/coffea.hist.Cat.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="cat">
+<h1>Cat<a class="headerlink" href="#cat" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="coffea.hist.Cat">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">coffea.hist.</span></span><span class="sig-name descname"><span class="pre">Cat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sorting</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'identifier'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/hist/hist_tools.py#L304"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.hist.Cat" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">SparseAxis</span></code></p>
+<p>A category axis with name and label</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – is used as a keyword in histogram filling, immutable</p></li>
+<li><p><strong>label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – describes the meaning of the axis, can be changed</p></li>
+<li><p><strong>sorting</strong> (<em>{'identifier'</em><em>, </em><em>'placement'</em><em>, </em><em>'integral'}</em><em>, </em><em>optional</em>) – Axis sorting when listing identifiers.  Default ‘placement’
+Changing this setting can effect the order of stack plotting
+in <a class="reference internal" href="coffea.hist.plot1d.html#coffea.hist.plot1d" title="coffea.hist.plot1d"><code class="xref any py py-func docutils literal notranslate"><span class="pre">hist.plot1d</span></code></a>.</p></li>
+</ul>
+</dd>
+</dl>
+<p>The number of categories is arbitrary, and can be filled sparsely
+Identifiers are strings</p>
+<p class="rubric">Attributes Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.hist.Cat.size" title="coffea.hist.Cat.size"><code class="xref py py-obj docutils literal notranslate"><span class="pre">size</span></code></a></p></td>
+<td><p>Number of bins</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.hist.Cat.sorting" title="coffea.hist.Cat.sorting"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sorting</span></code></a></p></td>
+<td><p>Sorting definition to adhere to</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Methods Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.hist.Cat.identifiers" title="coffea.hist.Cat.identifiers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">identifiers</span></code></a>()</p></td>
+<td><p>List of <a class="reference internal" href="coffea.hist.StringBin.html#coffea.hist.StringBin" title="coffea.hist.StringBin"><code class="xref any py py-class docutils literal notranslate"><span class="pre">StringBin</span></code></a> identifiers</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.hist.Cat.index" title="coffea.hist.Cat.index"><code class="xref py py-obj docutils literal notranslate"><span class="pre">index</span></code></a>(identifier)</p></td>
+<td><p>Index of a identifer or label</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes Documentation</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.hist.Cat.size">
+<span class="sig-name descname"><span class="pre">size</span></span><a class="headerlink" href="#coffea.hist.Cat.size" title="Link to this definition"></a></dt>
+<dd><p>Number of bins</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.hist.Cat.sorting">
+<span class="sig-name descname"><span class="pre">sorting</span></span><a class="headerlink" href="#coffea.hist.Cat.sorting" title="Link to this definition"></a></dt>
+<dd><p>Sorting definition to adhere to</p>
+<p>See <a class="reference internal" href="#coffea.hist.Cat" title="coffea.hist.Cat"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Cat</span></code></a> constructor for possible values</p>
+</dd></dl>
+
+<p class="rubric">Methods Documentation</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.hist.Cat.identifiers">
+<span class="sig-name descname"><span class="pre">identifiers</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/hist/hist_tools.py#L426"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.hist.Cat.identifiers" title="Link to this definition"></a></dt>
+<dd><p>List of <a class="reference internal" href="coffea.hist.StringBin.html#coffea.hist.StringBin" title="coffea.hist.StringBin"><code class="xref any py py-class docutils literal notranslate"><span class="pre">StringBin</span></code></a> identifiers</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.hist.Cat.index">
+<span class="sig-name descname"><span class="pre">index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/hist/hist_tools.py#L329"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.hist.Cat.index" title="Link to this definition"></a></dt>
+<dd><p>Index of a identifer or label</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>identifier</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><a class="reference internal" href="coffea.hist.StringBin.html#coffea.hist.StringBin" title="coffea.hist.StringBin"><em>StringBin</em></a>) – The identifier to lookup</p>
+</dd>
+</dl>
+<p>Returns a <a class="reference internal" href="coffea.hist.StringBin.html#coffea.hist.StringBin" title="coffea.hist.StringBin"><code class="xref any py py-class docutils literal notranslate"><span class="pre">StringBin</span></code></a> corresponding to the given argument (trival in the case
+where a <a class="reference internal" href="coffea.hist.StringBin.html#coffea.hist.StringBin" title="coffea.hist.StringBin"><code class="xref any py py-class docutils literal notranslate"><span class="pre">StringBin</span></code></a> was passed) and saves a reference internally in the case where
+the identifier was not seen before by this axis.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="coffea.hist.Interval.html" class="btn btn-neutral float-left" title="Interval" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="coffea.hist.StringBin.html" class="btn btn-neutral float-right" title="StringBin" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,5 @@
+<map id="inheritancebfed2d67ba" name="inheritancebfed2d67ba">
+<area shape="rect" id="node1" href="../api/coffea.nanoevents.methods.base.NanoCollection.html#coffea.nanoevents.methods.base.NanoCollection" target="_top" title="A NanoEvents collection" alt="" coords="5,55,127,80"/>
+<area shape="rect" id="node2" href="../api/coffea.nanoevents.methods.base.NanoEvents.html#coffea.nanoevents.methods.base.NanoEvents" target="_top" title="NanoEvents mixin class" alt="" coords="175,5,275,31"/>
+<area shape="rect" id="node3" href="../api/coffea.nanoevents.methods.base.Systematic.html#coffea.nanoevents.methods.base.Systematic" target="_top" title="A base mixin class to describe and build variations on a feature of an nanoevents object." alt="" coords="19,5,113,31"/>
+</map>

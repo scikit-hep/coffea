@@ -1,0 +1,17 @@
+Vertex
+======
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: Vertex
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~Vertex.pos
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: pos

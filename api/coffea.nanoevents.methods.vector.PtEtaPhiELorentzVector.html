@@ -1,0 +1,294 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PtEtaPhiELorentzVector &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="coffea.processor" href="../modules/coffea.processor.html" />
+    <link rel="prev" title="PtEtaPhiMLorentzVector" href="coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.hist.html">coffea.hist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.html">coffea.nanoevents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../modules/coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../modules/coffea.nanoevents.methods.vector.html#classes">Classes</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.methods.vector.TwoVector.html">TwoVector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.methods.vector.PolarTwoVector.html">PolarTwoVector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.methods.vector.ThreeVector.html">ThreeVector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.methods.vector.SphericalThreeVector.html">SphericalThreeVector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.methods.vector.LorentzVector.html">LorentzVector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector.html">PtEtaPhiMLorentzVector</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">PtEtaPhiELorentzVector</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../modules/coffea.nanoevents.methods.vector.html#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+          <li class="breadcrumb-item"><a href="../modules/coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+      <li class="breadcrumb-item active">PtEtaPhiELorentzVector</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="ptetaphielorentzvector">
+<h1>PtEtaPhiELorentzVector<a class="headerlink" href="#ptetaphielorentzvector" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">coffea.nanoevents.methods.vector.</span></span><span class="sig-name descname"><span class="pre">PtEtaPhiELorentzVector</span></span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/nanoevents/methods/vector.py#L869"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="coffea.nanoevents.methods.vector.LorentzVector.html#coffea.nanoevents.methods.vector.LorentzVector" title="coffea.nanoevents.methods.vector.LorentzVector"><code class="xref py py-class docutils literal notranslate"><span class="pre">LorentzVector</span></code></a>, <a class="reference internal" href="coffea.nanoevents.methods.vector.SphericalThreeVector.html#coffea.nanoevents.methods.vector.SphericalThreeVector" title="coffea.nanoevents.methods.vector.SphericalThreeVector"><code class="xref py py-class docutils literal notranslate"><span class="pre">SphericalThreeVector</span></code></a></p>
+<p>A Lorentz vector using pseudorapidity and energy</p>
+<p>This mixin class requires the parent class to provide items <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.pt" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.pt"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">pt</span></code></a>, <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.eta" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.eta"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">eta</span></code></a>, <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.phi" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.phi"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">phi</span></code></a>, and <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.energy" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.energy"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">energy</span></code></a>.
+Some additional properties are overridden for performance</p>
+<p class="rubric">Attributes Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.E" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.E"><code class="xref py py-obj docutils literal notranslate"><span class="pre">E</span></code></a></p></td>
+<td><p>Alias for <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">t</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.energy" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.energy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">energy</span></code></a></p></td>
+<td><p>Alias for <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">t</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.eta" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.eta"><code class="xref py py-obj docutils literal notranslate"><span class="pre">eta</span></code></a></p></td>
+<td><p>Pseudorapidity</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.phi" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.phi"><code class="xref py py-obj docutils literal notranslate"><span class="pre">phi</span></code></a></p></td>
+<td><p>Azimuthal angle relative to X axis in XY plane</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.pt" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.pt"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pt</span></code></a></p></td>
+<td><p>Alias for <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.r" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.r"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">r</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.r" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.r"><code class="xref py py-obj docutils literal notranslate"><span class="pre">r</span></code></a></p></td>
+<td><p>Distance from origin in XY plane</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rho" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rho"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rho</span></code></a></p></td>
+<td><p>Distance from origin in 3D</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rho2" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rho2"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rho2</span></code></a></p></td>
+<td><p>Squared <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rho" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rho"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">rho</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t</span></code></a></p></td>
+<td><p>Cartesian time component</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.theta" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.theta"><code class="xref py py-obj docutils literal notranslate"><span class="pre">theta</span></code></a></p></td>
+<td><p>Inclination angle from XY plane</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.z" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.z"><code class="xref py py-obj docutils literal notranslate"><span class="pre">z</span></code></a></p></td>
+<td><p>Cartesian z value</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Methods Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.multiply" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.multiply"><code class="xref py py-obj docutils literal notranslate"><span class="pre">multiply</span></code></a>(other)</p></td>
+<td><p>Multiply this vector by a scalar elementwise using <a class="reference internal" href="coffea.nanoevents.methods.vector.PolarTwoVector.html#coffea.nanoevents.methods.vector.PolarTwoVector.x" title="coffea.nanoevents.methods.vector.PolarTwoVector.x"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">x</span></code></a>, <a class="reference internal" href="coffea.nanoevents.methods.vector.PolarTwoVector.html#coffea.nanoevents.methods.vector.PolarTwoVector.y" title="coffea.nanoevents.methods.vector.PolarTwoVector.y"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">y</span></code></a>, <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.z" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.z"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">z</span></code></a>, and <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">t</span></code></a> components</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.negative" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.negative"><code class="xref py py-obj docutils literal notranslate"><span class="pre">negative</span></code></a>()</p></td>
+<td><p>Returns the negative of the vector</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes Documentation</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.E">
+<span class="sig-name descname"><span class="pre">E</span></span><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.E" title="Link to this definition"></a></dt>
+<dd><p>Alias for <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">t</span></code></a></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.energy">
+<span class="sig-name descname"><span class="pre">energy</span></span><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.energy" title="Link to this definition"></a></dt>
+<dd><p>Alias for <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">t</span></code></a></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.eta">
+<span class="sig-name descname"><span class="pre">eta</span></span><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.eta" title="Link to this definition"></a></dt>
+<dd><p>Pseudorapidity</p>
+<p><span class="math notranslate nohighlight">\(-\ln\tan(\theta/2) = \text{arcsinh}(z/r)\)</span></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.phi">
+<span class="sig-name descname"><span class="pre">phi</span></span><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.phi" title="Link to this definition"></a></dt>
+<dd><p>Azimuthal angle relative to X axis in XY plane</p>
+<p><span class="math notranslate nohighlight">\(\text{arctan2}(y, x)\)</span></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.pt">
+<span class="sig-name descname"><span class="pre">pt</span></span><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.pt" title="Link to this definition"></a></dt>
+<dd><p>Alias for <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.r" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.r"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">r</span></code></a></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.r">
+<span class="sig-name descname"><span class="pre">r</span></span><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.r" title="Link to this definition"></a></dt>
+<dd><p>Distance from origin in XY plane</p>
+<p><span class="math notranslate nohighlight">\(\sqrt{x^2+y^2} = \rho \sin(\theta)\)</span></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rho">
+<span class="sig-name descname"><span class="pre">rho</span></span><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rho" title="Link to this definition"></a></dt>
+<dd><p>Distance from origin in 3D</p>
+<p><span class="math notranslate nohighlight">\(\sqrt{x^2+y^2+z^2} = \sqrt{r^2+z^2}\)</span></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rho2">
+<span class="sig-name descname"><span class="pre">rho2</span></span><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rho2" title="Link to this definition"></a></dt>
+<dd><p>Squared <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rho" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.rho"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">rho</span></code></a></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t">
+<span class="sig-name descname"><span class="pre">t</span></span><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t" title="Link to this definition"></a></dt>
+<dd><p>Cartesian time component</p>
+<p><span class="math notranslate nohighlight">\(\sqrt{\rho^2+m^2}\)</span></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.theta">
+<span class="sig-name descname"><span class="pre">theta</span></span><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.theta" title="Link to this definition"></a></dt>
+<dd><p>Inclination angle from XY plane</p>
+<p><span class="math notranslate nohighlight">\(\text{arctan2}(r, z) = 2\text{arctan}(e^{-\eta})\)</span></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.z">
+<span class="sig-name descname"><span class="pre">z</span></span><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.z" title="Link to this definition"></a></dt>
+<dd><p>Cartesian z value</p>
+<p><span class="math notranslate nohighlight">\(r \sinh(\eta)\)</span></p>
+</dd></dl>
+
+<p class="rubric">Methods Documentation</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.multiply">
+<span class="sig-name descname"><span class="pre">multiply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/nanoevents/methods/vector.py#L953"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.multiply" title="Link to this definition"></a></dt>
+<dd><p>Multiply this vector by a scalar elementwise using <a class="reference internal" href="coffea.nanoevents.methods.vector.PolarTwoVector.html#coffea.nanoevents.methods.vector.PolarTwoVector.x" title="coffea.nanoevents.methods.vector.PolarTwoVector.x"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">x</span></code></a>, <a class="reference internal" href="coffea.nanoevents.methods.vector.PolarTwoVector.html#coffea.nanoevents.methods.vector.PolarTwoVector.y" title="coffea.nanoevents.methods.vector.PolarTwoVector.y"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">y</span></code></a>, <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.z" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.z"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">z</span></code></a>, and <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.t"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">t</span></code></a> components</p>
+<p>In reality, this directly adjusts <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.pt" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.pt"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">pt</span></code></a>, <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.eta" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.eta"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">eta</span></code></a>, <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.phi" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.phi"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">phi</span></code></a> and <a class="reference internal" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.energy" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.energy"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">energy</span></code></a> for performance</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.negative">
+<span class="sig-name descname"><span class="pre">negative</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/nanoevents/methods/vector.py#L970"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.negative" title="Link to this definition"></a></dt>
+<dd><p>Returns the negative of the vector</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector.html" class="btn btn-neutral float-left" title="PtEtaPhiMLorentzVector" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../modules/coffea.processor.html" class="btn btn-neutral float-right" title="coffea.processor" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

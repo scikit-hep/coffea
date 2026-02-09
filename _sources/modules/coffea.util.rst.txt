@@ -1,0 +1,5 @@
+coffea.util
+===========
+
+.. automodapi:: coffea.util
+    :no-heading:

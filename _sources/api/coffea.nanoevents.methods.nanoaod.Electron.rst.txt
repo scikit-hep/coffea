@@ -1,0 +1,39 @@
+Electron
+========
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: Electron
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~Electron.FAIL
+      ~Electron.LOOSE
+      ~Electron.MEDIUM
+      ~Electron.TIGHT
+      ~Electron.VETO
+      ~Electron.isLoose
+      ~Electron.isMedium
+      ~Electron.isTight
+      ~Electron.isVeto
+      ~Electron.matched_gen
+      ~Electron.matched_jet
+      ~Electron.matched_photon
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: FAIL
+   .. autoattribute:: LOOSE
+   .. autoattribute:: MEDIUM
+   .. autoattribute:: TIGHT
+   .. autoattribute:: VETO
+   .. autoattribute:: isLoose
+   .. autoattribute:: isMedium
+   .. autoattribute:: isTight
+   .. autoattribute:: isVeto
+   .. autoattribute:: matched_gen
+   .. autoattribute:: matched_jet
+   .. autoattribute:: matched_photon

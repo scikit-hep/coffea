@@ -1,0 +1,25 @@
+JECStack
+========
+
+.. currentmodule:: coffea.jetmet_tools
+
+.. autoclass:: JECStack
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~JECStack.blank_name_map
+      ~JECStack.jec
+      ~JECStack.jer
+      ~JECStack.jersf
+      ~JECStack.junc
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: blank_name_map
+   .. autoattribute:: jec
+   .. autoattribute:: jer
+   .. autoattribute:: jersf
+   .. autoattribute:: junc

@@ -1,0 +1,10 @@
+<map id="inheritance47b1064a67" name="inheritance47b1064a67">
+<area shape="rect" id="node1" href="../api/coffea.nanoevents.BaseSchema.html#coffea.nanoevents.BaseSchema" target="_top" title="Base schema builder" alt="" coords="25,104,132,129"/>
+<area shape="rect" id="node2" href="../api/coffea.nanoevents.DelphesSchema.html#coffea.nanoevents.DelphesSchema" target="_top" title="Delphes schema builder" alt="" coords="207,5,334,31"/>
+<area shape="rect" id="node3" href="../api/coffea.processor.NanoAODSchema.html#coffea.processor.NanoAODSchema" target="_top" title="NanoAOD schema builder" alt="" coords="202,55,339,80"/>
+<area shape="rect" id="node5" href="../api/coffea.nanoevents.PDUNESchema.html#coffea.nanoevents.PDUNESchema" target="_top" title="PDUNESchema" alt="" coords="211,104,331,129"/>
+<area shape="rect" id="node7" href="../api/coffea.nanoevents.PHYSLITESchema.html#coffea.nanoevents.PHYSLITESchema" target="_top" title="PHYSLITE schema builder &#45; work in progress." alt="" coords="203,153,338,179"/>
+<area shape="rect" id="node8" href="../api/coffea.processor.TreeMakerSchema.html#coffea.processor.TreeMakerSchema" target="_top" title="TreeMaker schema builder" alt="" coords="200,203,341,228"/>
+<area shape="rect" id="node6" href="../api/coffea.nanoevents.PFNanoAODSchema.html#coffea.nanoevents.PFNanoAODSchema" target="_top" title="PFNano schema builder" alt="" coords="389,55,543,80"/>
+<area shape="rect" id="node4" href="../api/coffea.nanoevents.NanoEventsFactory.html#coffea.nanoevents.NanoEventsFactory" target="_top" title="A factory class to build NanoEvents objects" alt="" coords="5,55,152,80"/>
+</map>

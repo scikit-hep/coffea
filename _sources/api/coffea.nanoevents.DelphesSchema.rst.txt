@@ -1,0 +1,35 @@
+DelphesSchema
+=============
+
+.. currentmodule:: coffea.nanoevents
+
+.. autoclass:: DelphesSchema
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~DelphesSchema.behavior
+      ~DelphesSchema.docstrings
+      ~DelphesSchema.mixins
+      ~DelphesSchema.singletons
+      ~DelphesSchema.warn_missing_crossrefs
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~DelphesSchema.v1
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: behavior
+   .. autoattribute:: docstrings
+   .. autoattribute:: mixins
+   .. autoattribute:: singletons
+   .. autoattribute:: warn_missing_crossrefs
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: v1

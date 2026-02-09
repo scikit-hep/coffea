@@ -1,0 +1,111 @@
+TaskVineExecutor
+================
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: TaskVineExecutor
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~TaskVineExecutor.bar_format
+      ~TaskVineExecutor.checkpoint_proportion
+      ~TaskVineExecutor.chunks_accum_in_mem
+      ~TaskVineExecutor.chunks_per_accum
+      ~TaskVineExecutor.chunksize
+      ~TaskVineExecutor.compression
+      ~TaskVineExecutor.concurrent_reads
+      ~TaskVineExecutor.cores
+      ~TaskVineExecutor.custom_init
+      ~TaskVineExecutor.debug_log
+      ~TaskVineExecutor.desc
+      ~TaskVineExecutor.disable_worker_transfers
+      ~TaskVineExecutor.disk
+      ~TaskVineExecutor.dynamic_chunksize
+      ~TaskVineExecutor.environment_file
+      ~TaskVineExecutor.events_total
+      ~TaskVineExecutor.extra_input_files
+      ~TaskVineExecutor.fast_terminate_workers
+      ~TaskVineExecutor.filepath
+      ~TaskVineExecutor.function_name
+      ~TaskVineExecutor.gpus
+      ~TaskVineExecutor.manager_name
+      ~TaskVineExecutor.master_name
+      ~TaskVineExecutor.memory
+      ~TaskVineExecutor.password_file
+      ~TaskVineExecutor.port
+      ~TaskVineExecutor.print_stdout
+      ~TaskVineExecutor.replicas
+      ~TaskVineExecutor.resource_monitor
+      ~TaskVineExecutor.resources_mode
+      ~TaskVineExecutor.retries
+      ~TaskVineExecutor.split_on_exhaustion
+      ~TaskVineExecutor.ssl
+      ~TaskVineExecutor.stats_log
+      ~TaskVineExecutor.status
+      ~TaskVineExecutor.status_display_interval
+      ~TaskVineExecutor.tasks_accum_log
+      ~TaskVineExecutor.transactions_log
+      ~TaskVineExecutor.treereduction
+      ~TaskVineExecutor.unit
+      ~TaskVineExecutor.verbose
+      ~TaskVineExecutor.wrapper
+      ~TaskVineExecutor.x509_proxy
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~TaskVineExecutor.__call__
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: bar_format
+   .. autoattribute:: checkpoint_proportion
+   .. autoattribute:: chunks_accum_in_mem
+   .. autoattribute:: chunks_per_accum
+   .. autoattribute:: chunksize
+   .. autoattribute:: compression
+   .. autoattribute:: concurrent_reads
+   .. autoattribute:: cores
+   .. autoattribute:: custom_init
+   .. autoattribute:: debug_log
+   .. autoattribute:: desc
+   .. autoattribute:: disable_worker_transfers
+   .. autoattribute:: disk
+   .. autoattribute:: dynamic_chunksize
+   .. autoattribute:: environment_file
+   .. autoattribute:: events_total
+   .. autoattribute:: extra_input_files
+   .. autoattribute:: fast_terminate_workers
+   .. autoattribute:: filepath
+   .. autoattribute:: function_name
+   .. autoattribute:: gpus
+   .. autoattribute:: manager_name
+   .. autoattribute:: master_name
+   .. autoattribute:: memory
+   .. autoattribute:: password_file
+   .. autoattribute:: port
+   .. autoattribute:: print_stdout
+   .. autoattribute:: replicas
+   .. autoattribute:: resource_monitor
+   .. autoattribute:: resources_mode
+   .. autoattribute:: retries
+   .. autoattribute:: split_on_exhaustion
+   .. autoattribute:: ssl
+   .. autoattribute:: stats_log
+   .. autoattribute:: status
+   .. autoattribute:: status_display_interval
+   .. autoattribute:: tasks_accum_log
+   .. autoattribute:: transactions_log
+   .. autoattribute:: treereduction
+   .. autoattribute:: unit
+   .. autoattribute:: verbose
+   .. autoattribute:: wrapper
+   .. autoattribute:: x509_proxy
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

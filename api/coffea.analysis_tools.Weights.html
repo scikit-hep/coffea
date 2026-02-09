@@ -1,0 +1,299 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weights &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="coffea.btag_tools" href="../modules/coffea.btag_tools.html" />
+    <link rel="prev" title="WeightStatistics" href="coffea.analysis_tools.WeightStatistics.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../modules/coffea.analysis_tools.html">coffea.analysis_tools</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../modules/coffea.analysis_tools.html#classes">Classes</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="coffea.analysis_tools.PackedSelection.html">PackedSelection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.analysis_tools.WeightStatistics.html">WeightStatistics</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">Weights</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../modules/coffea.analysis_tools.html#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.hist.html">coffea.hist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.html">coffea.nanoevents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+          <li class="breadcrumb-item"><a href="../modules/coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+      <li class="breadcrumb-item active">Weights</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/coffea.analysis_tools.Weights.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="weights">
+<h1>Weights<a class="headerlink" href="#weights" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="coffea.analysis_tools.Weights">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">coffea.analysis_tools.</span></span><span class="sig-name descname"><span class="pre">Weights</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">storeIndividual</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/analysis_tools.py#L34"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.analysis_tools.Weights" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Container for event weights and associated systematic shifts</p>
+<p>This container keeps track of correction factors and systematic
+effects that can be encoded as multiplicative modifiers to the event weight.
+All weights are stored in vector form.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – size of the weight arrays to be handled (i.e. the number of events / instances).</p></li>
+<li><p><strong>storeIndividual</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>optional</em>) – store not only the total weight + variations, but also each individual weight.
+Default is false.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Attributes Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.analysis_tools.Weights.variations" title="coffea.analysis_tools.Weights.variations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">variations</span></code></a></p></td>
+<td><p>List of available modifiers</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.analysis_tools.Weights.weightStatistics" title="coffea.analysis_tools.Weights.weightStatistics"><code class="xref py py-obj docutils literal notranslate"><span class="pre">weightStatistics</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Methods Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.analysis_tools.Weights.add" title="coffea.analysis_tools.Weights.add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add</span></code></a>(name, weight[, weightUp, weightDown, shift])</p></td>
+<td><p>Add a new weight</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.analysis_tools.Weights.add_multivariation" title="coffea.analysis_tools.Weights.add_multivariation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_multivariation</span></code></a>(name, weight, ...[, shift])</p></td>
+<td><p>Add a new weight with multiple variations</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.analysis_tools.Weights.partial_weight" title="coffea.analysis_tools.Weights.partial_weight"><code class="xref py py-obj docutils literal notranslate"><span class="pre">partial_weight</span></code></a>([include, exclude])</p></td>
+<td><p>Partial event weight vector</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.analysis_tools.Weights.weight" title="coffea.analysis_tools.Weights.weight"><code class="xref py py-obj docutils literal notranslate"><span class="pre">weight</span></code></a>([modifier])</p></td>
+<td><p>Current event weight vector</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes Documentation</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.analysis_tools.Weights.variations">
+<span class="sig-name descname"><span class="pre">variations</span></span><a class="headerlink" href="#coffea.analysis_tools.Weights.variations" title="Link to this definition"></a></dt>
+<dd><p>List of available modifiers</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.analysis_tools.Weights.weightStatistics">
+<span class="sig-name descname"><span class="pre">weightStatistics</span></span><a class="headerlink" href="#coffea.analysis_tools.Weights.weightStatistics" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<p class="rubric">Methods Documentation</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.analysis_tools.Weights.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weightUp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weightDown</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shift</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/analysis_tools.py#L61"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.analysis_tools.Weights.add" title="Link to this definition"></a></dt>
+<dd><p>Add a new weight</p>
+<p>Adds a named correction to the event weight, and optionally also associated
+systematic uncertainties.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – name of correction</p></li>
+<li><p><strong>weight</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – the nominal event weight associated with the correction</p></li>
+<li><p><strong>weightUp</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a><em>, </em><em>optional</em>) – weight with correction uncertainty shifted up (if available)</p></li>
+<li><p><strong>weightDown</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a><em>, </em><em>optional</em>) – weight with correction uncertainty shifted down. If <code class="docutils literal notranslate"><span class="pre">weightUp</span></code> is supplied, and
+the correction uncertainty is symmetric, this can be set to None to auto-calculate
+the down shift as <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">/</span> <span class="pre">weightUp</span></code>.</p></li>
+<li><p><strong>shift</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>optional</em>) – if True, interpret weightUp and weightDown as a realtive difference (additive) to the
+nominal value</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">weightUp</span></code> and <code class="docutils literal notranslate"><span class="pre">weightDown</span></code> are assumed to be rvalue-like and may be modified in-place by this function</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.analysis_tools.Weights.add_multivariation">
+<span class="sig-name descname"><span class="pre">add_multivariation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">modifierNames</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weightsUp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weightsDown</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shift</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/analysis_tools.py#L127"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.analysis_tools.Weights.add_multivariation" title="Link to this definition"></a></dt>
+<dd><p>Add a new weight with multiple variations</p>
+<p>Each variation of a single weight is given a different modifier name.
+This is particularly useful e.g. for btag SF variations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – name of correction</p></li>
+<li><p><strong>weight</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – the nominal event weight associated with the correction</p></li>
+<li><p><strong>modifierNames</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> of </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – list of modifiers for each set of weights variation</p></li>
+<li><p><strong>weightsUp</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> of </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – weight with correction uncertainty shifted up (if available)</p></li>
+<li><p><strong>weightsDown</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> of </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – weight with correction uncertainty shifted down. If <code class="docutils literal notranslate"><span class="pre">weightUp</span></code> is supplied, and
+the correction uncertainty is symmetric, this can be set to None to auto-calculate
+the down shift as <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">/</span> <span class="pre">weightUp</span></code>.</p></li>
+<li><p><strong>shift</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>optional</em>) – if True, interpret weightUp and weightDown as a realtive difference (additive) to the
+nominal value</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">weightUp</span></code> and <code class="docutils literal notranslate"><span class="pre">weightDown</span></code> are assumed to be rvalue-like and may be modified in-place by this function</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.analysis_tools.Weights.partial_weight">
+<span class="sig-name descname"><span class="pre">partial_weight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">include</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/analysis_tools.py#L270"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.analysis_tools.Weights.partial_weight" title="Link to this definition"></a></dt>
+<dd><p>Partial event weight vector</p>
+<p>Return a partial weight by multiplying a subset of all weights.
+Can be operated either by specifying weights to include or
+weights to exclude, but not both at the same time. The method
+can only be used if the individual weights are stored via the
+<code class="docutils literal notranslate"><span class="pre">storeIndividual</span></code> argument in the <a class="reference internal" href="#coffea.analysis_tools.Weights" title="coffea.analysis_tools.Weights"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Weights</span></code></a> initializer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>include</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Weight names to include, defaults to []</p></li>
+<li><p><strong>exclude</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Weight names to exclude, defaults to []</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>weight</strong> – The weight vector, corresponding to only the effect of the
+corrections specified.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.analysis_tools.Weights.weight">
+<span class="sig-name descname"><span class="pre">weight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">modifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/analysis_tools.py#L250"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.analysis_tools.Weights.weight" title="Link to this definition"></a></dt>
+<dd><p>Current event weight vector</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>modifier</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – if supplied, provide event weight corresponding to a particular
+systematic uncertainty shift, of form <code class="docutils literal notranslate"><span class="pre">str(name</span> <span class="pre">+</span> <span class="pre">'Up')</span></code> or (Down)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>weight</strong> – The weight vector, possibly modified by the effect of a given systematic variation.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="coffea.analysis_tools.WeightStatistics.html" class="btn btn-neutral float-left" title="WeightStatistics" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../modules/coffea.btag_tools.html" class="btn btn-neutral float-right" title="coffea.btag_tools" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

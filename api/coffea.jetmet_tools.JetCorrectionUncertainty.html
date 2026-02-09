@@ -1,0 +1,206 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JetCorrectionUncertainty &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="JECStack" href="coffea.jetmet_tools.JECStack.html" />
+    <link rel="prev" title="JetResolutionScaleFactor" href="coffea.jetmet_tools.JetResolutionScaleFactor.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.hist.html">coffea.hist</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../modules/coffea.jetmet_tools.html">coffea.jetmet_tools</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../modules/coffea.jetmet_tools.html#classes">Classes</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="coffea.jetmet_tools.FactorizedJetCorrector.html">FactorizedJetCorrector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.jetmet_tools.JetResolution.html">JetResolution</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.jetmet_tools.JetResolutionScaleFactor.html">JetResolutionScaleFactor</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">JetCorrectionUncertainty</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.jetmet_tools.JECStack.html">JECStack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.jetmet_tools.CorrectedJetsFactory.html">CorrectedJetsFactory</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.jetmet_tools.CorrectedMETFactory.html">CorrectedMETFactory</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../modules/coffea.jetmet_tools.html#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.html">coffea.nanoevents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+          <li class="breadcrumb-item"><a href="../modules/coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+      <li class="breadcrumb-item active">JetCorrectionUncertainty</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/coffea.jetmet_tools.JetCorrectionUncertainty.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="jetcorrectionuncertainty">
+<h1>JetCorrectionUncertainty<a class="headerlink" href="#jetcorrectionuncertainty" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="coffea.jetmet_tools.JetCorrectionUncertainty">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">coffea.jetmet_tools.</span></span><span class="sig-name descname"><span class="pre">JetCorrectionUncertainty</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/jetmet_tools/JetCorrectionUncertainty.py#L54"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.jetmet_tools.JetCorrectionUncertainty" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>This class is a columnar implementation of the JetCorrectionUncertainty tool in
+CMSSW and FWLite. It calculates the jet energy scale uncertainty for a corrected jet
+in a given binning.</p>
+<p>It implements the jet energy correction definition specified in the JES Uncertainty <a class="reference external" href="https://twiki.cern.ch/twiki/bin/view/CMS/JECUncertaintySources">TWiki</a>.</p>
+<p>You can use this class as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">jcu</span> <span class="o">=</span> <span class="n">JetCorrectionUncertainty</span><span class="p">(</span><span class="n">name1</span><span class="o">=</span><span class="n">corrL1</span><span class="p">,</span><span class="o">...</span><span class="p">)</span>
+<span class="n">jetUncs</span> <span class="o">=</span> <span class="n">jcu</span><span class="p">(</span><span class="n">JetParameter1</span><span class="o">=</span><span class="n">jet</span><span class="o">.</span><span class="n">parameter1</span><span class="p">,</span><span class="o">...</span><span class="p">)</span>
+</pre></div>
+</div>
+<p class="rubric">Attributes Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.jetmet_tools.JetCorrectionUncertainty.levels" title="coffea.jetmet_tools.JetCorrectionUncertainty.JetCorrectionUncertainty"><code class="xref py py-obj docutils literal notranslate"><span class="pre">levels</span></code></a></p></td>
+<td><p>list the different sources of uncertainty</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.jetmet_tools.JetCorrectionUncertainty.signature" title="coffea.jetmet_tools.JetCorrectionUncertainty.JetCorrectionUncertainty"><code class="xref py py-obj docutils literal notranslate"><span class="pre">signature</span></code></a></p></td>
+<td><p>list the necessary jet properties that must be input to this function</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Methods Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.jetmet_tools.JetCorrectionUncertainty.getUncertainty" title="coffea.jetmet_tools.JetCorrectionUncertainty.JetCorrectionUncertainty"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getUncertainty</span></code></a>(**kwargs)</p></td>
+<td><p>Returns the set of uncertainties for all input jets for all the levels (== sources)</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes Documentation</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.jetmet_tools.JetCorrectionUncertainty.levels">
+<span class="sig-name descname"><span class="pre">levels</span></span><a class="headerlink" href="#coffea.jetmet_tools.JetCorrectionUncertainty.levels" title="Link to this definition"></a></dt>
+<dd><p>list the different sources of uncertainty</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.jetmet_tools.JetCorrectionUncertainty.signature">
+<span class="sig-name descname"><span class="pre">signature</span></span><a class="headerlink" href="#coffea.jetmet_tools.JetCorrectionUncertainty.signature" title="Link to this definition"></a></dt>
+<dd><p>list the necessary jet properties that must be input to this function</p>
+</dd></dl>
+
+<p class="rubric">Methods Documentation</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.jetmet_tools.JetCorrectionUncertainty.getUncertainty">
+<span class="sig-name descname"><span class="pre">getUncertainty</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/jetmet_tools/JetCorrectionUncertainty.py#L146"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.jetmet_tools.JetCorrectionUncertainty.getUncertainty" title="Link to this definition"></a></dt>
+<dd><p>Returns the set of uncertainties for all input jets for all the levels (== sources)</p>
+<p>Use it like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">juncs</span> <span class="o">=</span> <span class="n">uncertainty</span><span class="o">.</span><span class="n">getUncertainty</span><span class="p">(</span><span class="n">JetProperty1</span><span class="o">=</span><span class="n">jet</span><span class="o">.</span><span class="n">property1</span><span class="p">,</span><span class="o">...</span><span class="p">)</span>
+<span class="c1">#&#39;juncs&#39; will be formatted like [(&#39;SourceName&#39;, [[up_val down_val]_jet1 ... ]), ...]</span>
+<span class="c1">#in a zip iterator</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="coffea.jetmet_tools.JetResolutionScaleFactor.html" class="btn btn-neutral float-left" title="JetResolutionScaleFactor" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="coffea.jetmet_tools.JECStack.html" class="btn btn-neutral float-right" title="JECStack" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

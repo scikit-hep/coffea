@@ -1,0 +1,21 @@
+AssociatedSV
+============
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: AssociatedSV
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~AssociatedSV.collection_map
+      ~AssociatedSV.jet
+      ~AssociatedSV.sv
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: collection_map
+   .. autoattribute:: jet
+   .. autoattribute:: sv

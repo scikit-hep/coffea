@@ -1,0 +1,43 @@
+BTagScaleFactor
+===============
+
+.. currentmodule:: coffea.btag_tools
+
+.. autoclass:: BTagScaleFactor
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~BTagScaleFactor.FLAV_B
+      ~BTagScaleFactor.FLAV_C
+      ~BTagScaleFactor.FLAV_UDSG
+      ~BTagScaleFactor.LOOSE
+      ~BTagScaleFactor.MEDIUM
+      ~BTagScaleFactor.RESHAPE
+      ~BTagScaleFactor.TIGHT
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~BTagScaleFactor.__call__
+      ~BTagScaleFactor.eval
+      ~BTagScaleFactor.readcsv
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: FLAV_B
+   .. autoattribute:: FLAV_C
+   .. autoattribute:: FLAV_UDSG
+   .. autoattribute:: LOOSE
+   .. autoattribute:: MEDIUM
+   .. autoattribute:: RESHAPE
+   .. autoattribute:: TIGHT
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__
+   .. automethod:: eval
+   .. automethod:: readcsv

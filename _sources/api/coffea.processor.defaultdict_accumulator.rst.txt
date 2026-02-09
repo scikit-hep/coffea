@@ -1,0 +1,19 @@
+defaultdict_accumulator
+=======================
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: defaultdict_accumulator
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~defaultdict_accumulator.add
+      ~defaultdict_accumulator.identity
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: add
+   .. automethod:: identity

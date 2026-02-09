@@ -1,0 +1,27 @@
+JetResolution
+=============
+
+.. currentmodule:: coffea.jetmet_tools
+
+.. autoclass:: JetResolution
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~JetResolution.signature
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~JetResolution.getResolution
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: signature
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: getResolution

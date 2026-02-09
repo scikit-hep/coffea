@@ -1,0 +1,5 @@
+coffea.nanoevents.methods.base
+==============================
+
+.. automodapi:: coffea.nanoevents.methods.base
+    :no-heading:

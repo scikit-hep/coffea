@@ -1,0 +1,261 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bin &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Interval" href="coffea.hist.Interval.html" />
+    <link rel="prev" title="Hist" href="coffea.hist.Hist.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../modules/coffea.hist.html">coffea.hist</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../modules/coffea.hist.html#functions">Functions</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../modules/coffea.hist.html#classes">Classes</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="coffea.hist.Hist.html">Hist</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">Bin</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.hist.Interval.html">Interval</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.hist.Cat.html">Cat</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.hist.StringBin.html">StringBin</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../modules/coffea.hist.html#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.html">coffea.nanoevents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+          <li class="breadcrumb-item"><a href="../modules/coffea.hist.html">coffea.hist</a></li>
+      <li class="breadcrumb-item active">Bin</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/coffea.hist.Bin.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="bin">
+<h1>Bin<a class="headerlink" href="#bin" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="coffea.hist.Bin">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">coffea.hist.</span></span><span class="sig-name descname"><span class="pre">Bin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_or_arr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/hist/hist_tools.py#L453"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.hist.Bin" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">DenseAxis</span></code></p>
+<p>A binned axis with name, label, and binning.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – is used as a keyword in histogram filling, immutable</p></li>
+<li><p><strong>label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – describes the meaning of the axis, can be changed</p></li>
+<li><p><strong>n_or_arr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Integer number of bins, if uniform binning. Otherwise, a list or
+numpy 1D array of bin boundaries.</p></li>
+<li><p><strong>lo</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – lower boundary of bin range, if uniform binning</p></li>
+<li><p><strong>hi</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – upper boundary of bin range, if uniform binning</p></li>
+</ul>
+</dd>
+</dl>
+<p>This axis will generate frequencies for n+3 bins, special bin indices:
+<code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">=</span> <span class="pre">underflow,</span> <span class="pre">n+1</span> <span class="pre">=</span> <span class="pre">overflow,</span> <span class="pre">n+2</span> <span class="pre">=</span> <span class="pre">nanflow</span></code>
+Bin boundaries are [lo, hi)</p>
+<p class="rubric">Attributes Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.hist.Bin.size" title="coffea.hist.Bin.size"><code class="xref py py-obj docutils literal notranslate"><span class="pre">size</span></code></a></p></td>
+<td><p>Number of bins, including overflow (i.e. <code class="docutils literal notranslate"><span class="pre">n</span> <span class="pre">+</span> <span class="pre">3</span></code>).</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Methods Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.hist.Bin.centers" title="coffea.hist.Bin.centers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">centers</span></code></a>([overflow])</p></td>
+<td><p>Bin centers</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.hist.Bin.edges" title="coffea.hist.Bin.edges"><code class="xref py py-obj docutils literal notranslate"><span class="pre">edges</span></code></a>([overflow])</p></td>
+<td><p>Bin boundaries</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.hist.Bin.identifiers" title="coffea.hist.Bin.identifiers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">identifiers</span></code></a>([overflow])</p></td>
+<td><p>List of <a class="reference internal" href="coffea.hist.Interval.html#coffea.hist.Interval" title="coffea.hist.Interval"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Interval</span></code></a> identifiers</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.hist.Bin.index" title="coffea.hist.Bin.index"><code class="xref py py-obj docutils literal notranslate"><span class="pre">index</span></code></a>(identifier)</p></td>
+<td><p>Index of a identifer or label</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.hist.Bin.reduced" title="coffea.hist.Bin.reduced"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduced</span></code></a>(islice)</p></td>
+<td><p>Return a new axis with reduced binning</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes Documentation</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.hist.Bin.size">
+<span class="sig-name descname"><span class="pre">size</span></span><a class="headerlink" href="#coffea.hist.Bin.size" title="Link to this definition"></a></dt>
+<dd><p>Number of bins, including overflow (i.e. <code class="docutils literal notranslate"><span class="pre">n</span> <span class="pre">+</span> <span class="pre">3</span></code>)</p>
+</dd></dl>
+
+<p class="rubric">Methods Documentation</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.hist.Bin.centers">
+<span class="sig-name descname"><span class="pre">centers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">overflow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'none'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/hist/hist_tools.py#L753"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.hist.Bin.centers" title="Link to this definition"></a></dt>
+<dd><p>Bin centers</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>overflow</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Create overflow and/or underflow bins by adding a bin of same width to each end.
+See <a class="reference internal" href="coffea.hist.Hist.html#coffea.hist.Hist.sum" title="coffea.hist.Hist.sum"><code class="xref any py py-meth docutils literal notranslate"><span class="pre">Hist.sum</span></code></a> description for the allowed values.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.hist.Bin.edges">
+<span class="sig-name descname"><span class="pre">edges</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">overflow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'none'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/hist/hist_tools.py#L735"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.hist.Bin.edges" title="Link to this definition"></a></dt>
+<dd><p>Bin boundaries</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>overflow</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Create overflow and/or underflow bins by adding a bin of same width to each end.
+See <a class="reference internal" href="coffea.hist.Hist.html#coffea.hist.Hist.sum" title="coffea.hist.Hist.sum"><code class="xref any py py-meth docutils literal notranslate"><span class="pre">Hist.sum</span></code></a> description for the allowed values.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.hist.Bin.identifiers">
+<span class="sig-name descname"><span class="pre">identifiers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">overflow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'none'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/hist/hist_tools.py#L765"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.hist.Bin.identifiers" title="Link to this definition"></a></dt>
+<dd><p>List of <a class="reference internal" href="coffea.hist.Interval.html#coffea.hist.Interval" title="coffea.hist.Interval"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Interval</span></code></a> identifiers</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.hist.Bin.index">
+<span class="sig-name descname"><span class="pre">index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/hist/hist_tools.py#L541"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.hist.Bin.index" title="Link to this definition"></a></dt>
+<dd><p>Index of a identifer or label</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>identifier</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><a class="reference internal" href="coffea.hist.Interval.html#coffea.hist.Interval" title="coffea.hist.Interval"><em>Interval</em></a><em> or </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – The identifier(s) to lookup.  Supports vectorized
+calls when a numpy 1D array of numbers is passed.</p>
+</dd>
+</dl>
+<p>Returns an integer corresponding to the index in the axis where the histogram would be filled.
+The integer range includes flow bins: <code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">=</span> <span class="pre">underflow,</span> <span class="pre">n+1</span> <span class="pre">=</span> <span class="pre">overflow,</span> <span class="pre">n+2</span> <span class="pre">=</span> <span class="pre">nanflow</span></code></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.hist.Bin.reduced">
+<span class="sig-name descname"><span class="pre">reduced</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">islice</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/hist/hist_tools.py#L685"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.hist.Bin.reduced" title="Link to this definition"></a></dt>
+<dd><p>Return a new axis with reduced binning</p>
+<p>The new binning corresponds to the slice made on this axis.
+Overflow will be taken care of by <code class="docutils literal notranslate"><span class="pre">Hist.__getitem__</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>islice</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.14)"><em>slice</em></a>) – <code class="docutils literal notranslate"><span class="pre">islice.start</span></code> and <code class="docutils literal notranslate"><span class="pre">islice.stop</span></code> should be None or within <code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">ax.size()</span> <span class="pre">-</span> <span class="pre">1]</span></code>
+This slice is usually as returned from <code class="docutils literal notranslate"><span class="pre">Bin._ireduce</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="coffea.hist.Hist.html" class="btn btn-neutral float-left" title="Hist" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="coffea.hist.Interval.html" class="btn btn-neutral float-right" title="Interval" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

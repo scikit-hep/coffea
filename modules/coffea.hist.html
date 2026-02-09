@@ -1,0 +1,226 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>coffea.hist &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="poisson_interval" href="../api/coffea.hist.poisson_interval.html" />
+    <link rel="prev" title="BTagScaleFactor" href="../api/coffea.btag_tools.BTagScaleFactor.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">coffea.hist</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#functions">Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.poisson_interval.html">poisson_interval</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.clopper_pearson_interval.html">clopper_pearson_interval</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.normal_interval.html">normal_interval</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.plot1d.html">plot1d</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.plotratio.html">plotratio</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.plot2d.html">plot2d</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.plotgrid.html">plotgrid</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.export1d.html">export1d</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#classes">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.Hist.html">Hist</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.Bin.html">Bin</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.Interval.html">Interval</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.Cat.html">Cat</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.hist.StringBin.html">StringBin</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.html">coffea.nanoevents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+      <li class="breadcrumb-item active">coffea.hist</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/modules/coffea.hist.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-coffea.hist">
+<span id="coffea-hist"></span><h1>coffea.hist<a class="headerlink" href="#module-coffea.hist" title="Link to this heading"></a></h1>
+<p>Histogramming tools</p>
+<p><a class="reference internal" href="#"><span class="doc">coffea.hist</span></a> is a histogram filling, transformation, and plotting sub-package, utilizing
+numpy arrays for storage and matplotlib plotting routines for visualization.</p>
+<p>Features found in this package are similar to those found in
+packages such as <a class="reference external" href="https://github.com/scikit-hep/histbook">histbook</a> (deprecated),
+<a class="reference external" href="https://github.com/scikit-hep/boost-histogram">boost-histogram</a> (in development),
+<a class="reference external" href="https://github.com/scikit-hep/boost-histogram">physt</a>, and built-in numpy
+<a class="reference external" href="https://docs.scipy.org/doc/numpy/reference/generated/numpy.histogram.html">histogram</a> utilities.</p>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.hist.poisson_interval.html#coffea.hist.poisson_interval" title="coffea.hist.poisson_interval"><code class="xref py py-obj docutils literal notranslate"><span class="pre">poisson_interval</span></code></a>(sumw, sumw2[, coverage])</p></td>
+<td><p>Frequentist coverage interval for Poisson-distributed observations</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.hist.clopper_pearson_interval.html#coffea.hist.clopper_pearson_interval" title="coffea.hist.clopper_pearson_interval"><code class="xref py py-obj docutils literal notranslate"><span class="pre">clopper_pearson_interval</span></code></a>(num, denom[, coverage])</p></td>
+<td><p>Compute Clopper-Pearson coverage interval for a binomial distribution</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.hist.normal_interval.html#coffea.hist.normal_interval" title="coffea.hist.normal_interval"><code class="xref py py-obj docutils literal notranslate"><span class="pre">normal_interval</span></code></a>(pw, tw, pw2, tw2[, coverage])</p></td>
+<td><p>Compute errors based on the expansion of pass/(pass + fail), possibly weighted</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.hist.plot1d.html#coffea.hist.plot1d" title="coffea.hist.plot1d"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot1d</span></code></a>(hist[, ax, clear, overlay, stack, ...])</p></td>
+<td><p>Create a 1D plot from a 1D or 2D <a class="reference internal" href="../api/coffea.hist.Hist.html#coffea.hist.Hist" title="coffea.hist.Hist"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Hist</span></code></a> object</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.hist.plotratio.html#coffea.hist.plotratio" title="coffea.hist.plotratio"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plotratio</span></code></a>(num, denom[, ax, clear, overflow, ...])</p></td>
+<td><p>Create a ratio plot, dividing two compatible histograms</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.hist.plot2d.html#coffea.hist.plot2d" title="coffea.hist.plot2d"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot2d</span></code></a>(hist, xaxis[, ax, clear, xoverflow, ...])</p></td>
+<td><p>Create a 2D plot from a 2D <a class="reference internal" href="../api/coffea.hist.Hist.html#coffea.hist.Hist" title="coffea.hist.Hist"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Hist</span></code></a> object</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.hist.plotgrid.html#coffea.hist.plotgrid" title="coffea.hist.plotgrid"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plotgrid</span></code></a>(h[, figure, row, col, overlay, ...])</p></td>
+<td><p>Create a grid of plots, enumerating identifiers on up to 3 axes</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.hist.export1d.html#coffea.hist.export1d" title="coffea.hist.export1d"><code class="xref py py-obj docutils literal notranslate"><span class="pre">export1d</span></code></a>(hist)</p></td>
+<td><p>Export a 1-dimensional <a class="reference internal" href="../api/coffea.hist.Hist.html#coffea.hist.Hist" title="coffea.hist.Hist"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Hist</span></code></a> object to uproot</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.hist.Hist.html#coffea.hist.Hist" title="coffea.hist.Hist"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Hist</span></code></a>(label, *axes, **kwargs)</p></td>
+<td><p>Specify a multidimensional histogram.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.hist.Bin.html#coffea.hist.Bin" title="coffea.hist.Bin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Bin</span></code></a>(name, label, n_or_arr[, lo, hi])</p></td>
+<td><p>A binned axis with name, label, and binning.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.hist.Interval.html#coffea.hist.Interval" title="coffea.hist.Interval"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Interval</span></code></a>(lo, hi[, label])</p></td>
+<td><p>Real number interval</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.hist.Cat.html#coffea.hist.Cat" title="coffea.hist.Cat"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Cat</span></code></a>(name, label[, sorting])</p></td>
+<td><p>A category axis with name and label</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.hist.StringBin.html#coffea.hist.StringBin" title="coffea.hist.StringBin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StringBin</span></code></a>(name[, label])</p></td>
+<td><p>A string used to fill a sparse axis</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="class-inheritance-diagram">
+<h2>Class Inheritance Diagram<a class="headerlink" href="#class-inheritance-diagram" title="Link to this heading"></a></h2>
+<div class="graphviz"><img src="../_images/inheritance-e10215faaed37344b4b7259c63dd165ffb3019cc.png" alt="Inheritance diagram of coffea.hist.hist_tools.Hist, coffea.hist.hist_tools.Bin, coffea.hist.hist_tools.Interval, coffea.hist.hist_tools.Cat, coffea.hist.hist_tools.StringBin" usemap="#inheritanceaa79008a75" class="inheritance graphviz" /></div>
+<map id="inheritanceaa79008a75" name="inheritanceaa79008a75">
+<area shape="rect" id="node1" href="../api/coffea.processor.AccumulatorABC.html#coffea.processor.AccumulatorABC" target="_top" title="Abstract base class for an accumulator" alt="" coords="5,177,136,203"/>
+<area shape="rect" id="node7" href="../api/coffea.hist.Hist.html#coffea.hist.Hist" target="_top" title="Specify a multidimensional histogram." alt="" coords="195,177,267,203"/>
+<area shape="rect" id="node3" href="../api/coffea.hist.Bin.html#coffea.hist.Bin" target="_top" title="A binned axis with name, label, and binning." alt="" coords="327,79,399,104"/>
+<area shape="rect" id="node5" href="../api/coffea.hist.Cat.html#coffea.hist.Cat" target="_top" title="A category axis with name and label" alt="" coords="327,128,399,153"/>
+<area shape="rect" id="node8" href="../api/coffea.hist.Interval.html#coffea.hist.Interval" target="_top" title="Real number interval" alt="" coords="35,55,107,80"/>
+<area shape="rect" id="node9" href="../api/coffea.hist.StringBin.html#coffea.hist.StringBin" target="_top" title="A string used to fill a sparse axis" alt="" coords="30,5,111,31"/>
+</map></section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../api/coffea.btag_tools.BTagScaleFactor.html" class="btn btn-neutral float-left" title="BTagScaleFactor" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/coffea.hist.poisson_interval.html" class="btn btn-neutral float-right" title="poisson_interval" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

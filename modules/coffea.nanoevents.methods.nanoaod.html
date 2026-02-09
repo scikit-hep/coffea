@@ -1,0 +1,246 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>coffea.nanoevents.methods.nanoaod &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="PtEtaPhiMCollection" href="../api/coffea.nanoevents.methods.nanoaod.PtEtaPhiMCollection.html" />
+    <link rel="prev" title="PtEtaPhiECandidate" href="../api/coffea.nanoevents.methods.candidate.PtEtaPhiECandidate.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.hist.html">coffea.hist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.html">coffea.nanoevents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">coffea.nanoevents.methods.nanoaod</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#classes">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.PtEtaPhiMCollection.html">PtEtaPhiMCollection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.GenParticle.html">GenParticle</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.GenVisTau.html">GenVisTau</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.Electron.html">Electron</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.LowPtElectron.html">LowPtElectron</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.Muon.html">Muon</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.Tau.html">Tau</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.Photon.html">Photon</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.FsrPhoton.html">FsrPhoton</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.Jet.html">Jet</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.FatJet.html">FatJet</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.MissingET.html">MissingET</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.Vertex.html">Vertex</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.SecondaryVertex.html">SecondaryVertex</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.AssociatedPFCand.html">AssociatedPFCand</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.AssociatedSV.html">AssociatedSV</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.PFCand.html">PFCand</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+      <li class="breadcrumb-item active">coffea.nanoevents.methods.nanoaod</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/modules/coffea.nanoevents.methods.nanoaod.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-coffea.nanoevents.methods.nanoaod">
+<span id="coffea-nanoevents-methods-nanoaod"></span><h1>coffea.nanoevents.methods.nanoaod<a class="headerlink" href="#module-coffea.nanoevents.methods.nanoaod" title="Link to this heading"></a></h1>
+<p>Mixins for the CMS NanoAOD schema</p>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.PtEtaPhiMCollection.html#coffea.nanoevents.methods.nanoaod.PtEtaPhiMCollection" title="coffea.nanoevents.methods.nanoaod.PtEtaPhiMCollection"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PtEtaPhiMCollection</span></code></a>()</p></td>
+<td><p>Generic collection that has Lorentz vector properties</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.GenParticle.html#coffea.nanoevents.methods.nanoaod.GenParticle" title="coffea.nanoevents.methods.nanoaod.GenParticle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GenParticle</span></code></a>()</p></td>
+<td><p>NanoAOD generator-level particle object, including parent and child self-references</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.GenVisTau.html#coffea.nanoevents.methods.nanoaod.GenVisTau" title="coffea.nanoevents.methods.nanoaod.GenVisTau"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GenVisTau</span></code></a>()</p></td>
+<td><p>NanoAOD visible tau object</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.Electron.html#coffea.nanoevents.methods.nanoaod.Electron" title="coffea.nanoevents.methods.nanoaod.Electron"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Electron</span></code></a>()</p></td>
+<td><p>NanoAOD electron object</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.LowPtElectron.html#coffea.nanoevents.methods.nanoaod.LowPtElectron" title="coffea.nanoevents.methods.nanoaod.LowPtElectron"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LowPtElectron</span></code></a>()</p></td>
+<td><p>NanoAOD low-pt electron object</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.Muon.html#coffea.nanoevents.methods.nanoaod.Muon" title="coffea.nanoevents.methods.nanoaod.Muon"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Muon</span></code></a>()</p></td>
+<td><p>NanoAOD muon object</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.Tau.html#coffea.nanoevents.methods.nanoaod.Tau" title="coffea.nanoevents.methods.nanoaod.Tau"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Tau</span></code></a>()</p></td>
+<td><p>NanoAOD tau object</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.Photon.html#coffea.nanoevents.methods.nanoaod.Photon" title="coffea.nanoevents.methods.nanoaod.Photon"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Photon</span></code></a>()</p></td>
+<td><p>NanoAOD photon object</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.FsrPhoton.html#coffea.nanoevents.methods.nanoaod.FsrPhoton" title="coffea.nanoevents.methods.nanoaod.FsrPhoton"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FsrPhoton</span></code></a>()</p></td>
+<td><p>NanoAOD fsr photon object</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.Jet.html#coffea.nanoevents.methods.nanoaod.Jet" title="coffea.nanoevents.methods.nanoaod.Jet"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Jet</span></code></a>()</p></td>
+<td><p>NanoAOD narrow radius jet object</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.FatJet.html#coffea.nanoevents.methods.nanoaod.FatJet" title="coffea.nanoevents.methods.nanoaod.FatJet"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FatJet</span></code></a>()</p></td>
+<td><p>NanoAOD large radius jet object</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.MissingET.html#coffea.nanoevents.methods.nanoaod.MissingET" title="coffea.nanoevents.methods.nanoaod.MissingET"><code class="xref py py-obj docutils literal notranslate"><span class="pre">MissingET</span></code></a>()</p></td>
+<td><p>NanoAOD Missing transverse energy object</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.Vertex.html#coffea.nanoevents.methods.nanoaod.Vertex" title="coffea.nanoevents.methods.nanoaod.Vertex"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Vertex</span></code></a>()</p></td>
+<td><p>NanoAOD vertex object</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.SecondaryVertex.html#coffea.nanoevents.methods.nanoaod.SecondaryVertex" title="coffea.nanoevents.methods.nanoaod.SecondaryVertex"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SecondaryVertex</span></code></a>()</p></td>
+<td><p>NanoAOD secondary vertex object</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.AssociatedPFCand.html#coffea.nanoevents.methods.nanoaod.AssociatedPFCand" title="coffea.nanoevents.methods.nanoaod.AssociatedPFCand"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AssociatedPFCand</span></code></a>()</p></td>
+<td><p>PFNano PF candidate to jet association object</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.AssociatedSV.html#coffea.nanoevents.methods.nanoaod.AssociatedSV" title="coffea.nanoevents.methods.nanoaod.AssociatedSV"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AssociatedSV</span></code></a>()</p></td>
+<td><p>PFNano secondary vertex to jet association object</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.nanoaod.PFCand.html#coffea.nanoevents.methods.nanoaod.PFCand" title="coffea.nanoevents.methods.nanoaod.PFCand"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PFCand</span></code></a>()</p></td>
+<td><p>PFNano particle flow candidate object</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="class-inheritance-diagram">
+<h2>Class Inheritance Diagram<a class="headerlink" href="#class-inheritance-diagram" title="Link to this heading"></a></h2>
+<div class="graphviz"><img src="../_images/inheritance-9c820ecb3c19e1abd7a8828b23cfcce8af55937c.png" alt="Inheritance diagram of coffea.nanoevents.methods.nanoaod.PtEtaPhiMCollection, coffea.nanoevents.methods.nanoaod.GenParticle, coffea.nanoevents.methods.nanoaod.GenVisTau, coffea.nanoevents.methods.nanoaod.Electron, coffea.nanoevents.methods.nanoaod.LowPtElectron, coffea.nanoevents.methods.nanoaod.Muon, coffea.nanoevents.methods.nanoaod.Tau, coffea.nanoevents.methods.nanoaod.Photon, coffea.nanoevents.methods.nanoaod.FsrPhoton, coffea.nanoevents.methods.nanoaod.Jet, coffea.nanoevents.methods.nanoaod.FatJet, coffea.nanoevents.methods.nanoaod.MissingET, coffea.nanoevents.methods.nanoaod.Vertex, coffea.nanoevents.methods.nanoaod.SecondaryVertex, coffea.nanoevents.methods.nanoaod.AssociatedPFCand, coffea.nanoevents.methods.nanoaod.AssociatedSV, coffea.nanoevents.methods.nanoaod.PFCand" usemap="#inheritanced020675795" class="inheritance graphviz" /></div>
+<map id="inheritanced020675795" name="inheritanced020675795">
+<area shape="rect" id="node1" href="../api/coffea.nanoevents.methods.nanoaod.AssociatedPFCand.html#coffea.nanoevents.methods.nanoaod.AssociatedPFCand" target="_top" title="PFNano PF candidate to jet association object" alt="" coords="569,92,654,107"/>
+<area shape="rect" id="node2" href="../api/coffea.nanoevents.methods.base.NanoCollection.html#coffea.nanoevents.methods.base.NanoCollection" target="_top" title="A NanoEvents collection" alt="" coords="455,210,527,225"/>
+<area shape="rect" id="node3" href="../api/coffea.nanoevents.methods.nanoaod.AssociatedSV.html#coffea.nanoevents.methods.nanoaod.AssociatedSV" target="_top" title="PFNano secondary vertex to jet association object" alt="" coords="578,268,645,284"/>
+<area shape="rect" id="node6" href="../api/coffea.nanoevents.methods.nanoaod.Electron.html#coffea.nanoevents.methods.nanoaod.Electron" target="_top" title="NanoAOD electron object" alt="" coords="589,210,634,225"/>
+<area shape="rect" id="node9" href="../api/coffea.nanoevents.methods.nanoaod.FatJet.html#coffea.nanoevents.methods.nanoaod.FatJet" target="_top" title="NanoAOD large radius jet object" alt="" coords="590,357,633,372"/>
+<area shape="rect" id="node11" href="../api/coffea.nanoevents.methods.nanoaod.FsrPhoton.html#coffea.nanoevents.methods.nanoaod.FsrPhoton" target="_top" title="NanoAOD fsr photon object" alt="" coords="586,3,637,18"/>
+<area shape="rect" id="node12" href="../api/coffea.nanoevents.methods.nanoaod.GenParticle.html#coffea.nanoevents.methods.nanoaod.GenParticle" target="_top" title="NanoAOD generator&#45;level particle object, including parent and child self&#45;references" alt="" coords="583,416,640,431"/>
+<area shape="rect" id="node13" href="../api/coffea.nanoevents.methods.nanoaod.GenVisTau.html#coffea.nanoevents.methods.nanoaod.GenVisTau" target="_top" title="NanoAOD visible tau object" alt="" coords="584,33,639,48"/>
+<area shape="rect" id="node14" href="../api/coffea.nanoevents.methods.nanoaod.Jet.html#coffea.nanoevents.methods.nanoaod.Jet" target="_top" title="NanoAOD narrow radius jet object" alt="" coords="590,386,633,402"/>
+<area shape="rect" id="node16" href="../api/coffea.nanoevents.methods.nanoaod.LowPtElectron.html#coffea.nanoevents.methods.nanoaod.LowPtElectron" target="_top" title="NanoAOD low&#45;pt electron object" alt="" coords="577,239,646,254"/>
+<area shape="rect" id="node17" href="../api/coffea.nanoevents.methods.nanoaod.MissingET.html#coffea.nanoevents.methods.nanoaod.MissingET" target="_top" title="NanoAOD Missing transverse energy object" alt="" coords="585,445,638,460"/>
+<area shape="rect" id="node19" href="../api/coffea.nanoevents.methods.nanoaod.Muon.html#coffea.nanoevents.methods.nanoaod.Muon" target="_top" title="NanoAOD muon object" alt="" coords="590,121,633,136"/>
+<area shape="rect" id="node20" href="../api/coffea.nanoevents.methods.nanoaod.PFCand.html#coffea.nanoevents.methods.nanoaod.PFCand" target="_top" title="PFNano particle flow candidate object" alt="" coords="590,62,633,77"/>
+<area shape="rect" id="node21" href="../api/coffea.nanoevents.methods.nanoaod.Photon.html#coffea.nanoevents.methods.nanoaod.Photon" target="_top" title="NanoAOD photon object" alt="" coords="590,151,633,166"/>
+<area shape="rect" id="node23" href="../api/coffea.nanoevents.methods.nanoaod.PtEtaPhiMCollection.html#coffea.nanoevents.methods.nanoaod.PtEtaPhiMCollection" target="_top" title="Generic collection that has Lorentz vector properties" alt="" coords="566,327,657,343"/>
+<area shape="rect" id="node26" href="../api/coffea.nanoevents.methods.nanoaod.Vertex.html#coffea.nanoevents.methods.nanoaod.Vertex" target="_top" title="NanoAOD vertex object" alt="" coords="590,298,633,313"/>
+<area shape="rect" id="node27" href="../api/coffea.nanoevents.methods.nanoaod.Tau.html#coffea.nanoevents.methods.nanoaod.Tau" target="_top" title="NanoAOD tau object" alt="" coords="590,180,633,195"/>
+<area shape="rect" id="node4" href="../api/coffea.nanoevents.methods.candidate.Candidate.html#coffea.nanoevents.methods.candidate.Candidate" target="_top" title="A Lorentz vector with charge" alt="" coords="337,246,389,261"/>
+<area shape="rect" id="node7" href="../api/coffea.nanoevents.methods.candidate.PtEtaPhiMCandidate.html#coffea.nanoevents.methods.candidate.PtEtaPhiMCandidate" target="_top" title="A Lorentz vector in eta, mass coordinates with charge" alt="" coords="445,166,537,181"/>
+<area shape="rect" id="node5" href="../api/coffea.nanoevents.methods.vector.LorentzVector.html#coffea.nanoevents.methods.vector.LorentzVector" target="_top" title="A cartesian Lorentz vector" alt="" coords="200,341,266,356"/>
+<area shape="rect" id="node10" href="../api/coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector.html#coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector" target="_top" title="A Lorentz vector using pseudorapidity and mass" alt="" coords="310,355,416,370"/>
+<area shape="rect" id="node8" href="../api/coffea.nanoevents.methods.base.Systematic.html#coffea.nanoevents.methods.base.Systematic" target="_top" title="A base mixin class to describe and build variations on a feature of an nanoevents object." alt="" coords="462,239,519,254"/>
+<area shape="rect" id="node15" href="../api/coffea.nanoevents.methods.vector.ThreeVector.html#coffea.nanoevents.methods.vector.ThreeVector" target="_top" title="A cartesian 3&#45;dimensional vector" alt="" coords="91,356,151,371"/>
+<area shape="rect" id="node24" href="../api/coffea.nanoevents.methods.vector.SphericalThreeVector.html#coffea.nanoevents.methods.vector.SphericalThreeVector" target="_top" title="A spherical coordinate 3&#45;dimensional vector" alt="" coords="186,370,281,386"/>
+<area shape="rect" id="node18" href="../api/coffea.nanoevents.methods.vector.PolarTwoVector.html#coffea.nanoevents.methods.vector.PolarTwoVector" target="_top" title="A polar coordinate 2&#45;dimensional vector" alt="" coords="84,386,157,401"/>
+<area shape="rect" id="node22" href="../api/coffea.nanoevents.methods.vector.TwoVector.html#coffea.nanoevents.methods.vector.TwoVector" target="_top" title="A cartesian 2&#45;dimensional vector" alt="" coords="3,371,56,386"/>
+<area shape="rect" id="node25" href="../api/coffea.nanoevents.methods.nanoaod.SecondaryVertex.html#coffea.nanoevents.methods.nanoaod.SecondaryVertex" target="_top" title="NanoAOD secondary vertex object" alt="" coords="686,298,765,313"/>
+</map></section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../api/coffea.nanoevents.methods.candidate.PtEtaPhiECandidate.html" class="btn btn-neutral float-left" title="PtEtaPhiECandidate" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/coffea.nanoevents.methods.nanoaod.PtEtaPhiMCollection.html" class="btn btn-neutral float-right" title="PtEtaPhiMCollection" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,5 @@
+coffea.btag_tools
+=================
+
+.. automodapi:: coffea.btag_tools
+    :no-heading:

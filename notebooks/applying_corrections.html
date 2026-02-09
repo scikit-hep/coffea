@@ -1,0 +1,649 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Applying corrections to columnar data &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css?v=2aa19091" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Analysis tools and accumulators" href="accumulators.html" />
+    <link rel="prev" title="Reading data with coffea NanoEvents" href="nanoevents.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../examples.html">Coffea by Example</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="nanoevents.html">Reading data with coffea NanoEvents</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Applying corrections to columnar data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#Coffea-lookup_tools">Coffea lookup_tools</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#Opening-a-root-file-and-using-it-as-a-lookup-table">Opening a root file and using it as a lookup table</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#Building-and-using-your-own-correction-from-a-histogram">Building and using your own correction from a histogram</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#CMS-high-level-tools">CMS high-level tools</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#Applying-energy-scale-transformations-with-jetmet_tools">Applying energy scale transformations with jetmet_tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#Applying-CMS-b-tagging-corrections-with-btag_tools">Applying CMS b-tagging corrections with btag_tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#Using-correctionlib">Using correctionlib</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="accumulators.html">Analysis tools and accumulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor.html">Coffea Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="histograms.html">Coffea Histograms (deprecated)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">API Reference Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../examples.html">Coffea by Example</a></li>
+      <li class="breadcrumb-item active">Applying corrections to columnar data</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/notebooks/applying_corrections.ipynb.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="Applying-corrections-to-columnar-data">
+<h1>Applying corrections to columnar data<a class="headerlink" href="#Applying-corrections-to-columnar-data" title="Link to this heading"></a></h1>
+<p>Here we will show how to apply corrections to columnar data using:</p>
+<ul class="simple">
+<li><p>the <code class="docutils literal notranslate"><span class="pre">coffea.lookup_tools</span></code> package, which is designed to read in ROOT histograms and a variety of data file formats popular within CMS into a standardized lookup table format;</p></li>
+<li><p>CMS-specific extensions to the above, for jet corrections (<code class="docutils literal notranslate"><span class="pre">coffea.jetmet_tools</span></code>) and b-tagging efficiencies/uncertainties (<code class="docutils literal notranslate"><span class="pre">coffea.btag_tools</span></code>);</p></li>
+<li><p>the <a class="reference external" href="https://cms-nanoaod.github.io/correctionlib/">correctionlib</a> package, which provides a experiment-agnostic serializable data format for common correction functions.</p></li>
+</ul>
+<p><strong>Test data</strong>: We’ll use NanoEvents to construct some test data.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">awkward</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ak</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">coffea.nanoevents</span><span class="w"> </span><span class="kn">import</span> <span class="n">NanoEventsFactory</span><span class="p">,</span> <span class="n">NanoAODSchema</span>
+
+<span class="n">fname</span> <span class="o">=</span> <span class="s2">&quot;https://raw.githubusercontent.com/CoffeaTeam/coffea/master/tests/samples/nano_dy.root&quot;</span>
+<span class="n">events</span> <span class="o">=</span> <span class="n">NanoEventsFactory</span><span class="o">.</span><span class="n">from_root</span><span class="p">(</span>
+    <span class="n">fname</span><span class="p">,</span>
+    <span class="n">schemaclass</span><span class="o">=</span><span class="n">NanoAODSchema</span><span class="o">.</span><span class="n">v6</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="s2">&quot;DYJets&quot;</span><span class="p">},</span>
+<span class="p">)</span><span class="o">.</span><span class="n">events</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<section id="Coffea-lookup_tools">
+<h2>Coffea lookup_tools<a class="headerlink" href="#Coffea-lookup_tools" title="Link to this heading"></a></h2>
+<p>The entrypoint for <code class="docutils literal notranslate"><span class="pre">coffea.lookup_tools</span></code> is the <a class="reference external" href="https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.lookup_tools.extractor.html#coffea.lookup_tools.extractor">extractor class</a>.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">coffea.lookup_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">extractor</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-bash notranslate"><div class="highlight"><pre><span></span>%%bash
+<span class="c1"># download some sample correction sources</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span>data
+<span class="nb">pushd</span><span class="w"> </span>data
+<span class="nv">PREFIX</span><span class="o">=</span>https://raw.githubusercontent.com/CoffeaTeam/coffea/master/tests/samples
+curl<span class="w"> </span>-Os<span class="w"> </span><span class="nv">$PREFIX</span>/testSF2d.histo.root
+curl<span class="w"> </span>-Os<span class="w"> </span><span class="nv">$PREFIX</span>/Fall17_17Nov2017_V32_MC_L2Relative_AK4PFPuppi.jec.txt
+curl<span class="w"> </span>-Os<span class="w"> </span><span class="nv">$PREFIX</span>/Fall17_17Nov2017_V32_MC_Uncertainty_AK4PFPuppi.junc.txt
+curl<span class="w"> </span>-Os<span class="w"> </span><span class="nv">$PREFIX</span>/DeepCSV_102XSF_V1.btag.csv.gz
+<span class="nb">popd</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+~/src/coffea/binder/data ~/src/coffea/binder
+~/src/coffea/binder
+</pre></div></div>
+</div>
+<section id="Opening-a-root-file-and-using-it-as-a-lookup-table">
+<h3>Opening a root file and using it as a lookup table<a class="headerlink" href="#Opening-a-root-file-and-using-it-as-a-lookup-table" title="Link to this heading"></a></h3>
+<p>In <a class="reference external" href="https://github.com/CoffeaTeam/coffea/tree/master/tests/samples">tests/samples</a>, there is an example file with a <code class="docutils literal notranslate"><span class="pre">TH2F</span></code> histogram named <code class="docutils literal notranslate"><span class="pre">scalefactors_Tight_Electron</span></code>. The following code reads that histogram into an <a class="reference external" href="https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.lookup_tools.evaluator.html#coffea.lookup_tools.evaluator">evaluator</a> instance, under the key <code class="docutils literal notranslate"><span class="pre">testSF2d</span></code> and applies it to some electrons.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">ext</span> <span class="o">=</span> <span class="n">extractor</span><span class="p">()</span>
+<span class="c1"># several histograms can be imported at once using wildcards (*)</span>
+<span class="n">ext</span><span class="o">.</span><span class="n">add_weight_sets</span><span class="p">([</span><span class="s2">&quot;testSF2d scalefactors_Tight_Electron data/testSF2d.histo.root&quot;</span><span class="p">])</span>
+<span class="n">ext</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+
+<span class="n">evaluator</span> <span class="o">=</span> <span class="n">ext</span><span class="o">.</span><span class="n">make_evaluator</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;available evaluator keys:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;testSF2d:&quot;</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">[</span><span class="s1">&#39;testSF2d&#39;</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;type of testSF2d:&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">evaluator</span><span class="p">[</span><span class="s1">&#39;testSF2d&#39;</span><span class="p">]))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+available evaluator keys:
+         testSF2d
+testSF2d: 2 dimensional histogram with axes:
+        1: [-2.5   -2.    -1.566 -1.444 -0.8    0.     0.8    1.444  1.566  2.
+  2.5  ]
+        2: [ 10.  20.  35.  50.  90. 150. 500.]
+
+type of testSF2d: &lt;class &#39;coffea.lookup_tools.dense_lookup.dense_lookup&#39;&gt;
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Electron eta:&quot;</span><span class="p">,</span> <span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">eta</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Electron pt:&quot;</span><span class="p">,</span> <span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">pt</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Scale factor:&quot;</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">[</span><span class="s2">&quot;testSF2d&quot;</span><span class="p">](</span><span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">eta</span><span class="p">,</span> <span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">pt</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Electron eta: [[], [1.83], [-0.293, -0.904], [-2.19, 1.65], ... [-0.0595], [], [0.381], [], []]
+Electron pt: [[], [29.6], [60.1, 51.7], [10.7, 8.6], [], ... [], [15.6], [], [7.68], [], []]
+Scale factor: [[], [0.909], [0.953, 0.972], [0.807, 0.827], ... [0.941], [], [0.946], [], []]
+</pre></div></div>
+</div>
+</section>
+<section id="Building-and-using-your-own-correction-from-a-histogram">
+<h3>Building and using your own correction from a histogram<a class="headerlink" href="#Building-and-using-your-own-correction-from-a-histogram" title="Link to this heading"></a></h3>
+<p>To use a histogram or ratio of histograms to build your own correction, you can use <code class="docutils literal notranslate"><span class="pre">lookup_tools</span></code> to simplify the implementation. Here we create some mock data for two slightly different pt and eta spectra (say, from two different generators) and derive a correction to reweight one sample to the other.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hist</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">dists</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">hist</span><span class="o">.</span><span class="n">Hist</span><span class="o">.</span><span class="n">new</span>
+    <span class="o">.</span><span class="n">StrCat</span><span class="p">([</span><span class="s2">&quot;gen1&quot;</span><span class="p">,</span> <span class="s2">&quot;gen2&quot;</span><span class="p">,</span> <span class="s2">&quot;gen2rwt&quot;</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;dataset&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">Reg</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;pt&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">Reg</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;eta&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">Weight</span><span class="p">()</span>
+    <span class="o">.</span><span class="n">fill</span><span class="p">(</span>
+        <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;gen1&quot;</span><span class="p">,</span>
+        <span class="n">pt</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">exponential</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">exponential</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">10000</span><span class="p">),</span>
+        <span class="n">eta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="o">.</span><span class="n">fill</span><span class="p">(</span>
+        <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;gen2&quot;</span><span class="p">,</span>
+        <span class="n">pt</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">exponential</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">exponential</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">10000</span><span class="p">),</span>
+        <span class="n">eta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mf">1.1</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+<span class="n">dists</span><span class="p">[:,</span> <span class="p">:,</span> <span class="nb">sum</span><span class="p">]</span><span class="o">.</span><span class="n">plot1d</span><span class="p">(</span><span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;dataset&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;matplotlib.legend.Legend at 0x134ceb190&gt;
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_applying_corrections_10_1.png" src="../_images/notebooks_applying_corrections_10_1.png" />
+</div>
+</div>
+<p>Now we derive a correction as a function of <span class="math notranslate nohighlight">\(p_T\)</span> and <span class="math notranslate nohighlight">\(\eta\)</span> to <code class="docutils literal notranslate"><span class="pre">gen2</span></code> such that it agrees with <code class="docutils literal notranslate"><span class="pre">gen1</span></code>. We’ll set it to 1 anywhere we run out of statistics for the correction, to avoid divide by zero issues</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">coffea.lookup_tools.dense_lookup</span><span class="w"> </span><span class="kn">import</span> <span class="n">dense_lookup</span>
+
+<span class="n">num</span> <span class="o">=</span> <span class="n">dists</span><span class="p">[</span><span class="s2">&quot;gen1&quot;</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+<span class="n">den</span> <span class="o">=</span> <span class="n">dists</span><span class="p">[</span><span class="s2">&quot;gen2&quot;</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+<span class="n">sf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+    <span class="p">(</span><span class="n">num</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">den</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span>
+    <span class="n">num</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">den</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">den</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">num</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+    <span class="mf">1.0</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">corr</span> <span class="o">=</span> <span class="n">dense_lookup</span><span class="p">(</span><span class="n">sf</span><span class="p">,</span> <span class="p">[</span><span class="n">ax</span><span class="o">.</span><span class="n">edges</span> <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">dists</span><span class="o">.</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">:]])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">corr</span><span class="p">)</span>
+
+<span class="c1"># a quick way to plot the scale factor is to steal the axis definitions from the input histograms:</span>
+<span class="n">sfhist</span> <span class="o">=</span> <span class="n">hist</span><span class="o">.</span><span class="n">Hist</span><span class="p">(</span><span class="o">*</span><span class="n">dists</span><span class="o">.</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">data</span><span class="o">=</span><span class="n">sf</span><span class="p">)</span>
+<span class="n">sfhist</span><span class="o">.</span><span class="n">plot2d</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+2 dimensional histogram with axes:
+        1: [  0.   5.  10.  15.  20.  25.  30.  35.  40.  45.  50.  55.  60.  65.
+  70.  75.  80.  85.  90.  95. 100.]
+        2: [-3.  -1.5  0.   1.5  3. ]
+
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+ColormeshArtists(pcolormesh=&lt;matplotlib.collections.QuadMesh object at 0x134eac6a0&gt;, cbar=&lt;matplotlib.colorbar.Colorbar object at 0x134eb87c0&gt;, text=[])
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_applying_corrections_12_2.png" src="../_images/notebooks_applying_corrections_12_2.png" />
+</div>
+</div>
+<p>Now we generate some new mock data as if it was drawn from <code class="docutils literal notranslate"><span class="pre">gen2</span></code> and reweight it with our <code class="docutils literal notranslate"><span class="pre">corr</span></code> to match <code class="docutils literal notranslate"><span class="pre">gen1</span></code></p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">ptvals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">exponential</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">exponential</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+<span class="n">etavals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mf">1.1</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+
+<span class="n">dists</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;gen2rwt&quot;</span><span class="p">,</span>
+    <span class="n">pt</span><span class="o">=</span><span class="n">ptvals</span><span class="p">,</span>
+    <span class="n">eta</span><span class="o">=</span><span class="n">etavals</span><span class="p">,</span>
+    <span class="n">weight</span><span class="o">=</span><span class="n">corr</span><span class="p">(</span><span class="n">ptvals</span><span class="p">,</span> <span class="n">etavals</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+<span class="n">dists</span><span class="p">[:,</span> <span class="p">:,</span> <span class="nb">sum</span><span class="p">]</span><span class="o">.</span><span class="n">plot1d</span><span class="p">(</span><span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;dataset&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;matplotlib.legend.Legend at 0x134f44f40&gt;
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_applying_corrections_14_1.png" src="../_images/notebooks_applying_corrections_14_1.png" />
+</div>
+</div>
+<p>Note that <code class="docutils literal notranslate"><span class="pre">corr()</span></code> can accept also jagged arrays if need be.</p>
+</section>
+</section>
+<section id="CMS-high-level-tools">
+<h2>CMS high-level tools<a class="headerlink" href="#CMS-high-level-tools" title="Link to this heading"></a></h2>
+<section id="Applying-energy-scale-transformations-with-jetmet_tools">
+<h3>Applying energy scale transformations with jetmet_tools<a class="headerlink" href="#Applying-energy-scale-transformations-with-jetmet_tools" title="Link to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">coffea.jetmet_tools</span></code> package provides a convenience class <a class="reference external" href="https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.jetmet_tools.JetTransformer.html#coffea.jetmet_tools.JetTransformer">JetTransformer</a> which applies specified corrections and computes uncertainties in one call. First we build the desired jet correction stack to apply. This will usually be some set of the various JEC and JER correction text files that depends on the jet cone size (AK4, AK8) and the pileup
+mitigation algorithm, as well as the data-taking year they are associated with.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">coffea.jetmet_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">FactorizedJetCorrector</span><span class="p">,</span> <span class="n">JetCorrectionUncertainty</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">coffea.jetmet_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">JECStack</span><span class="p">,</span> <span class="n">CorrectedJetsFactory</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">awkward</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ak</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">ext</span> <span class="o">=</span> <span class="n">extractor</span><span class="p">()</span>
+<span class="n">ext</span><span class="o">.</span><span class="n">add_weight_sets</span><span class="p">([</span>
+    <span class="s2">&quot;* * data/Fall17_17Nov2017_V32_MC_L2Relative_AK4PFPuppi.jec.txt&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;* * data/Fall17_17Nov2017_V32_MC_Uncertainty_AK4PFPuppi.junc.txt&quot;</span><span class="p">,</span>
+<span class="p">])</span>
+<span class="n">ext</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+
+<span class="n">jec_stack_names</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;Fall17_17Nov2017_V32_MC_L2Relative_AK4PFPuppi&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Fall17_17Nov2017_V32_MC_Uncertainty_AK4PFPuppi&quot;</span>
+<span class="p">]</span>
+
+<span class="n">evaluator</span> <span class="o">=</span> <span class="n">ext</span><span class="o">.</span><span class="n">make_evaluator</span><span class="p">()</span>
+
+<span class="n">jec_inputs</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">evaluator</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">jec_stack_names</span><span class="p">}</span>
+<span class="n">jec_stack</span> <span class="o">=</span> <span class="n">JECStack</span><span class="p">(</span><span class="n">jec_inputs</span><span class="p">)</span>
+<span class="c1">### more possibilities are available if you send in more pieces of the JEC stack</span>
+<span class="c1"># mc2016_ak8_jxform = JECStack([&quot;more&quot;, &quot;names&quot;, &quot;of&quot;, &quot;JEC parts&quot;])</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="nb">dir</span><span class="p">(</span><span class="n">evaluator</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[&#39;Fall17_17Nov2017_V32_MC_L2Relative_AK4PFPuppi&#39;, &#39;Fall17_17Nov2017_V32_MC_Uncertainty_AK4PFPuppi&#39;]
+</pre></div></div>
+</div>
+<p>Now we prepare some auxilary variables that are used to parameterize the jet energy corrections, such as jet area, mass, and event <span class="math notranslate nohighlight">\(\rho\)</span> (mean pileup energy density), and pass all of these into the <code class="docutils literal notranslate"><span class="pre">CorrectedJetsFactory</span></code>:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">name_map</span> <span class="o">=</span> <span class="n">jec_stack</span><span class="o">.</span><span class="n">blank_name_map</span>
+<span class="n">name_map</span><span class="p">[</span><span class="s1">&#39;JetPt&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;pt&#39;</span>
+<span class="n">name_map</span><span class="p">[</span><span class="s1">&#39;JetMass&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;mass&#39;</span>
+<span class="n">name_map</span><span class="p">[</span><span class="s1">&#39;JetEta&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eta&#39;</span>
+<span class="n">name_map</span><span class="p">[</span><span class="s1">&#39;JetA&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;area&#39;</span>
+
+<span class="n">jets</span> <span class="o">=</span> <span class="n">events</span><span class="o">.</span><span class="n">Jet</span>
+
+<span class="n">jets</span><span class="p">[</span><span class="s1">&#39;pt_raw&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">jets</span><span class="p">[</span><span class="s1">&#39;rawFactor&#39;</span><span class="p">])</span> <span class="o">*</span> <span class="n">jets</span><span class="p">[</span><span class="s1">&#39;pt&#39;</span><span class="p">]</span>
+<span class="n">jets</span><span class="p">[</span><span class="s1">&#39;mass_raw&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">jets</span><span class="p">[</span><span class="s1">&#39;rawFactor&#39;</span><span class="p">])</span> <span class="o">*</span> <span class="n">jets</span><span class="p">[</span><span class="s1">&#39;mass&#39;</span><span class="p">]</span>
+<span class="n">jets</span><span class="p">[</span><span class="s1">&#39;pt_gen&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ak</span><span class="o">.</span><span class="n">values_astype</span><span class="p">(</span><span class="n">ak</span><span class="o">.</span><span class="n">fill_none</span><span class="p">(</span><span class="n">jets</span><span class="o">.</span><span class="n">matched_gen</span><span class="o">.</span><span class="n">pt</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="n">jets</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ak</span><span class="o">.</span><span class="n">broadcast_arrays</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">fixedGridRhoFastjetAll</span><span class="p">,</span> <span class="n">jets</span><span class="o">.</span><span class="n">pt</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">name_map</span><span class="p">[</span><span class="s1">&#39;ptGenJet&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;pt_gen&#39;</span>
+<span class="n">name_map</span><span class="p">[</span><span class="s1">&#39;ptRaw&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;pt_raw&#39;</span>
+<span class="n">name_map</span><span class="p">[</span><span class="s1">&#39;massRaw&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;mass_raw&#39;</span>
+<span class="n">name_map</span><span class="p">[</span><span class="s1">&#39;Rho&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;rho&#39;</span>
+
+<span class="n">events_cache</span> <span class="o">=</span> <span class="n">events</span><span class="o">.</span><span class="n">caches</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">corrector</span> <span class="o">=</span> <span class="n">FactorizedJetCorrector</span><span class="p">(</span>
+    <span class="n">Fall17_17Nov2017_V32_MC_L2Relative_AK4PFPuppi</span><span class="o">=</span><span class="n">evaluator</span><span class="p">[</span><span class="s1">&#39;Fall17_17Nov2017_V32_MC_L2Relative_AK4PFPuppi&#39;</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">uncertainties</span> <span class="o">=</span> <span class="n">JetCorrectionUncertainty</span><span class="p">(</span>
+    <span class="n">Fall17_17Nov2017_V32_MC_Uncertainty_AK4PFPuppi</span><span class="o">=</span><span class="n">evaluator</span><span class="p">[</span><span class="s1">&#39;Fall17_17Nov2017_V32_MC_Uncertainty_AK4PFPuppi&#39;</span><span class="p">]</span>
+<span class="p">)</span>
+
+<span class="n">jet_factory</span> <span class="o">=</span> <span class="n">CorrectedJetsFactory</span><span class="p">(</span><span class="n">name_map</span><span class="p">,</span> <span class="n">jec_stack</span><span class="p">)</span>
+<span class="n">corrected_jets</span> <span class="o">=</span> <span class="n">jet_factory</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">jets</span><span class="p">,</span> <span class="n">lazy_cache</span><span class="o">=</span><span class="n">events_cache</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;starting columns:&#39;</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">ak</span><span class="o">.</span><span class="n">fields</span><span class="p">(</span><span class="n">jets</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;new columns:&#39;</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">ak</span><span class="o">.</span><span class="n">fields</span><span class="p">(</span><span class="n">corrected_jets</span><span class="p">))</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">ak</span><span class="o">.</span><span class="n">fields</span><span class="p">(</span><span class="n">jets</span><span class="p">)))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+starting columns: {&#39;btagCSVV2&#39;, &#39;electronIdx1&#39;, &#39;electronIdx2&#39;, &#39;eta&#39;, &#39;muonSubtrFactor&#39;, &#39;btagCMVA&#39;, &#39;bRegCorr&#39;, &#39;btagDeepFlavB&#39;, &#39;jercCHPUF&#39;, &#39;chEmEF&#39;, &#39;pt_raw&#39;, &#39;muonIdx2&#39;, &#39;nMuons&#39;, &#39;cleanmask&#39;, &#39;muonIdx1G&#39;, &#39;genJetIdxG&#39;, &#39;puId&#39;, &#39;muEF&#39;, &#39;mass&#39;, &#39;genJetIdx&#39;, &#39;muonIdx1&#39;, &#39;area&#39;, &#39;hadronFlavour&#39;, &#39;btagDeepC&#39;, &#39;qgl&#39;, &#39;rawFactor&#39;, &#39;mass_raw&#39;, &#39;partonFlavour&#39;, &#39;phi&#39;, &#39;btagDeepFlavC&#39;, &#39;nElectrons&#39;, &#39;electronIdx2G&#39;, &#39;rho&#39;, &#39;btagDeepB&#39;, &#39;neHEF&#39;, &#39;pt_gen&#39;, &#39;muonIdx2G&#39;, &#39;neEmEF&#39;, &#39;electronIdx1G&#39;, &#39;jercCHF&#39;, &#39;muonIdxG&#39;, &#39;jetId&#39;, &#39;nConstituents&#39;, &#39;electronIdxG&#39;, &#39;bRegRes&#39;, &#39;pt&#39;, &#39;chHEF&#39;}
+new columns: {&#39;jet_energy_correction&#39;, &#39;mass_orig&#39;, &#39;pt_orig&#39;, &#39;pt_jec&#39;, &#39;JES_jes&#39;, &#39;mass_jec&#39;, &#39;jet_energy_uncertainty_jes&#39;}
+</pre></div></div>
+</div>
+<p>Below we show that the corrected jets indeed have a different <span class="math notranslate nohighlight">\(p_T\)</span> and mass than we started with</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;untransformed pt ratios&#39;</span><span class="p">,</span> <span class="n">jets</span><span class="o">.</span><span class="n">pt</span><span class="o">/</span><span class="n">jets</span><span class="o">.</span><span class="n">pt_raw</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;untransformed mass ratios&#39;</span><span class="p">,</span> <span class="n">jets</span><span class="o">.</span><span class="n">mass</span><span class="o">/</span><span class="n">jets</span><span class="o">.</span><span class="n">mass_raw</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;transformed pt ratios&#39;</span><span class="p">,</span> <span class="n">corrected_jets</span><span class="o">.</span><span class="n">pt</span><span class="o">/</span><span class="n">corrected_jets</span><span class="o">.</span><span class="n">pt_raw</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;transformed mass ratios&#39;</span><span class="p">,</span> <span class="n">corrected_jets</span><span class="o">.</span><span class="n">mass</span><span class="o">/</span><span class="n">corrected_jets</span><span class="o">.</span><span class="n">mass_raw</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;JES UP pt ratio&#39;</span><span class="p">,</span> <span class="n">corrected_jets</span><span class="o">.</span><span class="n">JES_jes</span><span class="o">.</span><span class="n">up</span><span class="o">.</span><span class="n">pt</span><span class="o">/</span><span class="n">corrected_jets</span><span class="o">.</span><span class="n">pt_raw</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;JES DOWN pt ratio&#39;</span><span class="p">,</span> <span class="n">corrected_jets</span><span class="o">.</span><span class="n">JES_jes</span><span class="o">.</span><span class="n">down</span><span class="o">.</span><span class="n">pt</span><span class="o">/</span><span class="n">corrected_jets</span><span class="o">.</span><span class="n">pt_raw</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+untransformed pt ratios [[1.12, 1.09, 1.2, 1.35, 1.27], [1.03, ... 1.28, 1.1, 1.13, 0.989], [1.13, 0.978]]
+untransformed mass ratios [[1.12, 1.09, 1.2, 1.35, 1.27], [1.03, ... 1.28, 1.1, 1.13, 0.989], [1.13, 0.978]]
+transformed pt ratios [[1.2, 1.3, 1.46, 2.09, 2.1], [1.09, 1.29, ... 1.84, 1.47, 1.36, 1.16], [1.37, 1.15]]
+transformed mass ratios [[1.2, 1.3, 1.46, 2.09, 2.1], [1.09, 1.29, ... 1.84, 1.47, 1.36, 1.16], [1.37, 1.15]]
+JES UP pt ratio [[1.22, 1.35, 1.56, 2.34, 2.37], [1.1, ... 2.07, 1.52, 1.41, 1.2], [1.41, 1.17]]
+JES DOWN pt ratio [[1.19, 1.25, 1.35, 1.83, 1.83], [1.08, ... 1.6, 1.41, 1.32, 1.13], [1.33, 1.12]]
+</pre></div></div>
+</div>
+</section>
+<section id="Applying-CMS-b-tagging-corrections-with-btag_tools">
+<h3>Applying CMS b-tagging corrections with btag_tools<a class="headerlink" href="#Applying-CMS-b-tagging-corrections-with-btag_tools" title="Link to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">coffea.btag_tools</span></code> module provides the high-level utility <a class="reference external" href="https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.btag_tools.BTagScaleFactor.html#coffea.btag_tools.BTagScaleFactor">BTagScaleFactor</a> which calculates per-jet weights for b-tagging as well as light flavor mis-tagging efficiencies. Uncertainties can be calculated as well.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">coffea.btag_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">BTagScaleFactor</span>
+
+<span class="n">btag_sf</span> <span class="o">=</span> <span class="n">BTagScaleFactor</span><span class="p">(</span><span class="s2">&quot;data/DeepCSV_102XSF_V1.btag.csv.gz&quot;</span><span class="p">,</span> <span class="s2">&quot;medium&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SF:&quot;</span><span class="p">,</span> <span class="n">btag_sf</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="s2">&quot;central&quot;</span><span class="p">,</span> <span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="o">.</span><span class="n">hadronFlavour</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="o">.</span><span class="n">eta</span><span class="p">),</span> <span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="o">.</span><span class="n">pt</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;systematic +:&quot;</span><span class="p">,</span> <span class="n">btag_sf</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="s2">&quot;up&quot;</span><span class="p">,</span> <span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="o">.</span><span class="n">hadronFlavour</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="o">.</span><span class="n">eta</span><span class="p">),</span> <span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="o">.</span><span class="n">pt</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;systematic -:&quot;</span><span class="p">,</span> <span class="n">btag_sf</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="s2">&quot;down&quot;</span><span class="p">,</span> <span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="o">.</span><span class="n">hadronFlavour</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="o">.</span><span class="n">eta</span><span class="p">),</span> <span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="o">.</span><span class="n">pt</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+SF: [[1.52, 1.56, 1.59, 1.6, 1.6], [0.969, 1.57, ... 1.59, 1.6, 1.6, 1.6], [1.6, 1.6]]
+systematic +: [[1.72, 1.77, 1.79, 1.8, 1.8], [1.01, 1.78, ... 1.8, 1.8, 1.8, 1.8], [1.8, 1.8]]
+systematic -: [[1.31, 1.36, 1.38, 1.4, 1.4], [0.925, 1.37, ... 1.39, 1.4, 1.4, 1.4], [1.4, 1.4]]
+</pre></div></div>
+</div>
+</section>
+</section>
+<section id="Using-correctionlib">
+<h2>Using correctionlib<a class="headerlink" href="#Using-correctionlib" title="Link to this heading"></a></h2>
+<p>For the most part, using correctionlib is straightforward. We’ll show here how to convert the custom correction we derived earlier (<code class="docutils literal notranslate"><span class="pre">corr</span></code>) into a correctionlib object, and save it in the json format:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">correctionlib</span><span class="o">,</span><span class="w"> </span><span class="nn">rich</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">correctionlib.convert</span>
+
+<span class="c1"># without a name, the resulting object will fail validation</span>
+<span class="n">sfhist</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;gen2_to_gen1&quot;</span>
+<span class="n">sfhist</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;out&quot;</span>
+<span class="n">clibcorr</span> <span class="o">=</span> <span class="n">correctionlib</span><span class="o">.</span><span class="n">convert</span><span class="o">.</span><span class="n">from_histogram</span><span class="p">(</span><span class="n">sfhist</span><span class="p">)</span>
+<span class="n">clibcorr</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;Reweights gen2 to agree with gen1&quot;</span>
+<span class="c1"># set overflow bins behavior (default is to raise an error when out of bounds)</span>
+<span class="n">clibcorr</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">flow</span> <span class="o">=</span> <span class="s2">&quot;clamp&quot;</span>
+
+<span class="n">cset</span> <span class="o">=</span> <span class="n">correctionlib</span><span class="o">.</span><span class="n">schemav2</span><span class="o">.</span><span class="n">CorrectionSet</span><span class="p">(</span>
+    <span class="n">schema_version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;my custom corrections&quot;</span><span class="p">,</span>
+    <span class="n">corrections</span><span class="o">=</span><span class="p">[</span><span class="n">clibcorr</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">rich</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">cset</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;data/mycorrections.json&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fout</span><span class="p">:</span>
+    <span class="n">fout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">cset</span><span class="o">.</span><span class="n">json</span><span class="p">(</span><span class="n">exclude_unset</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area rendered_html docutils container">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="font-weight: bold">CorrectionSet</span> (<span style="font-style: italic">schema v2</span>)
+my custom corrections
+📂
+└── 📈 <span style="font-weight: bold">gen2_to_gen1</span> (v0)
+    Reweights gen2 to agree with gen1
+    Node counts: <span style="font-weight: bold">MultiBinning</span>: 1
+    ╭──────────── ▶ input ─────────────╮ ╭──────────── ▶ input ────────────╮
+    │ <span style="font-weight: bold">pt</span> (real)                        │ │ <span style="font-weight: bold">eta</span> (real)                      │
+    │ pt                               │ │ eta                             │
+    │ Range: [0.0, 100.0), overflow ok │ │ Range: [-3.0, 3.0), overflow ok │
+    ╰──────────────────────────────────╯ ╰─────────────────────────────────╯
+    ╭─── ◀ output ───╮
+    │ <span style="font-weight: bold">out</span> (real)     │
+    │ <span style="font-style: italic">No description</span> │
+    ╰────────────────╯
+</pre></div>
+</div>
+<p>We can now use this new correction in a similar way to the original <code class="docutils literal notranslate"><span class="pre">corr()</span></code> object:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">ceval</span> <span class="o">=</span> <span class="n">cset</span><span class="o">.</span><span class="n">to_evaluator</span><span class="p">()</span>
+
+<span class="n">ceval</span><span class="p">[</span><span class="s2">&quot;gen2_to_gen1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">ptvals</span><span class="p">,</span> <span class="n">etavals</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+array([1.55691586, 1.36319225, 1.36319225, ..., 1.55691586, 0.64304079,
+       1.02863368])
+</pre></div></div>
+</div>
+<p>At the time of writing, correctionlib does not support jagged arrays. But we can work around this using awkward utilities <code class="docutils literal notranslate"><span class="pre">flatten</span></code> and <code class="docutils literal notranslate"><span class="pre">unflatten</span></code>, as shown below</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">myJetSF</span><span class="p">(</span><span class="n">jets</span><span class="p">):</span>
+    <span class="n">j</span><span class="p">,</span> <span class="n">nj</span> <span class="o">=</span> <span class="n">ak</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">jets</span><span class="p">),</span> <span class="n">ak</span><span class="o">.</span><span class="n">num</span><span class="p">(</span><span class="n">jets</span><span class="p">)</span>
+    <span class="n">sf</span> <span class="o">=</span> <span class="n">ceval</span><span class="p">[</span><span class="s2">&quot;gen2_to_gen1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">j</span><span class="o">.</span><span class="n">pt</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">j</span><span class="o">.</span><span class="n">eta</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">ak</span><span class="o">.</span><span class="n">unflatten</span><span class="p">(</span><span class="n">sf</span><span class="p">,</span> <span class="n">nj</span><span class="p">)</span>
+
+<span class="n">myJetSF</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Jet</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;Array [[0.498, 0.211, 0.86, ... [1.15, 1.17]] type=&#39;40 * var * float64&#39;&gt;
+</pre></div></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="nanoevents.html" class="btn btn-neutral float-left" title="Reading data with coffea NanoEvents" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="accumulators.html" class="btn btn-neutral float-right" title="Analysis tools and accumulators" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

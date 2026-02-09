@@ -1,0 +1,7 @@
+PFCand
+======
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: PFCand
+   :show-inheritance:

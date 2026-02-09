@@ -1,0 +1,31 @@
+<map id="inheritance9113a4f07f" name="inheritance9113a4f07f">
+<area shape="rect" id="node1" href="../api/coffea.processor.AccumulatorABC.html#coffea.processor.AccumulatorABC" target="_top" title="Abstract base class for an accumulator" alt="" coords="5,587,123,610"/>
+<area shape="rect" id="node23" href="../api/coffea.processor.column_accumulator.html#coffea.processor.column_accumulator" target="_top" title="An appendable numpy ndarray" alt="" coords="177,519,321,542"/>
+<area shape="rect" id="node25" href="../api/coffea.processor.defaultdict_accumulator.html#coffea.processor.defaultdict_accumulator" target="_top" title="A defaultdict with accumulator semantics" alt="" coords="167,474,330,497"/>
+<area shape="rect" id="node26" href="../api/coffea.processor.dict_accumulator.html#coffea.processor.dict_accumulator" target="_top" title="A dictionary with accumulator semantics" alt="" coords="187,564,310,587"/>
+<area shape="rect" id="node27" href="../api/coffea.processor.list_accumulator.html#coffea.processor.list_accumulator" target="_top" title="A list with accumulator semantics" alt="" coords="189,608,308,631"/>
+<area shape="rect" id="node28" href="../api/coffea.processor.set_accumulator.html#coffea.processor.set_accumulator" target="_top" title="A set with accumulator semantics" alt="" coords="189,653,308,676"/>
+<area shape="rect" id="node29" href="../api/coffea.processor.value_accumulator.html#coffea.processor.value_accumulator" target="_top" title="Holds a value of arbitrary type" alt="" coords="182,698,315,721"/>
+<area shape="rect" id="node2" href="../api/coffea.nanoevents.BaseSchema.html#coffea.nanoevents.BaseSchema" target="_top" title="Base schema builder" alt="" coords="16,429,112,452"/>
+<area shape="rect" id="node14" href="../api/coffea.processor.NanoAODSchema.html#coffea.processor.NanoAODSchema" target="_top" title="NanoAOD schema builder" alt="" coords="186,385,311,408"/>
+<area shape="rect" id="node20" href="../api/coffea.processor.TreeMakerSchema.html#coffea.processor.TreeMakerSchema" target="_top" title="TreeMaker schema builder" alt="" coords="184,429,313,452"/>
+<area shape="rect" id="node3" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Collection" target="_top" title="Collection" alt="" coords="209,340,288,363"/>
+<area shape="rect" id="node13" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping" target="_top" title="A Mapping is a generic container for associating key/value" alt="" coords="374,340,445,363"/>
+<area shape="rect" id="node4" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sized" target="_top" title="Sized" alt="" coords="31,295,97,318"/>
+<area shape="rect" id="node5" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" target="_top" title="Iterable" alt="" coords="31,340,97,363"/>
+<area shape="rect" id="node6" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Container" target="_top" title="Container" alt="" coords="25,385,103,408"/>
+<area shape="rect" id="node7" href="../api/coffea.processor.DaskExecutor.html#coffea.processor.DaskExecutor" target="_top" title="Execute using dask futures" alt="" coords="198,71,299,94"/>
+<area shape="rect" id="node8" title="ExecutorBase(status: bool = True, unit: str = &#39;items&#39;, desc: str = &#39;Processing&#39;, compression: Optional[int] = 1, function_name: Optional[str] = None)" alt="" coords="14,184,114,207"/>
+<area shape="rect" id="node9" href="../api/coffea.processor.FuturesExecutor.html#coffea.processor.FuturesExecutor" target="_top" title="Execute using multiple local cores using python futures" alt="" coords="191,116,306,139"/>
+<area shape="rect" id="node10" href="../api/coffea.processor.IterativeExecutor.html#coffea.processor.IterativeExecutor" target="_top" title="Execute in one thread iteratively" alt="" coords="188,161,309,184"/>
+<area shape="rect" id="node16" href="../api/coffea.processor.ParslExecutor.html#coffea.processor.ParslExecutor" target="_top" title="Execute using parsl pyapp wrapper" alt="" coords="199,206,298,229"/>
+<area shape="rect" id="node19" href="../api/coffea.processor.TaskVineExecutor.html#coffea.processor.TaskVineExecutor" target="_top" title="Execute using Work Queue" alt="" coords="187,250,310,273"/>
+<area shape="rect" id="node22" href="../api/coffea.processor.WorkQueueExecutor.html#coffea.processor.WorkQueueExecutor" target="_top" title="Execute using Work Queue" alt="" coords="179,295,318,318"/>
+<area shape="rect" id="node11" href="../api/coffea.processor.LazyDataFrame.html#coffea.processor.LazyDataFrame" target="_top" title="Simple delayed uproot reader (a la lazyarrays)" alt="" coords="651,340,763,363"/>
+<area shape="rect" id="node12" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping" target="_top" title="A MutableMapping is a generic container for associating" alt="" coords="489,340,607,363"/>
+<area shape="rect" id="node15" href="../api/coffea.processor.PackedSelection.html#coffea.processor.PackedSelection" target="_top" title="Store boolean mask vectors in a compact manner" alt="" coords="7,139,122,162"/>
+<area shape="rect" id="node17" href="../api/coffea.processor.ProcessorABC.html#coffea.processor.ProcessorABC" target="_top" title="ABC for a generalized processor" alt="" coords="13,94,115,117"/>
+<area shape="rect" id="node18" href="../api/coffea.processor.Runner.html#coffea.processor.Runner" target="_top" title="A tool to run a processor using uproot for data delivery" alt="" coords="31,50,97,73"/>
+<area shape="rect" id="node21" href="../api/coffea.processor.Weights.html#coffea.processor.Weights" target="_top" title="Container for event weights and associated systematic shifts" alt="" coords="30,5,98,28"/>
+<area shape="rect" id="node24" href="https://docs.python.org/3/library/collections.html#collections.defaultdict" target="_top" title="defaultdict(default_factory=None, /, [...]) &#45;&#45;&gt; dict with default factory" alt="" coords="22,474,106,497"/>
+</map>

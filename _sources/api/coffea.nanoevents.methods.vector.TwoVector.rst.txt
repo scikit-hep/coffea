@@ -1,0 +1,57 @@
+TwoVector
+=========
+
+.. currentmodule:: coffea.nanoevents.methods.vector
+
+.. autoclass:: TwoVector
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~TwoVector.phi
+      ~TwoVector.pt
+      ~TwoVector.pt2
+      ~TwoVector.px
+      ~TwoVector.py
+      ~TwoVector.r
+      ~TwoVector.r2
+      ~TwoVector.unit
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~TwoVector.absolute
+      ~TwoVector.add
+      ~TwoVector.delta_phi
+      ~TwoVector.divide
+      ~TwoVector.dot
+      ~TwoVector.multiply
+      ~TwoVector.negative
+      ~TwoVector.subtract
+      ~TwoVector.sum
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: phi
+   .. autoattribute:: pt
+   .. autoattribute:: pt2
+   .. autoattribute:: px
+   .. autoattribute:: py
+   .. autoattribute:: r
+   .. autoattribute:: r2
+   .. autoattribute:: unit
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: absolute
+   .. automethod:: add
+   .. automethod:: delta_phi
+   .. automethod:: divide
+   .. automethod:: dot
+   .. automethod:: multiply
+   .. automethod:: negative
+   .. automethod:: subtract
+   .. automethod:: sum

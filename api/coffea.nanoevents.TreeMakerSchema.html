@@ -1,0 +1,219 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TreeMakerSchema &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="PHYSLITESchema" href="coffea.nanoevents.PHYSLITESchema.html" />
+    <link rel="prev" title="PFNanoAODSchema" href="coffea.nanoevents.PFNanoAODSchema.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.hist.html">coffea.hist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../modules/coffea.nanoevents.html">coffea.nanoevents</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../modules/coffea.nanoevents.html#classes">Classes</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.NanoEventsFactory.html">NanoEventsFactory</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.BaseSchema.html">BaseSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.NanoAODSchema.html">NanoAODSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.PFNanoAODSchema.html">PFNanoAODSchema</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">TreeMakerSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.PHYSLITESchema.html">PHYSLITESchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.DelphesSchema.html">DelphesSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.PDUNESchema.html">PDUNESchema</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../modules/coffea.nanoevents.html#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+          <li class="breadcrumb-item"><a href="../modules/coffea.nanoevents.html">coffea.nanoevents</a></li>
+      <li class="breadcrumb-item active">TreeMakerSchema</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/coffea.nanoevents.TreeMakerSchema.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="treemakerschema">
+<h1>TreeMakerSchema<a class="headerlink" href="#treemakerschema" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="coffea.nanoevents.TreeMakerSchema">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">coffea.nanoevents.</span></span><span class="sig-name descname"><span class="pre">TreeMakerSchema</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_form</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/nanoevents/schemas/treemaker.py#L4"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.nanoevents.TreeMakerSchema" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="coffea.nanoevents.BaseSchema.html#coffea.nanoevents.BaseSchema" title="coffea.nanoevents.schemas.base.BaseSchema"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseSchema</span></code></a></p>
+<p>TreeMaker schema builder</p>
+<p>The TreeMaker schema is built from all branches found in the supplied file,
+based on the naming pattern of the branches. There are two steps of to the
+generation of array collections:</p>
+<ul>
+<li><p>Objects with vector-like quantities (momentum, coordinate points) in the
+TreeMaker n-tuples are stored using ROOT PtEtaPhiEVectors and XYZPoint
+classes with maximum TTree splitting. These variable branches are grouped
+into a single collection with the original object name, with the
+corresponding coordinate variables names mapped to the standard variable
+names for coffea.nanoevents.methods.vector behaviors. For example:
+- The “Jets” branch in a TreeMaker n-tuple branch stores ‘PtEtaPhiEVector’s</p>
+<blockquote>
+<div><p>corresponding to the momentum of AK4 jets. The resulting collection after
+this first step would contain the vector variables in the form of
+Jets.pt, Jets.eta, Jets.phi, Jets.energy, and addition vector quantities
+(px) can be accessed via the usual vector behavior methods.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>The “PrimaryVertices” branch in a TreeMaker n-tuple branch stores
+‘XYZPoint’s corresponding to the coordinates of the primary vertices, The
+resulting collection after this first step wold contain the coordinate
+variables in the form of PrimaryVertices.x, PrimaryVertices.y,
+PrimaryVertices.z.</p></li>
+</ul>
+</li>
+<li><p>Extended quantities of physic objects are stored in the format
+&lt;Object&gt;_&lt;variable&gt;, such as “Jets_jecFactor”. Such variables will be
+merged into the collection &lt;Object&gt;, so the branch “Jets_jetFactor” will be
+access to in the array format as “Jets.jecFactor”. An exception to the</p></li>
+</ul>
+<p>All collections are then zipped into one <a class="reference internal" href="coffea.nanoevents.methods.base.NanoEvents.html#coffea.nanoevents.methods.base.NanoEvents" title="coffea.nanoevents.methods.base.NanoEvents"><code class="xref any py py-class docutils literal notranslate"><span class="pre">base.NanoEvents</span></code></a> record and
+returned.</p>
+<p class="rubric">Attributes Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.TreeMakerSchema.behavior" title="coffea.nanoevents.TreeMakerSchema.behavior"><code class="xref py py-obj docutils literal notranslate"><span class="pre">behavior</span></code></a></p></td>
+<td><p>Behaviors necessary to implement this schema</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Methods Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.TreeMakerSchema.uproot_writeable" title="coffea.nanoevents.TreeMakerSchema.uproot_writeable"><code class="xref py py-obj docutils literal notranslate"><span class="pre">uproot_writeable</span></code></a>()</p></td>
+<td><p>Converting a TreeMakerSchema event into something that is uproot writeable.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes Documentation</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.TreeMakerSchema.behavior">
+<span class="sig-name descname"><span class="pre">behavior</span></span><a class="headerlink" href="#coffea.nanoevents.TreeMakerSchema.behavior" title="Link to this definition"></a></dt>
+<dd><p>Behaviors necessary to implement this schema</p>
+</dd></dl>
+
+<p class="rubric">Methods Documentation</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.nanoevents.TreeMakerSchema.uproot_writeable">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">uproot_writeable</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/nanoevents/schemas/treemaker.py#L169"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.nanoevents.TreeMakerSchema.uproot_writeable" title="Link to this definition"></a></dt>
+<dd><p>Converting a TreeMakerSchema event into something that is uproot
+writeable. Based off the discussion thread here [1], but added specific
+cased to handled the nested structures define for TreeMaker n-tuples.
+[1] <a class="reference external" href="https://github.com/CoffeaTeam/coffea/discussions/735">https://github.com/CoffeaTeam/coffea/discussions/735</a></p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="coffea.nanoevents.PFNanoAODSchema.html" class="btn btn-neutral float-left" title="PFNanoAODSchema" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="coffea.nanoevents.PHYSLITESchema.html" class="btn btn-neutral float-right" title="PHYSLITESchema" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

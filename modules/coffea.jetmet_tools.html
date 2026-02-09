@@ -1,0 +1,188 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>coffea.jetmet_tools &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="FactorizedJetCorrector" href="../api/coffea.jetmet_tools.FactorizedJetCorrector.html" />
+    <link rel="prev" title="StringBin" href="../api/coffea.hist.StringBin.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.hist.html">coffea.hist</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">coffea.jetmet_tools</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#classes">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.jetmet_tools.FactorizedJetCorrector.html">FactorizedJetCorrector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.jetmet_tools.JetResolution.html">JetResolution</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.jetmet_tools.JetResolutionScaleFactor.html">JetResolutionScaleFactor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.jetmet_tools.JetCorrectionUncertainty.html">JetCorrectionUncertainty</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.jetmet_tools.JECStack.html">JECStack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.jetmet_tools.CorrectedJetsFactory.html">CorrectedJetsFactory</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.jetmet_tools.CorrectedMETFactory.html">CorrectedMETFactory</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.html">coffea.nanoevents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+      <li class="breadcrumb-item active">coffea.jetmet_tools</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/modules/coffea.jetmet_tools.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-coffea.jetmet_tools">
+<span id="coffea-jetmet-tools"></span><h1>coffea.jetmet_tools<a class="headerlink" href="#module-coffea.jetmet_tools" title="Link to this heading"></a></h1>
+<p>JetMET tools: CMS analysis-level jet corrections and uncertainties</p>
+<p>These classes provide computation of CMS jet energy scale and jet energy resolution
+corrections and uncertainties on columnar data.</p>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.jetmet_tools.FactorizedJetCorrector.html#coffea.jetmet_tools.FactorizedJetCorrector" title="coffea.jetmet_tools.FactorizedJetCorrector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FactorizedJetCorrector</span></code></a>(**kwargs)</p></td>
+<td><p>This class is a columnar implementation of the FactorizedJetCorrector tool in CMSSW and FWLite.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.jetmet_tools.JetResolution.html#coffea.jetmet_tools.JetResolution" title="coffea.jetmet_tools.JetResolution"><code class="xref py py-obj docutils literal notranslate"><span class="pre">JetResolution</span></code></a>(**kwargs)</p></td>
+<td><p>This class is a columnar implementation of the JetResolution tool in CMSSW and FWLite.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.jetmet_tools.JetResolutionScaleFactor.html#coffea.jetmet_tools.JetResolutionScaleFactor" title="coffea.jetmet_tools.JetResolutionScaleFactor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">JetResolutionScaleFactor</span></code></a>(**kwargs)</p></td>
+<td><p>This class is a columnar implementation of the JetResolutionScaleFactor tool in CMSSW and FWLite.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.jetmet_tools.JetCorrectionUncertainty.html#coffea.jetmet_tools.JetCorrectionUncertainty" title="coffea.jetmet_tools.JetCorrectionUncertainty"><code class="xref py py-obj docutils literal notranslate"><span class="pre">JetCorrectionUncertainty</span></code></a>(**kwargs)</p></td>
+<td><p>This class is a columnar implementation of the JetCorrectionUncertainty tool in CMSSW and FWLite.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.jetmet_tools.JECStack.html#coffea.jetmet_tools.JECStack" title="coffea.jetmet_tools.JECStack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">JECStack</span></code></a>(corrections[, jec, junc, jer, jersf])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.jetmet_tools.CorrectedJetsFactory.html#coffea.jetmet_tools.CorrectedJetsFactory" title="coffea.jetmet_tools.CorrectedJetsFactory"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CorrectedJetsFactory</span></code></a>(name_map, jec_stack)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.jetmet_tools.CorrectedMETFactory.html#coffea.jetmet_tools.CorrectedMETFactory" title="coffea.jetmet_tools.CorrectedMETFactory"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CorrectedMETFactory</span></code></a>(name_map)</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="class-inheritance-diagram">
+<h2>Class Inheritance Diagram<a class="headerlink" href="#class-inheritance-diagram" title="Link to this heading"></a></h2>
+<div class="graphviz"><img src="../_images/inheritance-aa24ffb7ca76a0b5c67760b858154efef07bf05e.png" alt="Inheritance diagram of coffea.jetmet_tools.FactorizedJetCorrector.FactorizedJetCorrector, coffea.jetmet_tools.JetResolution.JetResolution, coffea.jetmet_tools.JetResolutionScaleFactor.JetResolutionScaleFactor, coffea.jetmet_tools.JetCorrectionUncertainty.JetCorrectionUncertainty, coffea.jetmet_tools.JECStack.JECStack, coffea.jetmet_tools.CorrectedJetsFactory.CorrectedJetsFactory, coffea.jetmet_tools.CorrectedMETFactory.CorrectedMETFactory" usemap="#inheritancec0b8dd00a1" class="inheritance graphviz" /></div>
+<map id="inheritancec0b8dd00a1" name="inheritancec0b8dd00a1">
+<area shape="rect" id="node1" href="../api/coffea.jetmet_tools.CorrectedJetsFactory.html#coffea.jetmet_tools.CorrectedJetsFactory" target="_top" title="CorrectedJetsFactory" alt="" coords="19,301,175,327"/>
+<area shape="rect" id="node2" href="../api/coffea.jetmet_tools.CorrectedMETFactory.html#coffea.jetmet_tools.CorrectedMETFactory" target="_top" title="CorrectedMETFactory" alt="" coords="17,252,177,277"/>
+<area shape="rect" id="node3" href="../api/coffea.jetmet_tools.FactorizedJetCorrector.html#coffea.jetmet_tools.FactorizedJetCorrector" target="_top" title="This class is a columnar implementation of the FactorizedJetCorrector tool in" alt="" coords="14,203,179,228"/>
+<area shape="rect" id="node4" href="../api/coffea.jetmet_tools.JECStack.html#coffea.jetmet_tools.JECStack" target="_top" title="JECStack" alt="" coords="57,153,136,179"/>
+<area shape="rect" id="node5" href="../api/coffea.jetmet_tools.JetCorrectionUncertainty.html#coffea.jetmet_tools.JetCorrectionUncertainty" target="_top" title="This class is a columnar implementation of the JetCorrectionUncertainty tool in" alt="" coords="5,104,188,129"/>
+<area shape="rect" id="node6" href="../api/coffea.jetmet_tools.JetResolution.html#coffea.jetmet_tools.JetResolution" target="_top" title="This class is a columnar implementation of the JetResolution tool in" alt="" coords="43,55,151,80"/>
+<area shape="rect" id="node7" href="../api/coffea.jetmet_tools.JetResolutionScaleFactor.html#coffea.jetmet_tools.JetResolutionScaleFactor" target="_top" title="This class is a columnar implementation of the JetResolutionScaleFactor tool in" alt="" coords="5,5,188,31"/>
+</map></section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../api/coffea.hist.StringBin.html" class="btn btn-neutral float-left" title="StringBin" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/coffea.jetmet_tools.FactorizedJetCorrector.html" class="btn btn-neutral float-right" title="FactorizedJetCorrector" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

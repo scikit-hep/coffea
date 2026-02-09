@@ -1,0 +1,11 @@
+<map id="inheritanceaa79008a75" name="inheritanceaa79008a75">
+<area shape="rect" id="node1" href="../api/coffea.processor.AccumulatorABC.html#coffea.processor.AccumulatorABC" target="_top" title="Abstract base class for an accumulator" alt="" coords="5,177,136,203"/>
+<area shape="rect" id="node7" href="../api/coffea.hist.Hist.html#coffea.hist.Hist" target="_top" title="Specify a multidimensional histogram." alt="" coords="195,177,267,203"/>
+<area shape="rect" id="node2" title="Axis: Base class for any type of axis" alt="" coords="35,104,107,129"/>
+<area shape="rect" id="node4" title="DenseAxis: ABC for a fixed&#45;size densely&#45;indexed axis" alt="" coords="186,79,277,104"/>
+<area shape="rect" id="node6" title="SparseAxis: ABC for a sparse axis" alt="" coords="184,128,279,153"/>
+<area shape="rect" id="node3" href="../api/coffea.hist.Bin.html#coffea.hist.Bin" target="_top" title="A binned axis with name, label, and binning." alt="" coords="327,79,399,104"/>
+<area shape="rect" id="node5" href="../api/coffea.hist.Cat.html#coffea.hist.Cat" target="_top" title="A category axis with name and label" alt="" coords="327,128,399,153"/>
+<area shape="rect" id="node8" href="../api/coffea.hist.Interval.html#coffea.hist.Interval" target="_top" title="Real number interval" alt="" coords="35,55,107,80"/>
+<area shape="rect" id="node9" href="../api/coffea.hist.StringBin.html#coffea.hist.StringBin" target="_top" title="A string used to fill a sparse axis" alt="" coords="30,5,111,31"/>
+</map>

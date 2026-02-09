@@ -1,0 +1,29 @@
+JetCorrectionUncertainty
+========================
+
+.. currentmodule:: coffea.jetmet_tools
+
+.. autoclass:: JetCorrectionUncertainty
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~JetCorrectionUncertainty.levels
+      ~JetCorrectionUncertainty.signature
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~JetCorrectionUncertainty.getUncertainty
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: levels
+   .. autoattribute:: signature
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: getUncertainty

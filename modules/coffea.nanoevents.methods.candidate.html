@@ -1,0 +1,176 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>coffea.nanoevents.methods.candidate &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Candidate" href="../api/coffea.nanoevents.methods.candidate.Candidate.html" />
+    <link rel="prev" title="Systematic" href="../api/coffea.nanoevents.methods.base.Systematic.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.hist.html">coffea.hist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.html">coffea.nanoevents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">coffea.nanoevents.methods.candidate</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#classes">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.candidate.Candidate.html">Candidate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.candidate.PtEtaPhiMCandidate.html">PtEtaPhiMCandidate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.candidate.PtEtaPhiECandidate.html">PtEtaPhiECandidate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+      <li class="breadcrumb-item active">coffea.nanoevents.methods.candidate</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/modules/coffea.nanoevents.methods.candidate.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-coffea.nanoevents.methods.candidate">
+<span id="coffea-nanoevents-methods-candidate"></span><h1>coffea.nanoevents.methods.candidate<a class="headerlink" href="#module-coffea.nanoevents.methods.candidate" title="Link to this heading"></a></h1>
+<p>Physics object candidate mixin</p>
+<p>This provides just a Lorentz vector with charge, but maybe
+in the future it will provide some sort of composite candiate building tool
+that automatically resolves duplicates in the chain.</p>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.candidate.Candidate.html#coffea.nanoevents.methods.candidate.Candidate" title="coffea.nanoevents.methods.candidate.Candidate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Candidate</span></code></a>()</p></td>
+<td><p>A Lorentz vector with charge</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.candidate.PtEtaPhiMCandidate.html#coffea.nanoevents.methods.candidate.PtEtaPhiMCandidate" title="coffea.nanoevents.methods.candidate.PtEtaPhiMCandidate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PtEtaPhiMCandidate</span></code></a>()</p></td>
+<td><p>A Lorentz vector in eta, mass coordinates with charge</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.candidate.PtEtaPhiECandidate.html#coffea.nanoevents.methods.candidate.PtEtaPhiECandidate" title="coffea.nanoevents.methods.candidate.PtEtaPhiECandidate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PtEtaPhiECandidate</span></code></a>()</p></td>
+<td><p>A Lorentz vector in eta, energy coordinates with charge</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="class-inheritance-diagram">
+<h2>Class Inheritance Diagram<a class="headerlink" href="#class-inheritance-diagram" title="Link to this heading"></a></h2>
+<div class="graphviz"><img src="../_images/inheritance-5fe8499841df935cc74886dbcee21781fe0902a8.png" alt="Inheritance diagram of coffea.nanoevents.methods.candidate.Candidate, coffea.nanoevents.methods.candidate.PtEtaPhiMCandidate, coffea.nanoevents.methods.candidate.PtEtaPhiECandidate" usemap="#inheritance0f677b02d9" class="inheritance graphviz" /></div>
+<map id="inheritance0f677b02d9" name="inheritance0f677b02d9">
+<area shape="rect" id="node1" href="../api/coffea.nanoevents.methods.candidate.Candidate.html#coffea.nanoevents.methods.candidate.Candidate" target="_top" title="A Lorentz vector with charge" alt="" coords="479,5,553,26"/>
+<area shape="rect" id="node6" href="../api/coffea.nanoevents.methods.candidate.PtEtaPhiECandidate.html#coffea.nanoevents.methods.candidate.PtEtaPhiECandidate" target="_top" title="A Lorentz vector in eta, energy coordinates with charge" alt="" coords="634,68,762,89"/>
+<area shape="rect" id="node9" href="../api/coffea.nanoevents.methods.candidate.PtEtaPhiMCandidate.html#coffea.nanoevents.methods.candidate.PtEtaPhiMCandidate" target="_top" title="A Lorentz vector in eta, mass coordinates with charge" alt="" coords="632,16,763,37"/>
+<area shape="rect" id="node2" href="../api/coffea.nanoevents.methods.vector.LorentzVector.html#coffea.nanoevents.methods.vector.LorentzVector" target="_top" title="A cartesian Lorentz vector" alt="" coords="285,46,379,68"/>
+<area shape="rect" id="node7" href="../api/coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.html#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector" target="_top" title="A Lorentz vector using pseudorapidity and energy" alt="" coords="442,88,590,110"/>
+<area shape="rect" id="node10" href="../api/coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector.html#coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector" target="_top" title="A Lorentz vector using pseudorapidity and mass" alt="" coords="441,46,591,68"/>
+<area shape="rect" id="node3" href="../api/coffea.nanoevents.methods.vector.ThreeVector.html#coffea.nanoevents.methods.vector.ThreeVector" target="_top" title="A cartesian 3&#45;dimensional vector" alt="" coords="129,46,214,68"/>
+<area shape="rect" id="node8" href="../api/coffea.nanoevents.methods.vector.SphericalThreeVector.html#coffea.nanoevents.methods.vector.SphericalThreeVector" target="_top" title="A spherical coordinate 3&#45;dimensional vector" alt="" coords="264,88,400,110"/>
+<area shape="rect" id="node4" href="../api/coffea.nanoevents.methods.vector.PolarTwoVector.html#coffea.nanoevents.methods.vector.PolarTwoVector" target="_top" title="A polar coordinate 2&#45;dimensional vector" alt="" coords="120,88,223,110"/>
+<area shape="rect" id="node5" href="../api/coffea.nanoevents.methods.vector.TwoVector.html#coffea.nanoevents.methods.vector.TwoVector" target="_top" title="A cartesian 2&#45;dimensional vector" alt="" coords="5,68,79,89"/>
+</map></section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../api/coffea.nanoevents.methods.base.Systematic.html" class="btn btn-neutral float-left" title="Systematic" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/coffea.nanoevents.methods.candidate.Candidate.html" class="btn btn-neutral float-right" title="Candidate" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

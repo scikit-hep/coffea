@@ -1,0 +1,182 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Reference Guide &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=b98972fd"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="coffea.analysis_tools" href="modules/coffea.analysis_tools.html" />
+    <link rel="prev" title="Coffea concepts" href="concepts.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.hist.html">coffea.hist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.nanoevents.html">coffea.nanoevents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">API Reference Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/reference.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="api-reference-guide">
+<h1>API Reference Guide<a class="headerlink" href="#api-reference-guide" title="Link to this heading"></a></h1>
+<p>Coffea: a column object framework for effective analysis.</p>
+<p>When executing</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">coffea</span>
+</pre></div>
+</div>
+<p>a subset of the full coffea package is imported into the python environment.
+Some packages must be imported explicitly, so as to avoid importing unnecessary
+and/or heavy dependencies.  Below lists the packages available in the <code class="docutils literal notranslate"><span class="pre">coffea</span></code> namespace.</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="modules/coffea.analysis_tools.html#module-coffea.analysis_tools" title="coffea.analysis_tools"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.analysis_tools</span></code></a></p></td>
+<td><p>Tools of general use for columnar analysis</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="modules/coffea.btag_tools.html#module-coffea.btag_tools" title="coffea.btag_tools"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.btag_tools</span></code></a></p></td>
+<td><p>BTag tools: CMS analysis-level b-tagging corrections and uncertainties</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="modules/coffea.hist.html#module-coffea.hist" title="coffea.hist"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.hist</span></code></a></p></td>
+<td><p>Histogramming tools</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="modules/coffea.jetmet_tools.html#module-coffea.jetmet_tools" title="coffea.jetmet_tools"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.jetmet_tools</span></code></a></p></td>
+<td><p>JetMET tools: CMS analysis-level jet corrections and uncertainties</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="modules/coffea.lookup_tools.html#module-coffea.lookup_tools" title="coffea.lookup_tools"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.lookup_tools</span></code></a></p></td>
+<td><p>Lookup tools</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="modules/coffea.lumi_tools.html#module-coffea.lumi_tools" title="coffea.lumi_tools"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.lumi_tools</span></code></a></p></td>
+<td><p>Tools to parse CMS luminosity non-event data</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="modules/coffea.nanoevents.html#module-coffea.nanoevents" title="coffea.nanoevents"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.nanoevents</span></code></a></p></td>
+<td><p>NanoEvents and helpers</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="modules/coffea.nanoevents.methods.base.html#module-coffea.nanoevents.methods.base" title="coffea.nanoevents.methods.base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.nanoevents.methods.base</span></code></a></p></td>
+<td><p>Basic NanoEvents and NanoCollection mixins</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="modules/coffea.nanoevents.methods.candidate.html#module-coffea.nanoevents.methods.candidate" title="coffea.nanoevents.methods.candidate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.nanoevents.methods.candidate</span></code></a></p></td>
+<td><p>Physics object candidate mixin</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="modules/coffea.nanoevents.methods.nanoaod.html#module-coffea.nanoevents.methods.nanoaod" title="coffea.nanoevents.methods.nanoaod"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.nanoevents.methods.nanoaod</span></code></a></p></td>
+<td><p>Mixins for the CMS NanoAOD schema</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="modules/coffea.nanoevents.methods.vector.html#module-coffea.nanoevents.methods.vector" title="coffea.nanoevents.methods.vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.nanoevents.methods.vector</span></code></a></p></td>
+<td><p>2D, 3D, and Lorentz vector class mixins</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="modules/coffea.processor.html#module-coffea.processor" title="coffea.processor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.processor</span></code></a></p></td>
+<td><p>A framework for analysis scale-out</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="modules/coffea.util.html#module-coffea.util" title="coffea.util"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coffea.util</span></code></a></p></td>
+<td><p>Utility functions</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="concepts.html" class="btn btn-neutral float-left" title="Coffea concepts" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="modules/coffea.analysis_tools.html" class="btn btn-neutral float-right" title="coffea.analysis_tools" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

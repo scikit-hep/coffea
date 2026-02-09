@@ -1,0 +1,33 @@
+Systematic
+==========
+
+.. currentmodule:: coffea.nanoevents.methods.base
+
+.. autoclass:: Systematic
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~Systematic.systematics
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~Systematic.add_kind
+      ~Systematic.add_systematic
+      ~Systematic.describe_variations
+      ~Systematic.explodes_how
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: systematics
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: add_kind
+   .. automethod:: add_systematic
+   .. automethod:: describe_variations
+   .. automethod:: explodes_how

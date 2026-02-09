@@ -1,0 +1,6 @@
+clopper_pearson_interval
+========================
+
+.. currentmodule:: coffea.hist
+
+.. autofunction:: clopper_pearson_interval

@@ -1,0 +1,29 @@
+column_accumulator
+==================
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: column_accumulator
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~column_accumulator.value
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~column_accumulator.add
+      ~column_accumulator.identity
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: value
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: add
+   .. automethod:: identity

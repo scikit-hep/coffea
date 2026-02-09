@@ -1,0 +1,182 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coffea concepts &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=b98972fd"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference Guide" href="reference.html" />
+    <link rel="prev" title="Coffea Histograms (deprecated)" href="notebooks/histograms.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Coffea by Example</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Coffea concepts</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#columnar-analysis">Columnar analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#coffea-processor">Coffea processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#scale-out">Scale-out</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#local-executors">Local executors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#distributed-executors">Distributed executors</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">API Reference Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Coffea concepts</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/concepts.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="coffea-concepts">
+<h1>Coffea concepts<a class="headerlink" href="#coffea-concepts" title="Link to this heading"></a></h1>
+<p>This page explains concepts and terminology used within the coffea package.
+It is intended to provide a high-level overview, while details can be found in other sections of the documentation.</p>
+<section id="columnar-analysis">
+<span id="def-columnar-analysis"></span><h2>Columnar analysis<a class="headerlink" href="#columnar-analysis" title="Link to this heading"></a></h2>
+<p>Columnar analysis is a paradigm that describes the way the user writes the analysis application that is best described
+in contrast to the the traditional paradigm in high-energy particle physics (HEP) of using an event loop.  In an event loop, the analysis operates row-wise
+on the input data (in HEP, one row usually corresponds to one reconstructed particle collision event.) Each row
+is a structure containing several fields, such as the properties of the visible outgoing particles
+that were reconstructed in a collision event. The analysis code manipulates this structure to either output derived
+quantities or summary statistics in the form of histograms. In contrast, columnar analysis operates on individual
+columns of data spanning a <em>chunk</em> (partition, batch) of rows using <a class="reference external" href="https://en.wikipedia.org/wiki/Array_programming">array programming</a>
+primitives in turn, to compute derived quantities and summary statistics. Array programming is widely used within
+the <a class="reference external" href="https://www.scipy.org/about.html">scientific python ecosystem</a>, supported by the <a class="reference external" href="https://numpy.org/">numpy</a> library.
+However, although the existing scientific python stack is fully capable of analyzing rectangular arrays (i.e.
+no variable-length array dimensions), HEP data is very irregular, and manipulating it can become awkward without
+first generalizing array structure a bit. The <a class="reference external" href="https://awkward-array.org">awkward</a> package does this,
+extending array programming capabilities to the complexity of HEP data.</p>
+<a class="reference internal image-reference" href="_images/columnar.png"><img alt="_images/columnar.png" class="align-center" src="_images/columnar.png" style="width: 70%;" />
+</a>
+</section>
+<section id="coffea-processor">
+<span id="def-processor"></span><h2>Coffea processor<a class="headerlink" href="#coffea-processor" title="Link to this heading"></a></h2>
+<p>In almost all HEP analyses, each row corresponds to an independent event, and it is exceptionally rare
+to need to compute inter-row derived quantites. Due to this, horizontal scale-out is almost trivial:
+each chunk of rows can be operated on independently. Further, if the output of an analysis is restricted
+to reducible accumulators such as histograms (abstracted by <a class="reference internal" href="api/coffea.processor.AccumulatorABC.html#coffea.processor.AccumulatorABC" title="coffea.processor.AccumulatorABC"><code class="xref any py py-class docutils literal notranslate"><span class="pre">AccumulatorABC</span></code></a>), then outputs can even be merged via tree reduction.
+The <a class="reference internal" href="api/coffea.processor.ProcessorABC.html#coffea.processor.ProcessorABC" title="coffea.processor.ProcessorABC"><code class="xref any py py-class docutils literal notranslate"><span class="pre">ProcessorABC</span></code></a> class is an abstraction to encapsulate analysis code so that it can be easily scaled out, leaving
+the delivery of input columns and reduction of output accumulators to the coffea framework.</p>
+</section>
+<section id="scale-out">
+<span id="def-scale-out"></span><h2>Scale-out<a class="headerlink" href="#scale-out" title="Link to this heading"></a></h2>
+<p>Often, the computation requirements of a HEP data analysis exceed the resources of a single thread of execution.
+To facilitate parallelization and allow the user to access more compute resources, coffea employs various <em>executors</em>
+to ease the transition between a local analysis on a small set of test data to a full-scale analysis.
+The executors roughly fall into two categories: local and distributed.</p>
+<section id="local-executors">
+<span id="def-local-executors"></span><h3>Local executors<a class="headerlink" href="#local-executors" title="Link to this heading"></a></h3>
+<p>Currently, two local executors exist: <a class="reference internal" href="api/coffea.processor.iterative_executor.html#coffea.processor.iterative_executor" title="coffea.processor.iterative_executor"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">iterative_executor</span></code></a> and <a class="reference internal" href="api/coffea.processor.futures_executor.html#coffea.processor.futures_executor" title="coffea.processor.futures_executor"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">futures_executor</span></code></a>.
+The iterative executor simply processes each chunk of an input dataset in turn, using the current
+python thread. The futures executor employs python <a class="reference external" href="https://docs.python.org/3/library/multiprocessing.html#module-multiprocessing" title="(in Python v3.14)"><code class="xref any docutils literal notranslate"><span class="pre">multiprocessing</span></code></a> to spawn multiple python processes
+that process chunks in parallel on the machine. Processes are used rather than threads to avoid
+performance limitations due to the CPython <a class="reference external" href="https://wiki.python.org/moin/GlobalInterpreterLock">global interpreter lock</a>.</p>
+</section>
+<section id="distributed-executors">
+<span id="def-distributed-executors"></span><h3>Distributed executors<a class="headerlink" href="#distributed-executors" title="Link to this heading"></a></h3>
+<p>Currently, coffea supports four types of distributed executors:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>the <a class="reference external" href="http://parsl-project.org/">parsl</a> distributed executor, accessed via <a class="reference internal" href="api/coffea.processor.parsl_executor.html#coffea.processor.parsl_executor" title="coffea.processor.parsl_executor"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">parsl_executor</span></code></a>,</p></li>
+<li><p>the <a class="reference external" href="https://distributed.dask.org/en/latest/">dask</a> distributed executor, accessed via <a class="reference internal" href="api/coffea.processor.dask_executor.html#coffea.processor.dask_executor" title="coffea.processor.dask_executor"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">dask_executor</span></code></a>,</p></li>
+<li><p>the Apache <a class="reference external" href="https://spark.apache.org/">Spark</a> distributed executor, accessed via <a class="reference internal" href="api/coffea.processor.run_spark_job.html#coffea.processor.run_spark_job" title="coffea.processor.run_spark_job"><code class="xref any py py-func docutils literal notranslate"><span class="pre">run_spark_job</span></code></a>,</p></li>
+<li><p>and the <a class="reference internal" href="wq.html#intro-coffea-wq"><span class="std std-ref">Work Queue Executor</span></a> distributed executor, accessed via <a class="reference internal" href="api/coffea.processor.work_queue_executor.html#coffea.processor.work_queue_executor" title="coffea.processor.work_queue_executor"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">work_queue_executor</span></code></a>.</p></li>
+</ul>
+</div></blockquote>
+<p>These executors use their respective underlying libraries to distribute processing tasks over multiple machines.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="notebooks/histograms.html" class="btn btn-neutral float-left" title="Coffea Histograms (deprecated)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="reference.html" class="btn btn-neutral float-right" title="API Reference Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

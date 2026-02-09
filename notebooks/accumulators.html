@@ -1,0 +1,657 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analysis tools and accumulators &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css?v=2aa19091" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Coffea Processors" href="processor.html" />
+    <link rel="prev" title="Applying corrections to columnar data" href="applying_corrections.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../examples.html">Coffea by Example</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="nanoevents.html">Reading data with coffea NanoEvents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="applying_corrections.html">Applying corrections to columnar data</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Analysis tools and accumulators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#Weights">Weights</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#PackedSelection">PackedSelection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Accumulator-semantics">Accumulator semantics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#Bringing-it-together">Bringing it together</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="processor.html">Coffea Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="histograms.html">Coffea Histograms (deprecated)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">API Reference Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../examples.html">Coffea by Example</a></li>
+      <li class="breadcrumb-item active">Analysis tools and accumulators</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/notebooks/accumulators.ipynb.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="Analysis-tools-and-accumulators">
+<h1>Analysis tools and accumulators<a class="headerlink" href="#Analysis-tools-and-accumulators" title="Link to this heading"></a></h1>
+<p>This is a rendered copy of <a class="reference external" href="https://github.com/CoffeaTeam/coffea/blob/master/binder/accumulators.ipynb">accumulators.ipynb</a>. You can optionally run it interactively on <a class="reference external" href="https://mybinder.org/v2/gh/coffeateam/coffea/master?filepath=binder%2Faccumulators.ipynb">binder at this link</a></p>
+<p>Now that we know how to access data with NanoEvents and apply corrections, let’s go through some useful columnar analysis tools and idioms for building <em>accumulators</em>, namely, the eventual output of a coffea processor that has natural “merge” semantics. The most familiar type of accumulator is the histogram, but other types are useful in certain contexts.</p>
+<p>We’ll use our small sample file to demonstrate the utilities, although it won’t be very interesting to analyze</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">awkward</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ak</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">coffea.nanoevents</span><span class="w"> </span><span class="kn">import</span> <span class="n">NanoEventsFactory</span><span class="p">,</span> <span class="n">NanoAODSchema</span>
+
+<span class="n">fname</span> <span class="o">=</span> <span class="s2">&quot;https://raw.githubusercontent.com/CoffeaTeam/coffea/master/tests/samples/nano_dy.root&quot;</span>
+<span class="n">events</span> <span class="o">=</span> <span class="n">NanoEventsFactory</span><span class="o">.</span><span class="n">from_root</span><span class="p">(</span>
+    <span class="n">fname</span><span class="p">,</span>
+    <span class="n">schemaclass</span><span class="o">=</span><span class="n">NanoAODSchema</span><span class="o">.</span><span class="n">v6</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="s2">&quot;DYJets&quot;</span><span class="p">},</span>
+<span class="p">)</span><span class="o">.</span><span class="n">events</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<p>To generate some mock systematics, we’ll use one of the scale factors from the applying_corrections notebook (note you will have to at least execute the cell that downloads test data in that notebook for this to work)</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">coffea.lookup_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">extractor</span>
+
+<span class="n">ext</span> <span class="o">=</span> <span class="n">extractor</span><span class="p">()</span>
+<span class="n">ext</span><span class="o">.</span><span class="n">add_weight_sets</span><span class="p">([</span><span class="s2">&quot;* * data/testSF2d.histo.root&quot;</span><span class="p">])</span>
+<span class="n">ext</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+<span class="n">evaluator</span> <span class="o">=</span> <span class="n">ext</span><span class="o">.</span><span class="n">make_evaluator</span><span class="p">()</span>
+<span class="n">evaluator</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+dict_keys([&#39;scalefactors_Tight_Electron&#39;, &#39;scalefactors_Tight_Electron_error&#39;])
+</pre></div></div>
+</div>
+<section id="Weights">
+<h2>Weights<a class="headerlink" href="#Weights" title="Link to this heading"></a></h2>
+<p>This is a container for event weights and associated systematic shifts, which helps track the product of the weights (i.e. the total event weight to be used for filling histograms) as well as systematic variations to that product. Here we demo its use by constructing an event weight consisting of the generator weight, the <span class="math notranslate nohighlight">\(\alpha_s\)</span> uncertainty variation, and the electron ID scale factor with its associated systematic.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">coffea.analysis_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">Weights</span>
+
+<span class="n">weights</span> <span class="o">=</span> <span class="n">Weights</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">events</span><span class="p">))</span>
+
+<span class="n">weights</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;genWeight&quot;</span><span class="p">,</span> <span class="n">events</span><span class="o">.</span><span class="n">genWeight</span><span class="p">)</span>
+
+<span class="n">weights</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+    <span class="s2">&quot;alphaS&quot;</span><span class="p">,</span>
+    <span class="c1"># in NanoAOD, the generator weights are already stored with respect to nominal</span>
+    <span class="n">weight</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">events</span><span class="p">)),</span>
+    <span class="c1"># 31 =&gt; alphas(MZ)=0.1165 central value; 32 =&gt; alphas(MZ)=0.1195</span>
+    <span class="c1"># per https://lhapdfsets.web.cern.ch/current/PDF4LHC15_nnlo_30_pdfas/PDF4LHC15_nnlo_30_pdfas.info</span>
+    <span class="c1"># which was found by looking up the LHA ID in events.LHEPdfWeight.__doc__</span>
+    <span class="n">weightUp</span><span class="o">=</span><span class="n">events</span><span class="o">.</span><span class="n">LHEPdfWeight</span><span class="p">[:,</span> <span class="mi">32</span><span class="p">],</span>
+    <span class="n">weightDown</span><span class="o">=</span><span class="n">events</span><span class="o">.</span><span class="n">LHEPdfWeight</span><span class="p">[:,</span> <span class="mi">31</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="n">eleSF</span> <span class="o">=</span> <span class="n">evaluator</span><span class="p">[</span><span class="s2">&quot;scalefactors_Tight_Electron&quot;</span><span class="p">](</span><span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">eta</span><span class="p">,</span> <span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">pt</span><span class="p">)</span>
+<span class="n">eleSFerror</span> <span class="o">=</span> <span class="n">evaluator</span><span class="p">[</span><span class="s2">&quot;scalefactors_Tight_Electron_error&quot;</span><span class="p">](</span><span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">eta</span><span class="p">,</span> <span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">pt</span><span class="p">)</span>
+<span class="n">weights</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+    <span class="s2">&quot;eleSF&quot;</span><span class="p">,</span>
+    <span class="c1"># the event weight is the product of the per-electron weights</span>
+    <span class="c1"># note, in a real analysis we would first have to select electrons of interest</span>
+    <span class="n">weight</span><span class="o">=</span><span class="n">ak</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">eleSF</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">weightUp</span><span class="o">=</span><span class="n">ak</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">eleSF</span> <span class="o">+</span> <span class="n">eleSFerror</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<p>A <a class="reference external" href="https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.analysis_tools.WeightStatistics.html">WeightStatistics</a> object tracks the smallest and largest weights seen per type, as well as some other summary statistics. It is kept internally and can be accessed via <code class="docutils literal notranslate"><span class="pre">weights.weightStatistics</span></code>. This object is addable, so it can be used in an accumulator.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">weights</span><span class="o">.</span><span class="n">weightStatistics</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;genWeight&#39;: WeightStatistics(sumw=578762.4375, sumw2=27678371840.0, minw=-26331.201171875, maxw=26331.201171875, n=40),
+ &#39;alphaS&#39;: WeightStatistics(sumw=40.0, sumw2=40.0, minw=1.0, maxw=1.0, n=40),
+ &#39;eleSF&#39;: WeightStatistics(sumw=38.26972579956055, sumw2=36.81547546386719, minw=0.6674144268035889, maxw=1.0077519416809082, n=40)}
+</pre></div></div>
+</div>
+<p>Then the total event weight is available via</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">weights</span><span class="o">.</span><span class="n">weight</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+array([ 26331.20117188,  23933.4196682 ,  24385.06528643,  17224.10489525,
+        26331.20117188,  26535.31910775, -23236.21447283,  26067.890625  ,
+        26331.20117188,  25105.68057538,  26331.20117188,  26061.82814944,
+        26061.82814944, -26331.20117188,  26331.20117188,  24421.85661211,
+       -24854.62516629,  26331.20117188, -19978.69273076,  26331.20117188,
+        22168.68846612, -25134.17258657,  26331.20117188,  26331.20117188,
+        26331.20117188,  24770.33051391,  26331.20117188,  22732.29949574,
+        26331.20117188,  24421.85661211,  26331.20117188,  25857.1530546 ,
+        26331.20117188, -23903.50101615,  26331.20117188, -24770.33051391,
+        26331.20117188, -24906.05914783,  26331.20117188, -26331.20117188])
+</pre></div></div>
+</div>
+<p>And the total event weight with a given variation is available via</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">weights</span><span class="o">.</span><span class="n">weight</span><span class="p">(</span><span class="s2">&quot;eleSFUp&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+array([ 26331.20117188,  24397.53583916,  25294.0252539 ,  17997.89462374,
+        26331.20117188,  27253.27428405, -23502.68164558,  26067.890625  ,
+        26331.20117188,  25230.22218679,  26331.20117188,  26779.78332574,
+        26779.78332574, -26331.20117188,  26331.20117188,  24885.97278307,
+       -24977.92136851,  26331.20117188, -20983.93483174,  26331.20117188,
+        22734.27398292, -25869.18763094,  26331.20117188,  26331.20117188,
+        26331.20117188,  25448.12088952,  26331.20117188,  22998.76666849,
+        26331.20117188,  24885.97278307,  26331.20117188,  26254.27086417,
+        26331.20117188, -24141.51091823,  26331.20117188, -25448.12088952,
+        26331.20117188, -25583.84952343,  26331.20117188, -26331.20117188])
+</pre></div></div>
+</div>
+<p>all variations tracked by the <code class="docutils literal notranslate"><span class="pre">weights</span></code> object are available via</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">weights</span><span class="o">.</span><span class="n">variations</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;alphaSDown&#39;, &#39;alphaSUp&#39;, &#39;eleSFDown&#39;, &#39;eleSFUp&#39;}
+</pre></div></div>
+</div>
+</section>
+<section id="PackedSelection">
+<h2>PackedSelection<a class="headerlink" href="#PackedSelection" title="Link to this heading"></a></h2>
+<p>This class can store several boolean arrays in a memory-efficient mannner and evaluate arbitrary combinations of boolean requirements in an CPU-efficient way. Supported inputs include 1D numpy or awkward arrays. This makes it a good tool to form analysis signal and control regions, and to implement cutflow or “N-1” plots.</p>
+<p>Below we create a packed selection with some typical selections for a Z+jets study, to be used later to form same-sign and opposite-sign <span class="math notranslate nohighlight">\(ee\)</span> and <span class="math notranslate nohighlight">\(\mu\mu\)</span> event categories/regions.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">coffea.analysis_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">PackedSelection</span>
+
+<span class="n">selection</span> <span class="o">=</span> <span class="n">PackedSelection</span><span class="p">()</span>
+
+<span class="n">selection</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;twoElectron&quot;</span><span class="p">,</span> <span class="n">ak</span><span class="o">.</span><span class="n">num</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">selection</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;eleOppSign&quot;</span><span class="p">,</span> <span class="n">ak</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">charge</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">selection</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;noElectron&quot;</span><span class="p">,</span> <span class="n">ak</span><span class="o">.</span><span class="n">num</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="n">selection</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;twoMuon&quot;</span><span class="p">,</span> <span class="n">ak</span><span class="o">.</span><span class="n">num</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Muon</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">selection</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;muOppSign&quot;</span><span class="p">,</span> <span class="n">ak</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Muon</span><span class="o">.</span><span class="n">charge</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">selection</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;noMuon&quot;</span><span class="p">,</span> <span class="n">ak</span><span class="o">.</span><span class="n">num</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Muon</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+
+
+<span class="n">selection</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+    <span class="s2">&quot;leadPt20&quot;</span><span class="p">,</span>
+    <span class="c1"># assuming one of `twoElectron` or `twoMuon` is imposed, this implies at least one is above threshold</span>
+    <span class="n">ak</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="o">.</span><span class="n">pt</span> <span class="o">&gt;=</span> <span class="mf">20.0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">|</span> <span class="n">ak</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">Muon</span><span class="o">.</span><span class="n">pt</span> <span class="o">&gt;=</span> <span class="mf">20.0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">selection</span><span class="o">.</span><span class="n">names</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[&#39;twoElectron&#39;, &#39;eleOppSign&#39;, &#39;noElectron&#39;, &#39;twoMuon&#39;, &#39;muOppSign&#39;, &#39;noMuon&#39;, &#39;leadPt20&#39;]
+</pre></div></div>
+</div>
+<p>To evaluate a boolean mask (e.g. to filter events) we can use the <code class="docutils literal notranslate"><span class="pre">selection.all(*names)</span></code> function, which will compute the AND of all listed boolean selections</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">selection</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="s2">&quot;twoElectron&quot;</span><span class="p">,</span> <span class="s2">&quot;noMuon&quot;</span><span class="p">,</span> <span class="s2">&quot;leadPt20&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+array([False, False,  True, False, False, False, False, False, False,
+       False, False, False, False, False, False, False, False, False,
+       False, False,  True,  True, False, False, False, False, False,
+       False, False, False, False, False, False, False, False, False,
+       False, False, False, False])
+</pre></div></div>
+</div>
+<p>We can also be more specific and require that a specific set of selections have a given value (with the unspecified ones allowed to be either true or false) using <code class="docutils literal notranslate"><span class="pre">selection.require</span></code></p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">selection</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="n">twoElectron</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">noMuon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">eleOppSign</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+array([False, False, False,  True, False, False, False, False, False,
+       False, False, False, False, False, False, False, False, False,
+       False, False, False, False, False, False, False, False, False,
+       False, False, False, False, False, False, False, False, False,
+       False, False, False, False])
+</pre></div></div>
+</div>
+<p>Using the python syntax for passing an arguments variable, we can easily implement a “N-1” style selection</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">allCuts</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;twoElectron&quot;</span><span class="p">,</span> <span class="s2">&quot;noMuon&quot;</span><span class="p">,</span> <span class="s2">&quot;leadPt20&quot;</span><span class="p">}</span>
+<span class="k">for</span> <span class="n">cut</span> <span class="ow">in</span> <span class="n">allCuts</span><span class="p">:</span>
+    <span class="n">nev</span> <span class="o">=</span> <span class="n">selection</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">allCuts</span> <span class="o">-</span> <span class="p">{</span><span class="n">cut</span><span class="p">}))</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Events passing all cuts, ignoring </span><span class="si">{</span><span class="n">cut</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">nev</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">nev</span> <span class="o">=</span> <span class="n">selection</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="o">*</span><span class="n">allCuts</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Events passing all cuts: </span><span class="si">{</span><span class="n">nev</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Events passing all cuts, ignoring noMuon: 3
+Events passing all cuts, ignoring twoElectron: 10
+Events passing all cuts, ignoring leadPt20: 5
+Events passing all cuts: 3
+</pre></div></div>
+</div>
+</section>
+<section id="Accumulator-semantics">
+<h2>Accumulator semantics<a class="headerlink" href="#Accumulator-semantics" title="Link to this heading"></a></h2>
+<p>Prior to coffea 0.7.2, accumulators were more explicit in that they inherited from <a class="reference external" href="https://coffea-hep.readthedocs.io/en/backports-v0.7.x/api/coffea.processor.AccumulatorABC.html">AccumulatorABC</a>. Such accumulators are still supported, but now the requirements for an acuumulator output of a processor have been relaxed to the protocol:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Addable</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">T</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+        <span class="o">...</span>
+
+
+<span class="n">Accumulatable</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">Addable</span><span class="p">,</span> <span class="n">MutableSet</span><span class="p">,</span> <span class="n">MutableMapping</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Essentially, any item that can be added, any set, or any dictionary of the above, can be used as an accumulator:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">coffea.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">accumulate</span>
+
+<span class="n">accumulate</span><span class="p">([</span>
+    <span class="p">{</span><span class="s2">&quot;num&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="mf">3.1</span><span class="p">},</span>
+    <span class="p">{</span><span class="s2">&quot;num&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="mf">4.0</span><span class="p">,</span> <span class="s2">&quot;thing&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">}},</span>
+    <span class="p">{</span><span class="s2">&quot;num&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="mf">4.0</span><span class="p">,</span> <span class="s2">&quot;thing&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;c&quot;</span><span class="p">}},</span>
+<span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;num&#39;: 4, &#39;val&#39;: 11.1, &#39;thing&#39;: {&#39;a&#39;, &#39;b&#39;, &#39;c&#39;}}
+</pre></div></div>
+</div>
+<p>Since <code class="docutils literal notranslate"><span class="pre">hist</span></code> histograms are addable, they can be used as well:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hist</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">makehist</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">hist</span><span class="o">.</span><span class="n">Hist</span><span class="o">.</span><span class="n">new</span><span class="o">.</span><span class="n">Reg</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">Double</span><span class="p">()</span>
+
+<span class="n">h</span> <span class="o">=</span> <span class="n">accumulate</span><span class="p">([</span>
+    <span class="n">makehist</span><span class="p">()</span><span class="o">.</span><span class="n">fill</span><span class="p">([</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">]),</span>
+    <span class="n">makehist</span><span class="p">()</span><span class="o">.</span><span class="n">fill</span><span class="p">([</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]),</span>
+<span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+<span class="n">h</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[0. 3. 0. 2. 0. 1. 0. 0. 0. 0.]
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<html>
+<div style="display:flex; align-items:center;">
+<div style="width:290px;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -105 270 120">
+<line x1="-5" y1="0" x2="255" y2="0" style="fill:none;stroke-width:2;stroke:currentColor"/>
+<text text-anchor="middle" x="0" y="15" style="fill:currentColor;">
+0
+</text>
+<text text-anchor="middle" x="250" y="15" style="fill:currentColor;">
+1
+</text>
+<text text-anchor="middle" x="125.0" y="15" style="fill:currentColor;">
+Axis 0
+</text>
+<polyline points="  0,0   0,-0  25,-0  25,-100  50,-100  50,-0  75,-0  75,-66.7 100,-66.7 100,-0 125,-0 125,-33.3 150,-33.3 150,-0 175,-0 175,-0 200,-0 200,-0 225,-0 225,-0 250,-0 250,0" style="fill:none; stroke:currentColor;"/>
+</svg>
+</div>
+<div style="flex=grow:1;">
+Regular(10, 0, 1, label='Axis 0')<br/>
+<hr style="margin-top:.2em; margin-bottom:.2em;"/>
+Double() Σ=6.0
+
+</div>
+</div>
+</html></div>
+</div>
+<section id="Bringing-it-together">
+<h3>Bringing it together<a class="headerlink" href="#Bringing-it-together" title="Link to this heading"></a></h3>
+<p>Let’s build an output accumulator that stores, per dataset:</p>
+<ul class="simple">
+<li><p>the sum of weights for the events processed, to use for later luminosity-normalizing the yields;</p></li>
+<li><p>a histogram of the dilepton invariant mass, with category axes for various selection regions of interest and systematics; and</p></li>
+<li><p>the weight statistics, for debugging purposes</p></li>
+</ul>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">regions</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;ee&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;twoElectron&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;noMuon&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;leadPt20&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;eleOppSign&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+    <span class="s2">&quot;eeSS&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;twoElectron&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;noMuon&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;leadPt20&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;eleOppSign&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+    <span class="s2">&quot;mm&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;twoMuon&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;noElectron&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;leadPt20&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;muOppSign&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+    <span class="s2">&quot;mmSS&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;twoMuon&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;noElectron&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;leadPt20&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;muOppSign&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+<span class="p">}</span>
+
+<span class="n">masshist</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">hist</span><span class="o">.</span><span class="n">Hist</span><span class="o">.</span><span class="n">new</span>
+    <span class="o">.</span><span class="n">StrCat</span><span class="p">(</span><span class="n">regions</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;region&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">StrCat</span><span class="p">([</span><span class="s2">&quot;nominal&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">weights</span><span class="o">.</span><span class="n">variations</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;systematic&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">Reg</span><span class="p">(</span><span class="mi">60</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;mass&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;$m_</span><span class="si">{ll}</span><span class="s2">$ [GeV]&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">Weight</span><span class="p">()</span>
+<span class="p">)</span>
+
+<span class="k">for</span> <span class="n">region</span><span class="p">,</span> <span class="n">cuts</span> <span class="ow">in</span> <span class="n">regions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">goodevent</span> <span class="o">=</span> <span class="n">selection</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="o">**</span><span class="n">cuts</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">region</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;ee&quot;</span><span class="p">):</span>
+        <span class="n">mass</span> <span class="o">=</span> <span class="n">events</span><span class="o">.</span><span class="n">Electron</span><span class="p">[</span><span class="n">goodevent</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">mass</span>
+    <span class="k">elif</span> <span class="n">region</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;mm&quot;</span><span class="p">):</span>
+        <span class="n">mass</span> <span class="o">=</span> <span class="n">events</span><span class="o">.</span><span class="n">Muon</span><span class="p">[</span><span class="n">goodevent</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">mass</span>
+
+    <span class="n">masshist</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span>
+        <span class="n">region</span><span class="o">=</span><span class="n">region</span><span class="p">,</span>
+        <span class="n">systematic</span><span class="o">=</span><span class="s2">&quot;nominal&quot;</span><span class="p">,</span>
+        <span class="n">mass</span><span class="o">=</span><span class="n">mass</span><span class="p">,</span>
+        <span class="n">weight</span><span class="o">=</span><span class="n">weights</span><span class="o">.</span><span class="n">weight</span><span class="p">()[</span><span class="n">goodevent</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">syst</span> <span class="ow">in</span> <span class="n">weights</span><span class="o">.</span><span class="n">variations</span><span class="p">:</span>
+        <span class="n">masshist</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span>
+            <span class="n">region</span><span class="o">=</span><span class="n">region</span><span class="p">,</span>
+            <span class="n">systematic</span><span class="o">=</span><span class="n">syst</span><span class="p">,</span>
+            <span class="n">mass</span><span class="o">=</span><span class="n">mass</span><span class="p">,</span>
+            <span class="n">weight</span><span class="o">=</span><span class="n">weights</span><span class="o">.</span><span class="n">weight</span><span class="p">(</span><span class="n">syst</span><span class="p">)[</span><span class="n">goodevent</span><span class="p">],</span>
+        <span class="p">)</span>
+
+<span class="n">out</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">events</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;dataset&quot;</span><span class="p">]:</span> <span class="p">{</span>
+        <span class="s2">&quot;sumw&quot;</span><span class="p">:</span> <span class="n">ak</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">genWeight</span><span class="p">),</span>
+        <span class="s2">&quot;mass&quot;</span><span class="p">:</span> <span class="n">masshist</span><span class="p">,</span>
+        <span class="s2">&quot;weightStats&quot;</span><span class="p">:</span> <span class="n">weights</span><span class="o">.</span><span class="n">weightStatistics</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="n">out</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;DYJets&#39;: {&#39;sumw&#39;: 578762.44,
+  &#39;mass&#39;: Hist(
+    StrCategory([&#39;ee&#39;, &#39;eeSS&#39;, &#39;mm&#39;, &#39;mmSS&#39;], name=&#39;region&#39;, label=&#39;region&#39;),
+    StrCategory([&#39;nominal&#39;, &#39;alphaSUp&#39;, &#39;eleSFUp&#39;, &#39;alphaSDown&#39;, &#39;eleSFDown&#39;], name=&#39;systematic&#39;, label=&#39;systematic&#39;),
+    Regular(60, 60, 120, name=&#39;mass&#39;, label=&#39;$m_{ll}$ [GeV]&#39;),
+    storage=Weight()) # Sum: WeightedSum(value=621215, variance=2.20829e+10),
+  &#39;weightStats&#39;: {&#39;genWeight&#39;: WeightStatistics(sumw=578762.4375, sumw2=27678371840.0, minw=-26331.201171875, maxw=26331.201171875, n=40),
+   &#39;alphaS&#39;: WeightStatistics(sumw=40.0, sumw2=40.0, minw=1.0, maxw=1.0, n=40),
+   &#39;eleSF&#39;: WeightStatistics(sumw=38.26972579956055, sumw2=36.81547546386719, minw=0.6674144268035889, maxw=1.0077519416809082, n=40)}}}
+</pre></div></div>
+</div>
+<p>The cell below demonstrates that indeed this output is accumulatable. So if we were to return such a result from a coffea processor, we would be all ready to process thousands of files!</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">accumulate</span><span class="p">([</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;DYJets&#39;: {&#39;mass&#39;: Hist(
+    StrCategory([&#39;ee&#39;, &#39;eeSS&#39;, &#39;mm&#39;, &#39;mmSS&#39;], name=&#39;region&#39;, label=&#39;region&#39;),
+    StrCategory([&#39;nominal&#39;, &#39;alphaSUp&#39;, &#39;eleSFUp&#39;, &#39;alphaSDown&#39;, &#39;eleSFDown&#39;], name=&#39;systematic&#39;, label=&#39;systematic&#39;),
+    Regular(60, 60, 120, name=&#39;mass&#39;, label=&#39;$m_{ll}$ [GeV]&#39;),
+    storage=Weight()) # Sum: WeightedSum(value=1.24243e+06, variance=4.41659e+10),
+  &#39;weightStats&#39;: {&#39;genWeight&#39;: WeightStatistics(sumw=1157524.875, sumw2=55356743680.0, minw=-26331.201171875, maxw=26331.201171875, n=80),
+   &#39;alphaS&#39;: WeightStatistics(sumw=80.0, sumw2=80.0, minw=1.0, maxw=1.0, n=80),
+   &#39;eleSF&#39;: WeightStatistics(sumw=76.5394515991211, sumw2=73.63095092773438, minw=0.6674144268035889, maxw=1.0077519416809082, n=80)},
+  &#39;sumw&#39;: 1157524.9}}
+</pre></div></div>
+</div>
+<p>The mass histogram itself is not very interesting with only 40 input events, however</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">out</span><span class="p">[</span><span class="s2">&quot;DYJets&quot;</span><span class="p">][</span><span class="s2">&quot;mass&quot;</span><span class="p">][</span><span class="nb">sum</span><span class="p">,</span> <span class="s2">&quot;nominal&quot;</span><span class="p">,</span> <span class="p">:]</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<html>
+<div style="display:flex; align-items:center;">
+<div style="width:290px;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -105 270 120">
+<line x1="-5" y1="0" x2="255" y2="0" style="fill:none;stroke-width:2;stroke:currentColor"/>
+<text text-anchor="middle" x="0" y="15" style="fill:currentColor;">
+60
+</text>
+<text text-anchor="middle" x="250" y="15" style="fill:currentColor;">
+120
+</text>
+<text text-anchor="middle" x="125.0" y="15" style="fill:currentColor;">
+$m_{ll}$ [GeV]
+</text>
+<polyline points="  0,0   0,-0 4.16667,-0 4.16667,-0 8.33333,-0 8.33333,-0 12.5,-0 12.5,-0 16.6667,-0 16.6667,-0 20.8333,-0 20.8333,-0  25,-0  25,-0 29.1667,-0 29.1667,-0 33.3333,-0 33.3333,-0 37.5,-0 37.5,-0 41.6667,-0 41.6667,-0 45.8333,-0 45.8333,-0  50,-0  50,-0 54.1667,-0 54.1667,-0 58.3333,-0 58.3333,-0 62.5,-0 62.5,-0 66.6667,-0 66.6667,-0 70.8333,-0 70.8333,-0  75,-0  75,-0 79.1667,-0 79.1667,-0 83.3333,-0 83.3333,-0 87.5,-0 87.5,-0 91.6667,-0 91.6667,-0 95.8333,-0 95.8333,-0 100,-0 100,-0 104.167,-0 104.167,-0 108.333,-0 108.333,-84.2 112.5,-84.2 112.5,-100 116.667,-100 116.667,-0 120.833,-0 120.833,-100 125,-100 125,-97.2 129.167,-97.2 129.167,-0 133.333,-0 133.333,-0 137.5,-0 137.5,-0 141.667,-0 141.667,-100 145.833,-100 145.833,-0 150,-0 150,-0 154.167,-0 154.167,-0 158.333,-0 158.333,-0 162.5,-0 162.5,-0 166.667,-0 166.667,-0 170.833,-0 170.833,-0 175,-0 175,-0 179.167,-0 179.167,-0 183.333,-0 183.333,-0 187.5,-0 187.5,-0 191.667,-0 191.667,-0 195.833,-0 195.833,-0 200,-0 200,-0 204.167,-0 204.167,-0 208.333,-0 208.333,-0 212.5,-0 212.5,-0 216.667,-0 216.667,-0 220.833,-0 220.833,-0 225,-0 225,-0 229.167,-0 229.167,-0 233.333,-0 233.333,-0 237.5,-0 237.5,-0 241.667,-0 241.667,-0 245.833,-0 245.833,-0 250,-0 250,0" style="fill:none; stroke:currentColor;"/>
+</svg>
+</div>
+<div style="flex=grow:1;">
+Regular(60, 60, 120, name='mass', label='$m_{ll}$ [GeV]')<br/>
+<hr style="margin-top:.2em; margin-bottom:.2em;"/>
+Weight() Σ=WeightedSum(value=126744, variance=4.49114e+09)
+
+</div>
+</div>
+</html></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="applying_corrections.html" class="btn btn-neutral float-left" title="Applying corrections to columnar data" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="processor.html" class="btn btn-neutral float-right" title="Coffea Processors" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

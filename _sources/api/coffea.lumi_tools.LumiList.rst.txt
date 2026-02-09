@@ -1,0 +1,17 @@
+LumiList
+========
+
+.. currentmodule:: coffea.lumi_tools
+
+.. autoclass:: LumiList
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~LumiList.clear
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: clear

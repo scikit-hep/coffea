@@ -1,0 +1,17 @@
+GenVisTau
+=========
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: GenVisTau
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~GenVisTau.parent
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: parent

@@ -1,0 +1,223 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DelphesSchema &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="PDUNESchema" href="coffea.nanoevents.PDUNESchema.html" />
+    <link rel="prev" title="PHYSLITESchema" href="coffea.nanoevents.PHYSLITESchema.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.hist.html">coffea.hist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../modules/coffea.nanoevents.html">coffea.nanoevents</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../modules/coffea.nanoevents.html#classes">Classes</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.NanoEventsFactory.html">NanoEventsFactory</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.BaseSchema.html">BaseSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.NanoAODSchema.html">NanoAODSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.PFNanoAODSchema.html">PFNanoAODSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.TreeMakerSchema.html">TreeMakerSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.PHYSLITESchema.html">PHYSLITESchema</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">DelphesSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.PDUNESchema.html">PDUNESchema</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../modules/coffea.nanoevents.html#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+          <li class="breadcrumb-item"><a href="../modules/coffea.nanoevents.html">coffea.nanoevents</a></li>
+      <li class="breadcrumb-item active">DelphesSchema</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/coffea.nanoevents.DelphesSchema.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="delphesschema">
+<h1>DelphesSchema<a class="headerlink" href="#delphesschema" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="coffea.nanoevents.DelphesSchema">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">coffea.nanoevents.</span></span><span class="sig-name descname"><span class="pre">DelphesSchema</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_form</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'latest'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/nanoevents/schemas/delphes.py#L5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.nanoevents.DelphesSchema" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="coffea.nanoevents.BaseSchema.html#coffea.nanoevents.BaseSchema" title="coffea.nanoevents.schemas.base.BaseSchema"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseSchema</span></code></a></p>
+<p>Delphes schema builder</p>
+<p>The Delphes schema is built from all branches found in the supplied file, based on
+the naming pattern of the branches. The following additional arrays are constructed:</p>
+<ul class="simple">
+<li><p>Any branches named <code class="docutils literal notranslate"><span class="pre">{name}_size</span></code> are assumed to be counts branches and converted to offsets <code class="docutils literal notranslate"><span class="pre">o{name}</span></code></p></li>
+</ul>
+<p class="rubric">Attributes Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.DelphesSchema.behavior" title="coffea.nanoevents.DelphesSchema.behavior"><code class="xref py py-obj docutils literal notranslate"><span class="pre">behavior</span></code></a></p></td>
+<td><p>Behaviors necessary to implement this schema</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.nanoevents.DelphesSchema.docstrings" title="coffea.nanoevents.DelphesSchema.docstrings"><code class="xref py py-obj docutils literal notranslate"><span class="pre">docstrings</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.DelphesSchema.mixins" title="coffea.nanoevents.DelphesSchema.mixins"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mixins</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.nanoevents.DelphesSchema.singletons" title="coffea.nanoevents.DelphesSchema.singletons"><code class="xref py py-obj docutils literal notranslate"><span class="pre">singletons</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.DelphesSchema.warn_missing_crossrefs" title="coffea.nanoevents.DelphesSchema.warn_missing_crossrefs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">warn_missing_crossrefs</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Methods Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.DelphesSchema.v1" title="coffea.nanoevents.DelphesSchema.v1"><code class="xref py py-obj docutils literal notranslate"><span class="pre">v1</span></code></a>(base_form)</p></td>
+<td><p>Build the DelphesEvents</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes Documentation</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.DelphesSchema.behavior">
+<span class="sig-name descname"><span class="pre">behavior</span></span><a class="headerlink" href="#coffea.nanoevents.DelphesSchema.behavior" title="Link to this definition"></a></dt>
+<dd><p>Behaviors necessary to implement this schema</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.DelphesSchema.docstrings">
+<span class="sig-name descname"><span class="pre">docstrings</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'AlphaQCD':</span> <span class="pre">'value</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">QCD</span> <span class="pre">coupling</span> <span class="pre">used</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">event,</span> <span class="pre">see</span> <span class="pre">hep-ph/0109068',</span> <span class="pre">'AlphaQED':</span> <span class="pre">'value</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">QED</span> <span class="pre">coupling</span> <span class="pre">used</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">event,</span> <span class="pre">see</span> <span class="pre">hep-ph/0109068',</span> <span class="pre">'Area':</span> <span class="pre">'area',</span> <span class="pre">'BTVSumPT2':</span> <span class="pre">'sum</span> <span class="pre">pt^2</span> <span class="pre">of</span> <span class="pre">tracks</span> <span class="pre">attached</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">secondary</span> <span class="pre">vertex',</span> <span class="pre">'BTag':</span> <span class="pre">'0</span> <span class="pre">or</span> <span class="pre">1</span> <span class="pre">for</span> <span class="pre">a</span> <span class="pre">jet</span> <span class="pre">that</span> <span class="pre">has</span> <span class="pre">been</span> <span class="pre">tagged</span> <span class="pre">as</span> <span class="pre">containing</span> <span class="pre">a</span> <span class="pre">heavy</span> <span class="pre">quark',</span> <span class="pre">'BTagAlgo':</span> <span class="pre">'0</span> <span class="pre">or</span> <span class="pre">1</span> <span class="pre">for</span> <span class="pre">a</span> <span class="pre">jet</span> <span class="pre">that</span> <span class="pre">has</span> <span class="pre">been</span> <span class="pre">tagged</span> <span class="pre">as</span> <span class="pre">containing</span> <span class="pre">a</span> <span class="pre">heavy</span> <span class="pre">quark',</span> <span class="pre">'BTagPhys':</span> <span class="pre">'0</span> <span class="pre">or</span> <span class="pre">1</span> <span class="pre">for</span> <span class="pre">a</span> <span class="pre">jet</span> <span class="pre">that</span> <span class="pre">has</span> <span class="pre">been</span> <span class="pre">tagged</span> <span class="pre">as</span> <span class="pre">containing</span> <span class="pre">a</span> <span class="pre">heavy</span> <span class="pre">quark',</span> <span class="pre">'Beta':</span> <span class="pre">'(sum</span> <span class="pre">pt</span> <span class="pre">of</span> <span class="pre">charged</span> <span class="pre">pile-up</span> <span class="pre">constituents)/(sum</span> <span class="pre">pt</span> <span class="pre">of</span> <span class="pre">charged</span> <span class="pre">constituents)',</span> <span class="pre">'BetaStar':</span> <span class="pre">'(sum</span> <span class="pre">pt</span> <span class="pre">of</span> <span class="pre">charged</span> <span class="pre">constituents</span> <span class="pre">coming</span> <span class="pre">from</span> <span class="pre">hard</span> <span class="pre">interaction)/(sum</span> <span class="pre">pt</span> <span class="pre">of</span> <span class="pre">charged</span> <span class="pre">constituents)',</span> <span class="pre">'Charge':</span> <span class="pre">'charge',</span> <span class="pre">'Constituents':</span> <span class="pre">'references</span> <span class="pre">to</span> <span class="pre">constituents',</span> <span class="pre">'CrossSection':</span> <span class="pre">'cross-section</span> <span class="pre">in</span> <span class="pre">[pb]',</span> <span class="pre">'CrossSectionError':</span> <span class="pre">'cross-section</span> <span class="pre">error</span> <span class="pre">[pb]',</span> <span class="pre">'CtgTheta':</span> <span class="pre">'cotangent</span> <span class="pre">of</span> <span class="pre">theta',</span> <span class="pre">'D0':</span> <span class="pre">'transverse</span> <span class="pre">impact</span> <span class="pre">parameter',</span> <span class="pre">'D1':</span> <span class="pre">'particle</span> <span class="pre">first</span> <span class="pre">child',</span> <span class="pre">'D2':</span> <span class="pre">'particle</span> <span class="pre">last</span> <span class="pre">child',</span> <span class="pre">'DZ':</span> <span class="pre">'longitudinal</span> <span class="pre">impact</span> <span class="pre">parameter',</span> <span class="pre">'E':</span> <span class="pre">'energy</span> <span class="pre">[GeV]',</span> <span class="pre">'ET':</span> <span class="pre">'transverse</span> <span class="pre">energy</span> <span class="pre">[GeV]',</span> <span class="pre">'Edges[2]':</span> <span class="pre">'pseudorapidity</span> <span class="pre">range</span> <span class="pre">edges',</span> <span class="pre">'Edges[4]':</span> <span class="pre">'calorimeter</span> <span class="pre">tower</span> <span class="pre">edges',</span> <span class="pre">'Eem':</span> <span class="pre">'calorimeter</span> <span class="pre">tower</span> <span class="pre">electromagnetic</span> <span class="pre">energy',</span> <span class="pre">'Ehad':</span> <span class="pre">'calorimeter</span> <span class="pre">tower</span> <span class="pre">hadronic</span> <span class="pre">energy',</span> <span class="pre">'EhadOverEem':</span> <span class="pre">'ratio</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">hadronic</span> <span class="pre">versus</span> <span class="pre">electromagnetic</span> <span class="pre">energy</span> <span class="pre">deposited</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">calorimeter',</span> <span class="pre">'ErrorCtgTheta':</span> <span class="pre">'cotangent</span> <span class="pre">of</span> <span class="pre">theta</span> <span class="pre">error',</span> <span class="pre">'ErrorD0':</span> <span class="pre">'transverse</span> <span class="pre">impact</span> <span class="pre">parameter</span> <span class="pre">error',</span> <span class="pre">'ErrorDZ':</span> <span class="pre">'longitudinal</span> <span class="pre">impact</span> <span class="pre">parameter</span> <span class="pre">error',</span> <span class="pre">'ErrorP':</span> <span class="pre">'momentum</span> <span class="pre">error</span> <span class="pre">[GeV]',</span> <span class="pre">'ErrorPT':</span> <span class="pre">'transverse</span> <span class="pre">momentum</span> <span class="pre">error</span> <span class="pre">[GeV]',</span> <span class="pre">'ErrorPhi':</span> <span class="pre">'azimuthal</span> <span class="pre">angle</span> <span class="pre">error',</span> <span class="pre">'ErrorT':</span> <span class="pre">'vertex</span> <span class="pre">position</span> <span class="pre">error</span> <span class="pre">(t</span> <span class="pre">component)',</span> <span class="pre">'ErrorX':</span> <span class="pre">'vertex</span> <span class="pre">position</span> <span class="pre">error</span> <span class="pre">(x</span> <span class="pre">component)',</span> <span class="pre">'ErrorY':</span> <span class="pre">'vertex</span> <span class="pre">position</span> <span class="pre">error</span> <span class="pre">(y</span> <span class="pre">component)',</span> <span class="pre">'ErrorZ':</span> <span class="pre">'vertex</span> <span class="pre">position</span> <span class="pre">error</span> <span class="pre">(z</span> <span class="pre">component)',</span> <span class="pre">'Eta':</span> <span class="pre">'pseudorapidity',</span> <span class="pre">'EtaOuter':</span> <span class="pre">'pseudorapidity</span> <span class="pre">at</span> <span class="pre">the</span> <span class="pre">edge',</span> <span class="pre">'Flavor':</span> <span class="pre">'jet</span> <span class="pre">flavor',</span> <span class="pre">'FlavorAlgo':</span> <span class="pre">'jet</span> <span class="pre">flavor',</span> <span class="pre">'FlavorPhys':</span> <span class="pre">'jet</span> <span class="pre">flavor',</span> <span class="pre">'FracPt[5]':</span> <span class="pre">'(sum</span> <span class="pre">pt</span> <span class="pre">of</span> <span class="pre">constituents</span> <span class="pre">within</span> <span class="pre">a</span> <span class="pre">ring</span> <span class="pre">0.1*i</span> <span class="pre">&lt;</span> <span class="pre">DeltaR</span> <span class="pre">&lt;</span> <span class="pre">0.1*(i+1))/(sum</span> <span class="pre">pt</span> <span class="pre">of</span> <span class="pre">constituents)',</span> <span class="pre">'GenDeltaZ':</span> <span class="pre">'distance</span> <span class="pre">in</span> <span class="pre">z</span> <span class="pre">to</span> <span class="pre">closest</span> <span class="pre">generated</span> <span class="pre">vertex',</span> <span class="pre">'GenSumPT2':</span> <span class="pre">'sum</span> <span class="pre">pt^2</span> <span class="pre">of</span> <span class="pre">gen</span> <span class="pre">tracks</span> <span class="pre">attached</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">vertex',</span> <span class="pre">'HT':</span> <span class="pre">'scalar</span> <span class="pre">sum</span> <span class="pre">of</span> <span class="pre">transverse</span> <span class="pre">momenta</span> <span class="pre">[GeV]',</span> <span class="pre">'ID':</span> <span class="pre">'ID',</span> <span class="pre">'ID1':</span> <span class="pre">'flavour</span> <span class="pre">code</span> <span class="pre">of</span> <span class="pre">first</span> <span class="pre">parton',</span> <span class="pre">'ID2':</span> <span class="pre">'flavour</span> <span class="pre">code</span> <span class="pre">of</span> <span class="pre">second</span> <span class="pre">parton',</span> <span class="pre">'Index':</span> <span class="pre">'index',</span> <span class="pre">'IsPU':</span> <span class="pre">'0</span> <span class="pre">or</span> <span class="pre">1</span> <span class="pre">for</span> <span class="pre">particles</span> <span class="pre">from</span> <span class="pre">pile-up</span> <span class="pre">interactions',</span> <span class="pre">'IsolationVar':</span> <span class="pre">'isolation</span> <span class="pre">variable',</span> <span class="pre">'IsolationVarRhoCorr':</span> <span class="pre">'isolation</span> <span class="pre">variable',</span> <span class="pre">'L':</span> <span class="pre">'path</span> <span class="pre">length',</span> <span class="pre">'M1':</span> <span class="pre">'particle</span> <span class="pre">first</span> <span class="pre">parent',</span> <span class="pre">'M2':</span> <span class="pre">'particle</span> <span class="pre">second</span> <span class="pre">parent',</span> <span class="pre">'MET':</span> <span class="pre">'missing</span> <span class="pre">transverse</span> <span class="pre">energy',</span> <span class="pre">'MPI':</span> <span class="pre">'number</span> <span class="pre">of</span> <span class="pre">multi</span> <span class="pre">parton</span> <span class="pre">interactions',</span> <span class="pre">'Mass':</span> <span class="pre">'invariant</span> <span class="pre">mass</span> <span class="pre">[GeV]',</span> <span class="pre">'MeanSqDeltaR':</span> <span class="pre">'average</span> <span class="pre">distance</span> <span class="pre">(squared)</span> <span class="pre">between</span> <span class="pre">constituent</span> <span class="pre">and</span> <span class="pre">particle</span> <span class="pre">weighted</span> <span class="pre">by</span> <span class="pre">pt</span> <span class="pre">(squared)</span> <span class="pre">of</span> <span class="pre">constituent',</span> <span class="pre">'NCharged':</span> <span class="pre">'number</span> <span class="pre">of</span> <span class="pre">charged</span> <span class="pre">constituents',</span> <span class="pre">'NDF':</span> <span class="pre">'number</span> <span class="pre">of</span> <span class="pre">degrees</span> <span class="pre">of</span> <span class="pre">freedom',</span> <span class="pre">'NNeutrals':</span> <span class="pre">'number</span> <span class="pre">of</span> <span class="pre">neutral</span> <span class="pre">constituents',</span> <span class="pre">'NSubJetsPruned':</span> <span class="pre">'number</span> <span class="pre">of</span> <span class="pre">subjets</span> <span class="pre">pruned',</span> <span class="pre">'NSubJetsSoftDropped':</span> <span class="pre">'number</span> <span class="pre">of</span> <span class="pre">subjets</span> <span class="pre">soft-dropped',</span> <span class="pre">'NSubJetsTrimmed':</span> <span class="pre">'number</span> <span class="pre">of</span> <span class="pre">subjets</span> <span class="pre">trimmed',</span> <span class="pre">'NTimeHits':</span> <span class="pre">'number</span> <span class="pre">of</span> <span class="pre">hits</span> <span class="pre">contributing</span> <span class="pre">to</span> <span class="pre">time</span> <span class="pre">measurement',</span> <span class="pre">'Number':</span> <span class="pre">'event</span> <span class="pre">number',</span> <span class="pre">'P':</span> <span class="pre">'momentum</span> <span class="pre">[GeV]',</span> <span class="pre">'PDF1':</span> <span class="pre">'PDF</span> <span class="pre">(id1,</span> <span class="pre">x1,</span> <span class="pre">Q)',</span> <span class="pre">'PDF2':</span> <span class="pre">'PDF</span> <span class="pre">(id2,</span> <span class="pre">x2,</span> <span class="pre">Q)',</span> <span class="pre">'PID':</span> <span class="pre">'HEP</span> <span class="pre">ID</span> <span class="pre">number',</span> <span class="pre">'PT':</span> <span class="pre">'transverse</span> <span class="pre">momentum</span> <span class="pre">[GeV]',</span> <span class="pre">'PTD':</span> <span class="pre">'average</span> <span class="pre">pt</span> <span class="pre">between</span> <span class="pre">constituent</span> <span class="pre">and</span> <span class="pre">jet</span> <span class="pre">weighted</span> <span class="pre">by</span> <span class="pre">pt</span> <span class="pre">of</span> <span class="pre">constituent',</span> <span class="pre">'Particle':</span> <span class="pre">'reference</span> <span class="pre">to</span> <span class="pre">generated</span> <span class="pre">particle',</span> <span class="pre">'Particles':</span> <span class="pre">'references</span> <span class="pre">to</span> <span class="pre">generated</span> <span class="pre">particles',</span> <span class="pre">'Phi':</span> <span class="pre">'azimuthal</span> <span class="pre">angle',</span> <span class="pre">'PhiOuter':</span> <span class="pre">'azimuthal</span> <span class="pre">angle</span> <span class="pre">at</span> <span class="pre">the</span> <span class="pre">edge',</span> <span class="pre">'ProcTime':</span> <span class="pre">'processing</span> <span class="pre">time',</span> <span class="pre">'ProcessID':</span> <span class="pre">'subprocess</span> <span class="pre">code</span> <span class="pre">for</span> <span class="pre">the</span> <span class="pre">event</span> <span class="pre">or</span> <span class="pre">signal</span> <span class="pre">process</span> <span class="pre">id',</span> <span class="pre">'PrunedP4[5]':</span> <span class="pre">'first</span> <span class="pre">entry</span> <span class="pre">(i</span> <span class="pre">=</span> <span class="pre">0)</span> <span class="pre">is</span> <span class="pre">the</span> <span class="pre">total</span> <span class="pre">Pruned</span> <span class="pre">Jet</span> <span class="pre">4-momenta</span> <span class="pre">and</span> <span class="pre">from</span> <span class="pre">i</span> <span class="pre">=</span> <span class="pre">1</span> <span class="pre">to</span> <span class="pre">4</span> <span class="pre">are</span> <span class="pre">the</span> <span class="pre">pruned</span> <span class="pre">subjets</span> <span class="pre">4-momenta',</span> <span class="pre">'Px':</span> <span class="pre">'particle</span> <span class="pre">momentum</span> <span class="pre">vector</span> <span class="pre">(x</span> <span class="pre">component)',</span> <span class="pre">'Py':</span> <span class="pre">'particle</span> <span class="pre">momentum</span> <span class="pre">vector</span> <span class="pre">(y</span> <span class="pre">component)',</span> <span class="pre">'Pz':</span> <span class="pre">'particle</span> <span class="pre">momentum</span> <span class="pre">vector</span> <span class="pre">(z</span> <span class="pre">component)',</span> <span class="pre">'Rapidity':</span> <span class="pre">'particle</span> <span class="pre">rapidity',</span> <span class="pre">'ReadTime':</span> <span class="pre">'read</span> <span class="pre">time',</span> <span class="pre">'Rho':</span> <span class="pre">'rho</span> <span class="pre">energy</span> <span class="pre">density',</span> <span class="pre">'S':</span> <span class="pre">'distance</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">interaction</span> <span class="pre">point</span> <span class="pre">[m]',</span> <span class="pre">'Scale':</span> <span class="pre">'energy</span> <span class="pre">scale,</span> <span class="pre">see</span> <span class="pre">hep-ph/0109068',</span> <span class="pre">'ScalePDF':</span> <span class="pre">&quot;Q-scale</span> <span class="pre">used</span> <span class="pre">in</span> <span class="pre">evaluation</span> <span class="pre">of</span> <span class="pre">PDF's</span> <span class="pre">[GeV]&quot;,</span> <span class="pre">'Sigma':</span> <span class="pre">'vertex</span> <span class="pre">position</span> <span class="pre">(z</span> <span class="pre">component)</span> <span class="pre">error',</span> <span class="pre">'SoftDroppedP4[5]':</span> <span class="pre">'first</span> <span class="pre">entry</span> <span class="pre">(i</span> <span class="pre">=</span> <span class="pre">0)</span> <span class="pre">is</span> <span class="pre">the</span> <span class="pre">total</span> <span class="pre">SoftDropped</span> <span class="pre">Jet</span> <span class="pre">4-momenta</span> <span class="pre">and</span> <span class="pre">from</span> <span class="pre">i</span> <span class="pre">=</span> <span class="pre">1</span> <span class="pre">to</span> <span class="pre">4</span> <span class="pre">are</span> <span class="pre">the</span> <span class="pre">pruned</span> <span class="pre">subjets</span> <span class="pre">4-momenta',</span> <span class="pre">'SoftDroppedSubJet1':</span> <span class="pre">'leading</span> <span class="pre">soft-dropped</span> <span class="pre">subjet',</span> <span class="pre">'SoftDroppedSubJet2':</span> <span class="pre">'subleading</span> <span class="pre">soft-dropped</span> <span class="pre">subjet',</span> <span class="pre">'Status':</span> <span class="pre">'particle</span> <span class="pre">status',</span> <span class="pre">'SumPT2':</span> <span class="pre">'sum</span> <span class="pre">pt^2</span> <span class="pre">of</span> <span class="pre">tracks</span> <span class="pre">attached</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">vertex',</span> <span class="pre">'SumPt':</span> <span class="pre">'isolation</span> <span class="pre">variable',</span> <span class="pre">'SumPtCharged':</span> <span class="pre">'isolation</span> <span class="pre">variable',</span> <span class="pre">'SumPtChargedPU':</span> <span class="pre">'isolation</span> <span class="pre">variable',</span> <span class="pre">'SumPtNeutral':</span> <span class="pre">'isolation</span> <span class="pre">variable',</span> <span class="pre">'TOuter':</span> <span class="pre">'time</span> <span class="pre">position</span> <span class="pre">(t</span> <span class="pre">component)</span> <span class="pre">at</span> <span class="pre">the</span> <span class="pre">edge',</span> <span class="pre">'TauTag':</span> <span class="pre">'0</span> <span class="pre">or</span> <span class="pre">1</span> <span class="pre">for</span> <span class="pre">a</span> <span class="pre">particle</span> <span class="pre">that</span> <span class="pre">has</span> <span class="pre">been</span> <span class="pre">tagged</span> <span class="pre">as</span> <span class="pre">a</span> <span class="pre">tau',</span> <span class="pre">'Tau[5]':</span> <span class="pre">'N-subjettiness',</span> <span class="pre">'Trigger':</span> <span class="pre">'trigger</span> <span class="pre">word',</span> <span class="pre">'TrimmedP4[5]':</span> <span class="pre">'first</span> <span class="pre">entry</span> <span class="pre">(i</span> <span class="pre">=</span> <span class="pre">0)</span> <span class="pre">is</span> <span class="pre">the</span> <span class="pre">total</span> <span class="pre">Trimmed</span> <span class="pre">Jet</span> <span class="pre">4-momenta</span> <span class="pre">and</span> <span class="pre">from</span> <span class="pre">i</span> <span class="pre">=</span> <span class="pre">1</span> <span class="pre">to</span> <span class="pre">4</span> <span class="pre">are</span> <span class="pre">the</span> <span class="pre">trimmed</span> <span class="pre">subjets</span> <span class="pre">4-momenta',</span> <span class="pre">'Tx':</span> <span class="pre">'angle</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">momentum</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">horizontal</span> <span class="pre">(x,z)</span> <span class="pre">plane</span> <span class="pre">[urad]',</span> <span class="pre">'Ty':</span> <span class="pre">'angle</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">momentum</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">verical</span> <span class="pre">(y,z)</span> <span class="pre">plane</span> <span class="pre">[urad]',</span> <span class="pre">'VertexIndex':</span> <span class="pre">'reference</span> <span class="pre">to</span> <span class="pre">vertex',</span> <span class="pre">'Weight':</span> <span class="pre">'weight</span> <span class="pre">for</span> <span class="pre">the</span> <span class="pre">event',</span> <span class="pre">'X1':</span> <span class="pre">'fraction</span> <span class="pre">of</span> <span class="pre">beam</span> <span class="pre">momentum</span> <span class="pre">carried</span> <span class="pre">by</span> <span class="pre">first</span> <span class="pre">parton</span> <span class="pre">(&quot;beam</span> <span class="pre">side&quot;)',</span> <span class="pre">'X2':</span> <span class="pre">'fraction</span> <span class="pre">of</span> <span class="pre">beam</span> <span class="pre">momentum</span> <span class="pre">carried</span> <span class="pre">by</span> <span class="pre">second</span> <span class="pre">parton</span> <span class="pre">(&quot;target</span> <span class="pre">side&quot;)',</span> <span class="pre">'XOuter':</span> <span class="pre">'position</span> <span class="pre">(x</span> <span class="pre">component)</span> <span class="pre">at</span> <span class="pre">the</span> <span class="pre">edge',</span> <span class="pre">'Xd':</span> <span class="pre">'X</span> <span class="pre">coordinate</span> <span class="pre">of</span> <span class="pre">point</span> <span class="pre">of</span> <span class="pre">closest</span> <span class="pre">approach</span> <span class="pre">to</span> <span class="pre">vertex',</span> <span class="pre">'YOuter':</span> <span class="pre">'position</span> <span class="pre">(y</span> <span class="pre">component)</span> <span class="pre">at</span> <span class="pre">the</span> <span class="pre">edge',</span> <span class="pre">'Yd':</span> <span class="pre">'Y</span> <span class="pre">coordinate</span> <span class="pre">of</span> <span class="pre">point</span> <span class="pre">of</span> <span class="pre">closest</span> <span class="pre">approach</span> <span class="pre">to</span> <span class="pre">vertex',</span> <span class="pre">'ZOuter':</span> <span class="pre">'position</span> <span class="pre">(z</span> <span class="pre">component)</span> <span class="pre">at</span> <span class="pre">the</span> <span class="pre">edge',</span> <span class="pre">'Zd':</span> <span class="pre">'Z</span> <span class="pre">coordinate</span> <span class="pre">of</span> <span class="pre">point</span> <span class="pre">of</span> <span class="pre">closest</span> <span class="pre">approach</span> <span class="pre">to</span> <span class="pre">vertex'}</span></span><a class="headerlink" href="#coffea.nanoevents.DelphesSchema.docstrings" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.DelphesSchema.mixins">
+<span class="sig-name descname"><span class="pre">mixins</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'CaloJet02':</span> <span class="pre">'Jet',</span> <span class="pre">'CaloJet04':</span> <span class="pre">'Jet',</span> <span class="pre">'CaloJet08':</span> <span class="pre">'Jet',</span> <span class="pre">'CaloJet15':</span> <span class="pre">'Jet',</span> <span class="pre">'EFlowNeutralHadron':</span> <span class="pre">'Tower',</span> <span class="pre">'EFlowPhoton':</span> <span class="pre">'Photon',</span> <span class="pre">'EFlowTrack':</span> <span class="pre">'Track',</span> <span class="pre">'Electron':</span> <span class="pre">'Electron',</span> <span class="pre">'Event':</span> <span class="pre">'Event',</span> <span class="pre">'EventLHEF':</span> <span class="pre">'EventLHEF',</span> <span class="pre">'GenJet':</span> <span class="pre">'Jet',</span> <span class="pre">'GenJet02':</span> <span class="pre">'Jet',</span> <span class="pre">'GenJet04':</span> <span class="pre">'Jet',</span> <span class="pre">'GenJet08':</span> <span class="pre">'Jet',</span> <span class="pre">'GenJet15':</span> <span class="pre">'Jet',</span> <span class="pre">'GenMissingET':</span> <span class="pre">'MissingET',</span> <span class="pre">'HepMCEvent':</span> <span class="pre">'HepMCEvent',</span> <span class="pre">'Jet':</span> <span class="pre">'Jet',</span> <span class="pre">'LHCOEvent':</span> <span class="pre">'LHCOEvent',</span> <span class="pre">'MissingET':</span> <span class="pre">'MissingET',</span> <span class="pre">'Muon':</span> <span class="pre">'Muon',</span> <span class="pre">'Particle':</span> <span class="pre">'Particle',</span> <span class="pre">'ParticleFlowJet02':</span> <span class="pre">'Jet',</span> <span class="pre">'ParticleFlowJet04':</span> <span class="pre">'Jet',</span> <span class="pre">'ParticleFlowJet08':</span> <span class="pre">'Jet',</span> <span class="pre">'ParticleFlowJet15':</span> <span class="pre">'Jet',</span> <span class="pre">'Photon':</span> <span class="pre">'Photon',</span> <span class="pre">'Rho':</span> <span class="pre">'Rho',</span> <span class="pre">'ScalarHT':</span> <span class="pre">'ScalarHT',</span> <span class="pre">'Tower':</span> <span class="pre">'Tower',</span> <span class="pre">'Track':</span> <span class="pre">'Track',</span> <span class="pre">'TrackJet02':</span> <span class="pre">'Jet',</span> <span class="pre">'TrackJet04':</span> <span class="pre">'Jet',</span> <span class="pre">'TrackJet08':</span> <span class="pre">'Jet',</span> <span class="pre">'TrackJet15':</span> <span class="pre">'Jet',</span> <span class="pre">'Weight':</span> <span class="pre">'Weight',</span> <span class="pre">'WeightLHEF':</span> <span class="pre">'WeightLHEF'}</span></span><a class="headerlink" href="#coffea.nanoevents.DelphesSchema.mixins" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.DelphesSchema.singletons">
+<span class="sig-name descname"><span class="pre">singletons</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['Event',</span> <span class="pre">'EventLHEF',</span> <span class="pre">'HepMCEvent',</span> <span class="pre">'LHCOEvent',</span> <span class="pre">'Rho',</span> <span class="pre">'ScalarHT',</span> <span class="pre">'MissingET']</span></span><a class="headerlink" href="#coffea.nanoevents.DelphesSchema.singletons" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.DelphesSchema.warn_missing_crossrefs">
+<span class="sig-name descname"><span class="pre">warn_missing_crossrefs</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></span><a class="headerlink" href="#coffea.nanoevents.DelphesSchema.warn_missing_crossrefs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<p class="rubric">Methods Documentation</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.nanoevents.DelphesSchema.v1">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">v1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_form</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/nanoevents/schemas/delphes.py#L198"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.nanoevents.DelphesSchema.v1" title="Link to this definition"></a></dt>
+<dd><p>Build the DelphesEvents</p>
+<p>For example, one can use <code class="docutils literal notranslate"><span class="pre">NanoEventsFactory.from_root(&quot;file.root&quot;,</span> <span class="pre">schemaclass=DelphesSchema.v1)</span></code>
+to ensure NanoAODv7 compatibility.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="coffea.nanoevents.PHYSLITESchema.html" class="btn btn-neutral float-left" title="PHYSLITESchema" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="coffea.nanoevents.PDUNESchema.html" class="btn btn-neutral float-right" title="PDUNESchema" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

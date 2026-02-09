@@ -1,0 +1,27 @@
+JetResolutionScaleFactor
+========================
+
+.. currentmodule:: coffea.jetmet_tools
+
+.. autoclass:: JetResolutionScaleFactor
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~JetResolutionScaleFactor.signature
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~JetResolutionScaleFactor.getScaleFactor
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: signature
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: getScaleFactor

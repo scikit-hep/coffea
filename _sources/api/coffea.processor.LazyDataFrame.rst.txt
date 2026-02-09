@@ -1,0 +1,35 @@
+LazyDataFrame
+=============
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: LazyDataFrame
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~LazyDataFrame.available
+      ~LazyDataFrame.columns
+      ~LazyDataFrame.materialized
+      ~LazyDataFrame.metadata
+      ~LazyDataFrame.size
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~LazyDataFrame.preload
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: available
+   .. autoattribute:: columns
+   .. autoattribute:: materialized
+   .. autoattribute:: metadata
+   .. autoattribute:: size
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: preload

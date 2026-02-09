@@ -1,0 +1,5 @@
+coffea.analysis_tools
+=====================
+
+.. automodapi:: coffea.analysis_tools
+    :no-heading:

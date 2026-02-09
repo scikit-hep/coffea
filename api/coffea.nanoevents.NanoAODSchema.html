@@ -1,0 +1,280 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NanoAODSchema &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="PFNanoAODSchema" href="coffea.nanoevents.PFNanoAODSchema.html" />
+    <link rel="prev" title="BaseSchema" href="coffea.nanoevents.BaseSchema.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.hist.html">coffea.hist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../modules/coffea.nanoevents.html">coffea.nanoevents</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../modules/coffea.nanoevents.html#classes">Classes</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.NanoEventsFactory.html">NanoEventsFactory</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.BaseSchema.html">BaseSchema</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">NanoAODSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.PFNanoAODSchema.html">PFNanoAODSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.TreeMakerSchema.html">TreeMakerSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.PHYSLITESchema.html">PHYSLITESchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.DelphesSchema.html">DelphesSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coffea.nanoevents.PDUNESchema.html">PDUNESchema</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../modules/coffea.nanoevents.html#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.nanoevents.methods.vector.html">coffea.nanoevents.methods.vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+          <li class="breadcrumb-item"><a href="../modules/coffea.nanoevents.html">coffea.nanoevents</a></li>
+      <li class="breadcrumb-item active">NanoAODSchema</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/coffea.nanoevents.NanoAODSchema.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="nanoaodschema">
+<h1>NanoAODSchema<a class="headerlink" href="#nanoaodschema" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="coffea.nanoevents.NanoAODSchema">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">coffea.nanoevents.</span></span><span class="sig-name descname"><span class="pre">NanoAODSchema</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_form</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'latest'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/nanoevents/schemas/nanoaod.py#L6"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.nanoevents.NanoAODSchema" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="coffea.nanoevents.BaseSchema.html#coffea.nanoevents.BaseSchema" title="coffea.nanoevents.schemas.base.BaseSchema"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseSchema</span></code></a></p>
+<p>NanoAOD schema builder</p>
+<p>The NanoAOD schema is built from all branches found in the supplied file, based on
+the naming pattern of the branches. The following additional arrays are constructed:</p>
+<ul class="simple">
+<li><p>Any branches named <code class="docutils literal notranslate"><span class="pre">n{name}</span></code> are assumed to be counts branches and converted to offsets <code class="docutils literal notranslate"><span class="pre">o{name}</span></code></p></li>
+<li><p>Any local index branches with names matching <code class="docutils literal notranslate"><span class="pre">{source}_{target}Idx*</span></code> are converted to global indexes for the event chunk (postfix <code class="docutils literal notranslate"><span class="pre">G</span></code>)</p></li>
+<li><p>Any <a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.nested_items" title="coffea.nanoevents.NanoAODSchema.nested_items"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">nested_items</span></code></a> are constructed, if the necessary branches are available</p></li>
+<li><p>Any <a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.special_items" title="coffea.nanoevents.NanoAODSchema.special_items"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">special_items</span></code></a> are constructed, if the necessary branches are available</p></li>
+</ul>
+<p>From those arrays, NanoAOD collections are formed as collections of branches grouped by name, where:</p>
+<ul class="simple">
+<li><p>one branch exists named <code class="docutils literal notranslate"><span class="pre">name</span></code> and no branches start with <code class="docutils literal notranslate"><span class="pre">name_</span></code>, interpreted as a single flat array;</p></li>
+<li><p>one branch exists named <code class="docutils literal notranslate"><span class="pre">name</span></code>, one named <code class="docutils literal notranslate"><span class="pre">n{name}</span></code>, and no branches start with <code class="docutils literal notranslate"><span class="pre">name_</span></code>, interpreted as a single jagged array;</p></li>
+<li><p>no branch exists named <code class="docutils literal notranslate"><span class="pre">{name}</span></code> and many branches start with <code class="docutils literal notranslate"><span class="pre">name_*</span></code>, interpreted as a flat table; or</p></li>
+<li><p>one branch exists named <code class="docutils literal notranslate"><span class="pre">n{name}</span></code> and many branches start with <code class="docutils literal notranslate"><span class="pre">name_*</span></code>, interpreted as a jagged table.</p></li>
+</ul>
+<p>Collections are assigned mixin types according to the <a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.mixins" title="coffea.nanoevents.NanoAODSchema.mixins"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">mixins</span></code></a> mapping.
+All collections are then zipped into one <a class="reference internal" href="coffea.nanoevents.methods.base.NanoEvents.html#coffea.nanoevents.methods.base.NanoEvents" title="coffea.nanoevents.methods.base.NanoEvents"><code class="xref any py py-class docutils literal notranslate"><span class="pre">base.NanoEvents</span></code></a> record and returned.</p>
+<p>There is a class-level variable <code class="docutils literal notranslate"><span class="pre">warn_missing_crossrefs</span></code> which will alter the behavior of
+NanoAODSchema. If warn_missing_crossrefs is true then when a missing global index cross-ref
+target is encountered a warning will be issued. Regardless, the cross-reference is dropped.</p>
+<p class="rubric">Attributes Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.all_cross_references" title="coffea.nanoevents.NanoAODSchema.all_cross_references"><code class="xref py py-obj docutils literal notranslate"><span class="pre">all_cross_references</span></code></a></p></td>
+<td><p>Cross-references, where an index is to be interpreted with respect to another collection</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.behavior" title="coffea.nanoevents.NanoAODSchema.behavior"><code class="xref py py-obj docutils literal notranslate"><span class="pre">behavior</span></code></a></p></td>
+<td><p>Behaviors necessary to implement this schema</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.mixins" title="coffea.nanoevents.NanoAODSchema.mixins"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mixins</span></code></a></p></td>
+<td><p>Default configuration for mixin types, based on the collection name.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.nested_index_items" title="coffea.nanoevents.NanoAODSchema.nested_index_items"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nested_index_items</span></code></a></p></td>
+<td><p>Nested collections, where nesting is accomplished by assuming the target can be unflattened according to a source counts</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.nested_items" title="coffea.nanoevents.NanoAODSchema.nested_items"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nested_items</span></code></a></p></td>
+<td><p>Nested collections, where nesting is accomplished by a fixed-length set of indexers</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.special_items" title="coffea.nanoevents.NanoAODSchema.special_items"><code class="xref py py-obj docutils literal notranslate"><span class="pre">special_items</span></code></a></p></td>
+<td><p>Special arrays, where the callable and input arrays are specified in the value</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.warn_missing_crossrefs" title="coffea.nanoevents.NanoAODSchema.warn_missing_crossrefs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">warn_missing_crossrefs</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Methods Summary</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.v5" title="coffea.nanoevents.NanoAODSchema.v5"><code class="xref py py-obj docutils literal notranslate"><span class="pre">v5</span></code></a>(base_form)</p></td>
+<td><p>Build the NanoEvents assuming NanoAODv5</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.v6" title="coffea.nanoevents.NanoAODSchema.v6"><code class="xref py py-obj docutils literal notranslate"><span class="pre">v6</span></code></a>(base_form)</p></td>
+<td><p>Build the NanoEvents assuming NanoAODv6</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coffea.nanoevents.NanoAODSchema.v7" title="coffea.nanoevents.NanoAODSchema.v7"><code class="xref py py-obj docutils literal notranslate"><span class="pre">v7</span></code></a>(base_form)</p></td>
+<td><p>Build the NanoEvents assuming NanoAODv7</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes Documentation</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.NanoAODSchema.all_cross_references">
+<span class="sig-name descname"><span class="pre">all_cross_references</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'Electron_genPartIdx':</span> <span class="pre">'GenPart',</span> <span class="pre">'Electron_jetIdx':</span> <span class="pre">'Jet',</span> <span class="pre">'Electron_photonIdx':</span> <span class="pre">'Photon',</span> <span class="pre">'FatJet_genJetAK8Idx':</span> <span class="pre">'GenJetAK8',</span> <span class="pre">'FatJet_subJetIdx1':</span> <span class="pre">'SubJet',</span> <span class="pre">'FatJet_subJetIdx2':</span> <span class="pre">'SubJet',</span> <span class="pre">'FsrPhoton_muonIdx':</span> <span class="pre">'Muon',</span> <span class="pre">'GenPart_genPartIdxMother':</span> <span class="pre">'GenPart',</span> <span class="pre">'GenVisTau_genPartIdxMother':</span> <span class="pre">'GenPart',</span> <span class="pre">'Jet_electronIdx1':</span> <span class="pre">'Electron',</span> <span class="pre">'Jet_electronIdx2':</span> <span class="pre">'Electron',</span> <span class="pre">'Jet_genJetIdx':</span> <span class="pre">'GenJet',</span> <span class="pre">'Jet_muonIdx1':</span> <span class="pre">'Muon',</span> <span class="pre">'Jet_muonIdx2':</span> <span class="pre">'Muon',</span> <span class="pre">'LowPtElectron_electronIdx':</span> <span class="pre">'Electron',</span> <span class="pre">'LowPtElectron_genPartIdx':</span> <span class="pre">'GenPart',</span> <span class="pre">'LowPtElectron_photonIdx':</span> <span class="pre">'Photon',</span> <span class="pre">'Muon_fsrPhotonIdx':</span> <span class="pre">'FsrPhoton',</span> <span class="pre">'Muon_genPartIdx':</span> <span class="pre">'GenPart',</span> <span class="pre">'Muon_jetIdx':</span> <span class="pre">'Jet',</span> <span class="pre">'Photon_electronIdx':</span> <span class="pre">'Electron',</span> <span class="pre">'Photon_genPartIdx':</span> <span class="pre">'GenPart',</span> <span class="pre">'Photon_jetIdx':</span> <span class="pre">'Jet',</span> <span class="pre">'Tau_genPartIdx':</span> <span class="pre">'GenPart',</span> <span class="pre">'Tau_jetIdx':</span> <span class="pre">'Jet'}</span></span><a class="headerlink" href="#coffea.nanoevents.NanoAODSchema.all_cross_references" title="Link to this definition"></a></dt>
+<dd><p>Cross-references, where an index is to be interpreted with respect to another collection</p>
+<p>Each such cross-reference will be converted to a global indexer, so that arbitrarily sliced events
+can still resolve the indirection back the parent events</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.NanoAODSchema.behavior">
+<span class="sig-name descname"><span class="pre">behavior</span></span><a class="headerlink" href="#coffea.nanoevents.NanoAODSchema.behavior" title="Link to this definition"></a></dt>
+<dd><p>Behaviors necessary to implement this schema</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.NanoAODSchema.mixins">
+<span class="sig-name descname"><span class="pre">mixins</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'CaloMET':</span> <span class="pre">'MissingET',</span> <span class="pre">'ChsMET':</span> <span class="pre">'MissingET',</span> <span class="pre">'Electron':</span> <span class="pre">'Electron',</span> <span class="pre">'FatJet':</span> <span class="pre">'FatJet',</span> <span class="pre">'FsrPhoton':</span> <span class="pre">'FsrPhoton',</span> <span class="pre">'GenDressedLepton':</span> <span class="pre">'PtEtaPhiMCollection',</span> <span class="pre">'GenIsolatedPhoton':</span> <span class="pre">'PtEtaPhiMCollection',</span> <span class="pre">'GenJet':</span> <span class="pre">'PtEtaPhiMCollection',</span> <span class="pre">'GenJetAK8':</span> <span class="pre">'PtEtaPhiMCollection',</span> <span class="pre">'GenMET':</span> <span class="pre">'MissingET',</span> <span class="pre">'GenPart':</span> <span class="pre">'GenParticle',</span> <span class="pre">'GenVisTau':</span> <span class="pre">'GenVisTau',</span> <span class="pre">'IsoTrack':</span> <span class="pre">'PtEtaPhiMCollection',</span> <span class="pre">'Jet':</span> <span class="pre">'Jet',</span> <span class="pre">'LHEPart':</span> <span class="pre">'PtEtaPhiMCollection',</span> <span class="pre">'LowPtElectron':</span> <span class="pre">'LowPtElectron',</span> <span class="pre">'MET':</span> <span class="pre">'MissingET',</span> <span class="pre">'METFixEE2017':</span> <span class="pre">'MissingET',</span> <span class="pre">'Muon':</span> <span class="pre">'Muon',</span> <span class="pre">'PV':</span> <span class="pre">'Vertex',</span> <span class="pre">'Photon':</span> <span class="pre">'Photon',</span> <span class="pre">'PuppiMET':</span> <span class="pre">'MissingET',</span> <span class="pre">'RawMET':</span> <span class="pre">'MissingET',</span> <span class="pre">'RawPuppiMET':</span> <span class="pre">'MissingET',</span> <span class="pre">'SV':</span> <span class="pre">'SecondaryVertex',</span> <span class="pre">'SoftActivityJet':</span> <span class="pre">'PtEtaPhiMCollection',</span> <span class="pre">'SubGenJetAK8':</span> <span class="pre">'PtEtaPhiMCollection',</span> <span class="pre">'SubJet':</span> <span class="pre">'PtEtaPhiMCollection',</span> <span class="pre">'Tau':</span> <span class="pre">'Tau',</span> <span class="pre">'TkMET':</span> <span class="pre">'MissingET',</span> <span class="pre">'TrigObj':</span> <span class="pre">'PtEtaPhiMCollection'}</span></span><a class="headerlink" href="#coffea.nanoevents.NanoAODSchema.mixins" title="Link to this definition"></a></dt>
+<dd><p>Default configuration for mixin types, based on the collection name.</p>
+<p>The types are implemented in the <a class="reference internal" href="../modules/coffea.nanoevents.methods.nanoaod.html#module-coffea.nanoevents.methods.nanoaod" title="coffea.nanoevents.methods.nanoaod"><code class="xref any py py-mod docutils literal notranslate"><span class="pre">coffea.nanoevents.methods.nanoaod</span></code></a> module.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.NanoAODSchema.nested_index_items">
+<span class="sig-name descname"><span class="pre">nested_index_items</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'FatJet_pFCandsIdxG':</span> <span class="pre">('FatJet_nConstituents',</span> <span class="pre">'FatJetPFCands'),</span> <span class="pre">'GenFatJet_pFCandsIdxG':</span> <span class="pre">('GenJetAK8_nConstituents',</span> <span class="pre">'GenFatJetCands'),</span> <span class="pre">'GenJet_pFCandsIdxG':</span> <span class="pre">('GenJet_nConstituents',</span> <span class="pre">'GenJetCands'),</span> <span class="pre">'Jet_pFCandsIdxG':</span> <span class="pre">('Jet_nConstituents',</span> <span class="pre">'JetPFCands')}</span></span><a class="headerlink" href="#coffea.nanoevents.NanoAODSchema.nested_index_items" title="Link to this definition"></a></dt>
+<dd><p>Nested collections, where nesting is accomplished by assuming the target can be unflattened according to a source counts</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.NanoAODSchema.nested_items">
+<span class="sig-name descname"><span class="pre">nested_items</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'FatJet_subJetIdxG':</span> <span class="pre">['FatJet_subJetIdx1G',</span> <span class="pre">'FatJet_subJetIdx2G'],</span> <span class="pre">'Jet_electronIdxG':</span> <span class="pre">['Jet_electronIdx1G',</span> <span class="pre">'Jet_electronIdx2G'],</span> <span class="pre">'Jet_muonIdxG':</span> <span class="pre">['Jet_muonIdx1G',</span> <span class="pre">'Jet_muonIdx2G']}</span></span><a class="headerlink" href="#coffea.nanoevents.NanoAODSchema.nested_items" title="Link to this definition"></a></dt>
+<dd><p>Nested collections, where nesting is accomplished by a fixed-length set of indexers</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.NanoAODSchema.special_items">
+<span class="sig-name descname"><span class="pre">special_items</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'GenPart_childrenIdxG':</span> <span class="pre">(&lt;function</span> <span class="pre">children_form&gt;,</span> <span class="pre">('oGenPart',</span> <span class="pre">'GenPart_genPartIdxMotherG')),</span> <span class="pre">'GenPart_distinctChildrenDeepIdxG':</span> <span class="pre">(&lt;function</span> <span class="pre">distinctChildrenDeep_form&gt;,</span> <span class="pre">('oGenPart',</span> <span class="pre">'GenPart_genPartIdxMotherG',</span> <span class="pre">'GenPart_pdgId')),</span> <span class="pre">'GenPart_distinctChildrenIdxG':</span> <span class="pre">(&lt;function</span> <span class="pre">children_form&gt;,</span> <span class="pre">('oGenPart',</span> <span class="pre">'GenPart_distinctParentIdxG')),</span> <span class="pre">'GenPart_distinctParentIdxG':</span> <span class="pre">(&lt;function</span> <span class="pre">distinctParent_form&gt;,</span> <span class="pre">('GenPart_genPartIdxMotherG',</span> <span class="pre">'GenPart_pdgId'))}</span></span><a class="headerlink" href="#coffea.nanoevents.NanoAODSchema.special_items" title="Link to this definition"></a></dt>
+<dd><p>Special arrays, where the callable and input arrays are specified in the value</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coffea.nanoevents.NanoAODSchema.warn_missing_crossrefs">
+<span class="sig-name descname"><span class="pre">warn_missing_crossrefs</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></span><a class="headerlink" href="#coffea.nanoevents.NanoAODSchema.warn_missing_crossrefs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<p class="rubric">Methods Documentation</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.nanoevents.NanoAODSchema.v5">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">v5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_form</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/nanoevents/schemas/nanoaod.py#L179"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.nanoevents.NanoAODSchema.v5" title="Link to this definition"></a></dt>
+<dd><p>Build the NanoEvents assuming NanoAODv5</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.nanoevents.NanoAODSchema.v6">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">v6</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_form</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/nanoevents/schemas/nanoaod.py#L174"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.nanoevents.NanoAODSchema.v6" title="Link to this definition"></a></dt>
+<dd><p>Build the NanoEvents assuming NanoAODv6</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coffea.nanoevents.NanoAODSchema.v7">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">v7</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_form</span></span></em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/CoffeaTeam/coffea/blob/eda299dd4da0265ff4357dc35775777401523141/site-packages/coffea/nanoevents/schemas/nanoaod.py#L165"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coffea.nanoevents.NanoAODSchema.v7" title="Link to this definition"></a></dt>
+<dd><p>Build the NanoEvents assuming NanoAODv7</p>
+<p>For example, one can use <code class="docutils literal notranslate"><span class="pre">NanoEventsFactory.from_root(&quot;file.root&quot;,</span> <span class="pre">schemaclass=NanoAODSchema.v7)</span></code>
+to ensure NanoAODv7 compatibility.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="coffea.nanoevents.BaseSchema.html" class="btn btn-neutral float-left" title="BaseSchema" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="coffea.nanoevents.PFNanoAODSchema.html" class="btn btn-neutral float-right" title="PFNanoAODSchema" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

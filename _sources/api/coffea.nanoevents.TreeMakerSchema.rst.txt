@@ -1,0 +1,27 @@
+TreeMakerSchema
+===============
+
+.. currentmodule:: coffea.nanoevents
+
+.. autoclass:: TreeMakerSchema
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~TreeMakerSchema.behavior
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~TreeMakerSchema.uproot_writeable
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: behavior
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: uproot_writeable

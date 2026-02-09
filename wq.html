@@ -1,0 +1,398 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Work Queue Executor &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=b98972fd"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">API Reference Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Work Queue Executor</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/wq.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="work-queue-executor">
+<span id="intro-coffea-wq"></span><h1>Work Queue Executor<a class="headerlink" href="#work-queue-executor" title="Link to this heading"></a></h1>
+<p><a class="reference external" href="https://cctools.readthedocs.io/en/latest/work_queue/">Work Queue</a> is a
+distributed computing framework used to build large scale manager-worker
+applications, developed by the Cooperative Computing Lab
+(CCL) at the University of Notre Dame. This executor functions as the
+manager program which divides up a Coffea data analysis workload into
+discrete tasks.  A large number of worker processes running on
+cluster or cloud systems will execute the tasks.</p>
+<p>To set up Coffea and Work Queue together, you may need to
+create a Conda environment, install the software, and then
+create a tarball containing the environment.  The tarball is
+sent to each worker in order to provide the same environment
+as the manager machine.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create a new environment</span>
+conda<span class="w"> </span>create<span class="w"> </span>--yes<span class="w"> </span>--name<span class="w"> </span>coffea-env<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>python<span class="w"> </span>coffea<span class="w"> </span>xrootd<span class="w"> </span>ndcctools<span class="w"> </span>conda<span class="w"> </span>conda-pack
+conda<span class="w"> </span>activate<span class="w"> </span>coffea-env
+
+<span class="c1"># Pack the environment into a portable tarball.</span>
+conda-pack<span class="w"> </span>--output<span class="w"> </span>coffea-env.tar.gz
+</pre></div>
+</div>
+<p>To run an analysis, you must set up a work queue executor
+with appropriate arguments.  Here is a complete example:</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1">###############################################################################</span>
+<span class="c1"># Example of Coffea with the Work Queue executor.</span>
+<span class="c1">#</span>
+<span class="c1"># To execute, start this application, and then start workers that will connect</span>
+<span class="c1"># to it and execute tasks.</span>
+<span class="c1">#</span>
+<span class="c1"># Note that, as written, this only processes 4 data chunks and should complete</span>
+<span class="c1"># in a short time.  For a real run, change maxchunks=None in the main program</span>
+<span class="c1"># below.</span>
+<span class="c1">#</span>
+<span class="c1"># For simple testing this script will automatically use one local worker. To</span>
+<span class="c1"># scale this up, see the wq.Factory configuration below to change to your</span>
+<span class="c1"># favorite batch system.</span>
+<span class="c1">###############################################################################</span>
+
+<span class="c1">###############################################################################</span>
+<span class="c1"># Sample processor class given in the Coffea manual.</span>
+<span class="c1">###############################################################################</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">work_queue</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wq</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">coffea.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">Runner</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">coffea.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">WorkQueueExecutor</span>
+
+<span class="c1">###############################################################################</span>
+<span class="c1"># Collect and display setup info.</span>
+<span class="c1">###############################################################################</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;------------------------------------------------&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Example Coffea Analysis with Work Queue Executor&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;------------------------------------------------&quot;</span><span class="p">)</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">getpass</span>
+
+<span class="n">wq_manager_name</span> <span class="o">=</span> <span class="s2">&quot;coffea-wq-</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">getpass</span><span class="o">.</span><span class="n">getuser</span><span class="p">())</span>
+<span class="n">wq_port</span> <span class="o">=</span> <span class="mi">9123</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Manager Name: -M &quot;</span> <span class="o">+</span> <span class="n">wq_manager_name</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;------------------------------------------------&quot;</span><span class="p">)</span>
+
+
+<span class="c1">###############################################################################</span>
+<span class="c1"># Define a custom Coffea processor</span>
+<span class="c1">###############################################################################</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">coffea</span><span class="w"> </span><span class="kn">import</span> <span class="n">processor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">coffea.nanoevents.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">candidate</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hist</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">awkward</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ak</span>
+
+<span class="c1"># register our candidate behaviors</span>
+<span class="n">ak</span><span class="o">.</span><span class="n">behavior</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">candidate</span><span class="o">.</span><span class="n">behavior</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyProcessor</span><span class="p">(</span><span class="n">processor</span><span class="o">.</span><span class="n">ProcessorABC</span><span class="p">):</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">accumulator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;sumw&quot;</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span>
+            <span class="s2">&quot;mass&quot;</span><span class="p">:</span> <span class="n">hist</span><span class="o">.</span><span class="n">Hist</span><span class="p">(</span>
+                <span class="n">hist</span><span class="o">.</span><span class="n">axis</span><span class="o">.</span><span class="n">StrCategory</span><span class="p">([],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Dataset&quot;</span><span class="p">),</span>
+                <span class="n">hist</span><span class="o">.</span><span class="n">axis</span><span class="o">.</span><span class="n">Regular</span><span class="p">(</span>
+                    <span class="mi">60</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;mass&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$m_{\mu\mu}$ [GeV]&quot;</span>
+                <span class="p">),</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Events&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">events</span><span class="p">):</span>
+        <span class="c1"># Note: This is required to ensure that behaviors are registered</span>
+        <span class="c1"># when running this code in a remote task.</span>
+        <span class="n">ak</span><span class="o">.</span><span class="n">behavior</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">candidate</span><span class="o">.</span><span class="n">behavior</span><span class="p">)</span>
+
+        <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">accumulator</span>
+
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">events</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;dataset&quot;</span><span class="p">]</span>
+        <span class="n">muons</span> <span class="o">=</span> <span class="n">ak</span><span class="o">.</span><span class="n">zip</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;pt&quot;</span><span class="p">:</span> <span class="n">events</span><span class="o">.</span><span class="n">Muon_pt</span><span class="p">,</span>
+                <span class="s2">&quot;eta&quot;</span><span class="p">:</span> <span class="n">events</span><span class="o">.</span><span class="n">Muon_eta</span><span class="p">,</span>
+                <span class="s2">&quot;phi&quot;</span><span class="p">:</span> <span class="n">events</span><span class="o">.</span><span class="n">Muon_phi</span><span class="p">,</span>
+                <span class="s2">&quot;mass&quot;</span><span class="p">:</span> <span class="n">events</span><span class="o">.</span><span class="n">Muon_mass</span><span class="p">,</span>
+                <span class="s2">&quot;charge&quot;</span><span class="p">:</span> <span class="n">events</span><span class="o">.</span><span class="n">Muon_charge</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="n">with_name</span><span class="o">=</span><span class="s2">&quot;PtEtaPhiMCandidate&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">cut</span> <span class="o">=</span> <span class="p">(</span><span class="n">ak</span><span class="o">.</span><span class="n">num</span><span class="p">(</span><span class="n">muons</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">ak</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">muons</span><span class="o">.</span><span class="n">charge</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># add first and second muon in every event together</span>
+        <span class="n">dimuon</span> <span class="o">=</span> <span class="n">muons</span><span class="p">[</span><span class="n">cut</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">muons</span><span class="p">[</span><span class="n">cut</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">output</span><span class="p">[</span><span class="s2">&quot;sumw&quot;</span><span class="p">][</span><span class="n">dataset</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">events</span><span class="p">)</span>
+        <span class="n">output</span><span class="p">[</span><span class="s2">&quot;mass&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span>
+            <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span>
+            <span class="n">mass</span><span class="o">=</span><span class="n">dimuon</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">postprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accumulator</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">accumulator</span>
+
+
+<span class="c1">###############################################################################</span>
+<span class="c1"># Sample data sources come from CERN opendata.</span>
+<span class="c1">###############################################################################</span>
+
+<span class="n">fileset</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;DoubleMuon&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;root://eospublic.cern.ch//eos/root-eos/cms_opendata_2012_nanoaod/Run2012B_DoubleMuParked.root&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;root://eospublic.cern.ch//eos/root-eos/cms_opendata_2012_nanoaod/Run2012C_DoubleMuParked.root&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">}</span>
+
+
+<span class="c1">###############################################################################</span>
+<span class="c1"># Configuration of the Work Queue Executor</span>
+<span class="c1">###############################################################################</span>
+
+<span class="c1"># secret passed between manager and workers for authentication</span>
+<span class="n">my_password_file</span> <span class="o">=</span> <span class="s2">&quot;password.txt&quot;</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">my_password_file</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;my_secret_password&quot;</span><span class="p">)</span>
+
+<span class="n">work_queue_executor_args</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># Automatically allocate cores, memory and disk to tasks. Adjusts to</span>
+    <span class="c1"># maximum values measured. Initially, tasks use whole workers.</span>
+    <span class="s2">&quot;resources_mode&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+    <span class="c1"># Split a processing task in half according to its chunksize when it</span>
+    <span class="c1"># exhausts the resources allocated to it.</span>
+    <span class="s2">&quot;split_on_exhaustion&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Options to control how workers find this manager.</span>
+    <span class="s2">&quot;master_name&quot;</span><span class="p">:</span> <span class="n">wq_manager_name</span><span class="p">,</span>
+    <span class="c1"># Port for manager to listen on: if zero, will choose automatically.</span>
+    <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="n">wq_port</span><span class="p">,</span>
+    <span class="c1"># Secret passed between manager and workers</span>
+    <span class="s2">&quot;password_file&quot;</span><span class="p">:</span> <span class="n">my_password_file</span><span class="p">,</span>
+    <span class="c1"># The named conda environment tarball will be transferred to each worker,</span>
+    <span class="c1"># and activated. This is useful when coffea is not installed in the remote</span>
+    <span class="c1"># machines. conda enviroments are created with conda-pack, and should at</span>
+    <span class="c1"># least include coffea, ndcctools (both from conda-forge channel)</span>
+    <span class="c1"># and their dependencies.</span>
+    <span class="c1">#</span>
+    <span class="c1"># &quot;environment_file&quot;: &quot;coffea-env.tar.gz&quot;,</span>
+    <span class="c1"># Debugging: Display notes about each task submitted/complete.</span>
+    <span class="s2">&quot;verbose&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Debugging: Display output of task if not empty.</span>
+    <span class="s2">&quot;print_stdout&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="c1"># Debugging: Produce a lot at the manager side of things.</span>
+    <span class="s2">&quot;debug_log&quot;</span><span class="p">:</span> <span class="s2">&quot;coffea-wq.log&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">executor</span> <span class="o">=</span> <span class="n">WorkQueueExecutor</span><span class="p">(</span><span class="o">**</span><span class="n">work_queue_executor_args</span><span class="p">)</span>
+
+
+<span class="c1">###############################################################################</span>
+<span class="c1"># Run the analysis using local Work Queue workers</span>
+<span class="c1">###############################################################################</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="n">tstart</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+<span class="n">workers</span> <span class="o">=</span> <span class="n">wq</span><span class="o">.</span><span class="n">Factory</span><span class="p">(</span>
+    <span class="c1"># local runs:</span>
+    <span class="n">batch_type</span><span class="o">=</span><span class="s2">&quot;local&quot;</span><span class="p">,</span>
+    <span class="n">manager_host_port</span><span class="o">=</span><span class="s2">&quot;localhost:</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">wq_port</span><span class="p">)</span>
+    <span class="c1"># with a batch system, e.g., condor.</span>
+    <span class="c1"># (If coffea not at the installation site, then a conda</span>
+    <span class="c1"># environment_file should be defined in the work_queue_executor_args.)</span>
+    <span class="c1"># batch_type=&quot;condor&quot;, manager_name=wq_manager_name</span>
+<span class="p">)</span>
+
+<span class="n">workers</span><span class="o">.</span><span class="n">max_workers</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">workers</span><span class="o">.</span><span class="n">min_workers</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">workers</span><span class="o">.</span><span class="n">cores</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">workers</span><span class="o">.</span><span class="n">memory</span> <span class="o">=</span> <span class="mi">1000</span>  <span class="c1"># MB</span>
+<span class="n">workers</span><span class="o">.</span><span class="n">disk</span> <span class="o">=</span> <span class="mi">2000</span>  <span class="c1"># MB</span>
+<span class="n">workers</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="n">my_password_file</span>
+
+<span class="c1"># Instead of declaring the python environment per task, you can set it in</span>
+<span class="c1"># the factory directly. This is useful if you are going to run a workflow</span>
+<span class="c1"># several times using the same set of workers. It also ensures that the worker</span>
+<span class="c1"># itself executes in a friendly environment.</span>
+<span class="c1"># workers.python_package = &quot;coffea-env.tar.gz&quot;</span>
+<span class="c1">#</span>
+<span class="c1"># The factory tries to write temporary files to $TMPDIR (usually /tmp). When</span>
+<span class="c1"># this is not available, or causes errors, this scracth directory can be</span>
+<span class="c1"># manually set.</span>
+<span class="c1"># workers.scratch_dir = &quot;./my-scratch-dir&quot;</span>
+
+<span class="k">with</span> <span class="n">workers</span><span class="p">:</span>
+    <span class="c1"># define the Runner instance</span>
+    <span class="n">run_fn</span> <span class="o">=</span> <span class="n">Runner</span><span class="p">(</span>
+        <span class="n">executor</span><span class="o">=</span><span class="n">executor</span><span class="p">,</span>
+        <span class="n">chunksize</span><span class="o">=</span><span class="mi">100000</span><span class="p">,</span>
+        <span class="n">maxchunks</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>  <span class="c1"># change this to None for a large run</span>
+    <span class="p">)</span>
+    <span class="c1"># execute the analysis on the given dataset</span>
+    <span class="n">hists</span> <span class="o">=</span> <span class="n">run_fn</span><span class="p">(</span><span class="n">fileset</span><span class="p">,</span> <span class="s2">&quot;Events&quot;</span><span class="p">,</span> <span class="n">MyProcessor</span><span class="p">())</span>
+
+<span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tstart</span>
+
+
+<span class="nb">print</span><span class="p">(</span><span class="n">hists</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hists</span><span class="p">[</span><span class="s2">&quot;mass&quot;</span><span class="p">])</span>
+
+<span class="c1"># (assert only valid when using maxchunks=4)</span>
+<span class="k">assert</span> <span class="n">hists</span><span class="p">[</span><span class="s2">&quot;sumw&quot;</span><span class="p">][</span><span class="s2">&quot;DoubleMuon&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">400224</span>
+</pre></div>
+</div>
+<p>When executing this example,
+you should see that Coffea begins to run, and a progress bar
+shows the creation of tasks.  Workers are created locally using the factory
+declared.</p>
+<p>You can also launch workers outside python. For testing purposes, you can start
+a single worker on the same machine, and direct it to connect to your manager
+process, like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">work_queue_worker</span> <span class="o">-</span><span class="n">P</span> <span class="n">password</span><span class="o">.</span><span class="n">txt</span> <span class="o">&lt;</span><span class="n">hostname</span><span class="o">&gt;</span> <span class="mi">9123</span>
+</pre></div>
+</div>
+<p>Or:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>work_queue_worker -P password.txt -M coffea-wq-${USER}
+</pre></div>
+</div>
+<p>With a single worker, the process will be gradual as it completes
+one task (or a few tasks) at a time.  The output will be similar to this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>------------------------------------------------
+Example Coffea Analysis with Work Queue Executor
+------------------------------------------------
+Manager Name: -M coffea-wq-btovar
+------------------------------------------------
+Listening for work queue workers on port 9123.
+submitted preprocessing task id 1 item pre_0, with 1 file
+submitted preprocessing task id 2 item pre_1, with 1 file
+preprocessing task id 2 item pre_1 with 1 events on localhost. return code 0 (success)
+allocated cores: 2.0, memory: 1000 MB, disk 2000 MB, gpus: 0.0
+measured cores: 0.3, memory: 120 MB, disk 6 MB, gpus: 0.0, runtime 3.1 s
+preprocessing task id 1 item pre_0 with 1 events on localhost. return code 0 (success)
+allocated cores: 2.0, memory: 1000 MB, disk 2000 MB, gpus: 0.0
+measured cores: 0.3, memory: 120 MB, disk 6 MB, gpus: 0.0, runtime 2.9 s
+submitted processing task id 3 item p_2, with 100056 event
+submitted processing task id 4 item p_3, with 100056 event
+submitted processing task id 5 item p_4, with 100056 event
+submitted processing task id 6 item p_5, with 100056 event
+Preprocessing 100% ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━      2/2 [ 0:00:06 &lt; 0:00:00 | 0.3  file/s ]
+    Submitted   0%                                  0/400224 [ 0:00:00 &lt; -:--:-- | ?   event/s ]
+    Processed   0%                                  0/400224 [ 0:00:00 &lt; -:--:-- | ?   event/s ]
+    Accumulated 0%                                       0/1 [ 0:00:00 &lt; -:--:-- | ?   tasks/s ]
+</pre></div>
+</div>
+<p>To run at larger scale, you will need to run a large number
+of workers on a cluster or other infrastructure.  For example,
+to submit 32 workers to an HTCondor pool:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>condor_submit_workers -M coffea-wq-${USER} -P password.txt 1
+</pre></div>
+</div>
+<p>Similarly, you can run the worker’s factory outside the manager. In that way,
+you can have the manager and the factory running on different machines:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>work_queue_factory -T condor -M coffea-wq-${USER} -P password.txt --max-workers 10 --cores 8 --python-env=env.tar.gz
+</pre></div>
+</div>
+<p>For more information on starting and managing workers
+on various batch systems and clusters, see the
+<a class="reference external" href="https://cctools.readthedocs.io/en/latest/work_queue/">Work Queue</a> documentation</p>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

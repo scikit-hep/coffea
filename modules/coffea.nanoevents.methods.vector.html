@@ -1,0 +1,226 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>coffea.nanoevents.methods.vector &mdash; coffea 0.7.31 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b98972fd"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=83e3a9fa"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="TwoVector" href="../api/coffea.nanoevents.methods.vector.TwoVector.html" />
+    <link rel="prev" title="PFCand" href="../api/coffea.nanoevents.methods.nanoaod.PFCand.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            coffea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing coffea</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Coffea by Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Coffea concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">API Reference Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="coffea.analysis_tools.html">coffea.analysis_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.btag_tools.html">coffea.btag_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.hist.html">coffea.hist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.jetmet_tools.html">coffea.jetmet_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.lookup_tools.html">coffea.lookup_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.lumi_tools.html">coffea.lumi_tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.html">coffea.nanoevents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.base.html">coffea.nanoevents.methods.base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.candidate.html">coffea.nanoevents.methods.candidate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.nanoevents.methods.nanoaod.html">coffea.nanoevents.methods.nanoaod</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">coffea.nanoevents.methods.vector</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#classes">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.TwoVector.html">TwoVector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.PolarTwoVector.html">PolarTwoVector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.ThreeVector.html">ThreeVector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.SphericalThreeVector.html">SphericalThreeVector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.LorentzVector.html">LorentzVector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector.html">PtEtaPhiMLorentzVector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.html">PtEtaPhiELorentzVector</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#class-inheritance-diagram">Class Inheritance Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.processor.html">coffea.processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coffea.util.html">coffea.util</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">coffea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../reference.html">API Reference Guide</a></li>
+      <li class="breadcrumb-item active">coffea.nanoevents.methods.vector</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/modules/coffea.nanoevents.methods.vector.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-coffea.nanoevents.methods.vector">
+<span id="coffea-nanoevents-methods-vector"></span><h1>coffea.nanoevents.methods.vector<a class="headerlink" href="#module-coffea.nanoevents.methods.vector" title="Link to this heading"></a></h1>
+<p>2D, 3D, and Lorentz vector class mixins</p>
+<p>These mixins will eventually be superceded by the <a class="reference external" href="https://github.com/scikit-hep/vector">vector</a> library,
+which will hopefully be feature-compatible. The 2D vector provides cartesian and polar coordinate attributes,
+where <code class="docutils literal notranslate"><span class="pre">r</span></code> represents the polar distance from the origin..  The 3D vector provides cartesian and spherical coordinates,
+where <code class="docutils literal notranslate"><span class="pre">rho</span></code> represents the 3D distance from the origin and <code class="docutils literal notranslate"><span class="pre">r</span></code> is the axial distance from the z axis, so that it can
+subclass the 2D vector. The Lorentz vector also subclasses the 3D vector, adding <code class="docutils literal notranslate"><span class="pre">t</span></code> as the fourth
+cartesian coordinate. Aliases typical of momentum vectors are also provided.</p>
+<p>A small example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">awkward</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ak</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">coffea.nanoevents.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">vector</span>
+
+<span class="n">n</span> <span class="o">=</span> <span class="mi">1000</span>
+
+<span class="n">vec</span> <span class="o">=</span> <span class="n">ak</span><span class="o">.</span><span class="n">zip</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">),</span>
+        <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">),</span>
+        <span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">),</span>
+    <span class="p">},</span>
+    <span class="n">with_name</span><span class="o">=</span><span class="s2">&quot;ThreeVector&quot;</span><span class="p">,</span>
+    <span class="n">behavior</span><span class="o">=</span><span class="n">vector</span><span class="o">.</span><span class="n">behavior</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">vec4</span> <span class="o">=</span> <span class="n">ak</span><span class="o">.</span><span class="n">zip</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;pt&quot;</span><span class="p">:</span> <span class="n">vec</span><span class="o">.</span><span class="n">r</span><span class="p">,</span>
+        <span class="s2">&quot;eta&quot;</span><span class="p">:</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">vec</span><span class="o">.</span><span class="n">theta</span><span class="o">/</span><span class="mi">2</span><span class="p">)),</span>
+        <span class="s2">&quot;phi&quot;</span><span class="p">:</span> <span class="n">vec</span><span class="o">.</span><span class="n">phi</span><span class="p">,</span>
+        <span class="s2">&quot;mass&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mf">1.</span><span class="p">),</span>
+    <span class="p">},</span>
+    <span class="n">with_name</span><span class="o">=</span><span class="s2">&quot;PtEtaPhiMLorentzVector&quot;</span><span class="p">,</span>
+    <span class="n">behavior</span><span class="o">=</span><span class="n">vector</span><span class="o">.</span><span class="n">behavior</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vec4</span><span class="o">.</span><span class="n">x</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vec</span><span class="o">.</span><span class="n">x</span><span class="p">))</span>
+<span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vec4</span><span class="o">.</span><span class="n">y</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vec</span><span class="o">.</span><span class="n">y</span><span class="p">))</span>
+<span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vec4</span><span class="o">.</span><span class="n">z</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vec</span><span class="o">.</span><span class="n">z</span><span class="p">))</span>
+<span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">vec</span> <span class="o">+</span> <span class="n">vec4</span><span class="p">)</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="n">vec</span><span class="p">)),</span> <span class="mi">3</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.TwoVector.html#coffea.nanoevents.methods.vector.TwoVector" title="coffea.nanoevents.methods.vector.TwoVector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TwoVector</span></code></a>()</p></td>
+<td><p>A cartesian 2-dimensional vector</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.PolarTwoVector.html#coffea.nanoevents.methods.vector.PolarTwoVector" title="coffea.nanoevents.methods.vector.PolarTwoVector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PolarTwoVector</span></code></a>()</p></td>
+<td><p>A polar coordinate 2-dimensional vector</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.ThreeVector.html#coffea.nanoevents.methods.vector.ThreeVector" title="coffea.nanoevents.methods.vector.ThreeVector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ThreeVector</span></code></a>()</p></td>
+<td><p>A cartesian 3-dimensional vector</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.SphericalThreeVector.html#coffea.nanoevents.methods.vector.SphericalThreeVector" title="coffea.nanoevents.methods.vector.SphericalThreeVector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SphericalThreeVector</span></code></a>()</p></td>
+<td><p>A spherical coordinate 3-dimensional vector</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.LorentzVector.html#coffea.nanoevents.methods.vector.LorentzVector" title="coffea.nanoevents.methods.vector.LorentzVector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LorentzVector</span></code></a>()</p></td>
+<td><p>A cartesian Lorentz vector</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector.html#coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector" title="coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PtEtaPhiMLorentzVector</span></code></a>()</p></td>
+<td><p>A Lorentz vector using pseudorapidity and mass</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../api/coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.html#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector" title="coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PtEtaPhiELorentzVector</span></code></a>()</p></td>
+<td><p>A Lorentz vector using pseudorapidity and energy</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="class-inheritance-diagram">
+<h2>Class Inheritance Diagram<a class="headerlink" href="#class-inheritance-diagram" title="Link to this heading"></a></h2>
+<div class="graphviz"><img src="../_images/inheritance-f27a42b68931e730cc8307f2a604654db2c8e24c.png" alt="Inheritance diagram of coffea.nanoevents.methods.vector.TwoVector, coffea.nanoevents.methods.vector.PolarTwoVector, coffea.nanoevents.methods.vector.ThreeVector, coffea.nanoevents.methods.vector.SphericalThreeVector, coffea.nanoevents.methods.vector.LorentzVector, coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector, coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector" usemap="#inheritance710bfc76e9" class="inheritance graphviz" /></div>
+<map id="inheritance710bfc76e9" name="inheritance710bfc76e9">
+<area shape="rect" id="node1" href="../api/coffea.nanoevents.methods.vector.LorentzVector.html#coffea.nanoevents.methods.vector.LorentzVector" target="_top" title="A cartesian Lorentz vector" alt="" coords="335,5,446,31"/>
+<area shape="rect" id="node5" href="../api/coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.html#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector" target="_top" title="A Lorentz vector using pseudorapidity and energy" alt="" coords="521,5,694,31"/>
+<area shape="rect" id="node7" href="../api/coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector.html#coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector" target="_top" title="A Lorentz vector using pseudorapidity and mass" alt="" coords="519,55,696,80"/>
+<area shape="rect" id="node2" href="../api/coffea.nanoevents.methods.vector.ThreeVector.html#coffea.nanoevents.methods.vector.ThreeVector" target="_top" title="A cartesian 3&#45;dimensional vector" alt="" coords="152,5,252,31"/>
+<area shape="rect" id="node6" href="../api/coffea.nanoevents.methods.vector.SphericalThreeVector.html#coffea.nanoevents.methods.vector.SphericalThreeVector" target="_top" title="A spherical coordinate 3&#45;dimensional vector" alt="" coords="311,55,471,80"/>
+<area shape="rect" id="node3" href="../api/coffea.nanoevents.methods.vector.PolarTwoVector.html#coffea.nanoevents.methods.vector.PolarTwoVector" target="_top" title="A polar coordinate 2&#45;dimensional vector" alt="" coords="141,55,263,80"/>
+<area shape="rect" id="node4" href="../api/coffea.nanoevents.methods.vector.TwoVector.html#coffea.nanoevents.methods.vector.TwoVector" target="_top" title="A cartesian 2&#45;dimensional vector" alt="" coords="5,31,93,56"/>
+</map></section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../api/coffea.nanoevents.methods.nanoaod.PFCand.html" class="btn btn-neutral float-left" title="PFCand" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/coffea.nanoevents.methods.vector.TwoVector.html" class="btn btn-neutral float-right" title="TwoVector" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2019, Fermi National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

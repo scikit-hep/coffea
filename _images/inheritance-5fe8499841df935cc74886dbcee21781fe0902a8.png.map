@@ -1,0 +1,12 @@
+<map id="inheritance0f677b02d9" name="inheritance0f677b02d9">
+<area shape="rect" id="node1" href="../api/coffea.nanoevents.methods.candidate.Candidate.html#coffea.nanoevents.methods.candidate.Candidate" target="_top" title="A Lorentz vector with charge" alt="" coords="479,5,553,26"/>
+<area shape="rect" id="node6" href="../api/coffea.nanoevents.methods.candidate.PtEtaPhiECandidate.html#coffea.nanoevents.methods.candidate.PtEtaPhiECandidate" target="_top" title="A Lorentz vector in eta, energy coordinates with charge" alt="" coords="634,68,762,89"/>
+<area shape="rect" id="node9" href="../api/coffea.nanoevents.methods.candidate.PtEtaPhiMCandidate.html#coffea.nanoevents.methods.candidate.PtEtaPhiMCandidate" target="_top" title="A Lorentz vector in eta, mass coordinates with charge" alt="" coords="632,16,763,37"/>
+<area shape="rect" id="node2" href="../api/coffea.nanoevents.methods.vector.LorentzVector.html#coffea.nanoevents.methods.vector.LorentzVector" target="_top" title="A cartesian Lorentz vector" alt="" coords="285,46,379,68"/>
+<area shape="rect" id="node7" href="../api/coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector.html#coffea.nanoevents.methods.vector.PtEtaPhiELorentzVector" target="_top" title="A Lorentz vector using pseudorapidity and energy" alt="" coords="442,88,590,110"/>
+<area shape="rect" id="node10" href="../api/coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector.html#coffea.nanoevents.methods.vector.PtEtaPhiMLorentzVector" target="_top" title="A Lorentz vector using pseudorapidity and mass" alt="" coords="441,46,591,68"/>
+<area shape="rect" id="node3" href="../api/coffea.nanoevents.methods.vector.ThreeVector.html#coffea.nanoevents.methods.vector.ThreeVector" target="_top" title="A cartesian 3&#45;dimensional vector" alt="" coords="129,46,214,68"/>
+<area shape="rect" id="node8" href="../api/coffea.nanoevents.methods.vector.SphericalThreeVector.html#coffea.nanoevents.methods.vector.SphericalThreeVector" target="_top" title="A spherical coordinate 3&#45;dimensional vector" alt="" coords="264,88,400,110"/>
+<area shape="rect" id="node4" href="../api/coffea.nanoevents.methods.vector.PolarTwoVector.html#coffea.nanoevents.methods.vector.PolarTwoVector" target="_top" title="A polar coordinate 2&#45;dimensional vector" alt="" coords="120,88,223,110"/>
+<area shape="rect" id="node5" href="../api/coffea.nanoevents.methods.vector.TwoVector.html#coffea.nanoevents.methods.vector.TwoVector" target="_top" title="A cartesian 2&#45;dimensional vector" alt="" coords="5,68,79,89"/>
+</map>

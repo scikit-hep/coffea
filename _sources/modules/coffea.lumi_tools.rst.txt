@@ -1,0 +1,5 @@
+coffea.lumi_tools
+=================
+
+.. automodapi:: coffea.lumi_tools
+    :no-heading:
