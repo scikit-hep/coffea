@@ -5,7 +5,7 @@ import awkward
 from coffea.nanoevents.methods.base import Systematic, behavior
 
 
-@awkward.behaviors.mixins.mixin_class(behavior)
+@awkward.mixin_class(behavior)
 class UpDownSystematic(Systematic):
     """An example instance of a simple systematic with only up/down variations."""
 
