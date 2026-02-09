@@ -6,6 +6,8 @@ from coffea.util import numpy as np
 
 import time
 import pyinstrument
+import pytest
+from typing import Any, Dict
 
 from dummy_distributions import dummy_jagged_eta_pt
 
@@ -39,6 +41,24 @@ def jetmet_evaluator():
 
 
 evaluator = jetmet_evaluator()
+
+
+def _minimal_name_map():
+    return {
+        "JetPt": "pt",
+        "JetMass": "mass",
+        "JetEta": "eta",
+        "JetPhi": "phi",
+        "JetA": "area",
+        "ptRaw": "pt_raw",
+        "massRaw": "mass_raw",
+        "ptGenJet": "pt_gen",
+        "Rho": "rho",
+        "METpt": "met_pt",
+        "METphi": "met_phi",
+        "UnClusteredEnergyDeltaX": "dpx",
+        "UnClusteredEnergyDeltaY": "dpy",
+    }
 
 
 def test_factorized_jet_corrector():
@@ -805,3 +825,520 @@ def test_factory_lifecycle():
     print("Diff:", diff)
     assert len(diff) == 0
     assert jec_finalized.is_set()
+
+
+def test_corrected_jets_uncertainty_names_legacy():
+    from coffea.jetmet_tools import CorrectedJetsFactory, CorrectedMETFactory, JECStack
+
+    junc_name = "Summer16_23Sep2016V3_MC_UncertaintySources_AK4PFPuppi_AbsoluteStat"
+    jec_stack = JECStack({junc_name: evaluator[junc_name]})
+
+    jet_factory = CorrectedJetsFactory(_minimal_name_map(), jec_stack)
+    met_factory = CorrectedMETFactory(_minimal_name_map())
+
+    expected = ["JES_AbsoluteStat"]
+    assert jet_factory.uncertainties() == expected
+    assert jet_factory.uncertainties() + met_factory.uncertainties() == (
+        expected + ["MET_UnclusteredEnergy"]
+    )
+
+
+def test_corrected_jets_uncertainty_names_correctionlib(tmp_path):
+    import correctionlib.schemav2 as cs
+    from coffea.jetmet_tools import CorrectedJetsFactory, CorrectedMETFactory, JECStack
+
+    jec_inputs = [cs.Variable(name="JetPt", type="real")]
+
+    base_binning = cs.Binning(
+        nodetype="binning",
+        input="JetPt",
+        edges=[0.0, 1e6],
+        flow="clamp",
+        content=[1.0],
+    )
+
+    corrections = [
+        cs.Correction(
+            name="Test_L1_AK4PF",
+            description="",
+            version=1,
+            inputs=jec_inputs,
+            output=cs.Variable(name="weight", type="real"),
+            data=base_binning,
+        ),
+        cs.Correction(
+            name="Test_AbsoluteStat_AK4PF",
+            description="",
+            version=1,
+            inputs=[cs.Variable(name="JetPt", type="real")],
+            output=cs.Variable(name="weight", type="real"),
+            data=cs.Binning(
+                nodetype="binning",
+                input="JetPt",
+                edges=[0.0, 1e6],
+                flow="clamp",
+                content=[0.1],
+            ),
+        ),
+    ]
+
+    json_path = tmp_path / "test_uncertainty.json"
+    json_path.write_text(
+        cs.CorrectionSet(schema_version=2, corrections=corrections).json(
+            exclude_none=True
+        )
+    )
+
+    jec_stack = JECStack(
+        use_clib=True,
+        jec_tag="Test",
+        jec_levels=["L1"],
+        jet_algo="AK4PF",
+        junc_types=["AbsoluteStat"],
+        json_path=str(json_path),
+    )
+
+    jet_factory = CorrectedJetsFactory(_minimal_name_map(), jec_stack)
+    met_factory = CorrectedMETFactory(_minimal_name_map())
+
+    expected = ["JES_AbsoluteStat"]
+    assert jet_factory.uncertainties() == expected
+    assert jet_factory.uncertainties() + met_factory.uncertainties() == (
+        expected + ["MET_UnclusteredEnergy"]
+    )
+
+
+def test_correctionlib_name_map_autowiring(tmp_path):
+    import correctionlib.schemav2 as cs
+    from coffea.jetmet_tools import CorrectedJetsFactory, JECStack
+
+    # Build a minimal correction set with JEC and JES entries
+    jec_inputs = [
+        cs.Variable(name="JetPt", type="real"),
+        cs.Variable(name="JetEta", type="real"),
+        cs.Variable(name="JetA", type="real"),
+        cs.Variable(name="Rho", type="real"),
+    ]
+    formulas = cs.Formula(
+        nodetype="Formula",
+        expression="1 + 0*JetPt + 0*JetEta + 0*JetA + 0*Rho",
+        parser="TFormula",
+        variables=[var.name for var in jec_inputs],
+    )
+    corrections = [
+        cs.Correction(
+            name="Test_L1_AK4PF",
+            description="",
+            version=1,
+            inputs=jec_inputs,
+            output=cs.Variable(name="weight", type="real"),
+            data=formulas,
+        ),
+        cs.Correction(
+            name="Test_L2_AK4PF",
+            description="",
+            version=1,
+            inputs=jec_inputs,
+            output=cs.Variable(name="weight", type="real"),
+            data=formulas,
+        ),
+        cs.Correction(
+            name="Test_AbsoluteStat_AK4PF",
+            description="",
+            version=1,
+            inputs=[
+                cs.Variable(name="JetPt", type="real"),
+                cs.Variable(name="JetEta", type="real"),
+            ],
+            output=cs.Variable(name="weight", type="real"),
+            data=cs.Formula(
+                nodetype="Formula",
+                expression="0.1 + 0*JetPt + 0*JetEta",
+                parser="TFormula",
+                variables=["JetPt", "JetEta"],
+            ),
+        ),
+    ]
+
+    json_path = tmp_path / "test_jec.json"
+    json_path.write_text(
+        cs.CorrectionSet(schema_version=2, corrections=corrections).json(
+            exclude_none=True
+        )
+    )
+
+    jec_stack = JECStack(
+        use_clib=True,
+        jec_tag="Test",
+        jec_levels=["L1", "L2"],
+        jet_algo="AK4PF",
+        junc_types=["AbsoluteStat"],
+        json_path=str(json_path),
+    )
+
+    # Provide minimal overrides and rely on stack-provided defaults for the rest
+    name_map = {"JetPt": "pt", "JetMass": "mass"}
+    jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+
+    for inferred in ["JetEta", "JetA", "Rho", "JetPhi"]:
+        assert inferred in jet_factory.name_map
+        assert jet_factory.name_map[inferred] == inferred
+
+    jets = ak.Array(
+        {
+            "pt": [[100.0, 80.0]],
+            "mass": [[10.0, 9.0]],
+            "pt_raw": [[100.0, 80.0]],
+            "mass_raw": [[10.0, 9.0]],
+            "JetEta": [[0.3, -1.2]],
+            "JetPhi": [[0.1, -0.2]],
+            "JetA": [[0.5, 0.5]],
+            "Rho": [[10.0, 10.0]],
+        }
+    )
+    jec_cache = cachetools.Cache(np.inf)
+    corrected_jets = jet_factory.build(jets, lazy_cache=jec_cache)
+
+    assert ak.allclose(corrected_jets.pt, jets.pt)
+    assert ak.allclose(corrected_jets.mass, jets.mass)
+
+    assert ak.allclose(corrected_jets.JES_AbsoluteStat.up.pt, jets.pt * 1.1)
+    assert ak.allclose(corrected_jets.JES_AbsoluteStat.down.pt, jets.pt * 0.9)
+
+
+def test_correctionlib_step_selection_api(tmp_path):
+    import correctionlib.schemav2 as cs
+    from coffea.jetmet_tools import CorrectedJetsFactory, JECStack
+
+    jec_inputs = [cs.Variable(name="JetPt", type="real")]
+
+    corrections = [
+        cs.Correction(
+            name="StepSelect_L1_AK4PF",
+            description="",
+            version=1,
+            inputs=jec_inputs,
+            output=cs.Variable(name="weight", type="real"),
+            data=cs.Binning(
+                nodetype="binning",
+                input="JetPt",
+                edges=[0.0, 1e6],
+                flow="clamp",
+                content=[1.1],
+            ),
+        ),
+        cs.Correction(
+            name="StepSelect_L2_AK4PF",
+            description="",
+            version=1,
+            inputs=jec_inputs,
+            output=cs.Variable(name="weight", type="real"),
+            data=cs.Binning(
+                nodetype="binning",
+                input="JetPt",
+                edges=[0.0, 1e6],
+                flow="clamp",
+                content=[1.2],
+            ),
+        ),
+    ]
+
+    json_path = tmp_path / "step_select.json"
+    json_path.write_text(
+        cs.CorrectionSet(schema_version=2, corrections=corrections).json(
+            exclude_none=True
+        )
+    )
+
+    jec_stack = JECStack(
+        use_clib=True,
+        jec_tag="StepSelect",
+        jec_levels=["L1", "L2"],
+        jet_algo="AK4PF",
+        json_path=str(json_path),
+    )
+
+    name_map = {
+        "JetPt": "pt",
+        "JetMass": "mass",
+        "JetEta": "eta",
+        "JetPhi": "phi",
+        "JetA": "area",
+        "Rho": "rho",
+        "ptRaw": "pt_raw",
+        "massRaw": "mass_raw",
+    }
+
+    jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+
+    jets = ak.Array(
+        {
+            "pt": [[100.0, 80.0]],
+            "mass": [[10.0, 8.0]],
+            "pt_raw": [[95.0, 76.0]],
+            "mass_raw": [[9.5, 7.5]],
+            "eta": [[0.1, -0.2]],
+            "phi": [[0.5, -1.0]],
+            "area": [[0.5, 0.5]],
+            "rho": [[20.0, 20.0]],
+        }
+    )
+
+    jec_cache = cachetools.Cache(np.inf)
+
+    corrected_jets = jet_factory.build(jets, lazy_cache=jec_cache)
+    jet_fields = set(ak.fields(corrected_jets))
+    assert all(
+        not field.startswith("jet_energy_correction_StepSelect") for field in jet_fields
+    )
+
+    level_one = jet_factory.correction_factors(
+        jets, lazy_cache=jec_cache, target_level="L1"
+    )
+    assert ak.allclose(level_one, ak.full_like(jets.pt, 1.1))
+
+    full_levels = jet_factory.correction_factors(
+        jets, lazy_cache=jec_cache, target_level="L2"
+    )
+    assert ak.allclose(full_levels, ak.full_like(jets.pt, 1.1 * 1.2))
+
+    partial_jets = jet_factory.build(jets, lazy_cache=jec_cache, target_level="L1")
+    assert ak.allclose(partial_jets.pt, jets.pt_raw * 1.1)
+
+    with pytest.raises(ValueError):
+        jet_factory.correction_factors(jets, lazy_cache=jec_cache, target_level="L3")
+
+
+def _write_minimal_jec_json(base_dir, jec_tag, jet_algo):
+    import correctionlib.schemav2 as cs
+
+    jec_inputs = [
+        cs.Variable(name="JetPt", type="real"),
+        cs.Variable(name="JetEta", type="real"),
+        cs.Variable(name="JetA", type="real"),
+        cs.Variable(name="Rho", type="real"),
+    ]
+
+    formula = cs.Formula(
+        nodetype="formula",
+        expression="1",
+        parser="TFormula",
+        variables=[var.name for var in jec_inputs],
+    )
+
+    correction = cs.Correction(
+        name=f"{jec_tag}_L1_{jet_algo}",
+        description="",
+        version=1,
+        inputs=jec_inputs,
+        output=cs.Variable(name="weight", type="real"),
+        data=formula,
+    )
+
+    target = base_dir / f"{jec_tag}_{jet_algo}.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        cs.CorrectionSet(schema_version=2, corrections=[correction]).json(
+            exclude_none=True
+        )
+    )
+    return target
+
+
+@pytest.mark.parametrize("jet_algo", ["AK4PFchs", "AK8PFPuppi"])
+def test_correctionlib_json_auto_selection(tmp_path, jet_algo):
+    from coffea.jetmet_tools import CorrectedJetsFactory, JECStack
+
+    json_repo = tmp_path / "json_repo"
+    year = "2018"
+    jec_tag = "Auto"
+    target_dir = json_repo / year
+
+    # Write JSONs for both AK4 and AK8 so the resolver has to pick the right one
+    _write_minimal_jec_json(target_dir, jec_tag, "AK4PFchs")
+    _write_minimal_jec_json(target_dir, jec_tag, "AK8PFPuppi")
+
+    jec_stack = JECStack(
+        use_clib=True,
+        jec_tag=jec_tag,
+        jec_levels=["L1"],
+        jet_algo=jet_algo,
+        year=year,
+        json_search_dirs=[json_repo],
+    )
+
+    expected_path = target_dir / f"{jec_tag}_{jet_algo}.json"
+    assert jec_stack.json_path == expected_path.as_posix()
+    assert jec_stack.resolved_json_path == str(expected_path.resolve())
+
+    name_map = {
+        "JetPt": "pt",
+        "JetMass": "mass",
+        "JetEta": "eta",
+        "JetPhi": "phi",
+        "JetA": "area",
+        "Rho": "rho",
+        "ptRaw": "pt_raw",
+        "massRaw": "mass_raw",
+    }
+
+    jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+    assert f"{jec_tag}_L1_{jet_algo}" in jet_factory.corrections
+
+
+def test_correctionlib_resolver_skips_auto_inference(tmp_path):
+    from coffea.jetmet_tools import JECStack
+
+    json_repo = tmp_path / "json_repo"
+    year = "2018"
+    jec_tag = "AutoResolver"
+    jet_algo = "AK4PFchs"
+
+    _write_minimal_jec_json(json_repo / year, jec_tag, jet_algo)
+    resolver_path = _write_minimal_jec_json(
+        tmp_path / "resolver_repo", jec_tag, jet_algo
+    )
+
+    stack = JECStack(
+        use_clib=True,
+        jec_tag=jec_tag,
+        jec_levels=["L1"],
+        jet_algo=jet_algo,
+        year=year,
+        json_search_dirs=[json_repo],
+        resolver=lambda _: str(resolver_path),
+    )
+
+    assert stack.cset[f"{jec_tag}_L1_{jet_algo}"]
+    assert stack.resolved_json_path == str(resolver_path.resolve())
+    assert stack.json_path is None
+
+
+def test_correctionlib_local_resolver(tmp_path):
+    import correctionlib.schemav2 as cs
+    from coffea.jetmet_tools import JECStack
+
+    jec_inputs = [
+        cs.Variable(name="JetPt", type="real"),
+        cs.Variable(name="JetEta", type="real"),
+    ]
+
+    local_cset = cs.CorrectionSet(
+        schema_version=2,
+        corrections=[
+            cs.Correction(
+                name="Local_L1_AK4PF",
+                description="",
+                version=1,
+                inputs=jec_inputs,
+                output=cs.Variable(name="weight", type="real"),
+                data=cs.Formula(
+                    nodetype="Formula",
+                    expression="1 + 0*JetPt + 0*JetEta",
+                    parser="TFormula",
+                    variables=["JetPt", "JetEta"],
+                ),
+            )
+        ],
+    )
+
+    json_path = tmp_path / "local_jec.json"
+    json_path.write_text(local_cset.json(exclude_none=True))
+
+    stack_from_resolver = JECStack(
+        use_clib=True,
+        jec_tag="Local",
+        jec_levels=["L1"],
+        jet_algo="AK4PF",
+        resolver=lambda _: str(json_path),
+    )
+    assert stack_from_resolver.cset["Local_L1_AK4PF"]
+    assert stack_from_resolver.resolved_json_path == str(json_path)
+
+    stack_from_cset = JECStack(
+        use_clib=True,
+        jec_tag="Local",
+        jec_levels=["L1"],
+        jet_algo="AK4PF",
+        correction_set=local_cset,
+    )
+    assert stack_from_cset.cset["Local_L1_AK4PF"]
+    assert stack_from_cset.resolved_json_path is None
+
+
+def test_correctionlib_cache_reuses_files(tmp_path, monkeypatch):
+    import correctionlib as clib
+    import correctionlib.schemav2 as cs
+    from coffea.jetmet_tools import CorrectedJetsFactory, JECStack
+
+    jec_inputs = [
+        cs.Variable(name="JetPt", type="real"),
+        cs.Variable(name="JetEta", type="real"),
+        cs.Variable(name="JetA", type="real"),
+        cs.Variable(name="Rho", type="real"),
+    ]
+    formula = cs.Formula(
+        nodetype="formula",
+        expression="1",
+        parser="TFormula",
+        variables=[var.name for var in jec_inputs],
+    )
+    corrections = [
+        cs.Correction(
+            name="Test_L1_AK4PF",
+            description="",
+            version=1,
+            inputs=jec_inputs,
+            output=cs.Variable(name="weight", type="real"),
+            data=formula,
+        ),
+        cs.Correction(
+            name="Test_L2_AK4PF",
+            description="",
+            version=1,
+            inputs=jec_inputs,
+            output=cs.Variable(name="weight", type="real"),
+            data=formula,
+        ),
+    ]
+
+    json_path = tmp_path / "cache_test.json"
+    json_path.write_text(
+        cs.CorrectionSet(schema_version=2, corrections=corrections).json(
+            exclude_none=True
+        )
+    )
+
+    load_counter = {"count": 0}
+    original_from_file = clib.CorrectionSet.from_file
+
+    def counting_from_file(cls, path):
+        load_counter["count"] += 1
+        return original_from_file(path)
+
+    monkeypatch.setattr(
+        clib.CorrectionSet, "from_file", classmethod(counting_from_file)
+    )
+
+    shared_cache: Dict[str, Dict[str, Any]] = {}
+
+    stack_kwargs = dict(
+        use_clib=True,
+        jec_tag="Test",
+        jec_levels=["L1", "L2"],
+        jet_algo="AK4PF",
+        json_path=str(json_path),
+        cache=shared_cache,
+    )
+
+    stack_one = JECStack(**stack_kwargs)
+    stack_two = JECStack(**stack_kwargs)
+
+    name_map = {"JetPt": "pt", "JetMass": "mass"}
+    CorrectedJetsFactory(name_map, stack_one)
+    CorrectedJetsFactory(name_map, stack_two)
+
+    assert load_counter["count"] == 1
+    assert (
+        stack_one.corrections["Test_L1_AK4PF"] is stack_two.corrections["Test_L1_AK4PF"]
+    )

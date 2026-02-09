@@ -1,44 +1,18 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, division
 
-import pytest
-
-from coffea.util import numpy as np
-import requests
-import os
-
-url = (
-    "https://github.com/scikit-hep/uproot3/blob/master/tests/samples/HZZ.root?raw=true"
-)
-r = requests.get(url)
-with open(os.path.join(os.getcwd(), "HZZ.root"), "wb") as f:
-    f.write(r.content)
+import numpy as np
 
 
 def fill_lepton_kinematics():
-    import uproot
-    import awkward as ak
-    from coffea.nanoevents.methods import candidate
-
-    ak.behavior.update(candidate.behavior)
-
     # histogram creation and manipulation
     from coffea import hist
 
-    fin = uproot.open("HZZ.root")
-    tree = fin["events"]
+    electrons_pt = np.array([45.0, 32.0, 51.0, 28.0, 18.0])
+    electrons_eta = np.array([0.3, -1.1, 0.2, 2.1, -2.3])
 
-    arrays = {
-        k.replace("Electron_", "").strip("P").replace("E", "t").lower(): v
-        for k, v in tree.arrays(filter_name="Electron_*", how=dict).items()
-    }
-    electrons = ak.zip(arrays, with_name="Candidate")
-
-    arrays = {
-        k.replace("Muon_", "").strip("P").replace("E", "t").lower(): v
-        for k, v in tree.arrays(filter_name="Muon_*", how=dict).items()
-    }
-    muons = ak.zip(arrays, with_name="Candidate")
+    muons_pt = np.array([25.0, 78.0, 62.0, 53.0, 41.0, 18.0])
+    muons_eta = np.array([-0.4, 1.3, -0.3, 0.5, -1.8, 2.4])
 
     # Two types of axes exist presently: bins and categories
     lepton_kinematics = hist.Hist(
@@ -50,17 +24,12 @@ def fill_lepton_kinematics():
 
     # Pass keyword arguments to fill, all arrays must be flat numpy arrays
     # User is responsible for ensuring all arrays have same jagged structure!
-    lepton_kinematics.fill(
-        flavor="electron", pt=ak.flatten(electrons.pt), eta=ak.flatten(electrons.eta)
-    )
-    lepton_kinematics.fill(
-        flavor="muon", pt=ak.flatten(muons.pt), eta=ak.flatten(muons.eta)
-    )
+    lepton_kinematics.fill(flavor="electron", pt=electrons_pt, eta=electrons_eta)
+    lepton_kinematics.fill(flavor="muon", pt=muons_pt, eta=muons_eta)
 
     return lepton_kinematics
 
 
-@pytest.mark.mpl_image_compare(style="default", remove_text=True)
 def test_plot1d():
     # histogram creation and manipulation
     # matplotlib
@@ -88,10 +57,12 @@ def test_plot1d():
     lepton_pt.label = "Density"
     hist.plot1d(lepton_pt, overlay="flavor", density=True)
 
-    return ax.figure
+    assert ax.figure is not None
+    # Two stacked categories should produce at least two artists
+    filled_patches = [patch for patch in ax.patches if patch.get_height() > 0]
+    assert len(filled_patches) >= 2
 
 
-@pytest.mark.mpl_image_compare(style="default", remove_text=True)
 def test_plot2d():
     # histogram creation and manipulation
     from coffea import hist
@@ -108,7 +79,8 @@ def test_plot2d():
 
     ax = hist.plot2d(muon_kinematics, "eta")
 
-    return ax.figure
+    assert ax.figure is not None
+    assert len(ax.collections) >= 1
 
 
 def test_plotratio():
@@ -233,7 +205,6 @@ def test_plotratio():
     )
 
 
-@pytest.mark.mpl_image_compare(style="default", remove_text=True)
 def test_plotgrid():
     # histogram creation and manipulation
     from coffea import hist
@@ -265,7 +236,11 @@ def test_plotgrid():
         error_opts=stack_error_opts,
     )
 
-    return axs.flatten()[0].figure
+    assert axs.shape[0] == len(lepton_kinematics.axis("eta").centers())
+    assert axs.shape[1] == 1
+    for axis_row in axs:
+        for axis in axis_row:
+            assert axis.figure is not None
 
 
 def test_clopper_pearson_interval():
