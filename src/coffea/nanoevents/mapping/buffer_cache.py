@@ -323,15 +323,13 @@ def lru_cache(
     try:
         import zict  # ty:ignore[unresolved-import]
     except ModuleNotFoundError as err:
-        raise ModuleNotFoundError(
-            """to use lru_cache, you must install zict:
+        raise ModuleNotFoundError("""to use lru_cache, you must install zict:
 
     pip install zict
 
 or
 
-    conda install -c conda-forge zict"""
-        ) from err
+    conda install -c conda-forge zict""") from err
 
     if cache is None:
         cache = BufferCache()
@@ -370,15 +368,13 @@ def hierarchical_cache(
     try:
         import zict  # ty:ignore[unresolved-import]
     except ModuleNotFoundError as err:
-        raise ModuleNotFoundError(
-            """to use hierarchical_cache, you must install zict:
+        raise ModuleNotFoundError("""to use hierarchical_cache, you must install zict:
 
     pip install zict
 
 or
 
-    conda install -c conda-forge zict"""
-        ) from err
+    conda install -c conda-forge zict""") from err
 
     layers = list(layers)
 
