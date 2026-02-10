@@ -112,7 +112,18 @@ class CompressedBufferCache(NbytesAwareCache):
     __slots__ = ("_codec", "_cache", "_meta")
 
     def __init__(self, codec: tp.Any) -> None:
-        import numcodecs  # ty:ignore[unresolved-import]
+        try:
+            import numcodecs  # ty:ignore[unresolved-import]
+        except ModuleNotFoundError as err:
+            raise ModuleNotFoundError(
+                f"""to use {type(self).__name__}, you must install numcodecs:
+
+    pip install numcodecs
+
+or
+
+    conda install -c conda-forge numcodecs"""
+            ) from err
 
         # auto-wrap for numcodecs.abc.Codec
         if isinstance(codec, numcodecs.abc.Codec):
@@ -210,7 +221,18 @@ class HDF5BufferCache(NbytesAwareCache):
         create_dataset_opts: tp.Any = None,
         finalize_callback: tp.Callable = _gracefully_close,
     ) -> None:
-        import h5py
+        try:
+            import h5py  # ty:ignore[unresolved-import]
+        except ModuleNotFoundError as err:
+            raise ModuleNotFoundError(
+                f"""to use {type(self).__name__}, you must install h5py:
+
+    pip install h5py
+
+or
+
+    conda install -c conda-forge h5py"""
+            ) from err
 
         # a HDF5 group
         # e.g.:
@@ -298,7 +320,18 @@ def lru_cache(
     >>> lru_500MB = lru_cache(capacity=500_000_000) # 500 MB
     >>> NanoEventsFactory.from_root(..., buffer_cache=lru_500MB),
     """
-    import zict
+    try:
+        import zict  # ty:ignore[unresolved-import]
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError(
+            """to use lru_cache, you must install zict:
+
+    pip install zict
+
+or
+
+    conda install -c conda-forge zict"""
+        ) from err
 
     if cache is None:
         cache = BufferCache()
@@ -334,7 +367,18 @@ def hierarchical_cache(
         (-1, ondisk),
     ])
     """
-    import zict
+    try:
+        import zict  # ty:ignore[unresolved-import]
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError(
+            """to use hierarchical_cache, you must install zict:
+
+    pip install zict
+
+or
+
+    conda install -c conda-forge zict"""
+        ) from err
 
     layers = list(layers)
 
