@@ -18,6 +18,7 @@ from coffea.compute.protocol import (
     EmptyResult,
     ResultT,
     ResultWrapper,
+    Task,
 )
 
 
@@ -118,4 +119,5 @@ class ThreadedBackend:
 
 
 if TYPE_CHECKING:
+    _t: type[Task] = PoolTask
     _x: type[Backend] = ThreadedBackend
