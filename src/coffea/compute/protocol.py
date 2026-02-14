@@ -1,7 +1,12 @@
-from collections.abc import Callable, Iterator
+from __future__ import annotations
+
+from collections.abc import Callable, Generator
+from dataclasses import dataclass
 from enum import Enum
 from types import TracebackType
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypeAlias, TypeVar
+
+from coffea.compute.util import merge_ranges
 
 T = TypeVar("T")
 
@@ -37,38 +42,97 @@ class EmptyResult:
         return False
 
 
+Range: TypeAlias = tuple[int, int]
+
+
+@dataclass
+class ResultWrapper(Generic[ResultT]):
+    """A wrapper for results that also tracks which input ranges were completed or failed.
+
+    The ranges are interpretable only in the context of the original Computable object that
+    was passed to the Backend to create this ResultWrapper, and are not necessarily globally meaningful.
+    """
+
+    result: ResultT | EmptyResult
+    """A result, which may be partial/incomplete"""
+    producer_key: str
+    """The key of the Computable that produced this result"""
+    completed: list[Range]
+    """The ranges of input data that were successfully processed"""
+    failed: list[tuple[Range, Exception]]
+    """The ranges of input data that failed, with their exceptions"""
+
+    def first_failure(self) -> Exception | None:
+        return self.failed[0][1] if self.failed else None
+
+    def __add__(self, other: ResultWrapper[ResultT]) -> ResultWrapper[ResultT]:
+        if self.producer_key != other.producer_key:
+            msg = f"Cannot merge results from different producers: {self.producer_key} vs. {other.producer_key}"
+            raise ValueError(msg)
+        return ResultWrapper(
+            self.result + other.result,
+            self.producer_key,
+            merge_ranges(self.completed, other.completed),
+            self.failed + other.failed,
+        )
+
+
 DataT = TypeVar("DataT", covariant=True)
 
 
-class DataElement(Protocol[DataT]):
-    """A data element has the necessary information to load a piece of data.
+class AbstractInput(Protocol[DataT]):
+    """A range of data to be processed in a computation.
 
     It should be lightweight and serializable. By using this protocol rather than
-    DataT/InputT directly, backends can manage data loading more flexibly.
+    DataT/InputT directly, backends can preload the data.
+
+    It has a start, stop, and implied length, but the actual data is only loaded when
+    load() is called.
     """
 
-    def load(self) -> DataT:
-        """Load and return the data represented by this element.
+    @property
+    def start(self) -> int: ...
 
-        It is assumed to be IO-bound.
+    @property
+    def stop(self) -> int: ...
+
+    def __len__(self) -> int: ...
+
+    def load(self) -> DataT:
+        """Load and return the data represented by this range.
+
+        This should be a blocking but low-cpu operation, suitable for running
+        in a thread pool to hide IO latency.
         """
         ...
+
+
+class AbstractWorkElement(Protocol[ResultT]):
+    """Minimal abstraction of WorkElement
+
+    Use this wherever you don't need to know the input range, so
+    that composite types are a bit simpler to implement.
+    """
+
+    def preload(self) -> None: ...
+
+    def __call__(self) -> ResultT: ...
 
 
 InputT = TypeVar("InputT")
 """The input type consumed by a computation.
 
-This is the same as the DataT of DataElement, but it needs to be invariant.
+This is the same as the DataT of AbstractInput, but it needs to be invariant.
 """
 
 
 class WorkElement(Generic[ResultT]):
-    """A work element pairs a function with a data element to be processed.
+    """A work element pairs a function with a chunk of data to be processed.
 
     We enforce that this is used over, say partial(func, item.load()) so that
     we can optionally preload data in advance, and have more control over
-    serialization. This is a concrete type, if we need to extend it, maybe
-    better to use composition.
+    serialization. This is a concrete type, it can be extended via composition.
+    See FailedWorkElement in errors.py for an example of this.
 
     The input type is erased by this wrapper, so we are only generic in the output type.
     """
@@ -76,40 +140,74 @@ class WorkElement(Generic[ResultT]):
     def __init__(
         self,
         func: Callable[[InputT], ResultT],
-        item: DataElement[InputT],
+        item: AbstractInput[InputT],
     ):
         self._func = func
         self._item = item
+
+    @property
+    def start(self) -> int:
+        return self._item.start
+
+    @property
+    def stop(self) -> int:
+        return self._item.stop
+
+    def __len__(self) -> int:
+        return len(self._item)
 
     def __reduce__(self) -> tuple[Any, ...]:
         return (self.__class__, (self._func, self._item))
 
     def preload(self):
+        """Preload any data needed for the computation."""
         self._loaded = self._item.load()
 
     def __call__(self) -> ResultT:
+        """Execute the work element and return the result."""
         if hasattr(self, "_loaded"):
             return self._func(self._loaded)
         return self._func(self._item.load())
 
 
 class Computable(Protocol[ResultT]):
-    def __iter__(self) -> Iterator[WorkElement[ResultT]]:
-        """Return an iterator over callables that each compute a part of the result.
+    """Abstraction for something that can be computed by a backend.
 
-        This establishes a global index over the computation. We can use filters
-        and slicing on this basis to create resumable and retryable computations.
+    It represents the entire computation, and is responsible for defining how to break itself
+    into WorkElements that can be executed in parallel. Optionally, it can support dynamic
+    adjustment of the chunk sizes by implementing gen_steps instead of iter_steps.
+    """
 
-        A potential optimization is to yield a tuple of (index, callable) so that
-        the index can be smarter than just the integer position in the iterator.
-        Then Computable could be a Container type.
+    def __len__(self) -> int:
+        """Total size of the input to be processed
 
-        BIG TODO: self must be an iterable, not an iterator, so that it can be
-        re-iterated over for resumptions. How to enforce that in the Protocol?
+        This should respect the invariant that
+        `len(computable) == sum(len(work) for work in computable.iter_steps())`
         """
         ...
 
-    # TODO: dependencies method to declare other Computables that must be run first?
+    @property
+    def key(self) -> str:
+        """A string key that identifies this computation
+
+        This should be the same for computations that will produce the same result.
+        It should not include any information about how the computation is broken into
+        steps, as that is up to the backend and should not affect caching.
+
+        This may be used for caching and for matching ResultWrappers to Computables
+        when merging results from multiple computations. A sha256 hash of inputs
+        and function code may be a good choice for this.
+        """
+        ...
+
+    def gen_steps(self, /) -> Generator[WorkElement[ResultT], int | None, None]:
+        """Step through the input data in chunks, yielding WorkElements that can be executed to produce partial results.
+
+        The Send parameter is the new chunk size requested by the backend, which may
+        be ignored. This allows for dynamic adjustment of chunk sizes based on runtime
+        information about processing times, resource availability, etc.
+        """
+        ...
 
 
 class TaskStatus(Enum):
@@ -125,7 +223,7 @@ class TaskStatus(Enum):
     COMPLETE = "complete"
     """The computation has finished successfully."""
     INCOMPLETE = "incomplete"
-    """The computation has finished with some (non-abortable) failures."""
+    """The computation has finished with some (non-cancelable) failures."""
     CANCELLED = "cancelled"
     """The computation was cancelled before completion, or a failure caused it to stop early."""
 
@@ -141,28 +239,32 @@ class Task(Protocol[ResultT]):
     """Task represents an ongoing or completed computation.
 
     A Task is created by a Backend when a Computable is submitted for execution.
+    It is effectively a Future object for the entire computation, but it provides
+    additional methods for retrieving partial results, checking status, and cancelling
+    the whole task (even if already running) that would not necessarily be supported by
+    a plain Future. The exact behavior of cancellation may depend on the backend and the
+    state of the task.
     """
 
-    def result(self) -> ResultT:
+    def result(self) -> ResultT | EmptyResult:
         """Get the full final result of the computation. Blocking.
 
-        Either the complete result is returned or an exception is raised if the computation failed.
+        Either the complete result is returned or an exception is raised if the
+        computation is incomplete or failed. Partial results are not accessible through this method.
         """
         ...
 
     def partial_result(
         self,
-    ) -> tuple[ResultT | EmptyResult, Computable[ResultT]]:
-        """Get a partial result and the corresponding continuation computation. Non-blocking.
+    ) -> ResultWrapper[ResultT]:
+        """Get a partial result. Non-blocking.
 
         The partial result may either be because the task is not yet complete,
-        or because the computation failed on a subset of the data.
-
-        TODO: add cancel parameter to indicate whether to stop ongoing computation?
+        or because the computation failed on a subset of the data. The ResultWrapper
+        will indicate which input ranges were completed successfully and which failed,
+        as well as any exception information for the failed work elements.
         """
         ...
-
-    # TODO: retrieve exceptions (this is managed in errors module, should errors define a Protocol?)
 
     def wait(self) -> None:
         """Block until the computation is complete.
@@ -182,7 +284,7 @@ class Task(Protocol[ResultT]):
         ...
 
     def cancel(self) -> None:
-        """Attempt to cancel the computation. Non-blocking."""
+        """Cancel the computation. Non-blocking."""
         ...
 
 
@@ -195,9 +297,9 @@ class RunningBackend(Protocol):
     """
 
     def compute(self, item: Computable[ResultT], /) -> Task[ResultT]:
-        """Launch a computation and return a Task representing it.
+        """Launch a computation
 
-        Note: a trivial implementation of this is `sum((f() for f in item), EmptyResult())`
+        Returns a Task object that can be used to track the computation and retrieve results.
         """
         ...
 
@@ -225,3 +327,11 @@ class Backend(Protocol):
         traceback: TracebackType | None,
         /,
     ) -> bool | None: ...
+
+    def compute(self, item: Computable[ResultT], /) -> ResultWrapper[ResultT]:
+        """Launch a computation and block until it finishes
+
+        Returns a ResultWrapper object that can be used to access the final
+        result as well as information about which input ranges completed or failed.
+        """
+        ...

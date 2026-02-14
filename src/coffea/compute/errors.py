@@ -3,25 +3,21 @@ from datetime import datetime
 from enum import Enum
 from typing import Generic
 
-from coffea.compute.protocol import ResultT, WorkElement
+from coffea.compute.protocol import AbstractWorkElement, ResultT
 
 
 @dataclass(slots=True, frozen=True)
-class TaskElement(Generic[ResultT]):
-    """A wrapper of WorkElement with an index for tracking."""
-
-    index: int
-    work: WorkElement[ResultT]
-
-    def __call__(self) -> ResultT:
-        return self.work()
-
-
-@dataclass(slots=True, frozen=True)
-class FailedTaskElement(TaskElement[ResultT]):
+class FailedWorkElemement(Generic[ResultT]):
+    work: AbstractWorkElement[ResultT]
     exception: Exception
     retries: int
     last_attempt: datetime = field(default_factory=datetime.now)
+
+    def preload(self) -> None:
+        self.work.preload()
+
+    def __call__(self) -> ResultT:
+        return self.work()
 
 
 class ErrorAction(Enum):
@@ -45,12 +41,11 @@ class ErrorPolicy:
     All other exceptions will cause task cancellation after max retries."""
 
     def first_action(
-        self, element: TaskElement[ResultT], exception: Exception
-    ) -> tuple[FailedTaskElement[ResultT], ErrorAction]:
+        self, work: AbstractWorkElement[ResultT], exception: Exception
+    ) -> tuple[FailedWorkElemement[ResultT], ErrorAction]:
         """Determine action to take on first failure of a task element."""
-        new_element = FailedTaskElement(
-            index=element.index,
-            work=element.work,
+        new_element = FailedWorkElemement(
+            work=work,
             exception=exception,
             retries=0,
         )
@@ -61,11 +56,10 @@ class ErrorPolicy:
         return new_element, ErrorAction.RETRY
 
     def retry_action(
-        self, element: FailedTaskElement[ResultT], exception: Exception
-    ) -> tuple[FailedTaskElement[ResultT], ErrorAction]:
+        self, element: FailedWorkElemement[ResultT], exception: Exception
+    ) -> tuple[FailedWorkElemement[ResultT], ErrorAction]:
         """Determine action to take on retry failure of a task element."""
-        new_element = FailedTaskElement(
-            index=element.index,
+        new_element = FailedWorkElemement(
             work=element.work,
             exception=exception,  # update to latest exception
             retries=element.retries + 1,

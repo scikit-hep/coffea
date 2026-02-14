@@ -1,4 +1,6 @@
 import time
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 
 from coffea.compute.backends.threaded import ThreadedBackend
 from coffea.compute.data import ContextDataset, Dataset, File
@@ -13,7 +15,7 @@ class DummyProcessor:
 
 class BuggyProcessor:
     def process(self, events: EventsArray) -> int:
-        if hash(events) % 100 == 0:
+        if hash(events) % 1000 == 0:
             raise ValueError("Simulated processing error")
         return len(events)
 
@@ -22,7 +24,7 @@ def test_threaded_backend_compute():
     "Stress test performance of compute with a dummy dataset and processor"
     stepsize = 10_000
     steps_per_file = 100
-    num_files = 10_000
+    num_files = 1_000
     dataset = Dataset(
         files=[
             File(
@@ -37,7 +39,9 @@ def test_threaded_backend_compute():
         metadata=ContextDataset(dataset_name="test_dataset", cross_section=1.0),
     )
 
-    with ThreadedBackend() as backend:
+    with ThreadedBackend(
+        pool_factory=partial(ThreadPoolExecutor, max_workers=2)
+    ) as backend:
         # Binding the processor to the dataset makes the computable object not easy to serialize
         computable = dataset.map_steps(DummyProcessor())
         tic = time.monotonic()
@@ -57,13 +61,14 @@ def test_threaded_backend_compute():
         toc = time.monotonic()
         print(f"Computation took {toc - tic:.2f} seconds")
         print(f"Processed {num_files * steps_per_file} steps with buggy processor")
-        part, resumable = task.partial_result()
-        print(f"Partial result: {part}, resumable length: {len(list(resumable))}")
+        part = task.partial_result()
+        print(f"Partial result: {part}")
 
 
 if __name__ == "__main__":
     # For use with profiling, e.g.
-    # py-spy record -f speedscope tests/test_compute_integration.py
+    # py-spy record -f speedscope python tests/test_compute_integration.py
     test_threaded_backend_compute()
-    # On a M3 mac with py3.13, this is about 600k steps per second with
-    # DummyProcessor and about 160k steps per second with BuggyProcessor
+    # On a M3 mac with py3.13, this is about 55k steps per second with
+    # DummyProcessor and about 45k steps per second with BuggyProcessor
+    # TODO: use pytest-benchmark to track this performance over time and catch regressions

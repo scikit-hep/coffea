@@ -1,195 +1,121 @@
-from collections.abc import Iterator
-from dataclasses import dataclass, field
-from itertools import starmap
-from queue import Queue
-from typing import TYPE_CHECKING, Generic
+import weakref
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from typing import TYPE_CHECKING
 
-from typing_extensions import Self
-
-from coffea.compute.backends._genericbkg import (
-    ConcurrentTask,
-    GenericBackend,
-    TaskState,
-    _Shutdown,
+from coffea.compute.backends.common import (
+    Accumulator,
+    PoolTask,
+    Reducer,
+    ResultHolder,
+    Submitter,
+    WorkWrapper,
 )
-from coffea.compute.errors import (
-    ErrorAction,
-    ErrorPolicy,
-    FailedTaskElement,
-    TaskElement,
-)
+from coffea.compute.errors import ErrorPolicy
 from coffea.compute.protocol import (
     Backend,
     Computable,
     EmptyResult,
     ResultT,
-    Task,
-    TaskStatus,
-    WorkElement,
+    ResultWrapper,
 )
 
 
-@dataclass
-class Continuation(Generic[ResultT]):
-    original: Computable[ResultT]
-    "The original computable item."
-    status: TaskStatus
-    "The status of the original computation task."
-    failed_indices: frozenset[int]
-    "Indices of task elements that failed in the original computation."
-    continue_at: int
-    "Index to continue processing from, in the case where the original task was cancelled."
+class RunningThreadedBackend:
+    def __init__(
+        self, pool: ThreadPoolExecutor, tasks: set[weakref.ReferenceType[PoolTask]]
+    ) -> None:
+        self.pool = pool
+        self.tasks = tasks
 
-    def __iter__(self) -> Iterator[WorkElement[ResultT]]:
-        for i, task_element in enumerate(self.original):
-            if i in self.failed_indices or i >= self.continue_at:
-                yield task_element
-
-
-@dataclass
-class _ThreadedTaskState(TaskState[ResultT]):
-    _iter: Iterator[TaskElement[ResultT]]
-    "Iterator over the original computable's task elements input"
-    _output: ResultT | EmptyResult = EmptyResult()
-    next_index: int = 0
-    failures: list[FailedTaskElement[ResultT]] = field(default_factory=list)
-    _status: TaskStatus = TaskStatus.PENDING
-
-    @property
-    def status(self) -> TaskStatus:
-        return self._status
-
-    @classmethod
-    def from_computable(cls, item: Computable[ResultT]) -> Self:
-        return cls(_iter=starmap(TaskElement, enumerate(item)))
-
-    def first_failure(self) -> FailedTaskElement[ResultT] | None:
-        if self.failures:
-            return self.failures[0]
-        return None
-
-    def num_failures(self) -> int:
-        return len(self.failures)
-
-    def output(self) -> ResultT | EmptyResult:
-        return self._output
-
-    def cancel(self) -> Self:
-        self._status = TaskStatus.CANCELLED
-        return self
-
-    def add_failure_and_cancel(self, element: FailedTaskElement[ResultT]) -> Self:
-        self.next_index = self.next_index + 1
-        self.failures = self.failures + [element]
-        self._status = TaskStatus.CANCELLED
-        return self
-
-    def add_failure_and_continue(self, element: FailedTaskElement[ResultT]) -> Self:
-        self.next_index = self.next_index + 1
-        self.failures = self.failures + [element]
-        self._status = TaskStatus.RUNNING
-        return self
-
-    # TODO: would like to have add_success_and_continue
-    # but it doesn't like ResultT being covariant
-    # def add_success_and_continue(self, result: ResultT) -> Self:
-    #     self._output = self._output + result
-    #     self.next_index = self.next_index + 1
-    #     self._status = TaskStatus.RUNNING
-    #     return self
-
-    def get_continuation(self, original: Computable[ResultT]) -> Continuation[ResultT]:
-        return Continuation(
-            original=original,
-            status=self.status,
-            failed_indices=frozenset(element.index for element in self.failures),
-            continue_at=self.next_index,
-        )
-
-    def advance(self, error_policy: ErrorPolicy) -> Self:
-        try:
-            element = next(self._iter)
-        except StopIteration:
-            if self.num_failures() > 0:
-                self._status = TaskStatus.INCOMPLETE
-            else:
-                self._status = TaskStatus.COMPLETE
-            return self
-
-        try:
-            result = element()
-        except Exception as ex:
-            new_element, action = error_policy.first_action(element, ex)
-            if action == ErrorAction.CANCEL:
-                return self.add_failure_and_cancel(new_element)
-            elif action == ErrorAction.CONTINUE:
-                return self.add_failure_and_continue(new_element)
-        else:
-            # return add_success_and_continue(result)
-            self._output = self._output + result
-            self.next_index = self.next_index + 1
-            self._status = TaskStatus.RUNNING
-            return self
-
-        # Now handle retries
-        assert action == ErrorAction.RETRY  # (proven by control flow)
-        while True:
-            try:
-                result = new_element()
-            except Exception as ex:
-                new_element, action = error_policy.retry_action(new_element, ex)
-                if action == ErrorAction.CANCEL:
-                    return self.add_failure_and_cancel(new_element)
-                elif action == ErrorAction.CONTINUE:
-                    return self.add_failure_and_continue(new_element)
-            else:
-                self._output = self._output + result
-                self.next_index = self.next_index + 1
-                self._status = TaskStatus.RUNNING
-                return self
-            assert action == ErrorAction.RETRY
-
-
-class ThreadedTask(ConcurrentTask[ResultT]):
-    @classmethod
-    def from_computable(
-        cls, item: Computable[ResultT], error_policy: ErrorPolicy
-    ) -> Self:
-        state = _ThreadedTaskState.from_computable(item)
-        return cls(item, error_policy, state)
-
-
-class ThreadedBackend(GenericBackend[ThreadedTask]):
-    @classmethod
-    def _work(cls, task_queue: Queue[ThreadedTask | _Shutdown]) -> None:
-        while True:
-            task = task_queue.get()
-            if isinstance(task, _Shutdown):
-                task_queue.task_done()
-                break
-            try:
-                task._run()
-            except Exception:
-                # Any exceptions not caught by the task itself are bugs in the backend
-                # TODO: find a way to report these in the user thread
-                task.cancel()
-            task_queue.task_done()
-
-    def _create_task(
+    def compute(
         self,
         item: Computable[ResultT],
+        /,
         error_policy: ErrorPolicy = ErrorPolicy(),
-    ) -> ThreadedTask[ResultT]:
-        if self._task_queue is None:
-            raise RuntimeError(
-                "Cannot compute on a backend that has been exited from its context manager"
-            )
-        task = ThreadedTask.from_computable(item, error_policy)
-        self._task_queue.put(task)
+        merge_every: int = 4,
+    ) -> PoolTask[ResultT]:
+        """Start a computation using the thread pool and return a Task object to track it.
+
+        Args:
+            item: The Computable item to compute.
+            error_policy: Policy for handling errors during computation.
+            merge_every: How many partial results to merge together at a time
+                (affects the granularity of intermediate results and memory usage)
+        """
+        max_inflight = self.pool._max_workers + 1  # TODO: tune this parameter
+        work = WorkWrapper.gen_steps(item)
+        submitter = Submitter(
+            self.pool, error_policy=error_policy, max_inflight=max_inflight
+        )
+        reducer = Reducer(self.pool, merge_every=merge_every)
+        accumulator = Accumulator(
+            self.pool,
+            reducer(submitter(work)),
+            ResultHolder(ResultWrapper[ResultT](EmptyResult(), item.key, [], [])),
+        )
+        future = self.pool.submit(accumulator)
+        task = PoolTask(future, accumulator.holder, submitter)
+        self.tasks.add(weakref.ref(task))
         return task
 
 
+class ThreadedBackend:
+    """A compute backend that uses a thread pool to execute work items in parallel.
+
+    It submits the work items, reduction, and accumulation tasks all to the same thread pool.
+
+    Args:
+        pool_factory: A callable that returns a new ThreadPoolExecutor when called. This allows
+            for custom configuration of the thread pool (e.g. number of workers, thread name prefix, etc.).
+        cancel_on_exit: If True, any tasks that are running when the context manager is exited will be cancelled.
+            If False (default), the backend will wait for all tasks to complete before exiting.
+    """
+
+    def __init__(
+        self,
+        pool_factory: Callable[[], ThreadPoolExecutor] = ThreadPoolExecutor,
+        cancel_on_exit: bool = False,
+    ):
+        self.pool_factory = pool_factory
+        self.cancel_on_exit = cancel_on_exit
+
+    def __enter__(self) -> RunningThreadedBackend:
+        self.pool = self.pool_factory()
+        self.tasks: set[weakref.ReferenceType[PoolTask]] = set()
+        self.pool.__enter__()
+        return RunningThreadedBackend(pool=self.pool, tasks=self.tasks)
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        for ref in self.tasks:
+            task = ref()
+            if task is None:
+                continue
+            if self.cancel_on_exit:
+                task.cancel()
+            else:
+                task.wait()
+        del self.tasks
+        self.pool.__exit__(exc_type, exc_value, traceback)
+        del self.pool
+
+    def compute(
+        self,
+        item: Computable[ResultT],
+        /,
+        error_policy: ErrorPolicy = ErrorPolicy(),
+        merge_every: int = 4,
+    ) -> ResultWrapper[ResultT]:
+        """Blocking computation. See RunningThreadedBackend.compute for details."""
+        with self as backend:
+            task = backend.compute(
+                item,
+                error_policy=error_policy,
+                merge_every=merge_every,
+            )
+            task.wait()
+            return task.partial_result()
+
+
 if TYPE_CHECKING:
-    # TODO: is this the best way to do this?
-    check1: type[Task] = ThreadedTask
-    check2: type[Backend] = ThreadedBackend
+    _x: type[Backend] = ThreadedBackend

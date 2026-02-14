@@ -28,6 +28,9 @@ class ROOTFileElement:
 
     path: str
 
+    def __len__(self) -> int:
+        return 1
+
     def load(self) -> OpenROOTFile:
         file = uproot.open(self.path)
         # TODO: find a way to keep this while mocking in tests
