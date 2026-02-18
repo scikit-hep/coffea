@@ -56,7 +56,7 @@ def test_checkpointing():
         checkpointer=checkpointer,
     )
     # use the chunk generator to not re-run the preprocessing step
-    chunks = list(run.preprocess(filelist, "Events"))
+    chunks = list(run.preprocess(filelist, treename="Events"))
 
     def chunk_gen():
         yield from chunks
