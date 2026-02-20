@@ -72,6 +72,8 @@ dependencies = [
   "fsspec",
   "rich",
   "ipywidgets",
+  "more-itertools",
+  "typing-extensions;python_version<'3.11'",
 ]
 dynamic = ["version"]
 
@@ -139,3 +141,14 @@ filterwarnings = [
 
 [tool.ruff]
 line-length = 160
+
+[tool.ruff.lint]
+ignore = ["F403", "F405", "E402"]
+
+[tool.mypy]
+python_version = "3.10"
+files = "src/coffea/compute"
+
+[[tool.mypy.overrides]]
+module = ["uproot.*"]
+follow_untyped_imports = true
