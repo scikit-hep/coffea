@@ -1,9 +1,10 @@
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from itertools import repeat
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from coffea.compute.protocol import DataElement, InputT
+from coffea.compute.data.workelement import DataElement
+from coffea.compute.protocol import InputT
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -41,9 +42,13 @@ class ContextDataElement(Generic[InputT, Ctx_co]):
     metadata about which file and which dataset it came from.
     """
 
+    # TODO: remnant of older data model
     data: DataElement[InputT]
     # mypy does not recognize frozen fields as read-only, which is required for covariant types
     context: Ctx_co  # type: ignore[misc]
+
+    def __len__(self) -> int:
+        return len(self.data)
 
     def load(self) -> ContextInput[InputT, Ctx_co]:
         return ContextInput(self.data.load(), self.context)
@@ -55,6 +60,10 @@ class ContextDataElement(Generic[InputT, Ctx_co]):
         self, fn: Callable[[Ctx_co], Ctx]
     ) -> "ContextDataElement[InputT, Ctx]":
         return ContextDataElement(self.data, fn(self.context))
+
+
+if TYPE_CHECKING:
+    _x: type[DataElement] = ContextDataElement
 
 
 def with_context(

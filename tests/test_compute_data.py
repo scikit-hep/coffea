@@ -241,7 +241,7 @@ def test_prepare(mocker: MockerFixture) -> None:
         make_up_steps, grouper=lambda ctx: ctx.dataset_name
     )
 
-    prepared = sum((f() for f in prepare), EmptyResult())
+    prepared = sum((f() for f in prepare.gen_steps()), EmptyResult())
     assert isinstance(prepared, GroupedResult)
 
     as_datasets = [
@@ -276,7 +276,7 @@ def test_prepare(mocker: MockerFixture) -> None:
             return len(events)
 
     computable = as_datasets[0].map_steps(CountStepsProcessor())
-    result = sum((f() for f in computable), 0)
+    result = sum((f() for f in computable.gen_steps()), 0)
     assert result == 400  # 2 files * 2 steps * 100 events each
 
     def count_steps_func(chunk: ContextInput[EventsArray, StepContextDataset]) -> int:
@@ -284,7 +284,7 @@ def test_prepare(mocker: MockerFixture) -> None:
         return len(chunk.data)
 
     computable = as_datasets[0].map_steps(count_steps_func)
-    result = sum((f() for f in computable), 0)
+    result = sum((f() for f in computable.gen_steps()), 0)
     assert result == 400  # 2 files * 2 steps * 100 events
 
     def count_steps_func2(chunk: ContextInput[EventsArray, StepContextDataset]) -> int:
@@ -292,5 +292,5 @@ def test_prepare(mocker: MockerFixture) -> None:
         return len(chunk.data)
 
     computable = as_datasets[0].map_steps(count_steps_func2)
-    result = sum((f() for f in computable), 0)
+    result = sum((f() for f in computable.gen_steps()), 0)
     assert result == 400  # 2 files * 2 steps * 100 events
