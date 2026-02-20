@@ -90,7 +90,7 @@ def test_uproot_write():
     ).events()
 
     with uproot.recreate("treemaker_write_test.root") as f:
-        f["PreSelection"] = TreeMakerSchema.uproot_writeable(orig_events)
+        f.mktree("PreSelection", TreeMakerSchema.uproot_writeable(orig_events))
 
     test_events = NanoEventsFactory.from_root(
         {"treemaker_write_test.root": "PreSelection"},

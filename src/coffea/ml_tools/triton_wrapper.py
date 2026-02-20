@@ -1,7 +1,10 @@
 # For python niceties
+import time
 import warnings
 
 import numpy
+
+from .helper import nonserializable_attribute, numpy_call_wrapper
 
 # For triton specific handling
 _triton_import_error = None
@@ -11,8 +14,6 @@ try:
     import tritonclient.utils
 except (ImportError, ModuleNotFoundError) as err:
     _triton_import_error = err
-
-from .helper import nonserializable_attribute, numpy_call_wrapper
 
 
 class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
@@ -55,6 +56,8 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
 
     batch_size_fallback = 10  # Fall back should batch size not be determined.
     http_client_concurrency = 12  # TODO: check whether this value is optimum
+    max_retry_attempts = 5
+    retry_jitter_base_ms = 100
 
     def __init__(self, model_url: str, client_args: dict | None = None, batch_size=-1):
         if _triton_import_error is not None:
@@ -307,13 +310,8 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
                     ).astype(mtype)
                 )
 
-            # Making request to server
-            request = self.client.infer(
-                self.model,
-                model_version=self.version,
-                inputs=infer_inputs,
-                outputs=infer_outputs,
-            )
+            # Running the request with fall back
+            request = self.run_infer(infer_inputs, infer_outputs)
             if output is None:
                 output = {
                     o: request.as_numpy(o)[start_idx:stop_idx] for o in output_list
@@ -333,3 +331,20 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
             }
 
         return {k: v[:orig_len] for k, v in output.items()}
+
+    def run_infer(self, inputs, outputs, attempt=0):
+        """Thin wrapper around tritonclient.infer to automatic retry with backoff+jitter on inference server failures"""
+        try:
+            return self.client.infer(
+                self.model, model_version=self.version, inputs=inputs, outputs=outputs
+            )
+        except tritonclient.utils.InferenceServerException as err:
+            if attempt > self.max_retry_attempts:
+                raise err
+            else:
+                # Retry backoff + full jitter:
+                # https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
+                time.sleep(
+                    numpy.random.rand() * self.retry_jitter_base_ms * (2**attempt)
+                )
+                return self.run_infer(inputs, outputs, attempt + 1)

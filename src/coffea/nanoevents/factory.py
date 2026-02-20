@@ -392,6 +392,7 @@ class NanoEventsFactory:
 
         if isinstance(file, uproot.reading.ReadOnlyDirectory):
             tree = file[treepath]
+            file_handle = file
         elif "<class 'uproot.rootio.ROOTDirectory'>" == str(type(file)):
             raise RuntimeError(
                 "The file instance (%r) is an uproot3 type, but this module is only compatible with uproot5 or higher"
@@ -399,6 +400,7 @@ class NanoEventsFactory:
             )
         else:
             tree = uproot.open(file, **uproot_options)
+            file_handle = tree.file
 
         # Get the typenames
         typenames = tree.typenames()
@@ -438,6 +440,7 @@ class NanoEventsFactory:
             entry_stop,
             cache={},
             access_log=access_log,
+            file_handle=file_handle,
             use_ak_forth=use_ak_forth,
             virtual=mode == "virtual",
             preloaded_arrays=preloaded_arrays,
@@ -750,6 +753,21 @@ class NanoEventsFactory:
         start, stop = (int(x) for x in entryrange.split("-"))
         return stop - start
 
+    @property
+    def access_log(self):
+        """List of accessed branches, populated when columns are lazily loaded."""
+        return getattr(self._mapping, "_access_log", None)
+
+    @property
+    def file_handle(self):
+        """The file handle used to open the source file, if available."""
+        return getattr(self._mapping, "_file_handle", None)
+
+    @property
+    def buffer_cache(self):
+        """The buffer cache used to store loaded buffers, if available."""
+        return getattr(self._mapping, "_buffer_cache", None)
+
     def events(self):
         """
         Build events
@@ -785,6 +803,11 @@ class NanoEventsFactory:
                 backend="cpu",
                 byteorder=awkward._util.native_byteorder,
                 allow_noncanonical_form=False,
+                enable_virtualarray_caching=(
+                    True
+                    if self.buffer_cache is None
+                    else lambda form_key, attribute: attribute != "data"
+                ),
                 highlevel=True,
                 behavior=self._schema.behavior(),
                 attrs={

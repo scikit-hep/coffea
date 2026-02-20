@@ -2,6 +2,7 @@ import copy
 import warnings
 from collections import defaultdict
 
+from coffea.nanoevents import transforms
 from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
 from coffea.nanoevents.util import quote
 
@@ -44,6 +45,7 @@ class PHYSLITESchema(BaseSchema):
     """
 
     mixins = {
+        "Photons": "Particle",
         "Electrons": "Electron",
         "Muons": "Muon",
         "Jets": "Particle",
@@ -107,10 +109,35 @@ class PHYSLITESchema(BaseSchema):
                 # don't zip if there is only one item
                 contents[objname] = keys_and_form[0][1]
                 continue
+            keys_and_form_dict = dict(keys_and_form)
+
+            # special handling for cases where the ElementLink splitting has left us without
+            # a "parent" key. Reconstitute a parent object if none exists
+            to_collect = {}
+            for (key, sub_key), form in keys_and_form:
+                if "." in sub_key:
+                    # if the "parent" field is not available, create it
+                    skleft, skright = sub_key.split(".", 1)
+                    topkey = key.split(".", 1)[0]
+                    if (key, skleft) in keys_and_form_dict:
+                        continue
+                    else:
+                        if (topkey, skleft) not in to_collect:
+                            to_collect[(topkey, skleft)] = [(skright, form)]
+                        else:
+                            to_collect[(topkey, skleft)].append((skright, form))
+            for (topkey, skleft), info in to_collect.items():
+                keys_and_form.append(
+                    (
+                        (topkey, skleft),
+                        zip_forms({key: form for key, form in info}, skleft),
+                    )
+                )
+
             to_zip = {}
             for (key, sub_key), form in keys_and_form:
                 if "." in sub_key:
-                    # we can skip fields with '.' in the name since they will come again as records
+                    # now, we can skip fields with '.' in the name since they will come again as records
                     # e.g. truthParticleLink.m_persKey will also appear in truthParticleLink
                     # (record with fields m_persKey and m_persIndex)
                     continue
@@ -124,10 +151,22 @@ class PHYSLITESchema(BaseSchema):
                     )
                 to_zip[sub_key] = form
             try:
+                mixin = self.mixins.get(objname, None)
+                if mixin == "TrackParticle":
+                    to_zip["p"] = transforms.qoverp_to_p_form(to_zip["qOverP"])
+                    to_zip["tau"] = transforms.full_like_from_content_form(
+                        to_zip["theta"], 139.570
+                    )
+                if mixin == "Muon":
+                    # at least as of p7019 we need to add in the muon mass for four-vectors to work
+                    if "m" not in to_zip:
+                        to_zip["m"] = transforms.full_like_from_content_form(
+                            to_zip["pt"], 105.658
+                        )
                 contents[objname] = zip_forms(
                     to_zip,
                     objname,
-                    self.mixins.get(objname, None),
+                    mixin,
                     bypass=False,
                 )
             except NotImplementedError:

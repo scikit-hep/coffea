@@ -22,10 +22,10 @@ jobs:
     name: pre-commit
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.14"
     - uses: pre-commit/action@v3.0.1
       with:
         extra_args: --hook-stage manual --all-files
@@ -36,13 +36,13 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, macOS-latest, windows-latest]
-        python-version: ["3.10", "3.13"]
+        python-version: ["3.10", "3.14"]
         dask-client: ["with", "without"]
 
     name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}, ${{ matrix.dask-client }} dask
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
@@ -65,9 +65,8 @@ jobs:
         # c.f. https://github.com/astral-sh/uv/issues/3437
         uv pip install torch --index-url https://download.pytorch.org/whl/cpu
         uv pip install xgboost
-        uv pip install 'tritonclient[grpc,http]!=2.41.0'
         # install checked out coffea
-        uv pip install -q '.[dev,parsl,dask]' --upgrade
+        uv pip install -q '.[dev,parsl,dask,triton]' --upgrade
         uv pip list
     - name: Install dependencies (MacOS)
       if: matrix.os == 'macOS-latest'
@@ -97,7 +96,7 @@ jobs:
     - name: Start triton server with example model
       if: startsWith( matrix.os, 'ubuntu' )
       run: |
-        docker run -d --rm -p 8000:8000 -p 8001:8001 -p 8002:8002 -v ${{ github.workspace }}/tests/samples/triton_models_test:/models nvcr.io/nvidia/tritonserver:25.02-pyt-python-py3 tritonserver --model-repository=/models
+        docker run -d --rm -p 8000:8000 -p 8001:8001 -p 8002:8002 -v ${{ github.workspace }}/tests/samples/triton_models_test:/models nvcr.io/nvidia/tritonserver:25.11-pyt-python-py3 tritonserver --model-repository=/models
 
     - name: Test with pytest (${{ matrix.dask-client }} dask Client - run in parallel)
       if: matrix.dask-client == 'without'
@@ -108,21 +107,21 @@ jobs:
       run: |
         python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "dask_client"
     - name: Upload codecov
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       uses: codecov/codecov-action@v5
     - name: Install graphviz
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       uses: ts-graphviz/setup-graphviz@v2
     - name: Install pandoc
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       uses: r-lib/actions/setup-pandoc@v2
     - name: Build documentation
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       run: |
         cd docs && make html
         touch build/html/.nojekyll
     # - name: Deploy documentation
-    #   if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
+    #   if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
     #   uses: crazy-max/ghaction-github-pages@v4
     #   with:
     #     target_branch: gh-pages
@@ -135,10 +134,10 @@ jobs:
     needs: pre-commit
     strategy:
       matrix:
-        python-version: ["3.13"]
+        python-version: ["3.14"]
     name: test coffea-taskvine
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: Set up Conda
       uses: conda-incubator/setup-miniconda@v3
       env:
@@ -194,11 +193,11 @@ jobs:
       contents: read
     strategy:
       matrix:
-        python-version: ["3.13"]
+        python-version: ["3.14"]
     name: deploy release
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v6
       with:
@@ -209,7 +208,7 @@ jobs:
     - name: Verify the distribution
       run: pipx run twine check --strict dist/*
     - name: Generate artifact attestation for sdist and wheel
-      uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+      uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
       with:
         subject-path: "dist/coffea-*"
     - name: Publish package to PyPI

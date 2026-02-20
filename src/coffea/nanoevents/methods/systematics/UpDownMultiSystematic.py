@@ -6,7 +6,7 @@ from coffea.nanoevents.methods.base import behavior
 from coffea.nanoevents.methods.systematics.UpDownSystematic import UpDownSystematic
 
 
-@awkward.behaviors.mixins.mixin_class(behavior)
+@awkward.mixin_class(behavior)
 class UpDownMultiSystematic(UpDownSystematic):
     def _build_variations(self, name, what, varying_function, *args, **kwargs):
         if what == "weight":

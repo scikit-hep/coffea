@@ -5,7 +5,9 @@ import awkward
 import numpy
 
 from coffea.nanoevents.mapping.base import BaseSourceMapping, UUIDOpener
-from coffea.nanoevents.util import quote, tuple_to_key
+from coffea.nanoevents.util import tuple_to_key
+
+from .uproot import CannotBeNanoEvents, _lazify_form
 
 
 class SimplePreloadedColumnSource(dict):
@@ -46,21 +48,14 @@ class PreloadedSourceMapping(BaseSourceMapping):
                 )
                 continue
             form = json.loads(branch.layout.form.to_json())
-            if (
-                form["class"].startswith("ListOffset")
-                and form["content"]["class"] == "NumpyArray"  # noqa
-            ):
-                form["form_key"] = quote(f"{key},!load")
-                form["content"]["form_key"] = quote(f"{key},!load,!content")
-                form["content"]["parameters"] = {"__doc__": key}
-                if force_to_i64:
-                    form["offsets"] = "i64"
-            elif form["class"] == "NumpyArray":
-                form["form_key"] = quote(f"{key},!load")
-                form["parameters"] = {"__doc__": key}
-            else:
+            try:
+                form = _lazify_form(
+                    form,
+                    f"{key},!load",
+                )
+            except CannotBeNanoEvents as ex:
                 warnings.warn(
-                    f"Skipping {key} as it is not interpretable by NanoEvents"
+                    f"Skipping {key} as it is not interpretable by NanoEvents\nDetails: {ex}"
                 )
                 continue
             branch_forms[key] = form

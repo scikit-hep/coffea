@@ -29,6 +29,7 @@ from typing import (
 
 import awkward
 import cloudpickle
+import loky
 import lz4.frame as lz4f
 import toml
 import uproot
@@ -131,6 +132,16 @@ class FileMeta:
                     chunks.append(c)
             if self.metadata["clusters"][-1] != chunks[-1]:
                 chunks.append(self.metadata["clusters"][-1])
+            if chunks == [0]:
+                yield WorkItem(
+                    self.dataset,
+                    self.filename,
+                    self.treename,
+                    0,
+                    0,
+                    self.metadata["uuid"],
+                    user_meta,
+                )
             for start, stop in zip(chunks[:-1], chunks[1:]):
                 yield WorkItem(
                     self.dataset,
@@ -146,6 +157,16 @@ class FileMeta:
             numentries = self.metadata["numentries"]
             update = True
             start = 0
+            if numentries == 0:
+                yield WorkItem(
+                    self.dataset,
+                    self.filename,
+                    self.treename,
+                    0,
+                    0,
+                    self.metadata["uuid"],
+                    user_meta,
+                )
             while start < numentries:
                 if update:
                     n = max(round((numentries - start) / target_chunksize), 1)
@@ -524,7 +545,7 @@ class FuturesExecutor(ExecutorBase):
         accumulator : Accumulatable
             An accumulator to collect the output of the function
         pool : concurrent.futures.Executor class or instance, optional
-            The type of futures executor to use, defaults to ProcessPoolExecutor.
+            The type of futures executor to use, defaults to loky.ProcessPoolExecutor.
             You can pass an instance instead of a class to reuse an executor
         workers : int, optional
             Number of parallel processes for futures (default 1)
@@ -563,9 +584,9 @@ class FuturesExecutor(ExecutorBase):
             Number of retries for failed tasks (default: 3)
     """
 
-    pool: (
-        Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor
-    ) = concurrent.futures.ProcessPoolExecutor  # fmt: skip
+    pool: Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor = (
+        loky.ProcessPoolExecutor
+    )
     mergepool: None | (
         Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor | bool
     ) = None
@@ -1549,6 +1570,7 @@ class Runner:
                     )
                 # save the output
                 checkpointer.save(out, metadata, processor_instance)
+
             return out
 
     def __call__(
@@ -1744,6 +1766,11 @@ class Runner:
             )
 
         chunks = list(chunks)
+        if len(chunks) == 0:
+            raise ValueError(
+                "No chunks survived preprocessing.\n"
+                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
+            )
 
         exe_args = {
             "unit": "chunk",
@@ -1761,8 +1788,8 @@ class Runner:
         wrapped_out, e = executor(chunks, closure, None)
         if wrapped_out is None:
             raise ValueError(
-                "No chunks returned results, verify ``processor`` instance structure.\n\
-                if you used skipbadfiles=True or similar, it is possible all your files are bad."
+                "No chunks returned results, verify ``processor`` instance structure.\n"
+                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
             )
         wrapped_out["exception"] = e
 

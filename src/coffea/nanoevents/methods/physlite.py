@@ -44,6 +44,8 @@ def _element_link(target_collection, eventindex, index, key):
             "element linking must be done on two dask_awkward arrays or two awkward arrays not a mix of the two"
         )
 
+    if isinstance(key, Number):
+        key = numpy.array([key])
     global_index = _get_global_index(target_collection, eventindex, index)
     global_index = awkward.where(key != 0, global_index, -1)
     return target_collection._apply_global_index(global_index)
@@ -150,10 +152,6 @@ behavior.update(
 class Particle(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
     """Generic particle collection that has Lorentz vector properties"""
 
-    @property
-    def mass(self):
-        return self.m
-
 
 _set_repr_name("Particle")
 
@@ -177,34 +175,6 @@ class TrackParticle(vector.LorentzVector, base.NanoCollection):
     <https://gitlab.cern.ch/atlas/athena/-/blob/21.2/Event/xAOD/xAODTracking/Root/TrackParticle_v1.cxx#L82>`_.
     """
 
-    @property
-    def theta(self):
-        return self["theta"]
-
-    @property
-    def phi(self):
-        return self["phi"]
-
-    @property
-    def p(self):
-        return 1.0 / numpy.abs(self.qOverP)
-
-    @property
-    def x(self):
-        return self.p * numpy.sin(self.theta) * numpy.cos(self.phi)
-
-    @property
-    def y(self):
-        return self.p * numpy.sin(self.theta) * numpy.sin(self.phi)
-
-    @property
-    def z(self):
-        return self.p * numpy.cos(self.theta)
-
-    @property
-    def t(self):
-        return numpy.sqrt(139.570**2 + self.x**2 + self.y**2 + self.z**2)
-
 
 _set_repr_name("TrackParticle")
 
@@ -226,6 +196,8 @@ class Muon(Particle):
     <https://gitlab.cern.ch/atlas/athena/-/blob/21.2/Event/xAOD/xAODMuon/Root/Muon_v1.cxx>`_.
     """
 
+    # trackParticle does not behave like Muon::trackParticle, which determines which of the various collections
+    # to use on the fly (e.g. calotagged muons do not have combined tracks). Fix in future?
     @dask_property
     def trackParticle(self):
         return _element_link_method(
@@ -241,6 +213,60 @@ class Muon(Particle):
             self,
             "combinedTrackParticleLink",
             "CombinedMuonTrackParticles",
+            dask_array,
+        )
+
+    @dask_property
+    def combinedTrackParticle(self):
+        return _element_link_method(
+            self,
+            "combinedTrackParticleLink",
+            "CombinedMuonTrackParticles",
+            None,
+        )
+
+    @combinedTrackParticle.dask
+    def combinedTrackParticle(self, dask_array):
+        return _element_link_method(
+            self,
+            "combinedTrackParticleLink",
+            "CombinedMuonTrackParticles",
+            dask_array,
+        )
+
+    @dask_property
+    def inDetTrackParticle(self):
+        return _element_link_method(
+            self,
+            "inDetTrackParticleLink",
+            "InDetTrackParticles",
+            None,
+        )
+
+    @inDetTrackParticle.dask
+    def inDetTrackParticle(self, dask_array):
+        return _element_link_method(
+            self,
+            "inDetTrackParticleLink",
+            "InDetTrackParticles",
+            dask_array,
+        )
+
+    @dask_property
+    def extrapolatedMuonSpectrometerTrackParticle(self):
+        return _element_link_method(
+            self,
+            "extrapolatedMuonSpectrometerTrackParticleLink",
+            "ExtrapolatedMuonTrackParticles",
+            None,
+        )
+
+    @extrapolatedMuonSpectrometerTrackParticle.dask
+    def extrapolatedMuonSpectrometerTrackParticle(self, dask_array):
+        return _element_link_method(
+            self,
+            "extrapolatedMuonSpectrometerTrackParticleLink",
+            "ExtrapolatedMuonTrackParticles",
             dask_array,
         )
 
@@ -327,26 +353,6 @@ class TruthParticle(vector.LorentzVector, base.NanoCollection):
     """Truth particle collection, following `xAOD::TruthParticle_v1
     <https://gitlab.cern.ch/atlas/athena/-/blob/21.2/Event/xAOD/xAODTruth/Root/TruthParticle_v1.cxx>`_.
     """
-
-    @property
-    def x(self):
-        return self["px"]
-
-    @property
-    def y(self):
-        return self["py"]
-
-    @property
-    def z(self):
-        return self["pz"]
-
-    @property
-    def t(self):
-        return self["e"]
-
-    @property
-    def mass(self):
-        return self["m"]
 
     @property
     def children(self):
