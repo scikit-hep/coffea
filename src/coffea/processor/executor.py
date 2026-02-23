@@ -1077,6 +1077,9 @@ class Runner:
             (please don't) during a session, the session can be restarted to clear the cache.
         checkpointer : CheckpointerABC, optional
             A CheckpointerABC instance to manage checkpointing of each chunk output
+        use_pickle_persistent_cache : bool, optional
+            Enables/disables .pkl file creation and usage for persistent cache between runs
+            Defaults to true
     """
 
     executor: ExecutorBase
@@ -1093,7 +1096,9 @@ class Runner:
     use_skyhook: bool | None = False
     skyhook_options: dict | None = field(default_factory=dict)
     format: str = "root"
-    cache_file: Path = field(default=Path(".coffea_metadata_cache.pkl"), init=False)
+    use_pickle_persistent_cache: bool = True
+    cache_pickle_file_name: str = 'coffea_metadata_cache'
+    cache_file: Path = field(default=Path(f".{cache_pickle_file_name}.pkl"), init=False)
     checkpointer: CheckpointerABC | None = None
     cachestrategy: None | (Literal["dask-worker"] | Callable[..., MutableMapping]) = (
         None
@@ -1127,8 +1132,11 @@ class Runner:
         ), "Expected pre_executor to derive from ExecutorBase"
 
         if self.metadata_cache is None:
-            self.metadata_cache = self._load_cache()
-            if not self.metadata_cache:
+            if self.use_pickle_persistent_cache: 
+                self.metadata_cache = self._load_cache()
+                if not self.metadata_cache:
+                    self.metadata_cache = DEFAULT_METADATA_CACHE
+            else:
                 self.metadata_cache = DEFAULT_METADATA_CACHE
 
         assert self.format in ("root", "parquet")
@@ -1342,7 +1350,7 @@ class Runner:
                 self.metadata_cache[item] = item.metadata
                 cache_updated = True
 
-            if cache_updated:
+            if cache_updated and self.use_pickle_persistent_cache:
                 self._save_cache()
 
             for filemeta in fileset:
