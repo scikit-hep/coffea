@@ -1097,7 +1097,7 @@ class Runner:
     skyhook_options: dict | None = field(default_factory=dict)
     format: str = "root"
     use_pickle_persistent_cache: bool = True
-    cache_pickle_file_name: str = 'coffea_metadata_cache'
+    cache_pickle_file_name: str = "coffea_metadata_cache"
     cache_file: Path = field(default=Path(f".{cache_pickle_file_name}.pkl"), init=False)
     checkpointer: CheckpointerABC | None = None
     cachestrategy: None | (Literal["dask-worker"] | Callable[..., MutableMapping]) = (
@@ -1132,7 +1132,7 @@ class Runner:
         ), "Expected pre_executor to derive from ExecutorBase"
 
         if self.metadata_cache is None:
-            if self.use_pickle_persistent_cache: 
+            if self.use_pickle_persistent_cache:
                 self.metadata_cache = self._load_cache()
                 if not self.metadata_cache:
                     self.metadata_cache = DEFAULT_METADATA_CACHE
