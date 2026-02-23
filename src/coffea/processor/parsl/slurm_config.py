@@ -29,9 +29,7 @@ def slurm_config(
     wrk_init = """
     export XRD_RUNFORKHANDLER=1
     export X509_USER_PROXY=%s
-    """ % (
-        osp.join(work_dir, x509_proxy)
-    )
+    """ % (osp.join(work_dir, x509_proxy))
 
     sched_opts = """
     #SBATCH --cpus-per-task=%d

@@ -113,7 +113,7 @@ class extractor:
                         weightdesc
                     )
                 )
-            (local_name, name, thefile) = tuple(temp)
+            local_name, name, thefile = tuple(temp)
             if name == "*":
                 self.import_file(thefile)
                 weights = self._filecache[thefile]

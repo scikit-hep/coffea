@@ -44,6 +44,8 @@ def _element_link(target_collection, eventindex, index, key):
             "element linking must be done on two dask_awkward arrays or two awkward arrays not a mix of the two"
         )
 
+    if isinstance(key, Number):
+        key = numpy.array([key])
     global_index = _get_global_index(target_collection, eventindex, index)
     global_index = awkward.where(key != 0, global_index, -1)
     return target_collection._apply_global_index(global_index)
@@ -194,6 +196,8 @@ class Muon(Particle):
     <https://gitlab.cern.ch/atlas/athena/-/blob/21.2/Event/xAOD/xAODMuon/Root/Muon_v1.cxx>`_.
     """
 
+    # trackParticle does not behave like Muon::trackParticle, which determines which of the various collections
+    # to use on the fly (e.g. calotagged muons do not have combined tracks). Fix in future?
     @dask_property
     def trackParticle(self):
         return _element_link_method(
@@ -209,6 +213,60 @@ class Muon(Particle):
             self,
             "combinedTrackParticleLink",
             "CombinedMuonTrackParticles",
+            dask_array,
+        )
+
+    @dask_property
+    def combinedTrackParticle(self):
+        return _element_link_method(
+            self,
+            "combinedTrackParticleLink",
+            "CombinedMuonTrackParticles",
+            None,
+        )
+
+    @combinedTrackParticle.dask
+    def combinedTrackParticle(self, dask_array):
+        return _element_link_method(
+            self,
+            "combinedTrackParticleLink",
+            "CombinedMuonTrackParticles",
+            dask_array,
+        )
+
+    @dask_property
+    def inDetTrackParticle(self):
+        return _element_link_method(
+            self,
+            "inDetTrackParticleLink",
+            "InDetTrackParticles",
+            None,
+        )
+
+    @inDetTrackParticle.dask
+    def inDetTrackParticle(self, dask_array):
+        return _element_link_method(
+            self,
+            "inDetTrackParticleLink",
+            "InDetTrackParticles",
+            dask_array,
+        )
+
+    @dask_property
+    def extrapolatedMuonSpectrometerTrackParticle(self):
+        return _element_link_method(
+            self,
+            "extrapolatedMuonSpectrometerTrackParticleLink",
+            "ExtrapolatedMuonTrackParticles",
+            None,
+        )
+
+    @extrapolatedMuonSpectrometerTrackParticle.dask
+    def extrapolatedMuonSpectrometerTrackParticle(self, dask_array):
+        return _element_link_method(
+            self,
+            "extrapolatedMuonSpectrometerTrackParticleLink",
+            "ExtrapolatedMuonTrackParticles",
             dask_array,
         )
 
