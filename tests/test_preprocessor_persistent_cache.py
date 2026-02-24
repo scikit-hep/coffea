@@ -27,7 +27,7 @@ from coffea.processor.executor import (
 # ============================================================================
 
 
-def test_cache_load_success(tmp_path, monkeypatch):
+def test_cache_load_success(tmp_path):
     """Test successful loading of an existing valid cache file."""
     # Arrange: Create a valid cache file
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
@@ -40,13 +40,12 @@ def test_cache_load_success(tmp_path, monkeypatch):
     with open(cache_file, "wb") as f:
         pickle.dump(mock_cache, f)
 
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
-
-    # Act: Initialize Runner (triggers _load_cache)
+    # Act: Initialize Runner with cache_file passed directly
     with patch.object(Runner, "_preprocess_fileset_root"):
         runner = Runner(
             executor=IterativeExecutor(),
-            metadata_cache=None,  # Force loading from disk
+            metadata_cache=None,
+            cache_file=str(cache_file),
         )
 
     # Assert: Cache should be loaded
@@ -56,42 +55,38 @@ def test_cache_load_success(tmp_path, monkeypatch):
     assert runner.metadata_cache[filemeta]["numentries"] == 1000
 
 
-def test_cache_file_missing(tmp_path, monkeypatch):
+def test_cache_file_missing(tmp_path):
     """Test that missing cache file returns empty dict without crashing."""
     # Arrange: Ensure cache file does not exist
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
     assert not cache_file.exists()
-
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
     # Act: Initialize Runner
     with patch.object(Runner, "_preprocess_fileset_root"):
         runner = Runner(
             executor=IterativeExecutor(),
             metadata_cache=None,
+            cache_file=str(cache_file),
         )
 
     # Assert: Should fall back to DEFAULT_METADATA_CACHE (LRU)
-    # The _load_cache returns {} when file doesn't exist, then __post_init__
-    # assigns DEFAULT_METADATA_CACHE
     assert runner.metadata_cache is not None
     assert len(runner.metadata_cache) == 0
 
 
-def test_cache_file_corrupted(tmp_path, monkeypatch, capsys):
+def test_cache_file_corrupted(tmp_path, capsys):
     """Test that corrupted cache file is handled gracefully."""
     # Arrange: Write invalid data to cache file
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
     with open(cache_file, "wb") as f:
         f.write(b"corrupted data not pickle")
 
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
-
     # Act: Initialize Runner
     with patch.object(Runner, "_preprocess_fileset_root"):
         runner = Runner(
             executor=IterativeExecutor(),
             metadata_cache=None,
+            cache_file=str(cache_file),
         )
 
     # Assert: Should return empty dict and print warning
@@ -100,7 +95,7 @@ def test_cache_file_corrupted(tmp_path, monkeypatch, capsys):
     assert len(runner.metadata_cache) == 0
 
 
-def test_cache_load_prints_message(tmp_path, monkeypatch, capsys):
+def test_cache_load_prints_message(tmp_path, capsys):
     """Test that loading cache prints informative message."""
     # Arrange: Create cache with multiple entries
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
@@ -112,11 +107,13 @@ def test_cache_load_prints_message(tmp_path, monkeypatch, capsys):
     with open(cache_file, "wb") as f:
         pickle.dump(mock_cache, f)
 
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
-
     # Act
     with patch.object(Runner, "_preprocess_fileset_root"):
-        Runner(executor=IterativeExecutor(), metadata_cache=None)
+        Runner(
+            executor=IterativeExecutor(),
+            metadata_cache=None,
+            cache_file=str(cache_file),
+        )
 
     # Assert
     captured = capsys.readouterr()
@@ -128,14 +125,16 @@ def test_cache_load_prints_message(tmp_path, monkeypatch, capsys):
 # ============================================================================
 
 
-def test_cache_save_success(tmp_path, monkeypatch):
+def test_cache_save_success(tmp_path):
     """Test successful saving of cache to disk atomically."""
     # Arrange
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
     with patch.object(Runner, "_preprocess_fileset_root"):
-        runner = Runner(executor=IterativeExecutor())
+        runner = Runner(
+            executor=IterativeExecutor(),
+            cache_file=str(cache_file),
+        )
 
     # Populate cache
     filemeta = FileMeta("dataset1", "file1.root", "Events")
@@ -161,22 +160,24 @@ def test_cache_save_success(tmp_path, monkeypatch):
     assert loaded_cache[filemeta]["numentries"] == 5000
 
 
-def test_cache_save_failure_open_error(tmp_path, monkeypatch, capsys):
+def test_cache_save_failure_open_error(tmp_path, capsys):
     """Test that cache save failure prints warning without crashing."""
     # Arrange
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
     with patch.object(Runner, "_preprocess_fileset_root"):
-        runner = Runner(executor=IterativeExecutor())
+        runner = Runner(
+            executor=IterativeExecutor(),
+            cache_file=str(cache_file),
+        )
 
     runner.metadata_cache[FileMeta("ds", "f.root", "Events")] = {
         "numentries": 100,
         "uuid": b"uuid",
     }
 
-    # Act: Mock open to raise error
-    with patch("builtins.open", side_effect=OSError("Disk full")):
+    # Act: Patch open in the executor module to raise error
+    with patch("coffea.processor.executor.open", side_effect=OSError("Disk full")):
         runner._save_cache()  # Should not raise
 
     # Assert: Warning printed
@@ -185,22 +186,24 @@ def test_cache_save_failure_open_error(tmp_path, monkeypatch, capsys):
     assert "Disk full" in captured.out
 
 
-def test_cache_save_failure_pickle_error(tmp_path, monkeypatch, capsys):
+def test_cache_save_failure_pickle_error(tmp_path, capsys):
     """Test that pickle.dump failure is handled gracefully."""
     # Arrange
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
     with patch.object(Runner, "_preprocess_fileset_root"):
-        runner = Runner(executor=IterativeExecutor())
+        runner = Runner(
+            executor=IterativeExecutor(),
+            cache_file=str(cache_file),
+        )
 
     runner.metadata_cache[FileMeta("ds", "f.root", "Events")] = {
         "numentries": 100,
         "uuid": b"uuid",
     }
 
-    # Act: Mock pickle.dump to fail
-    with patch("pickle.dump", side_effect=pickle.PicklingError("Cannot pickle")):
+    # Act: Patch pickle.dump in the executor module to fail
+    with patch("coffea.processor.executor.pickle.dump", side_effect=pickle.PicklingError("Cannot pickle")):
         runner._save_cache()
 
     # Assert
@@ -208,14 +211,16 @@ def test_cache_save_failure_pickle_error(tmp_path, monkeypatch, capsys):
     assert "Could not save cache file" in captured.out
 
 
-def test_cache_overwrite_behavior(tmp_path, monkeypatch):
+def test_cache_overwrite_behavior(tmp_path):
     """Test that saving cache twice overwrites with latest content."""
     # Arrange
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
     with patch.object(Runner, "_preprocess_fileset_root"):
-        runner = Runner(executor=IterativeExecutor())
+        runner = Runner(
+            executor=IterativeExecutor(),
+            cache_file=str(cache_file),
+        )
 
     filemeta = FileMeta("dataset", "file.root", "Events")
 
@@ -234,21 +239,23 @@ def test_cache_overwrite_behavior(tmp_path, monkeypatch):
     assert loaded[filemeta]["uuid"] == b"uuid2"
 
 
-def test_cache_save_uses_highest_protocol(tmp_path, monkeypatch):
+def test_cache_save_uses_highest_protocol(tmp_path):
     """Test that cache is saved using pickle.HIGHEST_PROTOCOL."""
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
     with patch.object(Runner, "_preprocess_fileset_root"):
-        runner = Runner(executor=IterativeExecutor())
+        runner = Runner(
+            executor=IterativeExecutor(),
+            cache_file=str(cache_file),
+        )
 
     runner.metadata_cache[FileMeta("ds", "f.root", "Events")] = {
         "numentries": 100,
         "uuid": b"uuid",
     }
 
-    # Mock pickle.dump to capture protocol argument
-    with patch("pickle.dump") as mock_dump:
+    # Patch pickle.dump in the executor module to capture protocol argument
+    with patch("coffea.processor.executor.pickle.dump") as mock_dump:
         runner._save_cache()
         mock_dump.assert_called_once()
         assert mock_dump.call_args[1]["protocol"] == pickle.HIGHEST_PROTOCOL
@@ -259,7 +266,7 @@ def test_cache_save_uses_highest_protocol(tmp_path, monkeypatch):
 # ============================================================================
 
 
-def test_cache_skips_metadata_fetching_when_populated(tmp_path, monkeypatch):
+def test_cache_skips_metadata_fetching_when_populated(tmp_path):
     """Test that cached metadata skips fetching from files."""
     # Arrange: Pre-populate cache
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
@@ -273,10 +280,12 @@ def test_cache_skips_metadata_fetching_when_populated(tmp_path, monkeypatch):
     with open(cache_file, "wb") as f:
         pickle.dump(mock_cache, f)
 
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
-
-    # Create runner
-    runner = Runner(executor=IterativeExecutor(), metadata_cache=None)
+    # Create runner with cache loaded from file
+    runner = Runner(
+        executor=IterativeExecutor(),
+        metadata_cache=None,
+        cache_file=str(cache_file),
+    )
 
     # Create a fileset
     fileset = {"dataset1": ["file1.root"]}
@@ -303,31 +312,29 @@ def test_cache_skips_metadata_fetching_when_populated(tmp_path, monkeypatch):
             mock_save.assert_not_called()
 
 
-def test_cache_updated_when_metadata_missing(tmp_path, monkeypatch):
+def test_cache_updated_when_metadata_missing(tmp_path):
     """Test that missing metadata is fetched and cache is updated."""
-    # Arrange: Empty cache
+    # Arrange: Runner with empty cache pointed at a real path
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
-
-    # Create runner with empty cache
-    runner = Runner(executor=IterativeExecutor())
+    runner = Runner(
+        executor=IterativeExecutor(),
+        cache_file=str(cache_file),
+    )
 
     # Create fileset
     fileset = {"dataset1": ["file1.root"]}
 
-    # Mock metadata fetcher
+    # Mock metadata fetcher result
     filemeta = FileMeta("dataset1", "file1.root", "Events")
     metadata = {"numentries": 12345, "uuid": b"new_uuid"}
     filemeta_with_meta = FileMeta("dataset1", "file1.root", "Events", metadata)
 
     mock_accumulator = set_accumulator([filemeta_with_meta])
 
-    # Create a mock executor that returns the accumulator
+    # Create a mock pre_executor that returns the accumulator
     mock_pre_executor = Mock()
     mock_pre_executor.copy = Mock(return_value=mock_pre_executor)
     mock_pre_executor.return_value = (mock_accumulator, 0)
-
-    # Replace the pre_executor
     runner.pre_executor = mock_pre_executor
 
     # Act: Run preprocessing
@@ -345,7 +352,7 @@ def test_cache_updated_when_metadata_missing(tmp_path, monkeypatch):
         mock_save.assert_called_once()
 
 
-def test_cache_not_saved_when_no_updates(tmp_path, monkeypatch):
+def test_cache_not_saved_when_no_updates(tmp_path):
     """Test that cache is not saved when no new metadata is fetched."""
     # Arrange: Pre-populate cache completely
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
@@ -359,10 +366,12 @@ def test_cache_not_saved_when_no_updates(tmp_path, monkeypatch):
     with open(cache_file, "wb") as f:
         pickle.dump(mock_cache, f)
 
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
-
     with patch.object(Runner, "_preprocess_fileset_root"):
-        runner = Runner(executor=IterativeExecutor(), metadata_cache=None)
+        runner = Runner(
+            executor=IterativeExecutor(),
+            metadata_cache=None,
+            cache_file=str(cache_file),
+        )
 
     fileset = {"dataset1": ["file1.root"]}
 
@@ -376,21 +385,23 @@ def test_cache_not_saved_when_no_updates(tmp_path, monkeypatch):
         to_get = {fm for fm in normalized if not fm.populated(clusters=False)}
 
         # Since all is cached, to_get should be empty
-        if len(to_get) == 0:
-            pass  # No fetching, no saving
+        assert len(to_get) == 0
 
         # Assert: Save not called
         mock_save.assert_not_called()
 
 
-def test_cache_handles_multiple_datasets(tmp_path, monkeypatch):
+def test_cache_handles_multiple_datasets(tmp_path):
     """Test cache correctly handles multiple datasets and files."""
-    # Arrange: Create fresh cache file
+    # Arrange
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
-    # Create runner with explicit empty cache to avoid shared state
-    runner = Runner(executor=IterativeExecutor(), metadata_cache={})
+    # Create runner with explicit empty cache
+    runner = Runner(
+        executor=IterativeExecutor(),
+        metadata_cache={},
+        cache_file=str(cache_file),
+    )
 
     # Create multiple file metadata entries
     filemeta1 = FileMeta("dataset_A", "fileA1.root", "Events")
@@ -414,13 +425,15 @@ def test_cache_handles_multiple_datasets(tmp_path, monkeypatch):
     assert loaded[filemeta3]["numentries"] == 300
 
 
-def test_cache_update_triggers_save(tmp_path, monkeypatch):
+def test_cache_update_triggers_save(tmp_path):
     """Integration test: verify cache update triggers save in preprocessing."""
     # Arrange
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
-    runner = Runner(executor=IterativeExecutor())
+    runner = Runner(
+        executor=IterativeExecutor(),
+        cache_file=str(cache_file),
+    )
 
     fileset = {"dataset1": ["file1.root"]}
 
@@ -434,8 +447,6 @@ def test_cache_update_triggers_save(tmp_path, monkeypatch):
     mock_pre_executor = Mock()
     mock_pre_executor.copy = Mock(return_value=mock_pre_executor)
     mock_pre_executor.return_value = (mock_accumulator, 0)
-
-    # Replace the pre_executor
     runner.pre_executor = mock_pre_executor
 
     # Act
@@ -456,13 +467,15 @@ def test_cache_update_triggers_save(tmp_path, monkeypatch):
 # ============================================================================
 
 
-def test_cache_handles_empty_fileset(tmp_path, monkeypatch):
+def test_cache_handles_empty_fileset(tmp_path):
     """Test that empty fileset doesn't break cache logic."""
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
     with patch.object(Runner, "_preprocess_fileset_root"):
-        runner = Runner(executor=IterativeExecutor())
+        runner = Runner(
+            executor=IterativeExecutor(),
+            cache_file=str(cache_file),
+        )
 
     fileset = {}
 
@@ -474,21 +487,23 @@ def test_cache_handles_empty_fileset(tmp_path, monkeypatch):
         mock_save.assert_not_called()
 
 
-def test_cache_file_read_only_filesystem(tmp_path, monkeypatch, capsys):
+def test_cache_file_read_only_filesystem(tmp_path, capsys):
     """Test cache save handles read-only filesystem gracefully."""
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
     with patch.object(Runner, "_preprocess_fileset_root"):
-        runner = Runner(executor=IterativeExecutor())
+        runner = Runner(
+            executor=IterativeExecutor(),
+            cache_file=str(cache_file),
+        )
 
     runner.metadata_cache[FileMeta("ds", "f.root", "Events")] = {
         "numentries": 100,
         "uuid": b"uuid",
     }
 
-    # Simulate read-only error
-    with patch("builtins.open", side_effect=PermissionError("Read-only filesystem")):
+    # Simulate read-only error by patching open in the executor module
+    with patch("coffea.processor.executor.open", side_effect=PermissionError("Read-only filesystem")):
         runner._save_cache()
 
     captured = capsys.readouterr()
@@ -496,7 +511,7 @@ def test_cache_file_read_only_filesystem(tmp_path, monkeypatch, capsys):
     assert "Read-only filesystem" in captured.out
 
 
-def test_cache_with_cluster_alignment(tmp_path, monkeypatch):
+def test_cache_with_cluster_alignment(tmp_path):
     """Test cache handles cluster-aligned metadata correctly."""
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
     filemeta = FileMeta("dataset1", "file1.root", "Events")
@@ -510,13 +525,12 @@ def test_cache_with_cluster_alignment(tmp_path, monkeypatch):
     with open(cache_file, "wb") as f:
         pickle.dump(mock_cache, f)
 
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
-
     with patch.object(Runner, "_preprocess_fileset_root"):
         runner = Runner(
             executor=IterativeExecutor(),
             metadata_cache=None,
             align_clusters=True,
+            cache_file=str(cache_file),
         )
 
     # Verify cache loaded with cluster info
@@ -525,12 +539,15 @@ def test_cache_with_cluster_alignment(tmp_path, monkeypatch):
     assert runner.metadata_cache[filemeta]["clusters"] == [0, 100, 500, 1000]
 
 
-def test_cache_save_unpicklable_content(tmp_path, monkeypatch, capsys):
+def test_cache_save_unpicklable_content(tmp_path, capsys):
     """Test behavior when metadata contains something that cannot be pickled."""
     cache_file = tmp_path / ".coffea_metadata_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
-    runner = Runner(executor=IterativeExecutor(), metadata_cache={})
+    runner = Runner(
+        executor=IterativeExecutor(),
+        metadata_cache={},
+        cache_file=str(cache_file),
+    )
 
     # Add a lambda (unpicklable by standard pickle)
     runner.metadata_cache[FileMeta("ds", "f.root", "T")] = {"func": lambda x: x}
@@ -539,18 +556,21 @@ def test_cache_save_unpicklable_content(tmp_path, monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert "Could not save cache file" in captured.out
-    # Cache file should not exist or be incomplete
+    # Cache file should not exist or be incomplete (atomic write means no partial file)
     assert not cache_file.exists() or cache_file.stat().st_size == 0
 
 
-def test_default_cache_fallback(tmp_path, monkeypatch):
+def test_default_cache_fallback(tmp_path):
     """Ensure Runner uses DEFAULT_METADATA_CACHE when no file exists and no cache provided."""
     # Point to non-existent path
     cache_file = tmp_path / "nonexistent" / ".coffea_metadata_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
     with patch.object(Runner, "_preprocess_fileset_root"):
-        runner = Runner(executor=IterativeExecutor(), metadata_cache=None)
+        runner = Runner(
+            executor=IterativeExecutor(),
+            metadata_cache=None,
+            cache_file=str(cache_file),
+        )
 
     # Check if it points to the global DEFAULT_METADATA_CACHE or is an empty LRU
     assert isinstance(runner.metadata_cache, (dict, LRUCache))
@@ -562,10 +582,9 @@ def test_default_cache_fallback(tmp_path, monkeypatch):
         )
 
 
-def test_full_roundtrip_persistence(tmp_path, monkeypatch):
+def test_full_roundtrip_persistence(tmp_path):
     """Integration: Process -> Save -> New Runner -> Load."""
     cache_file = tmp_path / "persistent_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
     fileset = {"dataset": ["file.root"]}
     filemeta = FileMeta("dataset", "file.root", "Events")
@@ -574,10 +593,13 @@ def test_full_roundtrip_persistence(tmp_path, monkeypatch):
     )
 
     # 1. Setup first runner to "fetch" and save
-    runner1 = Runner(executor=IterativeExecutor(), metadata_cache={})
+    runner1 = Runner(
+        executor=IterativeExecutor(),
+        metadata_cache={},
+        cache_file=str(cache_file),
+    )
     mock_acc = set_accumulator([filemeta_with_meta])
 
-    # Create a mock executor
     mock_pre_executor = Mock()
     mock_pre_executor.copy = Mock(return_value=mock_pre_executor)
     mock_pre_executor.return_value = (mock_acc, 0)
@@ -592,17 +614,20 @@ def test_full_roundtrip_persistence(tmp_path, monkeypatch):
 
     # 2. Setup second runner to load that file
     with patch.object(Runner, "_preprocess_fileset_root"):
-        runner2 = Runner(executor=IterativeExecutor(), metadata_cache=None)
+        runner2 = Runner(
+            executor=IterativeExecutor(),
+            metadata_cache=None,
+            cache_file=str(cache_file),
+        )
 
     assert filemeta in runner2.metadata_cache
     assert runner2.metadata_cache[filemeta]["numentries"] == 100
     assert runner2.metadata_cache[filemeta]["uuid"] == b"abc"
 
 
-def test_align_clusters_cache_incomplete(tmp_path, monkeypatch):
+def test_align_clusters_cache_incomplete(tmp_path):
     """Verify that align_clusters=True with incomplete cache triggers refetch."""
     cache_file = tmp_path / "cluster_cache.pkl"
-    monkeypatch.setattr(Runner, "cache_file", cache_file)
 
     # Cache has numentries and uuid, but NO clusters
     fm_key = FileMeta("ds", "f.root", "Events")
@@ -610,7 +635,10 @@ def test_align_clusters_cache_incomplete(tmp_path, monkeypatch):
         pickle.dump({fm_key: {"numentries": 10, "uuid": b"u"}}, f)
 
     runner = Runner(
-        executor=IterativeExecutor(), metadata_cache=None, align_clusters=True
+        executor=IterativeExecutor(),
+        metadata_cache=None,
+        align_clusters=True,
+        cache_file=str(cache_file),
     )
 
     # Load the filemeta and populate from cache
@@ -618,7 +646,7 @@ def test_align_clusters_cache_incomplete(tmp_path, monkeypatch):
     for fm in normalized:
         fm.maybe_populate(runner.metadata_cache)
 
-    # FileMeta.populated(clusters=True) should return False here
+    # FileMeta.populated(clusters=True) should return False here (no clusters key)
     assert not normalized[0].populated(clusters=True)
 
     # Create complete metadata with clusters

@@ -1077,9 +1077,8 @@ class Runner:
             (please don't) during a session, the session can be restarted to clear the cache.
         checkpointer : CheckpointerABC, optional
             A CheckpointerABC instance to manage checkpointing of each chunk output
-        use_pickle_persistent_cache : bool, optional
-            Enables/disables .pkl file creation and usage for persistent cache between runs
-            Defaults to true
+        cache_file : str, optional
+            Enables persistent cache in .pkl file if not None
     """
 
     executor: ExecutorBase
@@ -1096,9 +1095,7 @@ class Runner:
     use_skyhook: bool | None = False
     skyhook_options: dict | None = field(default_factory=dict)
     format: str = "root"
-    use_pickle_persistent_cache: bool = True
-    cache_pickle_file_name: str = 'coffea_metadata_cache'
-    cache_file: Path = field(default=Path(f".{cache_pickle_file_name}.pkl"), init=False)
+    cache_file: str | None = None
     checkpointer: CheckpointerABC | None = None
     cachestrategy: None | (Literal["dask-worker"] | Callable[..., MutableMapping]) = (
         None
@@ -1132,7 +1129,7 @@ class Runner:
         ), "Expected pre_executor to derive from ExecutorBase"
 
         if self.metadata_cache is None:
-            if self.use_pickle_persistent_cache: 
+            if self.cache_file is not None: 
                 self.metadata_cache = self._load_cache()
                 if not self.metadata_cache:
                     self.metadata_cache = DEFAULT_METADATA_CACHE
@@ -1292,7 +1289,7 @@ class Runner:
 
     def _load_cache(self):
         """Load metadata cache from disk if it exists"""
-        if self.cache_file.exists():
+        if os.path.isfile(self.cache_file):
             try:
                 with open(self.cache_file, "rb") as f:
                     cache = pickle.load(f)
@@ -1307,10 +1304,11 @@ class Runner:
         """Save metadata cache to disk"""
         try:
             # Write to a temporary file first, then rename for atomic operation
-            temp_file = self.cache_file.with_suffix(".tmp")
+            cache_path = Path(self.cache_file)
+            temp_file = cache_path.with_suffix(".tmp")
             with open(temp_file, "wb") as f:
                 pickle.dump(self.metadata_cache, f, protocol=pickle.HIGHEST_PROTOCOL)
-            temp_file.replace(self.cache_file)
+            temp_file.replace(cache_path)
         except Exception as e:
             print(f"Warning: Could not save cache file: {e}")
 
@@ -1350,7 +1348,7 @@ class Runner:
                 self.metadata_cache[item] = item.metadata
                 cache_updated = True
 
-            if cache_updated and self.use_pickle_persistent_cache:
+            if cache_updated and self.cache_file:
                 self._save_cache()
 
             for filemeta in fileset:
