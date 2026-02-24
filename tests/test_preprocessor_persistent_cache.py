@@ -203,7 +203,10 @@ def test_cache_save_failure_pickle_error(tmp_path, capsys):
     }
 
     # Act: Patch pickle.dump in the executor module to fail
-    with patch("coffea.processor.executor.pickle.dump", side_effect=pickle.PicklingError("Cannot pickle")):
+    with patch(
+        "coffea.processor.executor.pickle.dump",
+        side_effect=pickle.PicklingError("Cannot pickle"),
+    ):
         runner._save_cache()
 
     # Assert
@@ -503,7 +506,10 @@ def test_cache_file_read_only_filesystem(tmp_path, capsys):
     }
 
     # Simulate read-only error by patching open in the executor module
-    with patch("coffea.processor.executor.open", side_effect=PermissionError("Read-only filesystem")):
+    with patch(
+        "coffea.processor.executor.open",
+        side_effect=PermissionError("Read-only filesystem"),
+    ):
         runner._save_cache()
 
     captured = capsys.readouterr()

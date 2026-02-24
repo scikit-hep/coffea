@@ -1129,7 +1129,7 @@ class Runner:
         ), "Expected pre_executor to derive from ExecutorBase"
 
         if self.metadata_cache is None:
-            if self.cache_file is not None: 
+            if self.cache_file is not None:
                 self.metadata_cache = self._load_cache()
                 if not self.metadata_cache:
                     self.metadata_cache = DEFAULT_METADATA_CACHE
