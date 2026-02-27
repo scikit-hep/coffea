@@ -394,3 +394,234 @@ def test_corrected_jets_factory_jec_only():
     expected_factor = np.float32(1.005) ** 4
     expected_pt = test_pt.astype(np.float32) * expected_factor
     assert np.allclose(np.asarray(flat_corrected["pt"]), expected_pt, rtol=1e-5)
+
+
+# ---------------------------------------------------------------------------
+# Cross-validation: correctionlib adapters vs txt-based correctors
+# ---------------------------------------------------------------------------
+
+REAL_JERC_FILE = os.path.join(SAMPLES, "jet_jerc_Summer22_V3.json.gz")
+REAL_JEC_TAG = "Summer22_22Sep2023_V3"
+REAL_JER_TAG = "Summer22_22Sep2023_JRV1"
+REAL_DATA_TYPE = "MC"
+REAL_JET_TYPE = "AK4PFPuppi"
+# Pick a few sources that exist in both txt and JSON-POG
+XVAL_UNC_SOURCES = ["FlavorQCD", "AbsoluteMPFBias"]
+
+
+def _make_txt_evaluator():
+    """Build an evaluator from the real Summer22_V3 txt files (JEC + JUNC + JER + JERSF)."""
+    from coffea.lookup_tools import extractor
+
+    extract = extractor()
+    extract.add_weight_sets(
+        [
+            "* * tests/samples/Summer22_22Sep2023_V3_MC_L1FastJet_AK4PFPuppi.jec.txt.gz",
+            "* * tests/samples/Summer22_22Sep2023_V3_MC_L2Relative_AK4PFPuppi.jec.txt.gz",
+            "* * tests/samples/Summer22_22Sep2023_V3_MC_L3Absolute_AK4PFPuppi.jec.txt.gz",
+            "* * tests/samples/Summer22_22Sep2023_V3_MC_L2L3Residual_AK4PFPuppi.jec.txt.gz",
+            "* * tests/samples/Summer22_22Sep2023_V3_MC_UncertaintySources_AK4PFPuppi.junc.txt.gz",
+            "* * tests/samples/Summer22_22Sep2023_JRV1_MC_PtResolution_AK4PFPuppi.jr.txt.gz",
+            # JERSF: rename to a 5-part name so JetResolutionScaleFactor's parser accepts it
+            # (the real name has 6 underscore-separated parts due to "Summer22_22Sep2023")
+            "Summer2222Sep2023_JRV1_MC_SF_AK4PFPuppi Summer22_22Sep2023_JRV1_MC_SF_AK4PFPuppi tests/samples/Summer22_22Sep2023_JRV1_MC_SF_AK4PFPuppi.jersf.txt.gz",
+        ]
+    )
+    extract.finalize()
+    return extract.make_evaluator()
+
+
+def test_crossval_jec():
+    """JEC from correctionlib compound correction must match txt FactorizedJetCorrector."""
+    from coffea.jetmet_tools import CorrectionLibJECStack, FactorizedJetCorrector
+
+    # -- txt-based JEC --
+    ev = _make_txt_evaluator()
+    jec_names = [
+        "Summer22_22Sep2023_V3_MC_L1FastJet_AK4PFPuppi",
+        "Summer22_22Sep2023_V3_MC_L2Relative_AK4PFPuppi",
+        "Summer22_22Sep2023_V3_MC_L3Absolute_AK4PFPuppi",
+        "Summer22_22Sep2023_V3_MC_L2L3Residual_AK4PFPuppi",
+    ]
+    txt_jec = FactorizedJetCorrector(**{name: ev[name] for name in jec_names})
+
+    # -- correctionlib JEC --
+    clib_stack = CorrectionLibJECStack.from_file(
+        REAL_JERC_FILE,
+        jec_tag=REAL_JEC_TAG,
+        data_type=REAL_DATA_TYPE,
+        jet_type=REAL_JET_TYPE,
+    )
+    clib_jec = clib_stack.jec
+
+    # -- Build test inputs --
+    _, test_eta, test_pt = dummy_jagged_eta_pt()
+    test_Rho = np.full_like(test_eta, 30.0)
+    test_A = np.full_like(test_eta, 0.5)
+
+    # txt corrector works with numpy arrays
+    txt_corr = txt_jec.getCorrection(
+        JetEta=test_eta, Rho=test_Rho, JetPt=test_pt, JetA=test_A
+    )
+    txt_corr = np.asarray(txt_corr, dtype=np.float32)
+
+    # correctionlib adapter works with awkward arrays
+    clib_corr = clib_jec.getCorrection(
+        JetA=ak.Array(test_A),
+        JetEta=ak.Array(test_eta),
+        JetPt=ak.Array(test_pt),
+        Rho=ak.Array(test_Rho),
+    )
+    clib_corr = np.asarray(clib_corr, dtype=np.float32)
+
+    assert txt_corr.shape == clib_corr.shape
+    assert np.allclose(txt_corr, clib_corr, rtol=1e-5), (
+        f"Max relative diff: {np.max(np.abs(txt_corr - clib_corr) / np.abs(txt_corr))}"
+    )
+
+
+def test_crossval_junc():
+    """JUNC from correctionlib must match txt JetCorrectionUncertainty."""
+    from coffea.jetmet_tools import (
+        CorrectionLibJECStack,
+        JetCorrectionUncertainty,
+    )
+
+    # -- txt-based JUNC --
+    ev = _make_txt_evaluator()
+    junc_names = [
+        k for k in dir(ev) if "UncertaintySources" in k and "AK4PFPuppi" in k
+    ]
+    txt_junc = JetCorrectionUncertainty(**{name: ev[name] for name in junc_names})
+
+    # -- correctionlib JUNC --
+    clib_stack = CorrectionLibJECStack.from_file(
+        REAL_JERC_FILE,
+        jec_tag=REAL_JEC_TAG,
+        data_type=REAL_DATA_TYPE,
+        jet_type=REAL_JET_TYPE,
+        unc_sources=XVAL_UNC_SOURCES,
+    )
+    clib_junc = clib_stack.junc
+
+    # -- Build test inputs --
+    _, test_eta, test_pt = dummy_jagged_eta_pt()
+
+    # txt JUNC
+    txt_results = dict(
+        txt_junc.getUncertainty(JetEta=test_eta, JetPt=test_pt)
+    )
+
+    # correctionlib JUNC
+    clib_results = dict(
+        clib_junc.getUncertainty(
+            JetEta=ak.Array(test_eta), JetPt=ak.Array(test_pt)
+        )
+    )
+
+    for source in XVAL_UNC_SOURCES:
+        assert source in clib_results, f"Source {source} missing from correctionlib"
+        assert source in txt_results, f"Source {source} missing from txt results"
+
+        txt_arr = np.asarray(txt_results[source], dtype=np.float32)
+        clib_arr = np.asarray(clib_results[source], dtype=np.float32)
+
+        assert txt_arr.shape == clib_arr.shape, (
+            f"Shape mismatch for {source}: txt={txt_arr.shape}, clib={clib_arr.shape}"
+        )
+        assert np.allclose(txt_arr, clib_arr, rtol=1e-5), (
+            f"Source {source} max relative diff: "
+            f"{np.max(np.abs(txt_arr - clib_arr) / np.clip(np.abs(txt_arr), 1e-10, None))}"
+        )
+
+
+def test_crossval_jer():
+    """JER PtResolution from correctionlib must match txt JetResolution."""
+    from coffea.jetmet_tools import CorrectionLibJECStack, JetResolution
+
+    # -- txt-based JER --
+    ev = _make_txt_evaluator()
+    jer_name = "Summer22_22Sep2023_JRV1_MC_PtResolution_AK4PFPuppi"
+    txt_jer = JetResolution(**{jer_name: ev[jer_name]})
+
+    # -- correctionlib JER --
+    clib_stack = CorrectionLibJECStack.from_file(
+        REAL_JERC_FILE,
+        jec_tag=REAL_JEC_TAG,
+        data_type=REAL_DATA_TYPE,
+        jet_type=REAL_JET_TYPE,
+        jer_tag=REAL_JER_TAG,
+    )
+    clib_jer = clib_stack.jer
+
+    # -- Build test inputs --
+    _, test_eta, test_pt = dummy_jagged_eta_pt()
+    test_Rho = np.full_like(test_eta, 30.0)
+
+    # txt JER
+    txt_reso = txt_jer.getResolution(JetEta=test_eta, Rho=test_Rho, JetPt=test_pt)
+    txt_reso = np.asarray(txt_reso, dtype=np.float32)
+
+    # correctionlib JER
+    clib_reso = clib_jer.getResolution(
+        JetEta=ak.Array(test_eta),
+        JetPt=ak.Array(test_pt),
+        Rho=ak.Array(test_Rho),
+    )
+    clib_reso = np.asarray(clib_reso, dtype=np.float32)
+
+    assert txt_reso.shape == clib_reso.shape
+    assert np.allclose(txt_reso, clib_reso, rtol=1e-5), (
+        f"Max relative diff: {np.max(np.abs(txt_reso - clib_reso) / np.clip(np.abs(txt_reso), 1e-10, None))}"
+    )
+
+
+def test_crossval_jersf():
+    """JERSF from correctionlib must match txt JetResolutionScaleFactor.
+
+    Note: the JSON-POG JERSF is pt-dependent and returns SF=1.0 for jets below
+    a pt threshold (~10 GeV), while the txt format only bins by eta and always
+    returns the SF.  We compare only jets above pt=10 GeV where both agree.
+    """
+    from coffea.jetmet_tools import CorrectionLibJECStack, JetResolutionScaleFactor
+
+    # -- txt-based JERSF --
+    ev = _make_txt_evaluator()
+    # Use the renamed 5-part key (see _make_txt_evaluator)
+    jersf_name = "Summer2222Sep2023_JRV1_MC_SF_AK4PFPuppi"
+    txt_jersf = JetResolutionScaleFactor(**{jersf_name: ev[jersf_name]})
+
+    # -- correctionlib JERSF --
+    clib_stack = CorrectionLibJECStack.from_file(
+        REAL_JERC_FILE,
+        jec_tag=REAL_JEC_TAG,
+        data_type=REAL_DATA_TYPE,
+        jet_type=REAL_JET_TYPE,
+        jer_tag=REAL_JER_TAG,
+    )
+    clib_jersf = clib_stack.jersf
+
+    # -- Build test inputs, filter to pt >= 10 where both formats agree --
+    _, test_eta, test_pt = dummy_jagged_eta_pt()
+    valid = test_pt >= 10.0
+    test_eta = test_eta[valid]
+    test_pt = test_pt[valid]
+    assert len(test_eta) > 0
+
+    # txt JERSF returns (N, 3) with [nom, up, down]
+    txt_sf = txt_jersf.getScaleFactor(JetEta=test_eta, JetPt=test_pt)
+    txt_sf = np.asarray(txt_sf, dtype=np.float32)
+
+    # correctionlib JERSF also returns (N, 3) with [nom, up, down]
+    clib_sf = clib_jersf.getScaleFactor(
+        JetEta=ak.Array(test_eta),
+        JetPt=ak.Array(test_pt),
+    )
+    clib_sf = np.asarray(clib_sf, dtype=np.float32)
+
+    assert txt_sf.shape == clib_sf.shape, (
+        f"Shape mismatch: txt={txt_sf.shape}, clib={clib_sf.shape}"
+    )
+    assert np.allclose(txt_sf, clib_sf, rtol=1e-5), (
+        f"Max relative diff: {np.max(np.abs(txt_sf - clib_sf) / np.clip(np.abs(txt_sf), 1e-10, None))}"
+    )
