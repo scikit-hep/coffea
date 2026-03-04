@@ -3,7 +3,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 import typing as tp
-from collections.abc import ItemsView, MutableMapping
+from collections.abc import ItemsView, KeysView, MutableMapping
 from io import BytesIO
 from weakref import finalize
 
@@ -258,6 +258,24 @@ or
     def group(self) -> HDF5Group:
         return self._group
 
+    def get_leaf_datasets(self):
+        # little helper to find actual datasets in a potentially nested h5py group.
+        # that happens with coffea, because the buffer keys contain forward slashes,
+        # which hdf5 considers as markers to split
+        import h5py
+
+        leaves = []
+
+        def visitor(name, node):
+            if isinstance(node, h5py.Dataset):
+                leaves.append(name)
+
+        self.group.visititems(visitor)
+        return leaves
+
+    def keys(self) -> KeysView:
+        return KeysView(self.get_leaf_datasets())
+
     def get_nbytes(self, key: tp.Hashable, value: HDF5Dataset) -> int:
         return value.id.get_storage_size()  # respects compression
 
@@ -284,10 +302,10 @@ or
         del self.group[key]
 
     def __iter__(self) -> tp.Iterator[tp.Hashable]:
-        return iter(self.group)
+        return iter(self.get_leaf_datasets())
 
     def __len__(self) -> int:
-        return self.group.id.get_num_objs()
+        return len(self.get_leaf_datasets())
 
     # overwrite .items() because zict.Buffer.weight loops over `.items()` to infer nbytes, see:
     # https://github.com/dask/zict/blob/main/zict/lru.py#L108
