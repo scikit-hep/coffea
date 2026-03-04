@@ -321,7 +321,7 @@ or
 # - add blosc2 treestore cache (https://www.blosc.org/python-blosc2/reference/tree_store.html#blosc2.TreeStore)
 
 
-def lru_cache(
+def LRUCache(
     capacity: int,
     *,
     cache: NbytesAwareCache | None = None,
@@ -332,13 +332,13 @@ def lru_cache(
 
     Example
     -------
-    >>> lru_500MB = lru_cache(capacity=500_000_000) # 500 MB
+    >>> lru_500MB = LRUCache(capacity=500_000_000) # 500 MB
     >>> NanoEventsFactory.from_root(..., buffer_cache=lru_500MB),
     """
     try:
         import zict
     except ModuleNotFoundError as err:
-        raise ModuleNotFoundError("""to use lru_cache, you must install zict:
+        raise ModuleNotFoundError("""to use LRUCache, you must install zict:
 
     pip install zict
 
@@ -357,7 +357,7 @@ or
     return zict.LRU(n=int(capacity), d=cache, weight=cache.get_nbytes)
 
 
-def hierarchical_cache(
+def HierarchicalCache(
     layers: tp.Iterable[tuple[int, NbytesAwareCache]],
 ) -> MutableMapping:
     """Compose a stack of caches into a zict.Buffer hierarchy.
@@ -374,7 +374,7 @@ def hierarchical_cache(
     >>> inmemory = BufferCache()
     >>> inmemory_compressed = CompressedBufferCache(codec=Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE))
     >>> ondisk = HDF5BufferCache(file_handle=open("mycache.h5", "wb+"))
-    >>> cache = hierarchical_cache([
+    >>> cache = HierarchicalCache([
         (100_000_000, inmemory), # 100 MB
         (1_000_000_000, inmemory_compressed), # 1 GB
         (-1, ondisk),
@@ -383,7 +383,7 @@ def hierarchical_cache(
     try:
         import zict
     except ModuleNotFoundError as err:
-        raise ModuleNotFoundError("""to use hierarchical_cache, you must install zict:
+        raise ModuleNotFoundError("""to use HierarchicalCache, you must install zict:
 
     pip install zict
 

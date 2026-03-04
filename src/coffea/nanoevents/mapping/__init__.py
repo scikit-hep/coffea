@@ -2,8 +2,9 @@ from .buffer_cache import (
     BufferCache,
     CompressedBufferCache,
     HDF5BufferCache,
+    HierarchicalCache,
+    LRUCache,
     NbytesAwareCache,
-    hierarchical_cache,
 )
 from .parquet import ParquetSourceMapping, TrivialParquetOpener
 from .preloaded import (
@@ -18,7 +19,8 @@ __all__ = [
     "CompressedBufferCache",
     "HDF5BufferCache",
     "NbytesAwareCache",
-    "hierarchical_cache",
+    "HierarchicalCache",
+    "LRUCache",
     "TrivialUprootOpener",
     "UprootSourceMapping",
     "TrivialParquetOpener",
