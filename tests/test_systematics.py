@@ -76,7 +76,7 @@ def test_single_field_variation(tests_directory, mode, kind):
     def met_pt_scale(pt):
         return (1.0 + np.array([0.03, -0.03], dtype=np.float32)) * pt[:, None]
 
-    met.add_systematic("PtScale", "UpDownMultiSystematic", "pt", met_pt_scale)
+    met.add_systematic("PtScale", kind, "pt", met_pt_scale)
 
     renfact_up = events.systematics.RenFactScale.up.weight_RenFactScale
     renfact_down = events.systematics.RenFactScale.down.weight_RenFactScale

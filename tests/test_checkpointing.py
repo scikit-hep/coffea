@@ -56,7 +56,7 @@ def test_checkpointing():
         checkpointer=checkpointer,
     )
     # use the chunk generator to not re-run the preprocessing step
-    chunks = list(run.preprocess(filelist, "Events"))
+    chunks = list(run.preprocess(filelist, treename="Events"))
 
     def chunk_gen():
         yield from chunks
@@ -71,7 +71,7 @@ def test_checkpointing():
         fs.invalidate_cache()
         ntries += 1
         try:
-            out = run(chunk_gen(), UnstableNanoEventsProcessor(), "Events")
+            out = run(chunk_gen(), UnstableNanoEventsProcessor(), treename="Events")
         except Exception:
             print(f"Run failed, trying again, try number {ntries}...")
             continue
