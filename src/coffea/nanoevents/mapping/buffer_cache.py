@@ -113,7 +113,7 @@ class CompressedBufferCache(NbytesAwareCache):
 
     def __init__(self, codec: tp.Any) -> None:
         try:
-            import numcodecs  # ty:ignore[unresolved-import]
+            import numcodecs
         except ModuleNotFoundError as err:
             raise ModuleNotFoundError(
                 f"""to use {type(self).__name__}, you must install numcodecs:
@@ -126,7 +126,9 @@ or
             ) from err
 
         # auto-wrap for numcodecs.abc.Codec
-        if isinstance(codec, numcodecs.abc.Codec):
+        if isinstance(
+            codec, numcodecs.abc.Codec
+        ):  # ty:ignore[possibly-missing-attribute]
             codec = NumCodecsWrapper(codec=codec)
 
         # at this point we expect a proper Codec instance
@@ -217,7 +219,7 @@ class HDF5BufferCache(NbytesAwareCache):
         finalize_callback: tp.Callable = _gracefully_close,
     ) -> None:
         try:
-            import h5py  # ty:ignore[unresolved-import]
+            import h5py
         except ModuleNotFoundError as err:
             raise ModuleNotFoundError(
                 f"""to use {type(self).__name__}, you must install h5py:
@@ -316,7 +318,7 @@ def lru_cache(
     >>> NanoEventsFactory.from_root(..., buffer_cache=lru_500MB),
     """
     try:
-        import zict  # ty:ignore[unresolved-import]
+        import zict
     except ModuleNotFoundError as err:
         raise ModuleNotFoundError("""to use lru_cache, you must install zict:
 
@@ -361,7 +363,7 @@ def hierarchical_cache(
     ])
     """
     try:
-        import zict  # ty:ignore[unresolved-import]
+        import zict
     except ModuleNotFoundError as err:
         raise ModuleNotFoundError("""to use hierarchical_cache, you must install zict:
 
