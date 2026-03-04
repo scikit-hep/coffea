@@ -195,11 +195,6 @@ def _gracefully_close(
 ) -> None:
     group.close()
     file_handle.close()
-    # can't remove in-memory files
-    if not isinstance(file_handle, BytesIO):
-        import os
-
-        os.remove(os.path.abspath(file_handle.name))
 
 
 class HDF5BufferCache(NbytesAwareCache):
