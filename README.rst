@@ -1,4 +1,4 @@
-.. image:: docs/source/logo/coffea_logo.svg
+.. image:: https://raw.githubusercontent.com/scikit-hep/coffea/refs/heads/master/docs/source/logo/coffea_logo.svg
     :align: center
     :width: 250px
     :alt: logo
