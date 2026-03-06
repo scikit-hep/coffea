@@ -97,6 +97,11 @@ xrootd = [
 triton = [
   "tritonclient[grpc,http]>=2.56.0",
 ]
+caches = [
+  "h5py>=3.15.1",
+  "numcodecs>=0.13.1",
+  "zict>=3.0.0",
+]
 dev = [
   "pre-commit",
   "flake8",
