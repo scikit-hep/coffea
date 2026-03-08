@@ -600,7 +600,6 @@ class DatasetSpec(BaseModel):
         if isinstance(self.files, InputFiles) and not isinstance(
             self.files, PreprocessedFiles
         ):
-            print("DatasetSpec: promoting files to PreprocessedFiles if all files are concrete specs", file=sys.stderr)
             all_concrete = all(
                 isinstance(v, (CoffeaROOTFileSpec, CoffeaParquetFileSpec))
                 for v in self.files.values()
@@ -611,8 +610,6 @@ class DatasetSpec(BaseModel):
                 except Exception:
                     # If promotion fails, keep the InputFiles
                     pass
-            print(f"DatasetSpec: after promotion attempt, files is of type {type(self.files)}", file=sys.stderr)
-        print(f"DatasetSpec: post validation complete with files of type {type(self.files)} and compressed_form {self.compressed_form}", file=sys.stderr)
         return self
 
     @property
