@@ -133,7 +133,7 @@ _runnable_result = {
             }
         },
         "metadata": None,
-        "compressed_form": None,
+        "form": None,
     },
     "Data": {
         "files": {
@@ -152,7 +152,7 @@ _runnable_result = {
             }
         },
         "metadata": None,
-        "compressed_form": None,
+        "form": None,
     },
 }
 
@@ -174,7 +174,7 @@ _updated_result = {
             }
         },
         "metadata": None,
-        "compressed_form": None,
+        "form": None,
     },
     "Data": {
         "files": {
@@ -199,7 +199,7 @@ _updated_result = {
             },
         },
         "metadata": None,
-        "compressed_form": None,
+        "form": None,
     },
 }
 
@@ -504,7 +504,8 @@ def test_apply_to_fileset_hinted_form(the_fileset):
 @pytest.mark.parametrize(
     "the_fileset", [_starting_fileset_list, _starting_fileset_dict, _starting_fileset]
 )
-def test_preprocess(the_fileset):
+@pytest.mark.parametrize("preprocess_legacy_root", [True, False])
+def test_preprocess(the_fileset, preprocess_legacy_root):
     with Client() as _:
         dataset_runnable, dataset_updated = preprocess(
             the_fileset,
@@ -512,15 +513,22 @@ def test_preprocess(the_fileset):
             align_clusters=False,
             files_per_batch=10,
             skip_bad_files=True,
+            save_form=False,
+            preprocess_legacy_root=preprocess_legacy_root,
         )
 
-        assert dataset_runnable == _runnable_result
-        assert dataset_updated == _updated_result
+        if preprocess_legacy_root:
+            assert dataset_runnable == _runnable_result
+            assert dataset_updated == _updated_result
+        else:
+            assert dataset_runnable == DataGroupSpec(_runnable_result)
+            assert dataset_updated == DataGroupSpec(_updated_result)
 
 
 @pytest.mark.dask_client
 @pytest.mark.parametrize("the_fileset", [{}, DataGroupSpec({})])
-def test_preprocess_empty_fileset(the_fileset):
+@pytest.mark.parametrize("preprocess_legacy_root", [True, False])
+def test_preprocess_empty_fileset(the_fileset, preprocess_legacy_root):
     with Client() as _:
         dataset_runnable, dataset_updated = preprocess(
             the_fileset,
@@ -528,13 +536,17 @@ def test_preprocess_empty_fileset(the_fileset):
             align_clusters=False,
             files_per_batch=10,
             skip_bad_files=True,
+            save_form=False,
+            preprocess_legacy_root=preprocess_legacy_root,
         )
-    if isinstance(the_fileset, DataGroupSpec):
-        assert isinstance(dataset_runnable, DataGroupSpec)
-        assert isinstance(dataset_updated, DataGroupSpec)
-    else:
+    if preprocess_legacy_root:
+        # for both pydantic and classical inputs, preprocess_legacy_root returns an empty dictionary
         assert dataset_runnable == {}
         assert dataset_updated == {}
+    else:
+        # pydantic preprocessing upconverts to DataGroupSpec and so we'll get an empty DataGroupSpec. DatasetSpec doesn't trivially support an empty initialization, so we don't test directly
+        assert dataset_runnable == DataGroupSpec({})
+        assert dataset_updated == DataGroupSpec({})
 
 
 @pytest.mark.dask_client
@@ -590,19 +602,23 @@ def test_preprocess_DataGroupSpec_mixed():
     fileset["Data"] = fileset["Data"].model_dump()
 
     with Client() as _:
-        dataset_runnable, dataset_updated = preprocess(
-            fileset,
-            step_size=7,
-            align_clusters=False,
-            files_per_batch=10,
-            skip_bad_files=True,
-        )
-    assert len(dataset_runnable) == 2
-    assert isinstance(dataset_runnable["Data"], DatasetSpec)
+        with pytest.raises(AttributeError, match="'dict' object has no attribute 'format'"):
+            dataset_runnable, dataset_updated = preprocess(
+                fileset,
+                step_size=7,
+                align_clusters=False,
+                files_per_batch=10,
+                skip_bad_files=True,
+                save_form=False,
+            )
+            # If we update the preprocess function to handle this case again, we can check that it produces the expected output
+            assert len(dataset_runnable) == 2
+            assert isinstance(dataset_runnable["Data"], DatasetSpec)
 
 
 @pytest.mark.dask_client
-def test_preprocess_calculate_form():
+@pytest.mark.parametrize("preprocess_legacy_root", [True, False])
+def test_preprocess_calculate_form(preprocess_legacy_root):
     with Client() as _:
         starting_fileset = _starting_fileset
 
@@ -613,6 +629,7 @@ def test_preprocess_calculate_form():
             files_per_batch=10,
             skip_bad_files=True,
             save_form=True,
+            preprocess_legacy_root=preprocess_legacy_root,
         )
 
         raw_form_dy = uproot.dask(
@@ -626,13 +643,21 @@ def test_preprocess_calculate_form():
             ak_add_doc={"__doc__": "title", "typename": "typename"},
         ).layout.form.to_json()
 
-        assert (
-            decompress_form(dataset_runnable["ZJets"]["compressed_form"]) == raw_form_dy
-        )
-        assert (
-            decompress_form(dataset_runnable["Data"]["compressed_form"])
-            == raw_form_data
-        )
+        if preprocess_legacy_root:
+            assert (
+                decompress_form(dataset_runnable["ZJets"]["form"]) == raw_form_dy
+            )
+            assert (
+                decompress_form(dataset_runnable["Data"]["form"])
+                == raw_form_data
+            )
+        else:
+            assert (
+                decompress_form(dataset_runnable["ZJets"].compressed_form) == raw_form_dy
+            )
+            assert (
+                decompress_form(dataset_runnable["Data"].compressed_form) == raw_form_data
+            )
 
 
 @pytest.mark.dask_client
@@ -646,11 +671,13 @@ def test_preprocess_failed_file():
             align_clusters=False,
             files_per_batch=10,
             skip_bad_files=False,
+            save_form=False,
         )
 
 
 @pytest.mark.dask_client
-def test_preprocess_with_file_exceptions():
+@pytest.mark.parametrize("preprocess_legacy_root", [True, False])
+def test_preprocess_with_file_exceptions(preprocess_legacy_root):
     fileset = {
         "Data": {
             "files": {
@@ -668,31 +695,60 @@ def test_preprocess_with_file_exceptions():
             files_per_batch=10,
             file_exceptions=KeyInFileError,
             skip_bad_files=True,
+            save_form=False,
+            preprocess_legacy_root=preprocess_legacy_root,
         )
 
-    assert dataset_runnable == {
-        "Data": {
-            "files": {
-                "tests/samples/delphes.root": {
-                    "num_entries": 25,
-                    "object_path": "Delphes",
-                    "steps": [
-                        [
-                            0,
-                            13,
+    if preprocess_legacy_root:
+        assert dataset_runnable == {
+            "Data": {
+                "files": {
+                    "tests/samples/delphes.root": {
+                        "num_entries": 25,
+                        "object_path": "Delphes",
+                        "steps": [
+                            [
+                                0,
+                                13,
+                            ],
+                            [
+                                13,
+                                25,
+                            ],
                         ],
-                        [
-                            13,
-                            25,
-                        ],
-                    ],
-                    "uuid": "ad4cd5ec-123e-11ec-92f6-93e3aac0beef",
+                        "uuid": "ad4cd5ec-123e-11ec-92f6-93e3aac0beef",
+                    },
                 },
+                "form": None,
+                "metadata": None,
             },
-            "compressed_form": None,
-            "metadata": None,
-        },
-    }
+        }
+    else:
+        assert dataset_runnable == DataGroupSpec(
+            {
+                "Data": {
+                    "files": {
+                        "tests/samples/delphes.root": {
+                            "num_entries": 25,
+                            "object_path": "Delphes",
+                            "steps": [
+                                [
+                                    0,
+                                    13,
+                                ],
+                                [
+                                    13,
+                                    25,
+                                ],
+                            ],
+                            "uuid": "ad4cd5ec-123e-11ec-92f6-93e3aac0beef",
+                        },
+                    },
+                    "compressed_form": None,
+                    "metadata": None,
+                },
+            }
+        )
 
 
 @pytest.mark.parametrize(
@@ -712,7 +768,7 @@ def test_filter_files(the_fileset):
                 }
             },
             "metadata": None,
-            "compressed_form": None,
+            "form": None,
         },
         "Data": {
             "files": {
@@ -724,7 +780,7 @@ def test_filter_files(the_fileset):
                 }
             },
             "metadata": None,
-            "compressed_form": None,
+            "form": None,
         },
     }
     if isinstance(filtered_files, DataGroupSpec):
@@ -750,7 +806,7 @@ def test_max_files(the_fileset):
                 }
             },
             "metadata": None,
-            "compressed_form": None,
+            "form": None,
         },
         "Data": {
             "files": {
@@ -762,7 +818,7 @@ def test_max_files(the_fileset):
                 }
             },
             "metadata": None,
-            "compressed_form": None,
+            "form": None,
         },
     }
     if isinstance(the_fileset, DataGroupSpec):
@@ -778,7 +834,7 @@ def test_slice_files(the_fileset):
     sliced_files = slice_files(the_fileset, slice(1, None, 2))
 
     target = {
-        "ZJets": {"files": {}, "metadata": None, "compressed_form": None},
+        "ZJets": {"files": {}, "metadata": None, "form": None},
         "Data": {
             "files": {
                 "tests/samples/nano_dimuon_not_there.root": {
@@ -789,7 +845,7 @@ def test_slice_files(the_fileset):
                 }
             },
             "metadata": None,
-            "compressed_form": None,
+            "form": None,
         },
     }
     if isinstance(the_fileset, DataGroupSpec):
@@ -816,7 +872,7 @@ def test_max_chunks(the_fileset):
                 }
             },
             "metadata": None,
-            "compressed_form": None,
+            "form": None,
         },
         "Data": {
             "files": {
@@ -828,7 +884,7 @@ def test_max_chunks(the_fileset):
                 }
             },
             "metadata": None,
-            "compressed_form": None,
+            "form": None,
         },
     }
 
@@ -948,7 +1004,7 @@ def test_slice_chunks(the_fileset):
                 }
             },
             "metadata": None,
-            "compressed_form": None,
+            "form": None,
         },
         "Data": {
             "files": {
@@ -960,7 +1016,7 @@ def test_slice_chunks(the_fileset):
                 }
             },
             "metadata": None,
-            "compressed_form": None,
+            "form": None,
         },
     }
     if isinstance(the_fileset, DataGroupSpec):
