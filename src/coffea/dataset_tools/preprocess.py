@@ -854,6 +854,10 @@ def _preprocess_pydantic(
         raise ValueError(
             f"_preprocess_pydantic expects a DataGroupSpec, got {type(datagroupspec)}"
         )
+
+    dask = _import_dask()
+    dask_awkward = _import_dask_awkward()
+
     out_updated = datagroupspec.model_dump()
     out_available = datagroupspec.model_dump()
 
