@@ -503,7 +503,9 @@ class DatasetSpec(BaseModel):
 
                                     from coffea.util import decompress_form
 
-                                    _ = awkward.forms.from_json(decompress_form(data["form"]))
+                                    _ = awkward.forms.from_json(
+                                        decompress_form(data["form"])
+                                    )
                                     new_data["compressed_form"] = data["form"]
                                 except Exception:
                                     raise RuntimeError(
@@ -511,7 +513,9 @@ class DatasetSpec(BaseModel):
                                     )
                     else:
                         # if there's already a compressed_form, take that and ignore the form
-                        new_data["compressed_form"] = copy.deepcopy(data["compressed_form"])
+                        new_data["compressed_form"] = copy.deepcopy(
+                            data["compressed_form"]
+                        )
                 elif k == "files":
                     # promote files list to dict if necessary
                     if isinstance(v, list):
