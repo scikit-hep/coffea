@@ -375,12 +375,7 @@ class InputFiles(
             except Exception:
                 # we failed to promote to the concrete spec, do nothing else
                 pass
-        if all(preprocessed.values()):
-            try:
-                self.root = PreprocessedFiles(self.root).root
-            except Exception:
-                # We couldn't promote to PreprocessedFiles, do nothing
-                pass
+        # Ideally we would promote to PreprocessedFiles if all files are concrete specs, but since we can't change the class of Self in this method, we leave this to be handled in DatasetSpec.post_validate, which can change the class of Self if necessary
         return self
 
 
@@ -430,7 +425,7 @@ class PreprocessedFiles(
 
 
 class DatasetSpec(BaseModel):
-    files: InputFiles | PreprocessedFiles
+    files: PreprocessedFiles | InputFiles
     metadata: dict[Hashable, Any] = {}
     format: str | None = None
     compressed_form: str | None = None
@@ -600,6 +595,24 @@ class DatasetSpec(BaseModel):
         if not self.set_check_format():
             raise ValueError(f"format: format must be one of {self._valid_formats()}")
 
+        # Promote InputFiles to PreprocessedFiles if all files are concrete specs
+        # This is needed because InputFiles.promote_and_check_files() cannot change the class of Self
+        if isinstance(self.files, InputFiles) and not isinstance(
+            self.files, PreprocessedFiles
+        ):
+            print("DatasetSpec: promoting files to PreprocessedFiles if all files are concrete specs", file=sys.stderr)
+            all_concrete = all(
+                isinstance(v, (CoffeaROOTFileSpec, CoffeaParquetFileSpec))
+                for v in self.files.values()
+            )
+            if all_concrete:
+                try:
+                    self.files = PreprocessedFiles(dict(self.files.root))
+                except Exception:
+                    # If promotion fails, keep the InputFiles
+                    pass
+            print(f"DatasetSpec: after promotion attempt, files is of type {type(self.files)}", file=sys.stderr)
+        print(f"DatasetSpec: post validation complete with files of type {type(self.files)} and compressed_form {self.compressed_form}", file=sys.stderr)
         return self
 
     @property
