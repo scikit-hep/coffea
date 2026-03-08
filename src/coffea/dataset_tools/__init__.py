@@ -24,9 +24,18 @@ from coffea.dataset_tools.manipulations import (
 )
 from coffea.dataset_tools.preprocess import preprocess
 from coffea.dataset_tools.splitting import hash_fileset, split_fileset
+from coffea.dataset_tools.preprocess import (
+    preprocess,
+    preprocess_legacy,
+    preprocess_parquet,
+    preprocess_root,
+)
 
 __all__ = [
     "preprocess",
+    "preprocess_legacy",
+    "preprocess_parquet",
+    "preprocess_root",
     "split_fileset",
     "hash_fileset",
     "apply_to_dataset",
