@@ -405,7 +405,9 @@ def test_preprocess_DataGroupSpec_mixed():
     fileset["Data"] = fileset["Data"].model_dump()
 
     with Client() as _:
-        with pytest.raises(AttributeError, match="'dict' object has no attribute 'format'"):
+        with pytest.raises(
+            AttributeError, match="'dict' object has no attribute 'format'"
+        ):
             dataset_runnable, dataset_updated = preprocess(
                 fileset,
                 step_size=7,
@@ -447,19 +449,16 @@ def test_preprocess_calculate_form(preprocess_legacy_root):
         ).layout.form.to_json()
 
         if preprocess_legacy_root:
-            assert (
-                decompress_form(dataset_runnable["ZJets"]["form"]) == raw_form_dy
-            )
-            assert (
-                decompress_form(dataset_runnable["Data"]["form"])
-                == raw_form_data
-            )
+            assert decompress_form(dataset_runnable["ZJets"]["form"]) == raw_form_dy
+            assert decompress_form(dataset_runnable["Data"]["form"]) == raw_form_data
         else:
             assert (
-                decompress_form(dataset_runnable["ZJets"].compressed_form) == raw_form_dy
+                decompress_form(dataset_runnable["ZJets"].compressed_form)
+                == raw_form_dy
             )
             assert (
-                decompress_form(dataset_runnable["Data"].compressed_form) == raw_form_data
+                decompress_form(dataset_runnable["Data"].compressed_form)
+                == raw_form_data
             )
 
 
