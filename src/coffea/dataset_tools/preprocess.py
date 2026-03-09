@@ -33,6 +33,7 @@ def get_steps(
     save_form: bool = False,
     step_size_safety_factor: float = 0.5,
     uproot_options: dict = {},
+    legacy_form_key: bool = True,
 ) -> awkward.Array | dask_awkward.Array:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -58,6 +59,9 @@ def get_steps(
         step_size_safety_factor : float, default 0.5
             When using align_clusters, if a resulting step is larger than step_size by this factor
             warn the user that the resulting steps may be highly irregular.
+        legacy_form_key : bool, default True
+            Use "form" for the compressed form key in the output for backwards compatibility.
+            Set to False to use "compressed_form" instead.
 
     Returns
     -------
@@ -66,6 +70,7 @@ def get_steps(
     """
     nf_backend = awkward.backend(normed_files)
     lz_or_nf = awkward.typetracer.length_zero_if_typetracer(normed_files)
+    output_form_key = "form" if legacy_form_key else "compressed_form"
 
     array = [] if nf_backend != "typetracer" else lz_or_nf
     for arg in lz_or_nf:
@@ -113,7 +118,7 @@ def get_steps(
                     "steps": [[0, 0]],
                     "num_entries": num_entries,
                     "uuid": file_uuid,
-                    "compressed_form": form_json,
+                    output_form_key: form_json,
                     "form_hash_md5": form_hash,
                 }
             )
@@ -169,7 +174,7 @@ def get_steps(
                 "steps": out_steps,
                 "num_entries": num_entries,
                 "uuid": out_uuid,
-                "form": form_json,
+                output_form_key: form_json,
                 "form_hash_md5": form_hash,
             }
         )
@@ -183,7 +188,7 @@ def get_steps(
                     "steps": [[0, 0]],
                     "num_entries": 0,
                     "uuid": "junk",
-                    "form": "junk",
+                    output_form_key: "junk",
                     "form_hash_md5": "junk",
                 },
                 None,
@@ -333,6 +338,7 @@ def preprocess_legacy(
             file_exceptions=file_exceptions,
             save_form=save_form,
             step_size_safety_factor=step_size_safety_factor,
+            legacy_form_key=True,  # for backwards compatibility, the output form key is always "form" in this legacy preprocess function
             uproot_options=uproot_options,
             meta=dask_awkward.lib.core.empty_typetracer(),
         )
@@ -584,7 +590,7 @@ def get_parquet_form_uuid_steps(
         form_json = None
         form_hash = None
         if save_form:
-            form = the_file["form"]
+            form = the_file["compressed_form"]
             form_str = form.to_json()
             # the function cache needs to be popped if present to prevent memory growth
             if hasattr(dask.base, "function_cache"):
@@ -651,7 +657,7 @@ def get_parquet_form_uuid_steps(
                 "steps": out_steps,
                 "num_entries": num_entries,
                 "uuid": out_uuid,
-                "form": form_json,
+                "compressed_form": form_json,
                 "form_hash_md5": form_hash,
             }
         )
@@ -885,6 +891,7 @@ def _preprocess_pydantic(
                 file_exceptions=file_exceptions,
                 save_form=save_form,
                 step_size_safety_factor=step_size_safety_factor,
+                legacy_form_key=False,  # in the pydantic preprocess function, the output form key is always "compressed_form", "form" is a method to extract the uncompressed form
                 uproot_options=filetype_options,
                 meta=dask_awkward.lib.core.empty_typetracer(),
             )
@@ -953,7 +960,7 @@ def _preprocess_pydantic(
         ]
 
         compressed_forms = processed_files[
-            ["file", "form", "form_hash_md5", "num_entries"]
+            ["file", "compressed_form", "form_hash_md5", "num_entries"]
         ][~awkward.is_none(processed_files.form_hash_md5)]
 
         _, unique_forms_idx = numpy.unique(
@@ -963,7 +970,7 @@ def _preprocess_pydantic(
         dataset_forms = []
         unique_forms = compressed_forms[unique_forms_idx]
         for thefile, formstr, num_entries in zip(
-            unique_forms.file, unique_forms.form, unique_forms.num_entries
+            unique_forms.file, unique_forms.compressed_form, unique_forms.num_entries
         ):
             # skip trivially filled or empty files
             form = awkward.forms.from_json(decompress_form(formstr))
@@ -1124,8 +1131,16 @@ def preprocess(
     """
     if preprocess_legacy_root:
         # use the legacy root TTree preprocessing function if requested
+        if isinstance(fileset, DataGroupSpec):
+            fileset_input = fileset.model_dump()
+            for k in fileset_input.keys():
+                form = fileset_input[k].pop("compressed_form", None)
+                if "form" not in fileset_input[k] or fileset_input[k]["form"] is None:
+                    fileset_input[k]["form"] = form
+        else:
+            fileset_input = fileset
         return preprocess_legacy(
-            fileset.model_dump() if isinstance(fileset, DataGroupSpec) else fileset,
+            fileset_input,
             step_size=step_size,
             align_clusters=align_clusters,
             recalculate_steps=recalculate_steps,
