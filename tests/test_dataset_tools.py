@@ -684,9 +684,7 @@ def test_preprocess_DataGroupSpec_mixed():
                 skip_bad_files=True,
                 save_form=False,
             )
-            # If we update the preprocess function to handle this case again, we can check that it produces the expected output
-            assert len(dataset_runnable) == 2
-            assert isinstance(dataset_runnable["Data"], DatasetSpec)
+            # Give up on mixed dataset handling until a user has a use case
 
 
 @pytest.mark.dask_client
