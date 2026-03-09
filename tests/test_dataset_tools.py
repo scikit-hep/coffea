@@ -1,5 +1,6 @@
 import copy
 import json
+from pathlib import Path
 
 import awkward
 import dask
@@ -21,7 +22,6 @@ from coffea.dataset_tools import (
 )
 from coffea.dataset_tools.filespec import (
     DataGroupSpec,
-    DatasetSpec,
 )
 from coffea.nanoevents import BaseSchema, NanoAODSchema
 from coffea.processor.test_items import NanoEventsProcessor, NanoTestProcessor
@@ -232,7 +232,9 @@ _fileset_with_empty_files = {
     },
 }
 
-with open("tests/samples/fileset_with_empty_files_compressed_form_base.json") as f:
+with open(
+    Path(__file__).parent / "samples" / "fileset_with_empty_files_compressed_form_base.json"
+) as f:
     _fileset_with_empty_files_compressed_form_base = json.load(f)
 
 _fileset_with_empty_files_preprocessed = {
