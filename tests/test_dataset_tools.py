@@ -1,3 +1,7 @@
+import copy
+import json
+
+import awkward
 import pytest
 import uproot
 from uproot.exceptions import KeyInFileError
@@ -232,6 +236,9 @@ _fileset_with_empty_files = {
     },
 }
 
+with open("tests/samples/fileset_with_empty_files_compressed_form_base.json") as f:
+    _fileset_with_empty_files_compressed_form_base = json.load(f)
+
 _fileset_with_empty_files_preprocessed = {
     "only_empty": {
         "files": {
@@ -242,7 +249,7 @@ _fileset_with_empty_files_preprocessed = {
                 "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
             }
         },
-        "compressed_form": None,
+        "compressed_form": _fileset_with_empty_files_compressed_form_base,
         "metadata": None,
     },
     "nonempty_and_empty": {
@@ -260,7 +267,7 @@ _fileset_with_empty_files_preprocessed = {
                 "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
             },
         },
-        "compressed_form": None,
+        "compressed_form": _fileset_with_empty_files_compressed_form_base,
         "metadata": None,
     },
     "empty_and_nonempty": {
@@ -278,7 +285,7 @@ _fileset_with_empty_files_preprocessed = {
                 "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
             },
         },
-        "compressed_form": None,
+        "compressed_form": _fileset_with_empty_files_compressed_form_base,
         "metadata": None,
     },
     "only_nonempty": {
@@ -290,7 +297,7 @@ _fileset_with_empty_files_preprocessed = {
                 "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
             }
         },
-        "compressed_form": None,
+        "compressed_form": _fileset_with_empty_files_compressed_form_base,
         "metadata": None,
     },
 }
@@ -305,7 +312,7 @@ _fileset_with_empty_files_preprocessed_aligned = {
                 "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
             }
         },
-        "compressed_form": None,
+        "compressed_form": _fileset_with_empty_files_compressed_form_base,
         "metadata": None,
     },
     "nonempty_and_empty": {
@@ -323,7 +330,7 @@ _fileset_with_empty_files_preprocessed_aligned = {
                 "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
             },
         },
-        "compressed_form": None,
+        "compressed_form": _fileset_with_empty_files_compressed_form_base,
         "metadata": None,
     },
     "empty_and_nonempty": {
@@ -341,7 +348,7 @@ _fileset_with_empty_files_preprocessed_aligned = {
                 "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
             },
         },
-        "compressed_form": None,
+        "compressed_form": _fileset_with_empty_files_compressed_form_base,
         "metadata": None,
     },
     "only_nonempty": {
@@ -353,7 +360,7 @@ _fileset_with_empty_files_preprocessed_aligned = {
                 "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
             }
         },
-        "compressed_form": None,
+        "compressed_form": _fileset_with_empty_files_compressed_form_base,
         "metadata": None,
     },
 }
@@ -555,8 +562,12 @@ def test_preprocess_empty_fileset(the_fileset, dask_client, preprocess_legacy_ro
 @pytest.mark.parametrize(
     "the_fileset", [_fileset_with_empty_files, DataGroupSpec(_fileset_with_empty_files)]
 )
+@pytest.mark.parametrize("save_form", [False, True])
 @pytest.mark.parametrize("align_clusters", [False, True])
-def test_preprocess_empty_files(the_fileset, align_clusters, dask_client):
+@pytest.mark.parametrize("preprocess_legacy_root", [False, True])
+def test_preprocess_empty_files(
+        the_fileset, save_form, align_clusters, dask_client, preprocess_legacy_root
+):
     with dask_client.as_current() as _:
         dataset_runnable, dataset_updated = preprocess(
             the_fileset,
@@ -564,17 +575,77 @@ def test_preprocess_empty_files(the_fileset, align_clusters, dask_client):
             align_clusters=align_clusters,
             files_per_batch=10,
             skip_bad_files=True,
+            save_form=save_form,
+            preprocess_legacy_root=preprocess_legacy_root,
         )
 
     if align_clusters:
-        expected_runnable = _fileset_with_empty_files_preprocessed_aligned
-        expected_updated = _fileset_with_empty_files_preprocessed_aligned
+        expected_runnable = copy.deepcopy(
+            _fileset_with_empty_files_preprocessed_aligned
+        )
     else:
-        expected_runnable = _fileset_with_empty_files_preprocessed
-        expected_updated = _fileset_with_empty_files_preprocessed
-    if isinstance(the_fileset, DataGroupSpec):
+        expected_runnable = copy.deepcopy(_fileset_with_empty_files_preprocessed)
+
+    # Handle all the differences between legacy and pydantic preprocessing, starting from json or pydantic input, and save_form True or False
+    for k, v in expected_runnable.items():
+        new_v = {}
+        for kk, vv in v.items():
+            key, val = kk, vv
+            # if (preprocess_legacy_root and not isinstance(the_fileset, DataGroupSpec)) and kk == "compressed_form": # P F P F P P P P w/o save_form=True variations
+            if preprocess_legacy_root and kk == "compressed_form":
+                # Expect "form" key instead of "compressed_form" key, maintain dict order for the comparison as well, for json input fileset
+                key = "form"
+            if not save_form and kk in ["compressed_form", "form"]:
+                # If save_form is False, the compressed_form will be None, so set it to None in the expected output for the comparison
+                val = None
+            new_v[key] = val
+        if preprocess_legacy_root and isinstance(the_fileset, DataGroupSpec):
+            new_v.update({"format": "root", "did": None, "metadata": {}})
+        expected_runnable[k] = new_v
+    expected_updated = copy.deepcopy(expected_runnable)
+
+    if isinstance(dataset_runnable, DataGroupSpec):
         expected_runnable = DataGroupSpec(expected_runnable)
         expected_updated = DataGroupSpec(expected_updated)
+    elif save_form:
+        # There's a non-deterministic component to the compressed_form, so we must manually compare these in the dicts and pop them before asserting the final equality
+        for k in expected_runnable.keys():
+            dr = (
+                dataset_runnable[k].pop("compressed_form")
+                if "compressed_form" in dataset_runnable[k]
+                else dataset_runnable[k].pop("form")
+            )
+            er = (
+                expected_runnable[k].pop("compressed_form")
+                if "compressed_form" in expected_runnable[k]
+                else expected_runnable[k].pop("form")
+            )
+            assert awkward.forms.from_json(
+                decompress_form(dr)
+            ) == awkward.forms.from_json(decompress_form(er)), (
+                f"Difference in compressed_form for dataset_runnable[{k}]",
+                decompress_form(dr),
+                decompress_form(er),
+            )
+
+        for k in expected_updated.keys():
+            dr = (
+                dataset_updated[k].pop("compressed_form")
+                if "compressed_form" in dataset_updated[k]
+                else dataset_updated[k].pop("form")
+            )
+            er = (
+                expected_updated[k].pop("compressed_form")
+                if "compressed_form" in expected_updated[k]
+                else expected_updated[k].pop("form")
+            )
+            assert awkward.forms.from_json(
+                decompress_form(dr)
+            ) == awkward.forms.from_json(decompress_form(er)), (
+                f"Difference in compressed_form for dataset_runnable[{k}]",
+                decompress_form(dr),
+                decompress_form(er),
+            )
     assert dataset_runnable == expected_runnable
     assert dataset_updated == expected_updated
 
