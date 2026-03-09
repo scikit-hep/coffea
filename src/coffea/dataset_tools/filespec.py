@@ -431,6 +431,15 @@ class DatasetSpec(BaseModel):
     compressed_form: str | None = None
     did: str | None = None
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, DatasetSpec):
+            return False
+        return (
+            getattr(self, k) == getattr(other, k)
+            for k in self.__dict__.keys()
+            if k != "compressed_form"
+        ) and self.form == other.form
+
     def __add__(self, other: DatasetSpec) -> DatasetSpec:
         if not isinstance(other, DatasetSpec):
             raise TypeError(
