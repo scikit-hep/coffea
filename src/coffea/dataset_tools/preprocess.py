@@ -671,7 +671,7 @@ def get_parquet_form_uuid_steps(
                     "steps": [[0, 0]],
                     "num_entries": 0,
                     "uuid": "junk",
-                    "form": "junk",
+                    "compressed_form": "junk",
                     "form_hash_md5": "junk",
                 },
                 None,
