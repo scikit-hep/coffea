@@ -105,11 +105,21 @@ def BufferCache(
     """
     A compressed buffer cache. Supports all numcodecs.abc.Codec types.
 
+    ## In-memory buffer cache
+
+    Buffer caches give you more fine-grained control over internal
+    memory management of an awkward Array (here: NanoEvents). One powerful
+    feature is for example to compress the buffers in-memory to reduce
+    the total memory footprint. Buffers are decompressed upon use (`__getitem__`)
+    and compressed upon `__setitem__`. In a scenario where you have many buffers in
+    an awkward Array this can be highly beneficial because most arrays are then
+    compressed in RAM, while only a few at a time will be decompressed for a specific
+    operation.
 
     Example (in-memory no compression)
     -------
     >>> buffer_cache=BufferCache(cache=None, codec=None) # or `NoCompressionCodec()`
-    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
+    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache)
 
 
     Example (in-memory compressed)
@@ -117,15 +127,7 @@ def BufferCache(
     >>> import numcodecs
     >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
     >>> buffer_cache=BufferCache(cache=None, codec=codec)
-    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
-
-
-    Example (on-disk compressed)
-    -------
-    >>> import numcodecs, zict
-    >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
-    >>> buffer_cache=BufferCache(cache=zict.File("my_cache"), codec=codec)
-    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
+    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache)
 
 
     Example (LRU-backed compressed in-memory)
@@ -136,8 +138,34 @@ def BufferCache(
     >>> # len gives the number of bytes in the bytebuffer
     >>> cache = zict.LRU(n=capacity, d={}, weight=lambda k,v: len(v))
     >>> buffer_cache=BufferCache(cache=cache, codec=codec)
-    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
+    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache)
 
+
+    ## On-disk buffer cache
+
+    The on-disk buffer cache is the most aggressive way to offload buffers from RAM.
+    A simple on-disk buffer cache example is as follows:
+
+    Example (on-disk compressed)
+    -------
+    >>> import numcodecs, zict
+    >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
+    >>> buffer_cache=BufferCache(cache=zict.File("my_cache"), codec=codec)
+    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache)
+
+    The comes with some caveats though:
+
+    1. The directory for the on-disk cache should be chosen to be as close as possible
+    to the CPU. That means that NFS backed paths (e.g. `/afs/` or `/eos/` at CERN) are
+    highly disouraged for this cache. A better choice would be `/tmp/...` on the worker.
+
+    2. It's probably good to cleanup this cache once it isn't needed anymore. For dask usage
+    with the coffea Executors one can use the `cachestrategy` argument of the Executor class
+    to make sure the on-disk cache is created in the local temp directory of the dask worker itself.
+    (see: https://distributed.dask.org/en/stable/worker.html#api-documentation)
+
+
+    ## Other examples
 
     Example (hierarchical)
     -------
@@ -149,7 +177,7 @@ def BufferCache(
     >>>     weight=lambda k,v: len(v), # len gives the number of bytes in the bytebuffer
     >>> )
     >>> buffer_cache=BufferCache(cache=cache, codec=None)
-    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
+    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache)
     """
     if cache is None:
         cache = {}
