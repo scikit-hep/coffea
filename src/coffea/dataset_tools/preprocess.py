@@ -1103,7 +1103,7 @@ def preprocess(
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
         file_exceptions : Exception or Warning or tuple[Exception or Warning], default (FileNotFoundError, OSError)
             What exceptions to catch when skipping bad files.
-        save_form : bool, default False
+        save_form : bool, default True
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
         scheduler : None or Callable or str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
