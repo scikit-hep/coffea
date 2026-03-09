@@ -233,7 +233,9 @@ _fileset_with_empty_files = {
 }
 
 with open(
-    Path(__file__).parent / "samples" / "fileset_with_empty_files_compressed_form_base.json"
+    Path(__file__).parent
+    / "samples"
+    / "fileset_with_empty_files_compressed_form_base.json"
 ) as f:
     _fileset_with_empty_files_compressed_form_base = json.load(f)
 
