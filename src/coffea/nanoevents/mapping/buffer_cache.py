@@ -151,9 +151,15 @@ def BufferCache(
     >>> buffer_cache=BufferCache(cache=cache, codec=None)
     >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
     """
-    if codec is None:
-        codec = NoCompressionCodec()
-    else:
+    if cache is None:
+        cache = {}
+
+    if not isinstance(cache, MutableMapping):
+        raise TypeError(
+            f"cache must be an instance of MutableMapping, got {type(cache)}"
+        )
+
+    if codec is not None:
         try:
             import numcodecs
         except ModuleNotFoundError as err:
@@ -169,16 +175,10 @@ conda install -c conda-forge numcodecs""") from err
         if isinstance(codec, numcodecs.abc.Codec):
             codec = NumCodecsWrapper(codec=codec)
 
-    # at this point we expect a proper Codec instance
-    if not isinstance(codec, Codec):
-        raise TypeError(f"codec must be an instance of Codec, got {type(codec)}")
+        # at this point we expect a proper Codec instance
+        if not isinstance(codec, Codec):
+            raise TypeError(f"codec must be an instance of Codec, got {type(codec)}")
 
-    if cache is None:
-        cache = {}
+        return CodecAwareCache(cache=cache, codec=codec)
 
-    if not isinstance(cache, MutableMapping):
-        raise TypeError(
-            f"cache must be an instance of MutableMapping, got {type(cache)}"
-        )
-
-    return CodecAwareCache(cache=cache, codec=codec)
+    return cache
