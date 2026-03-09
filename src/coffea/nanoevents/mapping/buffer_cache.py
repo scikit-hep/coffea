@@ -1,63 +1,8 @@
-from __future__ import annotations
-
-import abc
 import dataclasses
 import typing as tp
-from collections.abc import ItemsView, KeysView, MutableMapping
-from io import BytesIO
-from weakref import finalize
+from collections.abc import MutableMapping
 
 import numpy as np
-
-
-class NbytesAwareCache(MutableMapping):
-    @abc.abstractmethod
-    def get_nbytes(self, key: tp.Hashable, value: tp.Any) -> int:
-        raise NotImplementedError
-
-
-class BufferCache(NbytesAwareCache):
-    """
-    A simple dict-like buffer cache.
-
-    Example
-    -------
-    >>> buffer_cache=BufferCache()
-    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
-    """
-
-    __slots__ = ("_cache",)
-
-    def __init__(self):
-        self._cache = {}
-
-    @property
-    def cache(self) -> dict[tp.Hashable, np.ndarray]:
-        return self._cache
-
-    def get_nbytes(self, key: tp.Hashable, value: np.ndarray) -> int:
-        return value.nbytes
-
-    def get_current_nbytes(self) -> int:
-        return sum(arr.nbytes for arr in self.cache.values())
-
-    def __repr__(self) -> str:
-        return f"{type(self).__name__}(nbuffers={len(self)}, nbytes={self.get_current_nbytes()})"
-
-    def __setitem__(self, key: tp.Hashable, value: np.ndarray) -> None:
-        self.cache[key] = value
-
-    def __getitem__(self, key: tp.Hashable) -> np.ndarray:
-        return self.cache[key]
-
-    def __delitem__(self, key: tp.Hashable) -> None:
-        del self.cache[key]
-
-    def __iter__(self) -> tp.Iterator[tp.Hashable]:
-        return iter(self.cache)
-
-    def __len__(self) -> int:
-        return len(self.cache)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -74,6 +19,16 @@ ByteBuffer: tp.TypeAlias = bytes
 class Codec(tp.Protocol):
     def encode(self, arr: np.ndarray) -> tuple[ByteBuffer, ShapeDTypeStruct]: ...
     def decode(self, buffer: ByteBuffer, struct: ShapeDTypeStruct) -> np.ndarray: ...
+
+
+class NoCompressionCodec(Codec):
+    def encode(self, arr: np.ndarray) -> tuple[ByteBuffer, ShapeDTypeStruct]:
+        struct = ShapeDTypeStruct(dtype=arr.dtype, shape=arr.shape, strides=arr.strides)
+        return arr.tobytes(), struct
+
+    def decode(self, buffer: ByteBuffer, struct: ShapeDTypeStruct) -> np.ndarray:
+        arr = np.frombuffer(buffer, struct.dtype)
+        return np.lib.stride_tricks.as_strided(arr, struct.shape, struct.strides)
 
 
 class NumCodecsWrapper:
@@ -93,72 +48,32 @@ class NumCodecsWrapper:
         return np.lib.stride_tricks.as_strided(arr, struct.shape, struct.strides)
 
 
-CompressedCache: tp.TypeAlias = dict[tp.Hashable, ByteBuffer]
-ShapeDTypeStructCache: tp.TypeAlias = dict[tp.Hashable, ShapeDTypeStruct]
+ByteBufferCache: tp.TypeAlias = MutableMapping[tp.Hashable, ByteBuffer]
+ShapeDTypeStructCache: tp.TypeAlias = MutableMapping[tp.Hashable, ShapeDTypeStruct]
 
 
-class CompressedBufferCache(NbytesAwareCache):
-    """
-    An in-memory compressed buffer cache. Supports all numcodecs.abc.Codec types.
+class CodecAwareCache(MutableMapping):
+    __slots__ = ("_cache", "_meta", "_codec")
 
-    Example
-    -------
-    >>> import numcodecs
-    >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
-    >>> buffer_cache=CompressedBufferCache(codec=codec)
-    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
-    """
-
-    __slots__ = ("_codec", "_cache", "_meta")
-
-    def __init__(self, codec: tp.Any) -> None:
-        try:
-            import numcodecs
-        except ModuleNotFoundError as err:
-            raise ModuleNotFoundError(
-                f"""to use {type(self).__name__}, you must install numcodecs:
-
-    pip install numcodecs
-
-or
-
-    conda install -c conda-forge numcodecs"""
-            ) from err
-
-        # auto-wrap for numcodecs.abc.Codec
-        if isinstance(
-            codec, numcodecs.abc.Codec
-        ):  # ty:ignore[possibly-missing-attribute]
-            codec = NumCodecsWrapper(codec=codec)
-
-        # at this point we expect a proper Codec instance
-        if not isinstance(codec, Codec):
-            raise TypeError(f"codec must be an instance of Codec, got {type(codec)}")
-
-        self._codec = codec
-        self._cache: CompressedCache = {}
+    def __init__(self, cache: ByteBufferCache, codec: Codec):
+        self._cache: ByteBufferCache = cache
         self._meta: ShapeDTypeStructCache = {}
 
-    @property
-    def codec(self) -> Codec:
-        return self._codec
+        if not isinstance(codec, Codec):
+            raise TypeError(f"codec must be an instance of Codec, got {type(codec)}")
+        self._codec = codec
 
     @property
-    def cache(self) -> CompressedCache:
+    def cache(self) -> ByteBufferCache:
         return self._cache
 
     @property
     def meta(self) -> ShapeDTypeStructCache:
         return self._meta
 
-    def get_nbytes(self, key: tp.Hashable, value: ByteBuffer) -> int:
-        return len(value)  # respects compression
-
-    def get_current_nbytes(self) -> int:
-        return sum(map(len, self.cache.values()), 0)  # respects compression
-
-    def __repr__(self) -> str:
-        return f"{type(self).__name__}(nbuffers={len(self)}, nbytes={self.get_current_nbytes()})"
+    @property
+    def codec(self) -> Codec:
+        return self._codec
 
     def __setitem__(self, key: tp.Hashable, value: np.ndarray) -> None:
         buf, struct = self.codec.encode(value)
@@ -178,234 +93,92 @@ or
     def __len__(self) -> int:
         return len(self.cache)
 
-    # overwrite .items() because zict.Buffer.weight loops over `.items()` to infer nbytes, see:
-    # https://github.com/dask/zict/blob/main/zict/lru.py#L108
-    # the default implementation would decompress/load the array,
-    # but we can access nbytes from metadata here
-    def items(self) -> ItemsView[tp.Hashable, ByteBuffer]:
-        # avoid decompressing the array
-        return self.cache.items()
+
+# can't type hint without importing it, so we do this instead
+NumCodecsCodec: tp.TypeAlias = tp.Any
 
 
-HDF5Group: tp.TypeAlias = tp.Any
-HDF5Dataset: tp.TypeAlias = tp.Any
-
-
-def _gracefully_close(
-    file_handle: tp.TextIO | tp.BinaryIO,
-    group: HDF5Group,
-) -> None:
-    group.close()
-    file_handle.close()
-
-
-class HDF5BufferCache(NbytesAwareCache):
+def BufferCache(
+    cache: ByteBufferCache | None,
+    codec: Codec | NumCodecsCodec | None,  # noqa: F821
+) -> MutableMapping:
     """
-    An file-backed hdf5 buffer cache. HDF5BufferCache will gracefully close
-    provided file handles automatically through the ``finalize_callback``.
+    A compressed buffer cache. Supports all numcodecs.abc.Codec types.
 
-    Example
+
+    Example (in-memory no compression)
     -------
-    >>> buffer_cache = HDF5BufferCache(file_handle=open("mycache.h5", "wb+"))
+    >>> buffer_cache=BufferCache(cache=None, codec=None) # or `NoCompressionCodec()`
+    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
+
+
+    Example (in-memory compressed)
+    -------
+    >>> import numcodecs
+    >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
+    >>> buffer_cache=BufferCache(cache=None, codec=codec)
+    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
+
+
+    Example (on-disk compressed)
+    -------
+    >>> import numcodecs, zict
+    >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
+    >>> buffer_cache=BufferCache(cache=zict.File("my_cache"), codec=codec)
+    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
+
+
+    Example (LRU-backed compressed in-memory)
+    -------
+    >>> import numcodecs, zict
+    >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
+    >>> capacity = 500_000_000 # 500 MB
+    >>> # len gives the number of bytes in the bytebuffer
+    >>> cache = zict.LRU(n=capacity, d={}, weight=lambda k,v: len(v))
+    >>> buffer_cache=BufferCache(cache=cache, codec=codec)
+    >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
+
+
+    Example (hierarchical)
+    -------
+    >>> import zict
+    >>> cache = zict.Buffer(
+    >>>     fast={},
+    >>>     slow=zict.File("mycache"),
+    >>>     n=100,
+    >>>     weight=lambda k,v: len(v), # len gives the number of bytes in the bytebuffer
+    >>> )
+    >>> buffer_cache=BufferCache(cache=cache, codec=None)
     >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache),
     """
-
-    __slots__ = ("_group", "_file_handle", "_create_dataset_opts")
-
-    def __init__(
-        self,
-        file_handle: tp.TextIO | tp.BinaryIO,
-        create_dataset_opts: tp.Any = None,
-        finalize_callback: tp.Callable = _gracefully_close,
-    ) -> None:
+    if codec is None:
+        codec = NoCompressionCodec()
+    else:
         try:
-            import h5py
+            import numcodecs
         except ModuleNotFoundError as err:
-            raise ModuleNotFoundError(
-                f"""to use {type(self).__name__}, you must install h5py:
+            raise ModuleNotFoundError("""to use BufferCache, you must install numcodecs:
 
-    pip install h5py
-
-or
-
-    conda install -c conda-forge h5py"""
-            ) from err
-
-        # a HDF5 group
-        # e.g.:
-        # in-memory: `group = h5py.File(BytesIO(), "r+")` or `h5py.File.in_memory()` since v3.13 (see: https://docs.h5py.org/en/stable/high/file.html#in-memory-files)
-        # on-disk: `group = h5py.File(open("myfile.h5", "wb+"), "w")`
-        self._file_handle = file_handle
-        gopts = "r+" if isinstance(file_handle, BytesIO) else "w"
-        self._group = h5py.File(file_handle, gopts)
-
-        # HDF5 dataset options
-        # e.g.:
-        # from hdf5plugin import Blosc2
-        # {"compression": Blosc2(cname="zstd", clevel=1, filters=Blosc2.BITSHUFFLE)}
-        if create_dataset_opts is None:
-            create_dataset_opts = {}
-        self._create_dataset_opts = create_dataset_opts
-
-        # Zig-like `defer`, handles file obj and h5py group closing before GC
-        finalize(self, finalize_callback, self._file_handle, self._group)
-
-    @property
-    def file_handle(self) -> tp.TextIO | tp.BinaryIO:
-        return self._file_handle
-
-    @property
-    def group(self) -> HDF5Group:
-        return self._group
-
-    def get_leaf_datasets(self):
-        # little helper to find actual datasets in a potentially nested h5py group.
-        # that happens with coffea, because the buffer keys contain forward slashes,
-        # which hdf5 considers as markers to split
-        import h5py
-
-        leaves = []
-
-        def visitor(name, node):
-            if isinstance(node, h5py.Dataset):
-                leaves.append(name)
-
-        self.group.visititems(visitor)
-        return leaves
-
-    def keys(self) -> KeysView:
-        return KeysView(self.get_leaf_datasets())
-
-    def get_nbytes(self, key: tp.Hashable, value: HDF5Dataset) -> int:
-        return value.id.get_storage_size()  # respects compression
-
-    def get_current_nbytes(self) -> int:
-        return self.group.id.get_filesize()  # respects compression + metadata
-
-    def __repr__(self) -> str:
-        return f"{type(self).__name__}(nbuffers={len(self)}, nbytes={self.get_current_nbytes()})"
-
-    def __setitem__(self, key: tp.Hashable, value: np.ndarray) -> None:
-        self.group.create_dataset(
-            name=key,
-            shape=value.shape,
-            dtype=value.dtype,
-            chunks=value.shape,
-            data=value,
-            **self._create_dataset_opts,
-        )
-
-    def __getitem__(self, key: tp.Hashable) -> np.ndarray:
-        return self.group[key][...]
-
-    def __delitem__(self, key: tp.Hashable):
-        del self.group[key]
-
-    def __iter__(self) -> tp.Iterator[tp.Hashable]:
-        return iter(self.get_leaf_datasets())
-
-    def __len__(self) -> int:
-        return len(self.get_leaf_datasets())
-
-    # overwrite .items() because zict.Buffer.weight loops over `.items()` to infer nbytes, see:
-    # https://github.com/dask/zict/blob/main/zict/lru.py#L108
-    # the default implementation would decompress/load the array,
-    # but we can access nbytes from metadata here
-    def items(self) -> ItemsView[tp.Hashable, HDF5Dataset]:
-        # avoid loading & decompressing the array
-        return self.group.items()
-
-
-# Optionally TODO (pfackeldey: I don't think they bring anything beneficial on top of the hdf5 buffer cache?):
-# - add zarr on-disk cache
-# - add blosc2 treestore cache (https://www.blosc.org/python-blosc2/reference/tree_store.html#blosc2.TreeStore)
-
-
-def LRUCache(
-    capacity: int,
-    *,
-    cache: NbytesAwareCache | None = None,
-) -> MutableMapping:
-    """
-    Wraps a given ``NbytesAwareCache`` into an LRU cache with a ``capacity`` (given in bytes).
-    If no ``cache`` is provided, a default ``BufferCache`` is used.
-
-    Example
-    -------
-    >>> lru_500MB = LRUCache(capacity=500_000_000) # 500 MB
-    >>> NanoEventsFactory.from_root(..., buffer_cache=lru_500MB),
-    """
-    try:
-        import zict
-    except ModuleNotFoundError as err:
-        raise ModuleNotFoundError("""to use LRUCache, you must install zict:
-
-    pip install zict
+pip install numcodecs
 
 or
 
-    conda install -c conda-forge zict""") from err
+conda install -c conda-forge numcodecs""") from err
+
+        # auto-wrap for numcodecs.abc.Codec
+        if isinstance(codec, numcodecs.abc.Codec):
+            codec = NumCodecsWrapper(codec=codec)
+
+    # at this point we expect a proper Codec instance
+    if not isinstance(codec, Codec):
+        raise TypeError(f"codec must be an instance of Codec, got {type(codec)}")
 
     if cache is None:
-        cache = BufferCache()
+        cache = {}
 
-    if not isinstance(cache, NbytesAwareCache):
+    if not isinstance(cache, MutableMapping):
         raise TypeError(
-            f"cache must be an instance of NbytesAwareCache, got {type(cache)}"
+            f"cache must be an instance of MutableMapping, got {type(cache)}"
         )
 
-    return zict.LRU(n=int(capacity), d=cache, weight=cache.get_nbytes)
-
-
-def HierarchicalCache(
-    layers: tp.Iterable[tuple[int, NbytesAwareCache]],
-) -> MutableMapping:
-    """Compose a stack of caches into a zict.Buffer hierarchy.
-
-    Layers should be ordered from fastest to slowest as ``(limit, cache)`` pairs.
-    The final cache in the iterable is treated as the base store, it's limit will
-    be ignored; intermediate caches are wrapped with ``Buffer`` instances using
-    ``limit`` for the ``n`` parameter. A single layer returns the cache unchanged,
-    while an empty iterable raises ``ValueError``.
-
-    Example
-    -------
-    >>> from numcodecs import Blosc
-    >>> inmemory = BufferCache()
-    >>> inmemory_compressed = CompressedBufferCache(codec=Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE))
-    >>> ondisk = HDF5BufferCache(file_handle=open("mycache.h5", "wb+"))
-    >>> cache = HierarchicalCache([
-        (100_000_000, inmemory), # 100 MB
-        (1_000_000_000, inmemory_compressed), # 1 GB
-        (-1, ondisk),
-    ])
-    """
-    try:
-        import zict
-    except ModuleNotFoundError as err:
-        raise ModuleNotFoundError("""to use HierarchicalCache, you must install zict:
-
-    pip install zict
-
-or
-
-    conda install -c conda-forge zict""") from err
-
-    layers = list(layers)
-
-    nlayers = len(layers)
-
-    match nlayers:
-        case 0:
-            raise ValueError("layers must be non-empty")
-        case 1:
-            return layers[0][1]  # returns the cache
-        case _:
-            # last mapping is the base slow store
-            slow = layers[-1][1]
-            # wrap remaining layers from bottom to top
-            for limit, fast in reversed(layers[:-1]):
-                slow = zict.Buffer(
-                    fast=fast, slow=slow, n=float(limit), weight=fast.get_nbytes
-                )
-            return slow
+    return CodecAwareCache(cache=cache, codec=codec)

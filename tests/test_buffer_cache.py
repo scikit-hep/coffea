@@ -1,12 +1,14 @@
+from collections.abc import MutableMapping
+
 import awkward as ak
 import pytest
 
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-from coffea.nanoevents.mapping import NbytesAwareCache
+from coffea.nanoevents.mapping import BufferCache
 from coffea.nanoevents.util import unquote
 
 
-def _make_events_with_cache(path: str, cache: NbytesAwareCache) -> ak.Array:
+def _make_events_with_cache(path: str, cache: MutableMapping) -> ak.Array:
     factory = NanoEventsFactory.from_root(
         {path: "Events"},
         schemaclass=NanoAODSchema,
@@ -38,52 +40,95 @@ def _check_cache(events) -> None:
 
 
 def test_buffer_cache(tests_directory):
-    from coffea.nanoevents.mapping import BufferCache
+    pytest.importorskip("zict")
 
     events = _make_events_with_cache(
         path=f"{tests_directory}/samples/nano_dy.root",
-        cache=BufferCache(),
+        cache=BufferCache(cache=None, codec=None),
     )
 
     _check_cache(events)
 
 
-def test_compressed_buffer_cache(tests_directory):
+def test_compressed_buffer_cache_in_memory(tests_directory):
     pytest.importorskip("numcodecs")
+    pytest.importorskip("zict")
 
     from numcodecs import Blosc
-
-    from coffea.nanoevents.mapping import CompressedBufferCache
 
     codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
     events = _make_events_with_cache(
         path=f"{tests_directory}/samples/nano_dy.root",
-        cache=CompressedBufferCache(codec),
+        cache=BufferCache(cache=None, codec=codec),
     )
 
     _check_cache(events)
 
 
-def test_hdf5_buffer_cache(tests_directory):
-    pytest.importorskip("h5py")
+def test_compressed_buffer_cache_on_disk(tests_directory):
+    pytest.importorskip("numcodecs")
+    pytest.importorskip("zict")
 
-    from coffea.nanoevents.mapping import HDF5BufferCache
+    import zict
+    from numcodecs import Blosc
 
-    file_handle = open(f"{tests_directory}/test_hdf5_buffer_cache.h5", "wb+")
+    codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
+    ondisk = zict.File(f"{tests_directory}/mycache")
     events = _make_events_with_cache(
         path=f"{tests_directory}/samples/nano_dy.root",
-        cache=HDF5BufferCache(file_handle),
+        cache=BufferCache(cache=ondisk, codec=codec),
     )
 
     _check_cache(events)
 
-    del events
-
-    # make sure the default finalize callback closes the
-    # file handle upon `del events` automatically
-    assert file_handle.closed
-
-    # get rid of it
+    # clean up
     import os
 
-    os.remove(f"{tests_directory}/test_hdf5_buffer_cache.h5")
+    ondisk.clear()  # rm's all files in mycache
+    os.rmdir(f"{tests_directory}/mycache")
+
+
+def test_buffer_cache_lru(tests_directory):
+    zict = pytest.importorskip("zict")
+
+    # large enough to succeed
+    cache = zict.LRU(n=100_000_000, d={}, weight=lambda k, v: len(v))
+    events = _make_events_with_cache(
+        path=f"{tests_directory}/samples/nano_dy.root",
+        cache=BufferCache(cache=cache, codec=None),
+    )
+
+    _check_cache(events)
+
+    # small enough to fail (lru cache too small -> keys got evicted -> _check_cache fails)
+    cache = zict.LRU(n=100, d={}, weight=lambda k, v: len(v))
+    events = _make_events_with_cache(
+        path=f"{tests_directory}/samples/nano_dy.root",
+        cache=BufferCache(cache=cache, codec=None),
+    )
+
+    with pytest.raises(AssertionError):
+        _check_cache(events)
+
+
+def test_buffer_cache_hierarchical(tests_directory):
+    zict = pytest.importorskip("zict")
+
+    hierarchical_cache = zict.Buffer(
+        fast={},
+        slow=zict.File(f"{tests_directory}/mycache"),
+        n=100,
+        weight=lambda k, v: len(v),
+    )
+    events = _make_events_with_cache(
+        path=f"{tests_directory}/samples/nano_dy.root",
+        cache=BufferCache(cache=hierarchical_cache, codec=None),
+    )
+
+    _check_cache(events)
+
+    # clean up
+    import os
+
+    hierarchical_cache.clear()  # rm's all files in mycache
+    os.rmdir(f"{tests_directory}/mycache")
