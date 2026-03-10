@@ -506,7 +506,11 @@ class DatasetSpec(BaseModel):
                                 new_data["compressed_form"] = compress_form(
                                     data["form"]
                                 )
-                            except Exception:
+                            except (
+                                ValueError,
+                                TypeError,
+                                KeyError,
+                            ):
                                 # if we can't compress it, test if it can be decompressed
                                 try:
                                     import awkward
@@ -517,7 +521,11 @@ class DatasetSpec(BaseModel):
                                         decompress_form(data["form"])
                                     )
                                     new_data["compressed_form"] = data["form"]
-                                except Exception:
+                                except (
+                                    ValueError,
+                                    TypeError,
+                                    KeyError,
+                                ):
                                     raise RuntimeError(
                                         f"form: provided form could neither be compressed nor decompressed, please provide a valid (compressed_)form, got {data['form']}"
                                     )
