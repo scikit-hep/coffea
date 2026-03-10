@@ -1,4 +1,3 @@
-from importlib.metadata.diagnose import inspect
 import io
 import pathlib
 import warnings
@@ -769,11 +768,11 @@ class NanoEventsFactory:
         if self._mode == "dask":
             dask_awkward.lib.core.dak_cache.clear()
             import inspect
+
             params = inspect.signature(self._mapping).parameters
             # Check if it explicitly has form_mapping OR accepts **kwargs
-            accepts_form_mapping = (
-                'form_mapping' in params or
-                any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+            accepts_form_mapping = "form_mapping" in params or any(
+                p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
             )
             if accepts_form_mapping:
                 events = self._mapping(form_mapping=self._schema)
