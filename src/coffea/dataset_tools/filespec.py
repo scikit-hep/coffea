@@ -500,8 +500,11 @@ class DatasetSpec(BaseModel):
 
                                 from coffea.util import compress_form
 
+                                # Validate it's a valid form JSON by parsing it
+                                _ = awkward.forms.from_json(data["form"])
+                                # Compress the original JSON string
                                 new_data["compressed_form"] = compress_form(
-                                    awkward.forms.from_json(data["form"])
+                                    data["form"]
                                 )
                             except Exception:
                                 # if we can't compress it, test if it can be decompressed
