@@ -1157,11 +1157,13 @@ def preprocess(
         if isinstance(fileset, DataGroupSpec):
             datasetspecs = fileset
         else:
-            DeprecationWarning(
+            warnings.warn(
                 "Passing a dict to preprocess is deprecated. Converting to DataGroupSpec and proceeding."
-                "To remove this warning, pass a DataGroupSpec object instead of a dict."
-                "To use the legacy preprocessing function, set preprocess_legacy_root=True."
-                "If automatic conversion is not possible, please submit your fileset to the coffea team."
+                "To avoid this warning, pass a DataGroupSpec object instead of a dict."
+                "To use the legacy preprocessing function, set preprocess_legacy_root=True or utilize preprocess_legacy directly. "
+                "If automatic conversion is not possible, please submit your fileset to the coffea team.",
+                DeprecationWarning,
+                stacklevel=3,
             )
             datasetspecs = DataGroupSpec.model_validate(fileset)
         # split datasetspecs into uproot and parquet files, keeping track of original order
