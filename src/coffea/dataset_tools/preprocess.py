@@ -842,9 +842,52 @@ def _preprocess_pydantic(
     allow_empty_datasets: bool = False,
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
-    Function to preprocess either root or parquet DatasetSpecs in a DataGroupSpec.
-    ROOT TTrees: Maps align_clusters and uproot_options to use_alignment_boundaries and filetype_options respectively.
-    Parquet: Maps use_row_groups and parquet_options to use_alignment_boundaries and filetype_options respectively
+    Internal function to preprocess either ROOT or parquet DatasetSpecs in a DataGroupSpec.
+
+    This function dispatches to format-specific processing (ROOT TTrees or parquet files)
+    based on the format of each dataset. It extracts file metadata including steps, UUIDs,
+    entry counts, and optionally computes the union form across files.
+
+    Parameters
+    ----------
+        datagroupspec : DataGroupSpec
+            The set of datasets whose files will be preprocessed.
+        step_size : int or None, default None
+            If specified, the size of the steps to make when analyzing the input files.
+        use_alignment_boundaries : bool, default False
+            For ROOT: align to cluster boundaries. For parquet: align to row groups.
+        recalculate_steps : bool, default False
+            Force recalculation of steps even if UUID hasn't changed.
+        files_per_batch : int, default 1
+            Number of files to preprocess in a single dask task.
+        skip_bad_files : bool, default False
+            Catch file_exceptions and return null data instead of failing.
+        file_exceptions : Exception or Warning or tuple, default (OSError,)
+            Exceptions to catch when skip_bad_files is True.
+        save_form : bool, default True
+            Extract and compute the union form across files in each dataset.
+        scheduler : None or Callable or str, default None
+            Dask scheduler to use for preprocessing.
+        filetype_options : dict, default {}
+            Options passed to uproot (for ROOT) or awkward (for parquet) when opening files.
+        step_size_safety_factor : float, default 0.5
+            Warn if aligned steps exceed target by this factor.
+        allow_empty_datasets : bool, default False
+            If True, warn instead of raising when a dataset has no accessible files.
+
+    Returns
+    -------
+        out_available : DataGroupSpec
+            Datasets containing only successfully preprocessed files.
+        out_updated : DataGroupSpec
+            Original datasets updated with preprocessing results where available.
+
+    Raises
+    ------
+        ValueError
+            If datagroupspec is not a DataGroupSpec or contains unsupported formats.
+        Exception
+            If a dataset has no accessible files and allow_empty_datasets is False.
     """
     if not isinstance(datagroupspec, DataGroupSpec):
         raise ValueError(
@@ -1052,7 +1095,6 @@ def _preprocess_pydantic(
         out_updated[name]["files"] = files_out
         out_available[name]["files"] = files_available
 
-        compressed_union_form = None
         compressed_union_form = (
             compress_form(union_form_jsonstr) if union_form_jsonstr else None
         )
@@ -1158,12 +1200,12 @@ def preprocess(
             datasetspecs = fileset
         else:
             warnings.warn(
-                "Passing a dict to preprocess is deprecated. Converting to DataGroupSpec and proceeding."
-                "To avoid this warning, pass a DataGroupSpec object instead of a dict."
+                "Passing a dict to preprocess is deprecated. Converting to DataGroupSpec and proceeding. "
+                "To avoid this warning, pass a DataGroupSpec object instead of a dict. "
                 "To use the legacy preprocessing function, set preprocess_legacy_root=True or utilize preprocess_legacy directly. "
                 "If automatic conversion is not possible, please submit your fileset to the coffea team.",
                 DeprecationWarning,
-                stacklevel=3,
+                stacklevel=2,
             )
             datasetspecs = DataGroupSpec.model_validate(fileset)
         # split datasetspecs into uproot and parquet files, keeping track of original order
@@ -1205,7 +1247,7 @@ def preprocess(
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
         )
-        # recombine outputs in original order
+        # recombine outputs in original order, skipping datasets removed due to allow_empty_datasets
         out_available = DataGroupSpec(
             {
                 k: (
@@ -1214,6 +1256,7 @@ def preprocess(
                     else out_available_parquet[k]
                 )
                 for k in original_order
+                if k in out_available_uproot or k in out_available_parquet
             }
         )
         out_updated = DataGroupSpec(
@@ -1224,6 +1267,7 @@ def preprocess(
                     else out_updated_parquet[k]
                 )
                 for k in original_order
+                if k in out_updated_uproot or k in out_updated_parquet
             }
         )
         return out_available, out_updated
