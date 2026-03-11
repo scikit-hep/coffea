@@ -53,7 +53,7 @@ jobs:
 
     - name: Set python test settings
       run: |
-        echo "INSTALL_EXTRAS='[dev,parsl,dask]'" >> $GITHUB_ENV
+        echo "INSTALL_EXTRAS='[dev,caches,parsl,dask]'" >> $GITHUB_ENV
 
     - name: Install dependencies (Linux)
       if: startsWith( matrix.os, 'ubuntu' )
@@ -66,7 +66,7 @@ jobs:
         uv pip install torch --index-url https://download.pytorch.org/whl/cpu
         uv pip install xgboost
         # install checked out coffea
-        uv pip install -q '.[dev,parsl,dask,triton]' --upgrade
+        uv pip install -q '.[dev,caches,parsl,dask,triton]' --upgrade
         uv pip list
     - name: Install dependencies (MacOS)
       if: matrix.os == 'macOS-latest'
@@ -79,7 +79,7 @@ jobs:
         uv pip install torch
         uv pip install xgboost
         # install checked out coffea
-        uv pip install -q '.[dev,dask]' --upgrade
+        uv pip install -q '.[dev,caches,dask]' --upgrade
         uv pip list
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
@@ -90,7 +90,7 @@ jobs:
         uv pip install torch
         uv pip install xgboost
         # install checked out coffea
-        uv pip install -q '.[dev,dask]' --upgrade
+        uv pip install -q '.[dev,caches,dask]' --upgrade
         uv pip list
 
     - name: Start triton server with example model
