@@ -124,7 +124,7 @@ def BufferCache(
 
     Example (in-memory compressed)
     -------
-    >>> import numcodecs
+    >>> from numcodecs import Blosc
     >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
     >>> buffer_cache=BufferCache(cache=None, codec=codec)
     >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache)
@@ -132,7 +132,8 @@ def BufferCache(
 
     Example (LRU-backed compressed in-memory)
     -------
-    >>> import numcodecs, zict
+    >>> from numcodecs import Blosc
+    >>> import zict
     >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
     >>> capacity = 500_000_000 # 500 MB
     >>> # len gives the number of bytes in the bytebuffer
@@ -148,21 +149,24 @@ def BufferCache(
 
     Example (on-disk compressed)
     -------
-    >>> import numcodecs, zict
+    >>> from numcodecs import Blosc
+    >>> import zict
     >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
     >>> buffer_cache=BufferCache(cache=zict.File("my_cache"), codec=codec)
     >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache)
 
-    The comes with some caveats though:
+    .. caution::
 
-    1. The directory for the on-disk cache should be chosen to be as close as possible
-    to the CPU. That means that NFS backed paths (e.g. `/afs/` or `/eos/` at CERN) are
-    highly disouraged for this cache. A better choice would be `/tmp/...` on the worker.
+        The comes with some caveats though:
 
-    2. It's probably good to cleanup this cache once it isn't needed anymore. For dask usage
-    with the coffea Executors one can use the `cachestrategy` argument of the Executor class
-    to make sure the on-disk cache is created in the local temp directory of the dask worker itself.
-    (see: https://distributed.dask.org/en/stable/worker.html#api-documentation)
+        1. The directory for the on-disk cache should be chosen to be as close as possible
+        to the CPU. That means that NFS backed paths (e.g. `/afs/` or `/eos/` at CERN) are
+        highly disouraged for this cache. A better choice would be `/tmp/...` on the worker.
+
+        2. It's probably good to cleanup this cache once it isn't needed anymore. For dask usage
+        with the coffea Executors one can use the `cachestrategy` argument of the Executor class
+        to make sure the on-disk cache is created in the local temp directory of the dask worker itself.
+        (see: https://distributed.dask.org/en/stable/worker.html#api-documentation)
 
 
     ## Other examples
