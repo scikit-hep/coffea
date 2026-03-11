@@ -27,8 +27,6 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-from . import _version
+from ._version import __version__
 
-__version__ = _version.__version__
-
-__all__ = ["deprecations_as_errors"]
+__all__ = ["__version__"]
