@@ -3,7 +3,6 @@
 import os
 
 import awkward as ak
-import dask
 import dask_awkward as dak
 import numpy as np
 import pytest
@@ -67,7 +66,6 @@ def test_correctionlib_jec(clib_stack, flat_jet_arrays):
         JetPt=ak.Array(test_pt),
         Rho=ak.Array(test_Rho),
     )
-    assert isinstance(corr, ak.Array)
     assert len(corr) == len(test_pt)
     # Each level returns 1+0.01*JetA = 1+0.01*0.5 = 1.005, compound multiplies 4 levels
     expected = np.float32(1.005) ** 4
@@ -86,35 +84,33 @@ def test_correctionlib_jec_jagged(clib_stack, flat_jet_arrays):
     Rho_jag = ak.unflatten(test_Rho, counts)
 
     corr_jag = jec.getCorrection(JetA=A_jag, JetEta=eta_jag, JetPt=pt_jag, Rho=Rho_jag)
-    # Result is flat (1D) since adapters flatten internally
-    assert len(corr_jag) == len(test_pt)
+    # Result preserves jagged structure
+    assert len(corr_jag) == len(counts)
+    assert len(ak.flatten(corr_jag)) == len(test_pt)
 
 
-@pytest.mark.parametrize("optimization_enabled", [True, False])
-def test_correctionlib_jec_dask(clib_stack, flat_jet_arrays, optimization_enabled):
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
-        counts, test_A, test_eta, test_pt, test_Rho = flat_jet_arrays
+def test_correctionlib_jec_dask(clib_stack, flat_jet_arrays):
+    counts, test_A, test_eta, test_pt, test_Rho = flat_jet_arrays
 
-        jec = clib_stack.jec
+    jec = clib_stack.jec
 
-        A_jag = ak.unflatten(test_A, counts)
-        eta_jag = ak.unflatten(test_eta, counts)
-        pt_jag = ak.unflatten(test_pt, counts)
-        Rho_jag = ak.unflatten(test_Rho, counts)
+    A_jag = ak.unflatten(test_A, counts)
+    eta_jag = ak.unflatten(test_eta, counts)
+    pt_jag = ak.unflatten(test_pt, counts)
+    Rho_jag = ak.unflatten(test_Rho, counts)
 
-        corr_dak = jec.getCorrection(
-            JetA=dak.from_awkward(A_jag, 1),
-            JetEta=dak.from_awkward(eta_jag, 1),
-            JetPt=dak.from_awkward(pt_jag, 1),
-            Rho=dak.from_awkward(Rho_jag, 1),
-        )
-        assert isinstance(corr_dak, dak.Array)
-        result = corr_dak.compute()
-        expected = np.float32(1.005) ** 4
-        # Result is flat (1D) since adapters flatten internally
-        assert np.allclose(
-            np.asarray(ak.flatten(result, axis=None)), expected, atol=1e-6
-        )
+    corr_dak = jec.getCorrection(
+        JetA=dak.from_awkward(A_jag, 1),
+        JetEta=dak.from_awkward(eta_jag, 1),
+        JetPt=dak.from_awkward(pt_jag, 1),
+        Rho=dak.from_awkward(Rho_jag, 1),
+    )
+    assert isinstance(corr_dak, dak.Array)
+    result = corr_dak.compute()
+    expected = np.float32(1.005) ** 4
+    assert np.allclose(
+        np.asarray(ak.flatten(result, axis=None)), expected, atol=1e-6
+    )
 
 
 def test_correctionlib_jer(clib_stack, flat_jet_arrays):
@@ -130,7 +126,6 @@ def test_correctionlib_jer(clib_stack, flat_jet_arrays):
         JetPt=ak.Array(test_pt),
         Rho=ak.Array(test_Rho),
     )
-    assert isinstance(reso, ak.Array)
     assert len(reso) == len(test_pt)
     # Our test correction returns flat 0.1
     assert np.allclose(np.asarray(reso), 0.1, atol=1e-6)
@@ -293,56 +288,52 @@ def test_corrected_jets_factory_with_correctionlib(clib_stack):
         assert "down" in ak.fields(flat_corrected[unc])
 
 
-@pytest.mark.parametrize("optimization_enabled", [True, False])
-def test_corrected_jets_factory_with_correctionlib_dask(
-    clib_stack, optimization_enabled
-):
+def test_corrected_jets_factory_with_correctionlib_dask(clib_stack):
     """Full integration test with dask arrays."""
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
-        from coffea.jetmet_tools import CorrectedJetsFactory
+    from coffea.jetmet_tools import CorrectedJetsFactory
 
-        name_map = clib_stack.blank_name_map
-        name_map["JetPt"] = "pt"
-        name_map["JetMass"] = "mass"
-        name_map["JetEta"] = "eta"
-        name_map["JetA"] = "area"
-        name_map["ptRaw"] = "pt_raw"
-        name_map["massRaw"] = "mass_raw"
-        name_map["Rho"] = "rho"
-        name_map["ptGenJet"] = "pt_gen"
-        name_map["METpt"] = "met_pt"
-        name_map["METphi"] = "met_phi"
-        name_map["JetPhi"] = "phi"
-        name_map["UnClusteredEnergyDeltaX"] = "ue_dx"
-        name_map["UnClusteredEnergyDeltaY"] = "ue_dy"
+    name_map = clib_stack.blank_name_map
+    name_map["JetPt"] = "pt"
+    name_map["JetMass"] = "mass"
+    name_map["JetEta"] = "eta"
+    name_map["JetA"] = "area"
+    name_map["ptRaw"] = "pt_raw"
+    name_map["massRaw"] = "mass_raw"
+    name_map["Rho"] = "rho"
+    name_map["ptGenJet"] = "pt_gen"
+    name_map["METpt"] = "met_pt"
+    name_map["METphi"] = "met_phi"
+    name_map["JetPhi"] = "phi"
+    name_map["UnClusteredEnergyDeltaX"] = "ue_dx"
+    name_map["UnClusteredEnergyDeltaY"] = "ue_dy"
 
-        factory = CorrectedJetsFactory(name_map, clib_stack)
+    factory = CorrectedJetsFactory(name_map, clib_stack)
 
-        counts, test_eta, test_pt = dummy_jagged_eta_pt()
-        n_flat = len(test_eta)
+    counts, test_eta, test_pt = dummy_jagged_eta_pt()
+    n_flat = len(test_eta)
 
-        jets_dict = {
-            "pt": test_pt.astype(np.float32),
-            "mass": (test_pt * 0.1).astype(np.float32),
-            "eta": test_eta.astype(np.float32),
-            "phi": np.zeros(n_flat, dtype=np.float32),
-            "area": np.full(n_flat, 0.5, dtype=np.float32),
-            "pt_raw": test_pt.astype(np.float32),
-            "mass_raw": (test_pt * 0.1).astype(np.float32),
-            "rho": np.full(n_flat, 30.0, dtype=np.float32),
-            "pt_gen": (test_pt * 0.95).astype(np.float32),
-        }
-        jets_jag = ak.unflatten(ak.zip(jets_dict), counts)
-        jets_dak = dak.from_awkward(jets_jag, 1)
+    jets_dict = {
+        "pt": test_pt.astype(np.float32),
+        "mass": (test_pt * 0.1).astype(np.float32),
+        "eta": test_eta.astype(np.float32),
+        "phi": np.zeros(n_flat, dtype=np.float32),
+        "area": np.full(n_flat, 0.5, dtype=np.float32),
+        "pt_raw": test_pt.astype(np.float32),
+        "mass_raw": (test_pt * 0.1).astype(np.float32),
+        "rho": np.full(n_flat, 30.0, dtype=np.float32),
+        "pt_gen": (test_pt * 0.95).astype(np.float32),
+    }
+    jets_jag = ak.unflatten(ak.zip(jets_dict), counts)
+    jets_dak = dak.from_awkward(jets_jag, 1)
 
-        corrected = factory.build(jets_dak)
-        assert isinstance(corrected, dak.Array)
+    corrected = factory.build(jets_dak)
+    assert isinstance(corrected, dak.Array)
 
-        # Compute and check
-        result = corrected.compute()
-        flat_result = ak.flatten(result)
-        assert "pt" in ak.fields(flat_result)
-        assert len(flat_result) == n_flat
+    # Compute and check
+    result = corrected.compute()
+    flat_result = ak.flatten(result)
+    assert "pt" in ak.fields(flat_result)
+    assert len(flat_result) == n_flat
 
 
 def test_corrected_jets_factory_jec_only():

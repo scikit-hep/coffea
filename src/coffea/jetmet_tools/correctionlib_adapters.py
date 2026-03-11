@@ -10,153 +10,7 @@ already expects from ``JECStack`` and its component correctors
 
 import awkward
 import correctionlib
-import dask_awkward
 import numpy
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-
-def _to_flat_numpy(arr):
-    """Convert an awkward array (flat or jagged) to a flat numpy float32 array."""
-    flat = awkward.flatten(arr, axis=None)
-    return numpy.asarray(flat, dtype=numpy.float32)
-
-
-def _is_typetracer(*args):
-    """Return ``True`` if any of *args* lives on the typetracer backend."""
-    return any(awkward.backend(a) == "typetracer" for a in args)
-
-
-def _typetracer_1d(ref):
-    """Return a 1-D float32 typetracer array shaped like *ref*."""
-    out = awkward.Array(awkward.typetracer.length_zero_if_typetracer(ref))
-    return awkward.Array(
-        out.layout.to_typetracer(forget_length=True), behavior=out.behavior
-    )
-
-
-def _typetracer_nd(ref, inner_shape):
-    """Return an N-D float32 typetracer array with the given inner shape."""
-    n = 0  # zero-length
-    arr = numpy.zeros((n, *inner_shape), dtype=numpy.float32)
-    out = awkward.Array(arr)
-    return awkward.Array(
-        out.layout.to_typetracer(forget_length=True), behavior=out.behavior
-    )
-
-
-# ---------------------------------------------------------------------------
-# Callable objects for dask_awkward.map_partitions
-# ---------------------------------------------------------------------------
-
-
-class _CorrectionLibEvalFn:
-    """Callable that evaluates a ``correctionlib.Correction`` on awkward arrays.
-
-    Designed to be used as the *func* argument to
-    ``dask_awkward.map_partitions``.
-    """
-
-    def __init__(self, correction, input_names):
-        self._correction = correction
-        self._input_names = input_names
-
-    def __call__(self, *args):
-        if _is_typetracer(*args):
-            return _typetracer_1d(args[0])
-        np_args = [_to_flat_numpy(a) for a in args]
-        result = self._correction.evaluate(*np_args)
-        return awkward.Array(result.astype(numpy.float32))
-
-
-class _CompoundCorrectionLibEvalFn:
-    """Like :class:`_CorrectionLibEvalFn` but for ``CompoundCorrection``."""
-
-    def __init__(self, correction, input_names):
-        self._correction = correction
-        self._input_names = input_names
-
-    def __call__(self, *args):
-        if _is_typetracer(*args):
-            return _typetracer_1d(args[0])
-        np_args = [_to_flat_numpy(a) for a in args]
-        result = self._correction.evaluate(*np_args)
-        return awkward.Array(result.astype(numpy.float32))
-
-
-class _JERSFEvalFn:
-    """Evaluates a JER scale-factor correction for three systematics and stacks
-    them into an (N, 3) array ``[nom, up, down]``."""
-
-    def __init__(self, correction, input_names):
-        self._correction = correction
-        self._input_names = input_names
-
-    def __call__(self, *args):
-        if _is_typetracer(*args):
-            return _typetracer_nd(args[0], (3,))
-        np_args = [_to_flat_numpy(a) for a in args]
-        nom = self._correction.evaluate(*np_args, "nom").astype(numpy.float32)
-        up = self._correction.evaluate(*np_args, "up").astype(numpy.float32)
-        down = self._correction.evaluate(*np_args, "down").astype(numpy.float32)
-        stacked = numpy.stack([nom, up, down], axis=1)
-        return awkward.Array(stacked)
-
-
-class _JUNCSourceEvalFn:
-    """Evaluates a single JES uncertainty source and returns an (N, 2) array
-    ``[1+delta, 1-delta]``."""
-
-    def __init__(self, correction, input_names):
-        self._correction = correction
-        self._input_names = input_names
-
-    def __call__(self, *args):
-        if _is_typetracer(*args):
-            return _typetracer_nd(args[0], (2,))
-        np_args = [_to_flat_numpy(a) for a in args]
-        delta = self._correction.evaluate(*np_args).astype(numpy.float32)
-        stacked = numpy.stack([1.0 + delta, 1.0 - delta], axis=1).astype(numpy.float32)
-        return awkward.Array(stacked)
-
-
-# ---------------------------------------------------------------------------
-# Helpers for the dask / eager dispatch
-# ---------------------------------------------------------------------------
-
-
-def _dispatch(func_cls, correction, input_names, kwargs):
-    """Route evaluation through ``dask_awkward.map_partitions`` when the first
-    kwarg value is a dask array, otherwise evaluate eagerly."""
-    first_arg = kwargs[input_names[0]]
-    args = tuple(kwargs[name] for name in input_names)
-
-    if isinstance(first_arg, dask_awkward.Array):
-        func = func_cls(correction, input_names)
-        # Compute zero-length meta
-        zl_args = tuple(
-            awkward.Array(
-                a.layout.form.length_zero_array(highlevel=False),
-                behavior=a.behavior,
-            )
-            for a in args
-        )
-        zl_out = func(*zl_args)
-        meta = awkward.Array(
-            zl_out.layout.to_typetracer(forget_length=True),
-            behavior=zl_out.behavior,
-        )
-        return dask_awkward.map_partitions(
-            func,
-            *args,
-            label="correctionlib",
-            meta=meta,
-        )
-    else:
-        func = func_cls(correction, input_names)
-        return func(*args)
 
 
 # ---------------------------------------------------------------------------
@@ -176,20 +30,14 @@ class CorrectionLibJEC:
     def __init__(self, correction):
         self._correction = correction
         self._signature = [inp.name for inp in correction.inputs]
-        self._is_compound = (
-            isinstance(correction, correctionlib.highlevel.CorrectionSet)
-            or type(correction).__name__ == "CompoundCorrection"
-        )
 
     @property
     def signature(self):
         return self._signature
 
     def getCorrection(self, **kwargs):
-        fn_cls = (
-            _CompoundCorrectionLibEvalFn if self._is_compound else _CorrectionLibEvalFn
-        )
-        return _dispatch(fn_cls, self._correction, self._signature, kwargs)
+        args = tuple(kwargs[name] for name in self._signature)
+        return self._correction.evaluate(*args)
 
 
 class CorrectionLibJER:
@@ -210,9 +58,8 @@ class CorrectionLibJER:
         return self._signature
 
     def getResolution(self, **kwargs):
-        return _dispatch(
-            _CorrectionLibEvalFn, self._correction, self._signature, kwargs
-        )
+        args = tuple(kwargs[name] for name in self._signature)
+        return self._correction.evaluate(*args)
 
 
 class CorrectionLibJERSF:
@@ -243,7 +90,11 @@ class CorrectionLibJERSF:
         return self._signature
 
     def getScaleFactor(self, **kwargs):
-        return _dispatch(_JERSFEvalFn, self._correction, self._eval_inputs, kwargs)
+        args = tuple(kwargs[name] for name in self._eval_inputs)
+        nom = self._correction.evaluate(*args, "nom")
+        up = self._correction.evaluate(*args, "up")
+        down = self._correction.evaluate(*args, "down")
+        return awkward.concatenate([nom[:, numpy.newaxis], up[:, numpy.newaxis], down[:, numpy.newaxis]], axis=1)
 
 
 class CorrectionLibJUNC:
@@ -277,10 +128,15 @@ class CorrectionLibJUNC:
         return [name for name, _ in self._sources]
 
     def getUncertainty(self, **kwargs):
+        args = tuple(kwargs[name] for name in self._signature)
         results = []
         for name, corr in self._sources:
-            unc = _dispatch(_JUNCSourceEvalFn, corr, self._signature, kwargs)
-            results.append((name, unc))
+            delta = corr.evaluate(*args)
+            stacked = awkward.concatenate(
+                [(1.0 + delta)[:, numpy.newaxis], (1.0 - delta)[:, numpy.newaxis]],
+                axis=1,
+            )
+            results.append((name, stacked))
         return results
 
 
@@ -426,6 +282,12 @@ class CorrectionLibJECStack:
         # JEC (compound correction)
         jec_name = f"{jec_tag}_{data_type}_{jec_level}_{jet_type}"
         jec_adapter = CorrectionLibJEC(cset.compound[jec_name])
+        if "JetPt" not in jec_adapter.signature:
+            raise ValueError(
+                f"Expected 'JetPt' in JEC correction inputs, "
+                f"got {jec_adapter.signature}. "
+                f"The JSON-POG input naming convention may have changed."
+            )
 
         # JUNC
         junc_adapter = None
