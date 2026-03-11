@@ -466,9 +466,9 @@ def test_crossval_jec():
     clib_corr = np.asarray(clib_corr, dtype=np.float32)
 
     assert txt_corr.shape == clib_corr.shape
-    assert np.allclose(txt_corr, clib_corr, rtol=1e-5), (
-        f"Max relative diff: {np.max(np.abs(txt_corr - clib_corr) / np.abs(txt_corr))}"
-    )
+    assert np.allclose(
+        txt_corr, clib_corr, rtol=1e-5
+    ), f"Max relative diff: {np.max(np.abs(txt_corr - clib_corr) / np.abs(txt_corr))}"
 
 
 def test_crossval_junc():
@@ -480,9 +480,7 @@ def test_crossval_junc():
 
     # -- txt-based JUNC --
     ev = _make_txt_evaluator()
-    junc_names = [
-        k for k in dir(ev) if "UncertaintySources" in k and "AK4PFPuppi" in k
-    ]
+    junc_names = [k for k in dir(ev) if "UncertaintySources" in k and "AK4PFPuppi" in k]
     txt_junc = JetCorrectionUncertainty(**{name: ev[name] for name in junc_names})
 
     # -- correctionlib JUNC --
@@ -499,15 +497,11 @@ def test_crossval_junc():
     _, test_eta, test_pt = dummy_jagged_eta_pt()
 
     # txt JUNC
-    txt_results = dict(
-        txt_junc.getUncertainty(JetEta=test_eta, JetPt=test_pt)
-    )
+    txt_results = dict(txt_junc.getUncertainty(JetEta=test_eta, JetPt=test_pt))
 
     # correctionlib JUNC
     clib_results = dict(
-        clib_junc.getUncertainty(
-            JetEta=ak.Array(test_eta), JetPt=ak.Array(test_pt)
-        )
+        clib_junc.getUncertainty(JetEta=ak.Array(test_eta), JetPt=ak.Array(test_pt))
     )
 
     for source in XVAL_UNC_SOURCES:
@@ -517,9 +511,9 @@ def test_crossval_junc():
         txt_arr = np.asarray(txt_results[source], dtype=np.float32)
         clib_arr = np.asarray(clib_results[source], dtype=np.float32)
 
-        assert txt_arr.shape == clib_arr.shape, (
-            f"Shape mismatch for {source}: txt={txt_arr.shape}, clib={clib_arr.shape}"
-        )
+        assert (
+            txt_arr.shape == clib_arr.shape
+        ), f"Shape mismatch for {source}: txt={txt_arr.shape}, clib={clib_arr.shape}"
         assert np.allclose(txt_arr, clib_arr, rtol=1e-5), (
             f"Source {source} max relative diff: "
             f"{np.max(np.abs(txt_arr - clib_arr) / np.clip(np.abs(txt_arr), 1e-10, None))}"
@@ -562,9 +556,9 @@ def test_crossval_jer():
     clib_reso = np.asarray(clib_reso, dtype=np.float32)
 
     assert txt_reso.shape == clib_reso.shape
-    assert np.allclose(txt_reso, clib_reso, rtol=1e-5), (
-        f"Max relative diff: {np.max(np.abs(txt_reso - clib_reso) / np.clip(np.abs(txt_reso), 1e-10, None))}"
-    )
+    assert np.allclose(
+        txt_reso, clib_reso, rtol=1e-5
+    ), f"Max relative diff: {np.max(np.abs(txt_reso - clib_reso) / np.clip(np.abs(txt_reso), 1e-10, None))}"
 
 
 def test_crossval_jersf():
@@ -610,9 +604,9 @@ def test_crossval_jersf():
     )
     clib_sf = np.asarray(clib_sf, dtype=np.float32)
 
-    assert txt_sf.shape == clib_sf.shape, (
-        f"Shape mismatch: txt={txt_sf.shape}, clib={clib_sf.shape}"
-    )
-    assert np.allclose(txt_sf, clib_sf, rtol=1e-5), (
-        f"Max relative diff: {np.max(np.abs(txt_sf - clib_sf) / np.clip(np.abs(txt_sf), 1e-10, None))}"
-    )
+    assert (
+        txt_sf.shape == clib_sf.shape
+    ), f"Shape mismatch: txt={txt_sf.shape}, clib={clib_sf.shape}"
+    assert np.allclose(
+        txt_sf, clib_sf, rtol=1e-5
+    ), f"Max relative diff: {np.max(np.abs(txt_sf - clib_sf) / np.clip(np.abs(txt_sf), 1e-10, None))}"
