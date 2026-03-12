@@ -117,9 +117,7 @@ def test_correctionlib_jec_dask(clib_stack, flat_jet_arrays):
     assert isinstance(corr_dak, dak.Array)
     result = corr_dak.compute()
     expected = np.float32(1.005) ** 4
-    assert np.allclose(
-        np.asarray(ak.flatten(result, axis=None)), expected, atol=1e-6
-    )
+    assert np.allclose(np.asarray(ak.flatten(result, axis=None)), expected, atol=1e-6)
 
 
 def test_correctionlib_jer(clib_stack, flat_jet_arrays):

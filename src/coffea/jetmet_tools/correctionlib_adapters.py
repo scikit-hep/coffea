@@ -12,7 +12,6 @@ import awkward
 import correctionlib
 import numpy
 
-
 # ---------------------------------------------------------------------------
 # Public adapter classes
 # ---------------------------------------------------------------------------
@@ -94,7 +93,10 @@ class CorrectionLibJERSF:
         nom = self._correction.evaluate(*args, "nom")
         up = self._correction.evaluate(*args, "up")
         down = self._correction.evaluate(*args, "down")
-        return awkward.concatenate([nom[:, numpy.newaxis], up[:, numpy.newaxis], down[:, numpy.newaxis]], axis=1)
+        return awkward.concatenate(
+            [nom[:, numpy.newaxis], up[:, numpy.newaxis], down[:, numpy.newaxis]],
+            axis=1,
+        )
 
 
 class CorrectionLibJUNC:
