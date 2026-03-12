@@ -563,3 +563,56 @@ def test_crossval_jersf():
     assert np.allclose(
         txt_sf, clib_sf, rtol=1e-5
     ), f"Max relative diff: {np.max(np.abs(txt_sf - clib_sf) / np.clip(np.abs(txt_sf), 1e-10, None))}"
+
+
+# ---------------------------------------------------------------------------
+# CBRNG: counter-based RNG for partition-independent JER smearing
+# ---------------------------------------------------------------------------
+
+
+def test_corrected_jets_factory_cbrng(clib_stack):
+    """CorrectedJetsFactory with counter-based RNG produces reproducible JER smearing."""
+    from coffea.jetmet_tools import CorrectedJetsFactory
+
+    name_map = clib_stack.blank_name_map
+    name_map["JetPt"] = "pt"
+    name_map["JetMass"] = "mass"
+    name_map["JetEta"] = "eta"
+    name_map["JetA"] = "area"
+    name_map["ptRaw"] = "pt_raw"
+    name_map["massRaw"] = "mass_raw"
+    name_map["Rho"] = "rho"
+    name_map["ptGenJet"] = "pt_gen"
+    name_map["METpt"] = "met_pt"
+    name_map["METphi"] = "met_phi"
+    name_map["JetPhi"] = "phi"
+    name_map["UnClusteredEnergyDeltaX"] = "ue_dx"
+    name_map["UnClusteredEnergyDeltaY"] = "ue_dy"
+
+    factory = CorrectedJetsFactory(name_map, clib_stack)
+
+    counts, test_eta, test_pt = dummy_jagged_eta_pt()
+    n_flat = len(test_eta)
+    jets_dict = {
+        "pt": test_pt.astype(np.float32),
+        "mass": (test_pt * 0.1).astype(np.float32),
+        "eta": test_eta.astype(np.float32),
+        "phi": np.linspace(-np.pi, np.pi, n_flat).astype(np.float32),
+        "area": np.full(n_flat, 0.5, dtype=np.float32),
+        "pt_raw": test_pt.astype(np.float32),
+        "mass_raw": (test_pt * 0.1).astype(np.float32),
+        "rho": np.full(n_flat, 30.0, dtype=np.float32),
+        "pt_gen": (test_pt * 0.95).astype(np.float32),
+    }
+    jets_jag = ak.unflatten(ak.zip(jets_dict), counts)
+    event_nums = np.arange(len(counts), dtype=np.uint64)
+
+    lazy_cache = cachetools.Cache(maxsize=9999)
+    corrected1 = factory.build(jets_jag, lazy_cache, event_number=event_nums)
+
+    lazy_cache2 = cachetools.Cache(maxsize=9999)
+    corrected2 = factory.build(jets_jag, lazy_cache2, event_number=event_nums)
+
+    pt1 = np.asarray(ak.flatten(corrected1["pt"]))
+    pt2 = np.asarray(ak.flatten(corrected2["pt"]))
+    assert np.array_equal(pt1, pt2), "CBRNG should produce identical results on repeated calls"

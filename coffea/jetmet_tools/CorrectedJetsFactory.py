@@ -4,6 +4,8 @@ import warnings
 from functools import partial
 import operator
 
+from coffea.jetmet_tools.cbrng import Squares
+
 
 _stack_parts = ["jec", "junc", "jer", "jersf"]
 _MIN_JET_ENERGY = numpy.array(1e-2, dtype=numpy.float32)
@@ -33,7 +35,28 @@ def awkward_rewrap(arr, like_what, gfunc):
     return awkward._util.wrap(newlayout, behavior=behavior)
 
 
-def rand_gauss(item, randomstate):
+def rand_gauss(event_number, phi, eta, rng):
+    """Generate per-jet Gaussian random numbers using a counter-based RNG.
+
+    Each jet gets a deterministic random number derived from its event number,
+    phi, and eta, making the result independent of data partitioning.
+    """
+    event_number = numpy.asarray(event_number, dtype=numpy.uint64)
+    phi_arr = numpy.asarray(phi, dtype=numpy.float32)
+    eta_arr = numpy.asarray(eta, dtype=numpy.float32)
+
+    # Build 128-bit counter: [event_number(64), phi_bits(32) << 32 | eta_bits(32)]
+    counter = numpy.empty((len(phi_arr), 2), dtype=numpy.uint64)
+    counter[:, 0] = event_number
+    counter[:, 1] = numpy.round(phi_arr, 3).view(numpy.uint32).astype(numpy.uint64).byteswap()
+    counter[:, 1] |= numpy.round(eta_arr, 3).view(numpy.uint32).astype(numpy.uint64)
+
+    rand = rng.normal(counter).astype(numpy.float32)
+    return awkward.Array(rand)
+
+
+def _legacy_rand_gauss(item, randomstate):
+    """Legacy partition-dependent random number generator (kept for backwards compatibility)."""
     def getfunction(layout, depth):
         if isinstance(layout, awkward.layout.NumpyArray) or not isinstance(
             layout, (awkward.layout.Content, awkward.partition.PartitionedArray)
@@ -148,7 +171,7 @@ class CorrectedJetsFactory(object):
             out.extend(["JES_{0}".format(unc) for unc in self.jec_stack.junc.levels])
         return out
 
-    def build(self, jets, lazy_cache):
+    def build(self, jets, lazy_cache, event_number=None, seeds=("JER",)):
         if lazy_cache is None:
             raise Exception(
                 "CorrectedJetsFactory requires a awkward-array cache to function correctly."
@@ -242,19 +265,32 @@ class CorrectedJetsFactory(object):
                 **jersfargs, form=_JERSF_FORM, lazy_cache=lazy_cache
             )
 
-            seeds = numpy.array(out_dict[self.name_map["JetPt"] + "_orig"])[
-                [0, -1]
-            ].view("i4")
-            out_dict["jet_resolution_rand_gauss"] = awkward.virtual(
-                rand_gauss,
-                args=(
-                    out_dict[self.name_map["JetPt"] + "_orig"],
-                    numpy.random.Generator(numpy.random.PCG64(seeds)),
-                ),
-                cache=lazy_cache,
-                length=len(out),
-                form=scalar_form,
-            )
+            if event_number is not None:
+                flat_event = numpy.repeat(
+                    numpy.asarray(event_number, dtype=numpy.uint64),
+                    awkward.num(jets, axis=1),
+                )
+                rng = Squares(*seeds)
+                out_dict["jet_resolution_rand_gauss"] = rand_gauss(
+                    flat_event,
+                    numpy.asarray(out_dict[self.name_map["JetPhi"]]),
+                    numpy.asarray(out_dict[self.name_map["JetEta"]]),
+                    rng,
+                )
+            else:
+                legacy_seeds = numpy.array(
+                    out_dict[self.name_map["JetPt"] + "_orig"]
+                )[[0, -1]].view("i4")
+                out_dict["jet_resolution_rand_gauss"] = awkward.virtual(
+                    _legacy_rand_gauss,
+                    args=(
+                        out_dict[self.name_map["JetPt"] + "_orig"],
+                        numpy.random.Generator(numpy.random.PCG64(legacy_seeds)),
+                    ),
+                    cache=lazy_cache,
+                    length=len(out),
+                    form=scalar_form,
+                )
 
             init_jerc = partial(
                 awkward.virtual,
