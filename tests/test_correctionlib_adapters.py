@@ -1,4 +1,13 @@
-"""Tests for the correctionlib (JSON-POG) adapter classes."""
+"""Tests for the correctionlib (JSON-POG) adapter classes.
+
+Two JSON-POG test files are used:
+- ``jet_jerc.json.gz``: hand-crafted dummy corrections with simple constant outputs
+  (e.g. JEC returns ``1 + 0.01*JetA``, JER returns flat ``0.1``).  Used for unit
+  tests where exact expected values can be asserted.
+- ``jet_jerc_Summer22_V3.json.gz``: real Summer22_V3 corrections.  Used in the
+  cross-validation tests (``test_crossval_*``) to verify that correctionlib adapters
+  match the txt-based correctors.
+"""
 from __future__ import print_function
 
 import os
