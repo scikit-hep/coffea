@@ -373,7 +373,7 @@ class NanoEventsFactory:
         if isinstance(file, uproot.reading.ReadOnlyDirectory):
             if treepath is uproot._util.unset:
                 raise ValueError(
-                    "The treepath argument must be specified when the file argument is a uproot.reading.ReadOnlyDirectory"
+                    "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
                 )
             tree = file[treepath]
             file_handle = file
