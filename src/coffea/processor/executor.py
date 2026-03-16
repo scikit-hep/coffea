@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from io import BytesIO
 from itertools import repeat
+from pathlib import Path
 from typing import (
     Any,
     Literal,
@@ -1060,6 +1061,8 @@ class Runner:
             (please don't) during a session, the session can be restarted to clear the cache.
         checkpointer : CheckpointerABC, optional
             A CheckpointerABC instance to manage checkpointing of each chunk output
+        cache_file : str, optional
+            Enables persistent cache in .pkl file if not None
     """
 
     executor: ExecutorBase
@@ -1076,6 +1079,7 @@ class Runner:
     use_skyhook: bool | None = False
     skyhook_options: dict | None = field(default_factory=dict)
     format: str = "root"
+    cache_file: str | None = None
     checkpointer: CheckpointerABC | None = None
     cachestrategy: None | (Literal["dask-worker"] | Callable[..., MutableMapping]) = (
         None
@@ -1109,7 +1113,12 @@ class Runner:
         ), "Expected pre_executor to derive from ExecutorBase"
 
         if self.metadata_cache is None:
-            self.metadata_cache = DEFAULT_METADATA_CACHE
+            if self.cache_file is not None:
+                self.metadata_cache = self._load_cache()
+                if not self.metadata_cache:
+                    self.metadata_cache = DEFAULT_METADATA_CACHE
+            else:
+                self.metadata_cache = DEFAULT_METADATA_CACHE
 
         assert self.format in ("root", "parquet")
 
@@ -1262,6 +1271,31 @@ class Runner:
             )
         return out
 
+    def _load_cache(self):
+        """Load metadata cache from disk if it exists"""
+        if os.path.isfile(self.cache_file):
+            try:
+                with open(self.cache_file, "rb") as f:
+                    cache = pickle.load(f)
+                print(f"Loaded {len(cache)} entries from metadata cache")
+                return cache
+            except Exception as e:
+                print(f"Warning: Could not load cache file: {e}")
+                return {}
+        return {}
+
+    def _save_cache(self):
+        """Save metadata cache to disk"""
+        try:
+            # Write to a temporary file first, then rename for atomic operation
+            cache_path = Path(self.cache_file)
+            temp_file = cache_path.with_suffix(".tmp")
+            with open(temp_file, "wb") as f:
+                pickle.dump(self.metadata_cache, f, protocol=pickle.HIGHEST_PROTOCOL)
+            temp_file.replace(cache_path)
+        except Exception as e:
+            print(f"Warning: Could not save cache file: {e}")
+
     def _preprocess_fileset_root(self, fileset: dict) -> None:
         # this is a bit of an abuse of map-reduce but ok
         to_get = {
@@ -1292,9 +1326,15 @@ class Runner:
                 ),
             )
             out, _ = pre_executor(to_get, closure, out)
+            cache_updated = False
             while out:
                 item = out.pop()
                 self.metadata_cache[item] = item.metadata
+                cache_updated = True
+
+            if cache_updated and self.cache_file:
+                self._save_cache()
+
             for filemeta in fileset:
                 filemeta.maybe_populate(self.metadata_cache)
 
