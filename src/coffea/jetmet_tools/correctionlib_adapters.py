@@ -263,7 +263,7 @@ class CorrectionLibJECStack:
             name_map["JetA"] = "area"
             name_map["ptRaw"] = "pt_raw"
             name_map["massRaw"] = "mass_raw"
-            name_map["Rho"] = "rho"
+            name_map["Rho"] = "Rho"
             name_map["ptGenJet"] = "pt_gen"
             name_map["METpt"] = "met_pt"
             name_map["METphi"] = "met_phi"

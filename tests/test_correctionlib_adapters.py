@@ -17,6 +17,8 @@ import numpy as np
 import pytest
 from dummy_distributions import dummy_jagged_eta_pt
 
+from coffea.nanoevents.methods import vector
+
 SAMPLES = os.path.join(os.path.dirname(__file__), "samples")
 JERC_FILE = os.path.join(SAMPLES, "jet_jerc.json.gz")
 
@@ -247,7 +249,7 @@ def test_corrected_jets_factory_with_correctionlib(clib_stack):
     name_map["JetA"] = "area"
     name_map["ptRaw"] = "pt_raw"
     name_map["massRaw"] = "mass_raw"
-    name_map["Rho"] = "rho"
+    name_map["Rho"] = "Rho"
     name_map["ptGenJet"] = "pt_gen"
     name_map["METpt"] = "met_pt"
     name_map["METphi"] = "met_phi"
@@ -269,10 +271,13 @@ def test_corrected_jets_factory_with_correctionlib(clib_stack):
         "area": np.full(n_flat, 0.5, dtype=np.float32),
         "pt_raw": test_pt.astype(np.float32),
         "mass_raw": (test_pt * 0.1).astype(np.float32),
-        "rho": np.full(n_flat, 30.0, dtype=np.float32),
+        "Rho": np.full(n_flat, 30.0, dtype=np.float32),
         "pt_gen": (test_pt * 0.95).astype(np.float32),
     }
-    jets_jag = ak.unflatten(ak.zip(jets_dict), counts)
+    jets_jag = ak.unflatten(
+        ak.zip(jets_dict, with_name="PtEtaPhiMLorentzVector", behavior=vector.behavior),
+        counts,
+    )
 
     corrected = factory.build(jets_jag)
     assert corrected is not None
@@ -306,7 +311,7 @@ def test_corrected_jets_factory_with_correctionlib_dask(clib_stack):
     name_map["JetA"] = "area"
     name_map["ptRaw"] = "pt_raw"
     name_map["massRaw"] = "mass_raw"
-    name_map["Rho"] = "rho"
+    name_map["Rho"] = "Rho"
     name_map["ptGenJet"] = "pt_gen"
     name_map["METpt"] = "met_pt"
     name_map["METphi"] = "met_phi"
@@ -327,10 +332,13 @@ def test_corrected_jets_factory_with_correctionlib_dask(clib_stack):
         "area": np.full(n_flat, 0.5, dtype=np.float32),
         "pt_raw": test_pt.astype(np.float32),
         "mass_raw": (test_pt * 0.1).astype(np.float32),
-        "rho": np.full(n_flat, 30.0, dtype=np.float32),
+        "Rho": np.full(n_flat, 30.0, dtype=np.float32),
         "pt_gen": (test_pt * 0.95).astype(np.float32),
     }
-    jets_jag = ak.unflatten(ak.zip(jets_dict), counts)
+    jets_jag = ak.unflatten(
+        ak.zip(jets_dict, with_name="PtEtaPhiMLorentzVector", behavior=vector.behavior),
+        counts,
+    )
     jets_dak = dak.from_awkward(jets_jag, 1)
 
     corrected = factory.build(jets_dak)
@@ -362,7 +370,7 @@ def test_corrected_jets_factory_jec_only():
     name_map["JetA"] = "area"
     name_map["ptRaw"] = "pt_raw"
     name_map["massRaw"] = "mass_raw"
-    name_map["Rho"] = "rho"
+    name_map["Rho"] = "Rho"
     name_map["METpt"] = "met_pt"
     name_map["METphi"] = "met_phi"
     name_map["JetPhi"] = "phi"
@@ -382,9 +390,12 @@ def test_corrected_jets_factory_jec_only():
         "area": np.full(n_flat, 0.5, dtype=np.float32),
         "pt_raw": test_pt.astype(np.float32),
         "mass_raw": (test_pt * 0.1).astype(np.float32),
-        "rho": np.full(n_flat, 30.0, dtype=np.float32),
+        "Rho": np.full(n_flat, 30.0, dtype=np.float32),
     }
-    jets_jag = ak.unflatten(ak.zip(jets_dict), counts)
+    jets_jag = ak.unflatten(
+        ak.zip(jets_dict, with_name="PtEtaPhiMLorentzVector", behavior=vector.behavior),
+        counts,
+    )
     corrected = factory.build(jets_jag)
 
     # JEC-only: corrected pt should be pt_raw * correction_factor
