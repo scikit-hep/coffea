@@ -80,7 +80,7 @@ def test_correctionlib_jec(clib_stack, flat_jet_arrays):
     assert len(corr) == len(test_pt)
     # Each level returns 1+0.01*JetA = 1+0.01*0.5 = 1.005, compound multiplies 4 levels
     expected = np.float32(1.005) ** 4
-    assert np.allclose(np.asarray(corr), expected, atol=1e-6)
+    np.testing.assert_allclose(np.asarray(corr), expected)
 
 
 def test_correctionlib_jec_jagged(clib_stack, flat_jet_arrays):
@@ -119,7 +119,7 @@ def test_correctionlib_jec_dask(clib_stack, flat_jet_arrays):
     assert isinstance(corr_dak, dak.Array)
     result = corr_dak.compute()
     expected = np.float32(1.005) ** 4
-    assert np.allclose(np.asarray(ak.flatten(result, axis=None)), expected, atol=1e-6)
+    np.testing.assert_allclose(np.asarray(ak.flatten(result, axis=None)), expected)
 
 
 def test_correctionlib_jer(clib_stack, flat_jet_arrays):
@@ -137,7 +137,7 @@ def test_correctionlib_jer(clib_stack, flat_jet_arrays):
     )
     assert len(reso) == len(test_pt)
     # Our test correction returns flat 0.1
-    assert np.allclose(np.asarray(reso), 0.1, atol=1e-6)
+    np.testing.assert_allclose(np.asarray(reso), 0.1)
 
 
 def test_correctionlib_jersf(clib_stack, flat_jet_arrays):
@@ -154,9 +154,9 @@ def test_correctionlib_jersf(clib_stack, flat_jet_arrays):
     arr = np.asarray(sf)
     assert arr.shape == (len(test_eta), 3)
     # nom=1.1, up=1.2, down=1.0
-    assert np.allclose(arr[:, 0], 1.1, atol=1e-6)
-    assert np.allclose(arr[:, 1], 1.2, atol=1e-6)
-    assert np.allclose(arr[:, 2], 1.0, atol=1e-6)
+    np.testing.assert_allclose(arr[:, 0], 1.1)
+    np.testing.assert_allclose(arr[:, 1], 1.2)
+    np.testing.assert_allclose(arr[:, 2], 1.0)
 
 
 def test_correctionlib_junc(clib_stack, flat_jet_arrays):
@@ -177,8 +177,8 @@ def test_correctionlib_junc(clib_stack, flat_jet_arrays):
         arr = np.asarray(vals)
         assert arr.shape == (len(test_eta), 2)
         # delta=0.02 => up=1.02, down=0.98
-        assert np.allclose(arr[:, 0], 1.02, atol=1e-6)
-        assert np.allclose(arr[:, 1], 0.98, atol=1e-6)
+        np.testing.assert_allclose(arr[:, 0], 1.02)
+        np.testing.assert_allclose(arr[:, 1], 0.98)
 
 
 # ---------------------------------------------------------------------------
@@ -402,7 +402,7 @@ def test_corrected_jets_factory_jec_only():
     flat_corrected = ak.flatten(corrected)
     expected_factor = np.float32(1.005) ** 4
     expected_pt = test_pt.astype(np.float32) * expected_factor
-    assert np.allclose(np.asarray(flat_corrected["pt"]), expected_pt, rtol=1e-5)
+    np.testing.assert_allclose(np.asarray(flat_corrected["pt"]), expected_pt, rtol=1e-5)
 
 
 # ---------------------------------------------------------------------------
@@ -484,9 +484,7 @@ def test_crossval_jec():
     clib_corr = np.asarray(clib_corr, dtype=np.float32)
 
     assert txt_corr.shape == clib_corr.shape
-    assert np.allclose(
-        txt_corr, clib_corr, rtol=1e-5
-    ), f"Max relative diff: {np.max(np.abs(txt_corr - clib_corr) / np.abs(txt_corr))}"
+    np.testing.assert_allclose(txt_corr, clib_corr, rtol=1e-5)
 
 
 def test_crossval_junc():
@@ -532,10 +530,7 @@ def test_crossval_junc():
         assert (
             txt_arr.shape == clib_arr.shape
         ), f"Shape mismatch for {source}: txt={txt_arr.shape}, clib={clib_arr.shape}"
-        assert np.allclose(txt_arr, clib_arr, rtol=1e-5), (
-            f"Source {source} max relative diff: "
-            f"{np.max(np.abs(txt_arr - clib_arr) / np.clip(np.abs(txt_arr), 1e-10, None))}"
-        )
+        np.testing.assert_allclose(txt_arr, clib_arr)
 
 
 def test_crossval_jer():
@@ -574,9 +569,7 @@ def test_crossval_jer():
     clib_reso = np.asarray(clib_reso, dtype=np.float32)
 
     assert txt_reso.shape == clib_reso.shape
-    assert np.allclose(
-        txt_reso, clib_reso, rtol=1e-5
-    ), f"Max relative diff: {np.max(np.abs(txt_reso - clib_reso) / np.clip(np.abs(txt_reso), 1e-10, None))}"
+    np.testing.assert_allclose(txt_reso, clib_reso, rtol=1e-5)
 
 
 def test_crossval_jersf():
@@ -625,6 +618,4 @@ def test_crossval_jersf():
     assert (
         txt_sf.shape == clib_sf.shape
     ), f"Shape mismatch: txt={txt_sf.shape}, clib={clib_sf.shape}"
-    assert np.allclose(
-        txt_sf, clib_sf, rtol=1e-5
-    ), f"Max relative diff: {np.max(np.abs(txt_sf - clib_sf) / np.clip(np.abs(txt_sf), 1e-10, None))}"
+    np.testing.assert_allclose(txt_sf, clib_sf)
