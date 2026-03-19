@@ -40,6 +40,7 @@ from ..nanoevents.util import key_to_tuple
 from ..util import _exception_chain, _hash, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .checkpointer import CheckpointerABC
+from .result import Err, Ok, Result
 from .processor import ProcessorABC
 
 _PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
@@ -1565,8 +1566,15 @@ class Runner:
         treename: str | None = None,
         uproot_options: dict | None = {},
         iteritems_options: dict | None = {},
-    ) -> Accumulatable:
-        """Run the processor_instance on a given fileset
+    ) -> Result:
+        """
+        Run the processor_instance on a given fileset
+
+        Returns an object of calss Return — either Ok(Accumulatable) or Err(Exception).
+        result.is_ok() - check success whether Result is Ok or Err
+        result.unwrap() - to get the value (Accumulatable or Exception)
+        result.exception - to inspect the error if Result is Err
+        When savemetrics=True, the wrapped value is (output, metrics).
 
         Parameters
         ----------
@@ -1584,18 +1592,26 @@ class Runner:
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
         """
-        wrapped_out = self.run(
-            fileset=fileset,
-            processor_instance=processor_instance,
-            treename=treename,
-            uproot_options=uproot_options,
-            iteritems_options=iteritems_options,
-        )
+        try:
+            wrapped_out = self.run(
+                fileset=fileset,
+                processor_instance=processor_instance,
+                treename=treename,
+                uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
+            )
+        except BaseException as e:
+            return Err(e)
+
+        exception = wrapped_out.get("exception", 0)
+        if exception != 0:
+            return Err(exception)
+
         if self.use_dataframes:
-            return wrapped_out  # not wrapped anymore
+            return Ok(wrapped_out)
         if self.savemetrics:
-            return wrapped_out["out"], wrapped_out["metrics"]
-        return wrapped_out["out"]
+            return Ok((wrapped_out["out"], wrapped_out["metrics"]))
+        return Ok(wrapped_out["out"])
 
     def preprocess(
         self,

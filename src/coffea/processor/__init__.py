@@ -19,6 +19,8 @@ from .executor import (
     ParslExecutor,
     Runner,
 )
+
+from .result import Err, Ok, Result
 from .processor import ProcessorABC
 from .taskvine_executor import TaskVineExecutor
 
@@ -41,4 +43,7 @@ __all__ = [
     "dict_accumulator",
     "defaultdict_accumulator",
     "column_accumulator",
+    "Result",
+    "Ok",
+    "Err",
 ]
