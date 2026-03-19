@@ -19,9 +19,8 @@ from .executor import (
     ParslExecutor,
     Runner,
 )
-
-from .result import Err, Ok, Result
 from .processor import ProcessorABC
+from .result import Err, Ok, Result
 from .taskvine_executor import TaskVineExecutor
 
 __all__ = [

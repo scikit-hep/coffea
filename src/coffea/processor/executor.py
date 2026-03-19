@@ -40,8 +40,8 @@ from ..nanoevents.util import key_to_tuple
 from ..util import _exception_chain, _hash, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .checkpointer import CheckpointerABC
-from .result import Err, Ok, Result
 from .processor import ProcessorABC
+from .result import Err, Ok, Result
 
 _PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
 DEFAULT_METADATA_CACHE: MutableMapping = LRUCache(100000)
