@@ -3,6 +3,8 @@
 import base64
 import gzip
 import hashlib
+import json
+import math
 import warnings
 from functools import partial
 from typing import Any
@@ -12,8 +14,6 @@ import cloudpickle
 import dask_awkward
 import fsspec
 import hist
-import math
-import json
 import numba
 import numpy
 import uproot
@@ -74,15 +74,15 @@ def split_fileset(fileset, strategy=None, datasets=None, percentage=None):
     Split the fileset into chunks to enable getting a partial result if one or several
     of the chunks failed to produce a result while being processed.
     One chunk is one partial fileset(unique combination of files), these are not usual coffea chunks.
-    
-    
+
+
     Input
     fileset:    {dataset: {"files": {path: treename, ...}}}
     strategy:   "by_dataset" — one dataset is one chunk; None — all datasets together
     percentage: integer that divides 100 evenly (20, 25, 50...).
                 Each chunk gets this percentage of each dataset's files.
     datasets: list, callable or tuple of datasets' names
-    
+
     Output
     List of fileset dicts
     If strategy only:
@@ -95,24 +95,24 @@ def split_fileset(fileset, strategy=None, datasets=None, percentage=None):
         strategies are only applied to chosen datasets
     """
     if strategy is not None and strategy != "by_dataset":
-        raise ValueError(
-            f"Unknown strategy '{strategy}'. Use 'by_dataset' or None."
-        )
+        raise ValueError(f"Unknown strategy '{strategy}'. Use 'by_dataset' or None.")
     if percentage is not None:
-        if not isinstance(percentage, int) or not (1 <= percentage <= 100) or 100 % percentage != 0:
+        if (
+            not isinstance(percentage, int)
+            or not (1 <= percentage <= 100)
+            or 100 % percentage != 0
+        ):
             raise ValueError(
                 "'percentage' must be an int that divides 100 evenly (e.g. 10, 20, 25, 50)."
             )
-    
+
     if datasets is None:
         pass
     elif callable(datasets):
         fileset = {k: v for k, v in fileset.items() if datasets(k)}
     else:
         fileset = {k: fileset[k] for k in datasets if k in fileset}
-    
-    
-  
+
     if strategy == "by_dataset":
         groups = [{name: data} for name, data in fileset.items()]
     else:
@@ -141,6 +141,7 @@ def split_fileset(fileset, strategy=None, datasets=None, percentage=None):
             if chunk:
                 result.append(chunk)
     return result
+
 
 def load(filename, compression="lz4"):
     """Load a coffea file from disk
@@ -186,7 +187,8 @@ def _hash(items):
     # python 3.3 salts hash(), we want it to persist across processes
     x = hashlib.md5(bytes(";".join(str(x) for x in items), "ascii"))
     return int(x.hexdigest()[:16], base=16)
-    
+
+
 def _ensure_flat(array, allow_missing=False):
     """Normalize an array to a flat numpy array, or ensure it is a flat dask-awkward array, or raise ValueError"""
     if not isinstance(array, (dak.Array, ak.Array, numpy.ndarray)):
