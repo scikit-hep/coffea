@@ -71,23 +71,28 @@ def hash_fileset(chunk):
 
 def split_fileset(fileset, strategy=None, datasets=None, percentage=None):
     """
-    Split fileset into chunks to enable getting partial result if one of the filesets(
-    one partial fileset is one chunk here, these are not usual coffea chunks)
-    is failed to produce a result while being processed.
+    Split the fileset into chunks to enable getting a partial result if one or several
+    of the chunks failed to produce a result while being processed.
+    One chunk is one partial fileset(unique combination of files), these are not usual coffea chunks.
+    
     
     Input
     fileset:    {dataset: {"files": {path: treename, ...}}}
     strategy:   "by_dataset" — one dataset is one chunk; None — all datasets together
     percentage: integer that divides 100 evenly (20, 25, 50...).
                 Each chunk gets this percentage of each dataset's files.
+    datasets: list, callable or tuple of datasets' names
     
     Output
     List of fileset dicts
     If strategy only:
         chunks = _split_fileset(fileset, "by_dataset") - one chunk per dataset
     If percentage only:
-        chunks = _split_fileset(fileset, percentage=50) - 2 chunks (50 of each dataset in 1st chunk and 2nd)
-        chunks = _split_fileset(fileset, "by_dataset", percentage=50) - N_datasets * 2 chunks
+        chunks = _split_fileset(fileset, percentage=50) - 2 chunks (50 of each dataset in 1st chunk and 2nd, mixed chunks
+    If strategy and percentage:
+        chunks = _split_fileset(fileset, "by_dataset", percentage=50) - N_datasets * 2 chunks, not mixed chunks
+    If datasets + any/nothing:
+        strategies are only applied to chosen datasets
     """
     if strategy is not None and strategy != "by_dataset":
         raise ValueError(
