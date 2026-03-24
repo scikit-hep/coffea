@@ -1578,7 +1578,7 @@ class Runner:
             result.is_ok() - check success whether Result is Ok or Err
             result.unwrap() - to get the value (Accumulatable or Exception)
             result.exception - to inspect the error if Result is Err
-            
+
         When use_result_type=False (default), returns output directly and raises on error.
         When savemetrics=True, the output value is (output, metrics).
 
