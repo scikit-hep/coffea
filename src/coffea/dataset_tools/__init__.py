@@ -24,8 +24,12 @@ from coffea.dataset_tools.manipulations import (
 )
 from coffea.dataset_tools.preprocess import preprocess
 
+from coffea.dataset_tools.splitting import split_fileset, hash_fileset
+
 __all__ = [
     "preprocess",
+    "split_fileset", 
+    "hash_fileset",
     "apply_to_dataset",
     "apply_to_fileset",
     "max_chunks",
