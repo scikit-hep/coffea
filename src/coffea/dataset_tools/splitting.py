@@ -1,12 +1,12 @@
-
-import json
 import hashlib
+import json
 import math
 
-__all__=[
+__all__ = [
     "split_fileset",
     "hash_fileset",
 ]
+
 
 def hash_fileset(chunk):
     """
