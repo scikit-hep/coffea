@@ -1061,6 +1061,9 @@ class Runner:
             (please don't) during a session, the session can be restarted to clear the cache.
         checkpointer : CheckpointerABC, optional
             A CheckpointerABC instance to manage checkpointing of each chunk output
+        use_result_type : bool, optional
+            If True, ``__call__`` returns ``Ok(output)`` or ``Err(exception)``.
+            If False (default), returns the output directly and raises on error.
     """
 
     executor: ExecutorBase
@@ -1072,6 +1075,7 @@ class Runner:
     xrootdtimeout: int | None = 60
     align_clusters: bool = False
     savemetrics: bool = False
+    use_result_type: bool = False
     schema: schemas.BaseSchema | None = schemas.NanoAODSchema
     processor_compression: int = 1
     use_skyhook: bool | None = False
@@ -1566,15 +1570,17 @@ class Runner:
         treename: str | None = None,
         uproot_options: dict | None = {},
         iteritems_options: dict | None = {},
-    ) -> Result:
+    ) -> "Result | Accumulatable":
         """
         Run the processor_instance on a given fileset
 
-        Returns an object of calss Return — either Ok(Accumulatable) or Err(Exception).
-        result.is_ok() - check success whether Result is Ok or Err
-        result.unwrap() - to get the value (Accumulatable or Exception)
-        result.exception - to inspect the error if Result is Err
-        When savemetrics=True, the wrapped value is (output, metrics).
+        When use_result_type=True, returns an object of class Return — either Ok(Accumulatable) or Err(Exception).
+            result.is_ok() - check success whether Result is Ok or Err
+            result.unwrap() - to get the value (Accumulatable or Exception)
+            result.exception - to inspect the error if Result is Err
+            
+        When use_result_type=False (default), returns output directly and raises on error.
+        When savemetrics=True, the output value is (output, metrics).
 
         Parameters
         ----------
@@ -1601,17 +1607,26 @@ class Runner:
                 iteritems_options=iteritems_options,
             )
         except BaseException as e:
-            return Err(e)
+            if self.use_result_type:
+                return Err(e)
+            raise
 
         exception = wrapped_out.get("exception", 0)
         if exception != 0:
-            return Err(exception)
+            if self.use_result_type:
+                return Err(exception)
+            raise exception
 
         if self.use_dataframes:
-            return Ok(wrapped_out)
-        if self.savemetrics:
-            return Ok((wrapped_out["out"], wrapped_out["metrics"]))
-        return Ok(wrapped_out["out"])
+            out = wrapped_out
+        elif self.savemetrics:
+            out = (wrapped_out["out"], wrapped_out["metrics"])
+        else:
+            out = wrapped_out["out"]
+
+        if self.use_result_type:
+            return Ok(out)
+        return out
 
     def preprocess(
         self,
