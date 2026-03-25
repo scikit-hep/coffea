@@ -118,7 +118,7 @@ class CorrectionLibJERSF:
 class CorrectionLibJUNC:
     """Adapter for JES uncertainty sources from correctionlib.
 
-    ``getUncertainty`` returns a list of ``(name, (N, 2) array)`` tuples
+    ``getUncertainty`` returns an iterable of ``(name, (N, 2) array)`` tuples
     where column 0 is ``1 + delta`` (up) and column 1 is ``1 - delta`` (down),
     matching the convention expected by ``CorrectedJetsFactory.build()``.
 
