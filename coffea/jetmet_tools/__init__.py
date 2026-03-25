@@ -11,6 +11,13 @@ from .JetCorrectionUncertainty import JetCorrectionUncertainty
 from .JECStack import JECStack
 from .CorrectedJetsFactory import CorrectedJetsFactory
 from .CorrectedMETFactory import CorrectedMETFactory
+from .correctionlib_adapters import (
+    CorrectionLibJEC,
+    CorrectionLibJECStack,
+    CorrectionLibJER,
+    CorrectionLibJERSF,
+    CorrectionLibJUNC,
+)
 
 __all__ = [
     "FactorizedJetCorrector",
@@ -20,4 +27,9 @@ __all__ = [
     "JECStack",
     "CorrectedJetsFactory",
     "CorrectedMETFactory",
+    "CorrectionLibJEC",
+    "CorrectionLibJER",
+    "CorrectionLibJERSF",
+    "CorrectionLibJUNC",
+    "CorrectionLibJECStack",
 ]
