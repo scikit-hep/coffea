@@ -890,7 +890,11 @@ def test_corrected_met_type1():
     from coffea.jetmet_tools import FactorizedJetCorrector
 
     jec_L1 = FactorizedJetCorrector(
-        **{"Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi": evaluator["Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi"]}
+        **{
+            "Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi": evaluator[
+                "Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi"
+            ]
+        }
     )
     jec_L1L2L3 = FactorizedJetCorrector(
         **{name: evaluator[name] for name in jec_stack_names[0:4]}
@@ -903,10 +907,16 @@ def test_corrected_met_type1():
 
     # Attach Rho to CorrT1METJet for JEC evaluation
     corrt1jets = events.CorrT1METJet
-    corrt1jets["Rho"] = ak.broadcast_arrays(events.Rho.fixedGridRhoFastjetAll, corrt1jets.rawPt)[0]
+    corrt1jets["Rho"] = ak.broadcast_arrays(
+        events.Rho.fixedGridRhoFastjetAll, corrt1jets.rawPt
+    )[0]
 
     corrected_met = met_factory.build(
-        pfmet, corrected_jets, lazy_cache=jec_cache, RawMET=raw_met, CorrT1METJets=corrt1jets
+        pfmet,
+        corrected_jets,
+        lazy_cache=jec_cache,
+        RawMET=raw_met,
+        CorrT1METJets=corrt1jets,
     )
 
     # --- Assertions ---
@@ -925,7 +935,9 @@ def test_corrected_met_type1():
     )
 
     # JES/JER variations should be present and have up/down fields
-    jes_jer_fields = [f for f in ak.fields(corrected_met) if f.startswith(("JER", "JES"))]
+    jes_jer_fields = [
+        f for f in ak.fields(corrected_met) if f.startswith(("JER", "JES"))
+    ]
     assert len(jes_jer_fields) > 0, "No JES/JER variations found in corrected MET"
     for unc in jes_jer_fields:
         assert "up" in ak.fields(corrected_met[unc]), f"{unc} missing 'up'"
@@ -1046,7 +1058,11 @@ def test_corrected_met_type1_v12():
     from coffea.jetmet_tools import FactorizedJetCorrector
 
     jec_L1 = FactorizedJetCorrector(
-        **{"Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi": evaluator["Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi"]}
+        **{
+            "Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi": evaluator[
+                "Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi"
+            ]
+        }
     )
     jec_L1L2L3 = FactorizedJetCorrector(
         **{name: evaluator[name] for name in jec_stack_names[0:4]}
@@ -1059,12 +1075,18 @@ def test_corrected_met_type1_v12():
 
     # NanoAODv12 CorrT1METJet lacks muonSubtrDeltaPhi and EmEF — fill with zeros
     corrt1jets = events.CorrT1METJet
-    corrt1jets["Rho"] = ak.broadcast_arrays(events.Rho.fixedGridRhoFastjetAll, corrt1jets.rawPt)[0]
+    corrt1jets["Rho"] = ak.broadcast_arrays(
+        events.Rho.fixedGridRhoFastjetAll, corrt1jets.rawPt
+    )[0]
     corrt1jets["muonSubtrDeltaPhi"] = ak.zeros_like(corrt1jets.phi)
     corrt1jets["EmEF"] = ak.zeros_like(corrt1jets.phi)
 
     corrected_met = met_factory.build(
-        met, corrected_jets, lazy_cache=jec_cache, RawMET=raw_met, CorrT1METJets=corrt1jets
+        met,
+        corrected_jets,
+        lazy_cache=jec_cache,
+        RawMET=raw_met,
+        CorrT1METJets=corrt1jets,
     )
 
     # --- Assertions ---
@@ -1079,7 +1101,9 @@ def test_corrected_met_type1_v12():
         == corrected_met.MET_UnclusteredEnergy.down.pt
     )
 
-    jes_jer_fields = [f for f in ak.fields(corrected_met) if f.startswith(("JER", "JES"))]
+    jes_jer_fields = [
+        f for f in ak.fields(corrected_met) if f.startswith(("JER", "JES"))
+    ]
     assert len(jes_jer_fields) > 0
     n_differ = sum(
         not ak.all(corrected_met[unc].up.pt == corrected_met[unc].down.pt)

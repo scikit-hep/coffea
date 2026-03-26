@@ -102,9 +102,7 @@ def _compute_jec_factors(jets, name_map, jec_L1, jec_L1L2L3):
         if k == "JetPt":
             jec_inputs_L1L2L3[k] = numpy.asarray(awkward.flatten(jet_pt_raw))
         else:
-            jec_inputs_L1L2L3[k] = numpy.asarray(
-                awkward.flatten(jets[name_map[k]])
-            )
+            jec_inputs_L1L2L3[k] = numpy.asarray(awkward.flatten(jets[name_map[k]]))
     flat_factor_L1L2L3 = jec_L1L2L3.getCorrection(**jec_inputs_L1L2L3)
     factor_L1L2L3 = awkward.unflatten(flat_factor_L1L2L3, counts)
 
@@ -143,9 +141,7 @@ def _compute_corrt1_jec_factors(corrt1jets, name_map, jec_L1, jec_L1L2L3):
                 awkward.flatten(corrt1jets[name_map["Rho"]])
             )
         else:
-            jec_inputs_L1[k] = numpy.asarray(
-                awkward.flatten(corrt1jets[name_map[k]])
-            )
+            jec_inputs_L1[k] = numpy.asarray(awkward.flatten(corrt1jets[name_map[k]]))
     flat_factor_L1 = jec_L1.getCorrection(**jec_inputs_L1)
     factor_L1 = awkward.unflatten(flat_factor_L1, counts)
 
