@@ -615,4 +615,6 @@ def test_corrected_jets_factory_cbrng(clib_stack):
 
     pt1 = np.asarray(ak.flatten(corrected1["pt"]))
     pt2 = np.asarray(ak.flatten(corrected2["pt"]))
-    assert np.array_equal(pt1, pt2), "CBRNG should produce identical results on repeated calls"
+    assert np.array_equal(
+        pt1, pt2
+    ), "CBRNG should produce identical results on repeated calls"

@@ -72,9 +72,7 @@ class Squares:
                 break
         higher8 = np.zeros(8, dtype=np.uint64)
         higher8[0:1] = gen.choice(np.delete(bits, int(lower8[-1]) - 1), 1)
-        higher8[1:] = gen.choice(
-            np.delete(bits, int(higher8[0]) - 1), 7, replace=False
-        )
+        higher8[1:] = gen.choice(np.delete(bits, int(higher8[0]) - 1), 7, replace=False)
         return np.sum(lower8 << offsets) + (np.sum(higher8 << offsets) << _UINT64_32)
 
     @property

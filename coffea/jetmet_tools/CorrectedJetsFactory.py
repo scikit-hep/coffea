@@ -48,7 +48,9 @@ def rand_gauss(event_number, phi, eta, rng):
     # Build 128-bit counter: [event_number(64), phi_bits(32) << 32 | eta_bits(32)]
     counter = numpy.empty((len(phi_arr), 2), dtype=numpy.uint64)
     counter[:, 0] = event_number
-    counter[:, 1] = numpy.round(phi_arr, 3).view(numpy.uint32).astype(numpy.uint64).byteswap()
+    counter[:, 1] = (
+        numpy.round(phi_arr, 3).view(numpy.uint32).astype(numpy.uint64).byteswap()
+    )
     counter[:, 1] |= numpy.round(eta_arr, 3).view(numpy.uint32).astype(numpy.uint64)
 
     rand = rng.normal(counter).astype(numpy.float32)
@@ -57,6 +59,7 @@ def rand_gauss(event_number, phi, eta, rng):
 
 def _legacy_rand_gauss(item, randomstate):
     """Legacy partition-dependent random number generator (kept for backwards compatibility)."""
+
     def getfunction(layout, depth):
         if isinstance(layout, awkward.layout.NumpyArray) or not isinstance(
             layout, (awkward.layout.Content, awkward.partition.PartitionedArray)
@@ -278,9 +281,9 @@ class CorrectedJetsFactory(object):
                     rng,
                 )
             else:
-                legacy_seeds = numpy.array(
-                    out_dict[self.name_map["JetPt"] + "_orig"]
-                )[[0, -1]].view("i4")
+                legacy_seeds = numpy.array(out_dict[self.name_map["JetPt"] + "_orig"])[
+                    [0, -1]
+                ].view("i4")
                 out_dict["jet_resolution_rand_gauss"] = awkward.virtual(
                     _legacy_rand_gauss,
                     args=(
