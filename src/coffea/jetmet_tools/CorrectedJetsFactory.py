@@ -49,8 +49,7 @@ def rand_gauss(event_number, phi, eta, rng):
     # Build 128-bit counter: [event_number(64), phi_bits(32) << 32 | eta_bits(32)]
     counter = numpy.empty((len(phi_arr), 2), dtype=numpy.uint64)
     counter[:, 0] = event_number
-    counter[:, 1] = numpy.round(phi_arr, 3).view(numpy.uint32).astype(numpy.uint64)
-    counter[:, 1] <<= 32
+    counter[:, 1] = numpy.round(phi_arr, 3).view(numpy.uint32).astype(numpy.uint64).byteswap()
     counter[:, 1] |= numpy.round(eta_arr, 3).view(numpy.uint32).astype(numpy.uint64)
 
     rand = rng.normal(counter).astype(numpy.float32)

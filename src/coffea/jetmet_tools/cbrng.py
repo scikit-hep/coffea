@@ -101,9 +101,9 @@ class Squares:
         lr += shift
         if last:
             yield lr.copy()
-        l = lr >> _UINT64_32
+        low = lr >> _UINT64_32
         lr <<= _UINT64_32
-        lr |= l
+        lr |= low
         yield lr
 
     def bit32(self, ctrs: npt.NDArray[np.uint64]) -> npt.NDArray[np.uint32]:
