@@ -1278,7 +1278,11 @@ def test_corrected_met_type1():
     from coffea.jetmet_tools import FactorizedJetCorrector
 
     jec_L1 = FactorizedJetCorrector(
-        **{"Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi": evaluator["Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi"]}
+        **{
+            "Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi": evaluator[
+                "Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi"
+            ]
+        }
     )
     jec_L1L2L3 = FactorizedJetCorrector(
         **{name: evaluator[name] for name in jec_stack_names[0:4]}
@@ -1314,7 +1318,9 @@ def test_corrected_met_type1():
     )
 
     # JES/JER variations should be present and have up/down fields
-    jes_jer_fields = [f for f in ak.fields(corrected_met) if f.startswith(("JER", "JES"))]
+    jes_jer_fields = [
+        f for f in ak.fields(corrected_met) if f.startswith(("JER", "JES"))
+    ]
     assert len(jes_jer_fields) > 0, "No JES/JER variations found in corrected MET"
     for unc in jes_jer_fields:
         assert "up" in ak.fields(corrected_met[unc]), f"{unc} missing 'up'"
@@ -1432,7 +1438,11 @@ def test_corrected_met_type1_v12():
     from coffea.jetmet_tools import FactorizedJetCorrector
 
     jec_L1 = FactorizedJetCorrector(
-        **{"Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi": evaluator["Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi"]}
+        **{
+            "Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi": evaluator[
+                "Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi"
+            ]
+        }
     )
     jec_L1L2L3 = FactorizedJetCorrector(
         **{name: evaluator[name] for name in jec_stack_names[0:4]}
@@ -1465,7 +1475,9 @@ def test_corrected_met_type1_v12():
         == corrected_met.MET_UnclusteredEnergy.down.pt
     )
 
-    jes_jer_fields = [f for f in ak.fields(corrected_met) if f.startswith(("JER", "JES"))]
+    jes_jer_fields = [
+        f for f in ak.fields(corrected_met) if f.startswith(("JER", "JES"))
+    ]
     assert len(jes_jer_fields) > 0
     n_differ = sum(
         not ak.all(corrected_met[unc].up.pt == corrected_met[unc].down.pt)
@@ -1474,9 +1486,7 @@ def test_corrected_met_type1_v12():
     assert n_differ > 0, "All JES/JER variations have up == down"
 
     # Also test without CorrT1METJets
-    corrected_met_no_corrt1 = met_factory.build(
-        met, corrected_jets, in_RawMET=raw_met
-    )
+    corrected_met_no_corrt1 = met_factory.build(met, corrected_jets, in_RawMET=raw_met)
     assert not ak.all(corrected_met_no_corrt1.pt == corrected_met_no_corrt1.pt_orig)
 
     print("Type-1 corrected MET v12 (nominal):", corrected_met.pt)

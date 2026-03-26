@@ -149,7 +149,9 @@ def _compute_corrt1_jec_factors(corrt1jets, name_map, jec_L1, jec_L1L2L3):
         elif k == "JetEta":
             jec_inputs_L1L2L3[k] = awkward.flatten(corrt1jets[name_map["CorrT1JetEta"]])
         elif k == "JetA":
-            jec_inputs_L1L2L3[k] = awkward.flatten(corrt1jets[name_map["CorrT1JetArea"]])
+            jec_inputs_L1L2L3[k] = awkward.flatten(
+                corrt1jets[name_map["CorrT1JetArea"]]
+            )
         elif k == "Rho":
             jec_inputs_L1L2L3[k] = awkward.flatten(corrt1jets[name_map["Rho"]])
         else:
@@ -596,12 +598,8 @@ class CorrectedMETFactory:
                 raw_pt, raw_phi, dpx, dpy, positive=False, dx=dx, dy=dy
             )
 
-            up_out = awkward.with_field(
-                met_record, var_up.pt, self.name_map["METpt"]
-            )
-            up_out = awkward.with_field(
-                up_out, var_up.phi, self.name_map["METphi"]
-            )
+            up_out = awkward.with_field(met_record, var_up.pt, self.name_map["METpt"])
+            up_out = awkward.with_field(up_out, var_up.phi, self.name_map["METphi"])
             down_out = awkward.with_field(
                 met_record, var_down.pt, self.name_map["METpt"]
             )
@@ -701,9 +699,7 @@ class CorrectedMETFactory:
                 up_out = awkward.with_field(
                     met_record, var_up.pt, self.name_map["METpt"]
                 )
-                up_out = awkward.with_field(
-                    up_out, var_up.phi, self.name_map["METphi"]
-                )
+                up_out = awkward.with_field(up_out, var_up.phi, self.name_map["METphi"])
                 down_out = awkward.with_field(
                     met_record, var_down.pt, self.name_map["METpt"]
                 )
