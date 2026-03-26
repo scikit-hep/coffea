@@ -362,10 +362,12 @@ def test_corrected_jets_factory_cbrng(clib_stack):
 
     corrected_a = factory.build(jets_a, event_number=events_a)
     corrected_b = factory.build(jets_b, event_number=events_b)
-    rejoined_pt = np.concatenate([
-        np.asarray(ak.flatten(corrected_a)["pt"]),
-        np.asarray(ak.flatten(corrected_b)["pt"]),
-    ])
+    rejoined_pt = np.concatenate(
+        [
+            np.asarray(ak.flatten(corrected_a)["pt"]),
+            np.asarray(ak.flatten(corrected_b)["pt"]),
+        ]
+    )
     assert np.allclose(
         np.asarray(flat_corrected["pt"]),
         rejoined_pt,

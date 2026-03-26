@@ -9,7 +9,7 @@ Based on the Squares algorithm: https://arxiv.org/abs/2004.06278
 from __future__ import annotations
 
 import hashlib
-from typing import Iterable
+from collections.abc import Iterable
 
 import numpy as np
 import numpy.typing as npt
@@ -72,9 +72,7 @@ class Squares:
                 break
         higher8 = np.zeros(8, dtype=np.uint64)
         higher8[0:1] = gen.choice(np.delete(bits, int(lower8[-1]) - 1), 1)
-        higher8[1:] = gen.choice(
-            np.delete(bits, int(higher8[0]) - 1), 7, replace=False
-        )
+        higher8[1:] = gen.choice(np.delete(bits, int(higher8[0]) - 1), 7, replace=False)
         return np.sum(lower8 << offsets) + (np.sum(higher8 << offsets) << _UINT64_32)
 
     @property
@@ -123,7 +121,7 @@ class Squares:
         z = y + self._key
         for i in [y, z, y]:
             (_,) = self._round(x, i)
-        (t, _) = self._round(x, z, last=True)
+        t, _ = self._round(x, z, last=True)
         x *= x
         x += y
         x >>= _UINT64_32

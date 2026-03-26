@@ -49,7 +49,9 @@ def rand_gauss(event_number, phi, eta, rng):
     # Build 128-bit counter: [event_number(64), phi_bits(32) << 32 | eta_bits(32)]
     counter = numpy.empty((len(phi_arr), 2), dtype=numpy.uint64)
     counter[:, 0] = event_number
-    counter[:, 1] = numpy.round(phi_arr, 3).view(numpy.uint32).astype(numpy.uint64).byteswap()
+    counter[:, 1] = (
+        numpy.round(phi_arr, 3).view(numpy.uint32).astype(numpy.uint64).byteswap()
+    )
     counter[:, 1] |= numpy.round(eta_arr, 3).view(numpy.uint32).astype(numpy.uint64)
 
     rand = rng.normal(counter).astype(numpy.float32)
@@ -334,7 +336,9 @@ class CorrectedJetsFactory:
             if event_number is not None:
                 # Counter-based RNG: deterministic per-jet, partition-independent
                 flat_event = awkward.flatten(
-                    awkward.broadcast_arrays(event_number, jets[self.name_map["JetPt"]])[0]
+                    awkward.broadcast_arrays(
+                        event_number, jets[self.name_map["JetPt"]]
+                    )[0]
                 )
                 rng = Squares(*seeds)
                 out_dict["jet_resolution_rand_gauss"] = maybe_map_partitions(
