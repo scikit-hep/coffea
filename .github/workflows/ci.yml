@@ -102,11 +102,11 @@ jobs:
     - name: Test with pytest (${{ matrix.dask-client }} dask Client - run in parallel)
       if: matrix.dask-client == 'without'
       run: |
-        OMP_NUM_THREADS=1 python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "not dask_client" -n 4
+        OMP_THREAD_LIMIT=1 python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "not dask_client" -n 4
     - name: Test with pytest (${{ matrix.dask-client }} dask Client)
       if: matrix.dask-client == 'with'
       run: |
-        OMP_NUM_THREADS=1 python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "dask_client"
+        OMP_THREAD_LIMIT=1 python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "dask_client"
     - name: Upload codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       uses: codecov/codecov-action@v5
