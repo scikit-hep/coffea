@@ -64,7 +64,7 @@ jobs:
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
         uv pip install torch --index-url https://download.pytorch.org/whl/cpu
-        uv pip install xgboost
+        uv pip install xgboost-cpu
         # install checked out coffea
         uv pip install -q '.[dev,caches,parsl,dask,triton]' --upgrade
         uv pip list
@@ -89,7 +89,7 @@ jobs:
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
         uv pip install torch
-        uv pip install xgboost
+        uv pip install xgboost-cpu
         # install checked out coffea
         uv pip install -q '.[dev,caches,dask]' --upgrade
         uv pip list
