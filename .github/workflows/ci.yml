@@ -57,6 +57,7 @@ jobs:
           -c conda-forge
           python=${{ matrix.python-version }}
           pip
+          uv
           pytest-xdist
           pytorch-cpu
           py-xgboost
@@ -65,17 +66,17 @@ jobs:
     - name: Install coffea and dependencies (Linux)
       if: startsWith( matrix.os, 'ubuntu' )
       run: |
-        python -m pip install '.[dev,caches,parsl,dask,triton]'
+        uv pip install '.[dev,caches,parsl,dask,triton]'
 
     - name: Install coffea and dependencies (macOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        python -m pip install '.[dev,caches,dask]'
+        uv pip install '.[dev,caches,dask]'
 
     - name: Install coffea and dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        python -m pip install '.[dev,caches,dask]'
+        uv pip install '.[dev,caches,dask]'
 
     - name: Start triton server with example model
       if: startsWith( matrix.os, 'ubuntu' )
@@ -135,11 +136,12 @@ jobs:
           python=${{ matrix.python-version }}
           ndcctools
           pip
+          uv
           pytest
         cache-environment: true
     - name: Install coffea
       run: |
-        python -m pip install . 'dask<2025.1.0'
+        uv pip install . 'dask<2025.1.0'
     - name: Test with pytest coffea with dask + taskvine
       timeout-minutes: 5
       run: |
