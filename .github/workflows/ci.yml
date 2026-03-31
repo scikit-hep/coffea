@@ -59,7 +59,7 @@ jobs:
           pip
           pytest-xdist
           pytorch-cpu
-          xgboost
+          py-xgboost
         cache-environment: true
 
     - name: Install coffea and dependencies (Linux)
