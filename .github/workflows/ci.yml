@@ -102,13 +102,13 @@ jobs:
     - name: Test with pytest (${{ matrix.dask-client }} dask Client - run in parallel)
       if: matrix.dask-client == 'without'
       env:
-        OMP_THREAD_LIMIT: 1
+        OMP_NUM_THREADS: 1
       run: |
         python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "not dask_client" -n 4
     - name: Test with pytest (${{ matrix.dask-client }} dask Client)
       if: matrix.dask-client == 'with'
       env:
-        OMP_THREAD_LIMIT: 1
+        OMP_NUM_THREADS: 1
       run: |
         python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "dask_client"
     - name: Upload codecov
