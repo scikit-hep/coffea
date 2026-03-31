@@ -143,11 +143,11 @@ jobs:
     - name: Test with pytest coffea with dask + taskvine
       timeout-minutes: 5
       run: |
-        pytest tests/test_taskvine_dask.py
+        python -m pytest tests/test_taskvine_dask.py
     - name: Test with pytest coffea with virtual arrays + taskvine
       timeout-minutes: 5
       run: |
-        pytest tests/test_taskvine_virtual.py
+        python -m pytest tests/test_taskvine_virtual.py
 
 #  testskyhookjob:
 #    runs-on: ubuntu-latest
