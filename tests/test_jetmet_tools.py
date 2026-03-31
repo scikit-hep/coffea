@@ -91,7 +91,7 @@ def test_factorized_jet_corrector():
     print("Raw jet values:")
     print("pT:", test_pt_jag)
     print("eta:", test_eta_jag)
-    print("rho:", test_Rho_jag)
+    print("Rho:", test_Rho_jag)
     print("area:", test_A_jag, "\n")
 
     # Start by checking the L1 corrections
@@ -228,7 +228,7 @@ def test_jet_resolution():
     print("Raw jet values:")
     print("pT:", test_pt_jag)
     print("eta:", test_eta_jag)
-    print("rho:", test_Rho_jag, "\n")
+    print("Rho:", test_Rho_jag, "\n")
 
     resos_jag_ref = ak.unflatten(
         np.array(
@@ -566,11 +566,11 @@ def test_corrected_jets_factory():
     jets["pt_raw"] = (1 - jets["rawFactor"]) * jets["pt"]
     jets["mass_raw"] = (1 - jets["rawFactor"]) * jets["mass"]
     jets["pt_gen"] = ak.values_astype(ak.fill_none(jets.matched_gen.pt, 0), np.float32)
-    jets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, jets.pt)[0]
+    jets["Rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, jets.pt)[0]
     name_map["ptGenJet"] = "pt_gen"
     name_map["ptRaw"] = "pt_raw"
     name_map["massRaw"] = "mass_raw"
-    name_map["Rho"] = "rho"
+    name_map["Rho"] = "Rho"
 
     jec_cache = cachetools.Cache(np.inf)
 
@@ -622,12 +622,12 @@ def test_corrected_jets_factory():
         **{name: evaluator[name] for name in jec_stack_names[0:4]}
     )
     corrs = corrector.getCorrection(
-        JetEta=jets["eta"], Rho=jets["rho"], JetPt=jets["pt_raw"], JetA=jets["area"]
+        JetEta=jets["eta"], Rho=jets["Rho"], JetPt=jets["pt_raw"], JetA=jets["area"]
     )
     reso = JetResolution(**{name: evaluator[name] for name in jec_stack_names[4:5]})
     jets["jet_energy_resolution"] = reso.getResolution(
         JetEta=jets["eta"],
-        Rho=jets["rho"],
+        Rho=jets["Rho"],
         JetPt=jets["pt_raw"],
         form=scalar_form,
         lazy_cache=jec_cache,
@@ -752,7 +752,7 @@ def test_factory_lifecycle():
     name_map["ptGenJet"] = "pt_gen"
     name_map["ptRaw"] = "pt_raw"
     name_map["massRaw"] = "mass_raw"
-    name_map["Rho"] = "rho"
+    name_map["Rho"] = "Rho"
     name_map["METpt"] = "pt"
     name_map["METphi"] = "phi"
     name_map["JetPhi"] = "phi"
@@ -780,7 +780,7 @@ def test_factory_lifecycle():
         jets["pt_gen"] = ak.values_astype(
             ak.fill_none(jets.matched_gen.pt, 0.0), np.float32
         )
-        jets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, jets.pt)[0]
+        jets["Rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, jets.pt)[0]
         jec_cache = cachetools.Cache(np.inf)
         weakref.finalize(jec_cache, jec_finalized.set)
         corrected_jets = jet_factory.build(jets, lazy_cache=jec_cache)
