@@ -77,6 +77,50 @@ def common_prepare_awkward(jets):
 
 
 @pytest.mark.dask_client
+def test_xgboost():
+    _ = pytest.importorskip("xgboost")
+
+    from coffea.ml_tools.xgboost_wrapper import xgboost_wrapper
+
+    client = Client()  # Spawn local cluster
+
+    feature_list = [f"feat{i}" for i in range(16)]
+
+    class xgboost_test(xgboost_wrapper):
+        def prepare_awkward(self, events):
+            ret = ak.concatenate(
+                [events[name][:, np.newaxis] for name in feature_list], axis=1
+            )
+            return [], dict(data=ret)
+
+    xgb_wrap = xgboost_test("tests/samples/xgboost_example.ubj")
+
+    # Dummy 1000 event array with 20 feature branches
+    ak_events = ak.zip(
+        {f"feat{i}": ak.from_numpy(np.random.random(size=1_000)) for i in range(20)}
+    )
+    ak.to_parquet(ak_events, "ml_tools.xgboost.parquet")
+    dak_events = dak.from_parquet("ml_tools.xgboost.parquet")
+
+    ak_res = xgb_wrap(ak_events)
+    dak_res = xgb_wrap(dak_events)
+
+    # Results should be identical
+    assert ak.all(ak_res == dak_res.compute())
+
+    # Should only load required columns
+    columns = set(list(dak.necessary_columns(dak_res).values())[0])
+    assert columns == set(feature_list)
+
+    # Length 0 testing, xgboost always handles 0-length arrays elegantly
+    ak_res = xgb_wrap(ak_events[ak_events.feat0 < 0])
+    dak_res = xgb_wrap(dak_events[dak_events.feat0 < 0])
+    assert len(ak_res) == 0 and len(dak_res.compute()) == 0
+
+    client.close()
+
+
+@pytest.mark.dask_client
 def test_triton():
     _ = pytest.importorskip("tritonclient")
 
@@ -247,49 +291,5 @@ def test_tensorflow():
     darr = dak.from_parquet("tf_length0.parquet")
     ak_res = tfw_length0_tester(arr)
     dak_res = tfw_length0_tester(darr)
-
-    client.close()
-
-
-@pytest.mark.dask_client
-def test_xgboost():
-    _ = pytest.importorskip("xgboost")
-
-    from coffea.ml_tools.xgboost_wrapper import xgboost_wrapper
-
-    client = Client()  # Spawn local cluster
-
-    feature_list = [f"feat{i}" for i in range(16)]
-
-    class xgboost_test(xgboost_wrapper):
-        def prepare_awkward(self, events):
-            ret = ak.concatenate(
-                [events[name][:, np.newaxis] for name in feature_list], axis=1
-            )
-            return [], dict(data=ret)
-
-    xgb_wrap = xgboost_test("tests/samples/xgboost_example.ubj")
-
-    # Dummy 1000 event array with 20 feature branches
-    ak_events = ak.zip(
-        {f"feat{i}": ak.from_numpy(np.random.random(size=1_000)) for i in range(20)}
-    )
-    ak.to_parquet(ak_events, "ml_tools.xgboost.parquet")
-    dak_events = dak.from_parquet("ml_tools.xgboost.parquet")
-
-    ak_res = xgb_wrap(ak_events)
-    dak_res = xgb_wrap(dak_events)
-
-    # Results should be identical
-    assert ak.all(ak_res == dak_res.compute())
-
-    # Should only load required columns
-    columns = set(list(dak.necessary_columns(dak_res).values())[0])
-    assert columns == set(feature_list)
-
-    # Length 0 testing, xgboost always handles 0-length arrays elegantly
-    ak_res = xgb_wrap(ak_events[ak_events.feat0 < 0])
-    dak_res = xgb_wrap(dak_events[dak_events.feat0 < 0])
-    assert len(ak_res) == 0 and len(dak_res.compute()) == 0
 
     client.close()
