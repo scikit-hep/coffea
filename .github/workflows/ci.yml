@@ -110,7 +110,8 @@ jobs:
       env:
         OMP_NUM_THREADS: 1
       run: |
-        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "dask_client"
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine --deselect=tests/test_ml_tools.py::test_xgboost -m "dask_client"
+        python -m pytest --cov-report=xml --cov=coffea tests/test_ml_tools.py::test_xgboost
     - name: Upload codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       uses: codecov/codecov-action@v5
