@@ -47,11 +47,24 @@ class CorrectionLibJEC:
         return self._signature
 
     def getCorrection(self, **kwargs):
-        kwargs.pop("form", None)
-        kwargs.pop("lazy_cache", None)
+        form = kwargs.pop("form", None)
+        lazy_cache = kwargs.pop("lazy_cache", None)
         np_args = [_to_flat_numpy(kwargs[name]) for name in self._signature]
-        result = self._correction.evaluate(*np_args)
-        return awkward.Array(result.astype(numpy.float32))
+
+        def _compute(*args):
+            result = self._correction.evaluate(*args)
+            return awkward.Array(result.astype(numpy.float32))
+
+        if lazy_cache is not None and isinstance(form, awkward.forms.Form):
+            length = len(awkward.flatten(next(iter(kwargs.values())), axis=None))
+            return awkward.virtual(
+                _compute,
+                args=tuple(np_args),
+                cache=lazy_cache,
+                length=length,
+                form=form,
+            )
+        return _compute(*np_args)
 
 
 class CorrectionLibJER:
@@ -72,11 +85,24 @@ class CorrectionLibJER:
         return self._signature
 
     def getResolution(self, **kwargs):
-        kwargs.pop("form", None)
-        kwargs.pop("lazy_cache", None)
+        form = kwargs.pop("form", None)
+        lazy_cache = kwargs.pop("lazy_cache", None)
         np_args = [_to_flat_numpy(kwargs[name]) for name in self._signature]
-        result = self._correction.evaluate(*np_args)
-        return awkward.Array(result.astype(numpy.float32))
+
+        def _compute(*args):
+            result = self._correction.evaluate(*args)
+            return awkward.Array(result.astype(numpy.float32))
+
+        if lazy_cache is not None and isinstance(form, awkward.forms.Form):
+            length = len(awkward.flatten(next(iter(kwargs.values())), axis=None))
+            return awkward.virtual(
+                _compute,
+                args=tuple(np_args),
+                cache=lazy_cache,
+                length=length,
+                form=form,
+            )
+        return _compute(*np_args)
 
 
 class CorrectionLibJERSF:
@@ -105,14 +131,27 @@ class CorrectionLibJERSF:
         return self._signature
 
     def getScaleFactor(self, **kwargs):
-        kwargs.pop("form", None)
-        kwargs.pop("lazy_cache", None)
+        form = kwargs.pop("form", None)
+        lazy_cache = kwargs.pop("lazy_cache", None)
         np_args = [_to_flat_numpy(kwargs[name]) for name in self._signature]
-        nom = self._correction.evaluate(*np_args, "nom").astype(numpy.float32)
-        up = self._correction.evaluate(*np_args, "up").astype(numpy.float32)
-        down = self._correction.evaluate(*np_args, "down").astype(numpy.float32)
-        stacked = numpy.stack([nom, up, down], axis=1)
-        return awkward.Array(stacked)
+
+        def _compute(*args):
+            nom = self._correction.evaluate(*args, "nom").astype(numpy.float32)
+            up = self._correction.evaluate(*args, "up").astype(numpy.float32)
+            down = self._correction.evaluate(*args, "down").astype(numpy.float32)
+            stacked = numpy.stack([nom, up, down], axis=1)
+            return awkward.Array(stacked)
+
+        if lazy_cache is not None and isinstance(form, awkward.forms.Form):
+            length = len(awkward.flatten(next(iter(kwargs.values())), axis=None))
+            return awkward.virtual(
+                _compute,
+                args=tuple(np_args),
+                cache=lazy_cache,
+                length=length,
+                form=form,
+            )
+        return _compute(*np_args)
 
 
 class CorrectionLibJUNC:
