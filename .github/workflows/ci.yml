@@ -93,7 +93,7 @@ jobs:
         python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "dask_client"
     - name: Upload codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v6
     - name: Install graphviz
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       uses: ts-graphviz/setup-graphviz@v2
