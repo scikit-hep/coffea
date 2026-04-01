@@ -72,17 +72,20 @@ jobs:
     - name: Install coffea and dependencies (Linux)
       if: startsWith( matrix.os, 'ubuntu' )
       run: |
-        uv pip install '.[dev,caches,parsl,dask,triton]' torch --extra-index-url https://download.pytorch.org/whl/cpu
+        uv pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+        uv pip install '.[dev,caches,parsl,dask,triton]'
 
     - name: Install coffea and dependencies (macOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        uv pip install '.[dev,caches,dask]' torch
+        uv pip install torch
+        uv pip install '.[dev,caches,dask]'
 
     - name: Install coffea and dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install '.[dev,caches,dask]' torch
+        uv pip install torch
+        uv pip install '.[dev,caches,dask]'
 
     - name: Start triton server with example model
       if: startsWith( matrix.os, 'ubuntu' )
