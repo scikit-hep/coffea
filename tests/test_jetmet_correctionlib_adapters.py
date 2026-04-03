@@ -300,6 +300,81 @@ def test_corrected_jets_factory_with_correctionlib(clib_stack):
         assert "down" in ak.fields(flat_corrected[unc])
 
 
+def test_corrected_jets_factory_cbrng(clib_stack):
+    """Test that counter-based RNG (event_number) produces partition-independent results."""
+    from coffea.jetmet_tools import CorrectedJetsFactory
+
+    name_map = clib_stack.blank_name_map
+    name_map["JetPt"] = "pt"
+    name_map["JetMass"] = "mass"
+    name_map["JetEta"] = "eta"
+    name_map["JetA"] = "area"
+    name_map["ptRaw"] = "pt_raw"
+    name_map["massRaw"] = "mass_raw"
+    name_map["Rho"] = "rho"
+    name_map["ptGenJet"] = "pt_gen"
+    name_map["METpt"] = "met_pt"
+    name_map["METphi"] = "met_phi"
+    name_map["JetPhi"] = "phi"
+    name_map["UnClusteredEnergyDeltaX"] = "ue_dx"
+    name_map["UnClusteredEnergyDeltaY"] = "ue_dy"
+
+    factory = CorrectedJetsFactory(name_map, clib_stack)
+
+    counts, test_eta, test_pt = dummy_jagged_eta_pt()
+    n_flat = len(test_eta)
+    n_events = len(counts)
+
+    jets_dict = {
+        "pt": test_pt.astype(np.float32),
+        "mass": (test_pt * 0.1).astype(np.float32),
+        "eta": test_eta.astype(np.float32),
+        "phi": np.linspace(-np.pi, np.pi, n_flat, dtype=np.float32),
+        "area": np.full(n_flat, 0.5, dtype=np.float32),
+        "pt_raw": test_pt.astype(np.float32),
+        "mass_raw": (test_pt * 0.1).astype(np.float32),
+        "rho": np.full(n_flat, 30.0, dtype=np.float32),
+        "pt_gen": (test_pt * 0.95).astype(np.float32),
+    }
+    jets_jag = ak.unflatten(ak.zip(jets_dict), counts)
+    event_nums = ak.Array(np.arange(n_events, dtype=np.uint64))
+
+    corrected = factory.build(jets_jag, event_number=event_nums)
+    flat_corrected = ak.flatten(corrected)
+    assert len(flat_corrected) == n_flat
+    assert "JER" in factory.uncertainties()
+
+    # Verify reproducibility: same input => same output
+    corrected2 = factory.build(jets_jag, event_number=event_nums)
+    flat_corrected2 = ak.flatten(corrected2)
+    assert np.allclose(
+        np.asarray(flat_corrected["pt"]),
+        np.asarray(flat_corrected2["pt"]),
+        rtol=1e-7,
+    )
+
+    # Verify partition-independence: split jets into two halves and rejoin
+    mid = n_events // 2
+    jets_a = jets_jag[:mid]
+    jets_b = jets_jag[mid:]
+    events_a = event_nums[:mid]
+    events_b = event_nums[mid:]
+
+    corrected_a = factory.build(jets_a, event_number=events_a)
+    corrected_b = factory.build(jets_b, event_number=events_b)
+    rejoined_pt = np.concatenate(
+        [
+            np.asarray(ak.flatten(corrected_a)["pt"]),
+            np.asarray(ak.flatten(corrected_b)["pt"]),
+        ]
+    )
+    assert np.allclose(
+        np.asarray(flat_corrected["pt"]),
+        rejoined_pt,
+        rtol=1e-7,
+    ), "CBRNG results should be identical regardless of partitioning"
+
+
 def test_corrected_jets_factory_with_correctionlib_dask(clib_stack):
     """Full integration test with dask arrays."""
     from coffea.jetmet_tools import CorrectedJetsFactory
