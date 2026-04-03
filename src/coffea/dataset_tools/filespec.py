@@ -375,12 +375,7 @@ class InputFiles(
             except Exception:
                 # we failed to promote to the concrete spec, do nothing else
                 pass
-        if all(preprocessed.values()):
-            try:
-                self.root = PreprocessedFiles(self.root).root
-            except Exception:
-                # We couldn't promote to PreprocessedFiles, do nothing
-                pass
+        # Ideally we would promote to PreprocessedFiles if all files are concrete specs, but since we can't change the class of Self in this method, we leave this to be handled in DatasetSpec.post_validate, which can change the class of Self if necessary
         return self
 
 
@@ -430,11 +425,23 @@ class PreprocessedFiles(
 
 
 class DatasetSpec(BaseModel):
-    files: InputFiles | PreprocessedFiles
+    files: PreprocessedFiles | InputFiles
     metadata: dict[Hashable, Any] = {}
     format: str | None = None
     compressed_form: str | None = None
     did: str | None = None
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, DatasetSpec):
+            return False
+        return (
+            all(
+                getattr(self, k) == getattr(other, k)
+                for k in self.__dict__.keys()
+                if k != "compressed_form"
+            )
+            and self.form == other.form
+        )
 
     def __add__(self, other: DatasetSpec) -> DatasetSpec:
         if not isinstance(other, DatasetSpec):
@@ -476,64 +483,93 @@ class DatasetSpec(BaseModel):
 
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
+        # Catch a simple case of old style input: a list of files; files will be further handled/converted in dict path if they embed the object_path
+        if isinstance(data, list) and all(isinstance(f, str) for f in data):
+            data = {"files": copy.deepcopy(data)}
         if isinstance(data, dict):
-            data = copy.deepcopy(data)
-            files = data.pop("files")
-            # promote files list to dict if necessary
-            if isinstance(files, list):
-                # If files is a list, convert it to a dict and let it pass through the rest of the promotion logic
-                tmp = [f.rsplit(":", maxsplit=1) for f in files]
-                files = {}
-                for fsplit in tmp:
-                    # Need a valid split into file name and object path
-                    if len(fsplit) > 1:
-                        # but ensure we don't catch 'root://' and split that
-                        if fsplit[1].startswith("//"):
-                            # no object path
-                            files[":".join(fsplit)] = None
+            new_data = {}
+            for k, v in data.items():
+                if k == "form":
+                    if "compressed_form" not in data:
+                        # assume this was an uncompressed awkward form, try to compress it
+                        if v is None:
+                            new_data["compressed_form"] = None
                         else:
-                            # file name and object path
-                            files[fsplit[0]] = fsplit[1]
+                            try:
+                                import awkward
+
+                                from coffea.util import compress_form
+
+                                # Validate it's a valid form JSON by parsing it
+                                _ = awkward.forms.from_json(data["form"])
+                                # Compress the original JSON string
+                                new_data["compressed_form"] = compress_form(
+                                    data["form"]
+                                )
+                            except (
+                                ValueError,
+                                TypeError,
+                                KeyError,
+                            ):
+                                # if we can't compress it, test if it can be decompressed
+                                try:
+                                    import awkward
+
+                                    from coffea.util import decompress_form
+
+                                    _ = awkward.forms.from_json(
+                                        decompress_form(data["form"])
+                                    )
+                                    new_data["compressed_form"] = data["form"]
+                                except (
+                                    ValueError,
+                                    TypeError,
+                                    KeyError,
+                                ):
+                                    raise RuntimeError(
+                                        f"form: provided form could neither be compressed nor decompressed, please provide a valid (compressed_)form, got {data['form']}"
+                                    )
                     else:
-                        # no object path
-                        files[fsplit[0]] = None
-            data["files"] = files
-            if "form" in data.keys():
-                _form = data.pop("form")
-                if "compressed_form" not in data.keys():
-                    # assume this was an uncompressed awkward form, try to compress it
-                    try:
-                        import awkward
-
-                        from coffea.util import compress_form
-
-                        data["compressed_form"] = compress_form(
-                            awkward.forms.from_json(_form)
+                        # if there's already a compressed_form, take that and ignore the form
+                        new_data["compressed_form"] = copy.deepcopy(
+                            data["compressed_form"]
                         )
-                    except Exception:
-                        # if we can't compress it, test if it can be decompressed
-                        try:
-                            import awkward
-
-                            from coffea.util import decompress_form
-
-                            _ = awkward.forms.from_json(decompress_form(_form))
-                            data["compressed_form"] = _form
-                        except Exception:
-                            raise RuntimeError(
-                                "form: provided form could neither be compressed nor decompressed, please provide a valid compressed_form"
-                            )
+                elif k == "files":
+                    # promote files list to dict if necessary
+                    if isinstance(v, list):
+                        # If files is a list, convert it to a dict and let it pass through the rest of the promotion logic
+                        tmp = [f.rsplit(":", maxsplit=1) for f in v]
+                        files = {}
+                        for fsplit in tmp:
+                            # Need a valid split into file name and object path
+                            if len(fsplit) > 1:
+                                # but ensure we don't catch 'root://' and split that
+                                if fsplit[1].startswith("//"):
+                                    # no object path
+                                    files[":".join(fsplit)] = None
+                                else:
+                                    # file name and object path
+                                    files[fsplit[0]] = fsplit[1]
+                            else:
+                                # no object path
+                                files[fsplit[0]] = None
+                        new_data["files"] = files
+                    else:
+                        new_data["files"] = copy.deepcopy(v)
                 else:
-                    data["compressed_form"] = data["compressed_form"]
-            if "metadata" not in data.keys() or data["metadata"] is None:
-                data["metadata"] = {}
+                    new_data[k] = copy.deepcopy(v)
+            if "files" not in new_data.keys():
+                # If the structure is {filename0: object_path0, filename1: object_path1, ...}, embed as "files" key
+                new_data = {"files": new_data}
+            if "metadata" not in new_data.keys() or new_data["metadata"] is None:
+                new_data["metadata"] = {}
         elif isinstance(data, DatasetSpec):
-            data = data.model_dump()
+            new_data = data.model_dump()
         elif not isinstance(data, DatasetSpec):
             raise ValueError(
                 "DatasetSpec expects a dictionary with a 'files' key DatasetSpec instance"
             )
-        return data
+        return new_data
 
     def _check_form(self) -> bool | None:
         """Check the form can be decompressed into an awkward form, if present"""
@@ -582,6 +618,21 @@ class DatasetSpec(BaseModel):
         if not self.set_check_format():
             raise ValueError(f"format: format must be one of {self._valid_formats()}")
 
+        # Promote InputFiles to PreprocessedFiles if all files are concrete specs
+        # This is needed because InputFiles.promote_and_check_files() cannot change the class of Self
+        if isinstance(self.files, InputFiles) and not isinstance(
+            self.files, PreprocessedFiles
+        ):
+            all_concrete = all(
+                isinstance(v, (CoffeaROOTFileSpec, CoffeaParquetFileSpec))
+                for v in self.files.values()
+            )
+            if all_concrete:
+                try:
+                    self.files = PreprocessedFiles(dict(self.files.root))
+                except Exception:
+                    # If promotion fails, keep the InputFiles
+                    pass
         return self
 
     @property

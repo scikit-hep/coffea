@@ -269,7 +269,7 @@ def filter_files(
         to_apply_to = getattr(entry, "files") if is_datasetspec else entry["files"]
         updated = dict(filter(thefilter, to_apply_to.items()))
         if is_datasetspec:
-            out[name].files = InputFiles(updated)
+            out[name].files = PreprocessedFiles(updated)
         else:
             out[name]["files"] = updated
     return out
