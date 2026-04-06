@@ -1229,9 +1229,14 @@ class Runner:
 
     @staticmethod
     def metadata_fetcher_root(
-        xrootdtimeout: int, align_clusters: bool, item: FileMeta
+        xrootdtimeout: int,
+        align_clusters: bool,
+        uproot_options: dict,
+        item: FileMeta,
     ) -> Accumulatable:
-        with uproot.open({item.filename: None}, timeout=xrootdtimeout) as file:
+        with uproot.open(
+            {item.filename: None}, timeout=xrootdtimeout, **uproot_options
+        ) as file:
             try:
                 tree = file[item.treename]
             except uproot.exceptions.KeyInFileError as e:
@@ -1262,7 +1267,7 @@ class Runner:
             )
         return out
 
-    def _preprocess_fileset_root(self, fileset: dict) -> None:
+    def _preprocess_fileset_root(self, fileset: dict, uproot_options: dict) -> None:
         # this is a bit of an abuse of map-reduce but ok
         to_get = {
             filemeta
@@ -1288,7 +1293,10 @@ class Runner:
                 0 if isinstance(pre_executor, DaskExecutor) else self.retries,
                 self.skipbadfiles,
                 partial(
-                    self.metadata_fetcher_root, self.xrootdtimeout, self.align_clusters
+                    self.metadata_fetcher_root,
+                    self.xrootdtimeout,
+                    self.align_clusters,
+                    uproot_options,
                 ),
             )
             out, _ = pre_executor(to_get, closure, out)
@@ -1584,6 +1592,10 @@ class Runner:
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
         """
+        if uproot_options is None:
+            uproot_options = {}
+        if iteritems_options is None:
+            iteritems_options = {}
         wrapped_out = self.run(
             fileset=fileset,
             processor_instance=processor_instance,
@@ -1602,6 +1614,7 @@ class Runner:
         fileset: dict,
         *,
         treename: str | None = None,
+        uproot_options: dict | None = {},
     ) -> Generator:
         """Preprocess the fileset and generate work items
 
@@ -1616,17 +1629,21 @@ class Runner:
             treename : str
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
+            uproot_options : dict, optional
+                Any options to pass to ``uproot.open``
         """
         if not isinstance(fileset, (Mapping, str)):
             raise ValueError(
                 "Expected fileset to be a mapping dataset: list(files) or filename"
             )
+        if uproot_options is None:
+            uproot_options = {}
         if self.format == "root":
             fileset = list(self._normalize_fileset(fileset, treename))
             for filemeta in fileset:
                 filemeta.maybe_populate(self.metadata_cache)
 
-            self._preprocess_fileset_root(fileset)
+            self._preprocess_fileset_root(fileset, uproot_options=uproot_options)
             fileset = self._filter_badfiles(fileset)
         elif self.format == "parquet":
             raise NotImplementedError("Parquet format is not supported yet.")
@@ -1668,6 +1685,10 @@ class Runner:
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
         """
+        if uproot_options is None:
+            uproot_options = {}
+        if iteritems_options is None:
+            iteritems_options = {}
         meta = False
         if not isinstance(fileset, (Mapping, str)):
             if isinstance(fileset, Generator) or isinstance(fileset[0], WorkItem):
@@ -1686,7 +1707,9 @@ class Runner:
         if meta:
             chunks = fileset
         else:
-            chunks = self.preprocess(fileset, treename=treename)
+            chunks = self.preprocess(
+                fileset, treename=treename, uproot_options=uproot_options
+            )
 
         if self.processor_compression is None:
             pi_to_send = processor_instance
