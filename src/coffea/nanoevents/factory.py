@@ -274,7 +274,8 @@ class NanoEventsFactory:
             mode:
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
             treepath : str, optional
-                Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``.
+                Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``
+                or a string that does not contain tree information that uproot can parse on its own.
             entry_start : int, optional (eager and virtual mode only)
                 Start at this entry offset in the tree (default 0)
             entry_stop : int, optional (eager and virtual mode only)
@@ -303,7 +304,7 @@ class NanoEventsFactory:
                 If the base form of the input file is known ahead of time we can skip opening a single file and parsing metadata.
             decompression_executor : Any, optional
                 Executor with a ``submit`` method used for decompression tasks. See
-                https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L109.
+                https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html.
             interpretation_executor : Any, optional
                 Executor with a ``submit`` method used for interpretation tasks. See
                 https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L113.
@@ -313,15 +314,6 @@ class NanoEventsFactory:
             NanoEventsFactory
                 Factory configured from ``file`` that can materialise NanoEvents.
         """
-        if treepath is not uproot._util.unset and not isinstance(
-            file, uproot.reading.ReadOnlyDirectory
-        ):
-            raise ValueError(
-                """Specification of treename by argument to from_root is no longer supported in coffea 2023.
-            Please use one of the allowed types for "files" specified by uproot: https://github.com/scikit-hep/uproot5/blob/v5.1.2/src/uproot/_dask.py#L109-L132
-            """
-            )
-
         if mode not in _allowed_modes:
             raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
 
@@ -331,8 +323,7 @@ class NanoEventsFactory:
                 small number of inputs (e.g. for early-stage/exploratory analysis) since it does not
                 inform dask of each chunk lengths at creation time, which can cause unexpected
                 slowdowns at scale. If you would like to process larger datasets please specify steps
-                using the appropriate uproot "files" specification:
-                    https://github.com/scikit-hep/uproot5/blob/v5.1.2/src/uproot/_dask.py#L109-L132.
+                using the appropriate uproot "files" specification: https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html
                 """,
                 RuntimeWarning,
             )
@@ -351,6 +342,10 @@ class NanoEventsFactory:
 
             to_open = file
             if isinstance(file, uproot.reading.ReadOnlyDirectory):
+                if treepath is uproot._util.unset:
+                    raise ValueError(
+                        "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
+                    )
                 to_open = file[treepath]
             opener = partial(
                 uproot.dask,
@@ -376,6 +371,10 @@ class NanoEventsFactory:
             mode = "virtual"
 
         if isinstance(file, uproot.reading.ReadOnlyDirectory):
+            if treepath is uproot._util.unset:
+                raise ValueError(
+                    "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
+                )
             tree = file[treepath]
             file_handle = file
         elif "<class 'uproot.rootio.ROOTDirectory'>" == str(type(file)):
@@ -385,6 +384,12 @@ class NanoEventsFactory:
             )
         else:
             tree = uproot.open(file, **uproot_options)
+            if isinstance(tree, uproot.reading.ReadOnlyDirectory):
+                if treepath is uproot._util.unset:
+                    raise ValueError(
+                        "The treepath argument must be specified when the file argument is a string that does not contain any treepath information that uproot can parse"
+                    )
+                tree = tree[treepath]
             file_handle = tree.file
 
         # Get the typenames
