@@ -55,16 +55,14 @@ class CorrectionLibJEC:
             result = self._correction.evaluate(*args)
             return awkward.Array(result.astype(numpy.float32))
 
-        if lazy_cache is not None and isinstance(form, awkward.forms.Form):
-            length = len(awkward.flatten(next(iter(kwargs.values())), axis=None))
-            return awkward.virtual(
-                _compute,
-                args=tuple(np_args),
-                cache=lazy_cache,
-                length=length,
-                form=form,
-            )
-        return _compute(*np_args)
+        length = len(np_args[0])
+        return awkward.virtual(
+            _compute,
+            args=tuple(np_args),
+            cache=lazy_cache,
+            length=length,
+            form=form,
+        )
 
 
 class CorrectionLibJER:
@@ -93,16 +91,14 @@ class CorrectionLibJER:
             result = self._correction.evaluate(*args)
             return awkward.Array(result.astype(numpy.float32))
 
-        if lazy_cache is not None and isinstance(form, awkward.forms.Form):
-            length = len(awkward.flatten(next(iter(kwargs.values())), axis=None))
-            return awkward.virtual(
-                _compute,
-                args=tuple(np_args),
-                cache=lazy_cache,
-                length=length,
-                form=form,
-            )
-        return _compute(*np_args)
+        length = len(np_args[0])
+        return awkward.virtual(
+            _compute,
+            args=tuple(np_args),
+            cache=lazy_cache,
+            length=length,
+            form=form,
+        )
 
 
 class CorrectionLibJERSF:
@@ -142,16 +138,14 @@ class CorrectionLibJERSF:
             stacked = numpy.stack([nom, up, down], axis=1)
             return awkward.Array(stacked)
 
-        if lazy_cache is not None and isinstance(form, awkward.forms.Form):
-            length = len(awkward.flatten(next(iter(kwargs.values())), axis=None))
-            return awkward.virtual(
-                _compute,
-                args=tuple(np_args),
-                cache=lazy_cache,
-                length=length,
-                form=form,
-            )
-        return _compute(*np_args)
+        length = len(np_args[0])
+        return awkward.virtual(
+            _compute,
+            args=tuple(np_args),
+            cache=lazy_cache,
+            length=length,
+            form=form,
+        )
 
 
 class CorrectionLibJUNC:
@@ -185,14 +179,30 @@ class CorrectionLibJUNC:
         return [name for name, _ in self._sources]
 
     def getUncertainty(self, **kwargs):
+        cache = kwargs.pop("lazy_cache", None)
         results = []
         for name, corr in self._sources:
             np_args = [_to_flat_numpy(kwargs[n]) for n in self._signature]
-            delta = corr.evaluate(*np_args).astype(numpy.float32)
-            stacked = numpy.stack([1.0 + delta, 1.0 - delta], axis=1).astype(
-                numpy.float32
+
+            def _compute(*args, _corr=corr):
+                delta = _corr.evaluate(*args).astype(numpy.float32)
+                stacked = numpy.stack([1.0 + delta, 1.0 - delta], axis=1).astype(
+                    numpy.float32
+                )
+                return awkward.Array(stacked)
+
+            length = len(np_args[0])
+            results.append(
+                (
+                    name,
+                    awkward.virtual(
+                        _compute,
+                        args=tuple(np_args),
+                        length=length,
+                        cache=cache,
+                    ),
+                )
             )
-            results.append((name, awkward.Array(stacked)))
         return results
 
 

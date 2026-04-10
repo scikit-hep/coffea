@@ -92,8 +92,13 @@ def test_correctionlib_jec_with_extra_kwargs(clib_stack, flat_jet_arrays):
         JetEta=ak.Array(test_eta),
         JetPt=ak.Array(test_pt),
         Rho=ak.Array(test_Rho),
-        form={"fake": "form"},
-        lazy_cache=cachetools.Cache(maxsize=100),
+        form={
+            "class": "NumpyArray",
+            "itemsize": 4,
+            "format": "f",
+            "primitive": "float32",
+        },
+        lazy_cache=cachetools.Cache(np.inf),
     )
     assert len(corr) == len(test_pt)
 
@@ -265,7 +270,7 @@ def test_corrected_jets_factory_with_correctionlib(clib_stack):
     }
     jets_jag = ak.unflatten(ak.zip(jets_dict), counts)
 
-    lazy_cache = cachetools.Cache(maxsize=9999)
+    lazy_cache = cachetools.Cache(np.inf)
     corrected = factory.build(jets_jag, lazy_cache)
     assert corrected is not None
 
@@ -329,7 +334,7 @@ def test_corrected_jets_factory_jec_only():
     }
     jets_jag = ak.unflatten(ak.zip(jets_dict), counts)
 
-    lazy_cache = cachetools.Cache(maxsize=9999)
+    lazy_cache = cachetools.Cache(np.inf)
     corrected = factory.build(jets_jag, lazy_cache)
 
     # JEC-only: corrected pt should be pt_raw * correction_factor
