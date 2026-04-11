@@ -1,0 +1,19 @@
+BaseSchema
+==========
+
+.. currentmodule:: coffea.nanoevents
+
+.. autoclass:: BaseSchema
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~BaseSchema.behavior
+      ~BaseSchema.form
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: behavior
+   .. autoattribute:: form

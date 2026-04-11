@@ -1,0 +1,27 @@
+CorrectionLibJERSF
+==================
+
+.. currentmodule:: coffea.jetmet_tools
+
+.. autoclass:: CorrectionLibJERSF
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~CorrectionLibJERSF.signature
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~CorrectionLibJERSF.getScaleFactor
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: signature
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: getScaleFactor

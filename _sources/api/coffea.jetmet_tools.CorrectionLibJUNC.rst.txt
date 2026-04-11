@@ -1,0 +1,29 @@
+CorrectionLibJUNC
+=================
+
+.. currentmodule:: coffea.jetmet_tools
+
+.. autoclass:: CorrectionLibJUNC
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~CorrectionLibJUNC.levels
+      ~CorrectionLibJUNC.signature
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~CorrectionLibJUNC.getUncertainty
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: levels
+   .. autoattribute:: signature
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: getUncertainty

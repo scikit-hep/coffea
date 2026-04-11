@@ -1,0 +1,27 @@
+CorrectionLibJER
+================
+
+.. currentmodule:: coffea.jetmet_tools
+
+.. autoclass:: CorrectionLibJER
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~CorrectionLibJER.signature
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~CorrectionLibJER.getResolution
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: signature
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: getResolution

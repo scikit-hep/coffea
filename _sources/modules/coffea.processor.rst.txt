@@ -1,0 +1,5 @@
+coffea.processor
+================
+
+.. automodapi:: coffea.processor
+    :no-heading:
