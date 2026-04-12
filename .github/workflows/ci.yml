@@ -66,13 +66,13 @@ jobs:
           pip
           uv
           pytest-xdist
+          ${{ matrix.python-version != '3.14t' && 'pytorch-cpu' || '' }}
           py-xgboost
         cache-environment: true
 
     - name: Install coffea and dependencies (Linux)
       if: startsWith( matrix.os, 'ubuntu' )
       run: |
-        uv pip install torch --index-url https://download.pytorch.org/whl/cpu
         if [ "${{ matrix.python-version }}" = "3.14t" ]; then
           uv pip install '.[dev,caches,parsl,dask]'
         else
@@ -82,7 +82,6 @@ jobs:
     - name: Install coffea and dependencies (macOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        uv pip install torch
         uv pip install '.[dev,caches,dask]'
 
     - name: Install coffea and dependencies (Windows)
