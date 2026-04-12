@@ -35,8 +35,6 @@ import toml
 import uproot
 from cachetools import LRUCache
 
-from coffea.nanoevents.trace import trace
-
 from ..nanoevents import NanoEventsFactory, schemas
 from ..nanoevents.util import key_to_tuple
 from ..util import _exception_chain, _hash, rich_bar
@@ -58,6 +56,7 @@ _PROTECTED_NAMES = {
     "numentries",
     "uuid",
     "clusters",
+    "preload",
 }
 
 
@@ -66,13 +65,14 @@ class UprootMissTreeError(uproot.exceptions.KeyInFileError):
 
 
 class FileMeta:
-    __slots__ = ["dataset", "filename", "treename", "metadata"]
+    __slots__ = ["dataset", "filename", "treename", "metadata", "preload"]
 
-    def __init__(self, dataset, filename, treename, metadata=None):
+    def __init__(self, dataset, filename, treename, metadata=None, preload=None):
         self.dataset = dataset
         self.filename = filename
         self.treename = treename
         self.metadata = metadata
+        self.preload = preload
 
     def __str__(self):
         return f"FileMeta({self.dataset}:{self.filename}:{self.treename})"
@@ -127,6 +127,7 @@ class FileMeta:
                     0,
                     self.metadata["uuid"],
                     user_meta,
+                    self.preload,
                 )
             for start, stop in zip(chunks[:-1], chunks[1:]):
                 yield WorkItem(
@@ -137,6 +138,7 @@ class FileMeta:
                     stop,
                     self.metadata["uuid"],
                     user_meta,
+                    self.preload,
                 )
             return target_chunksize
         else:
@@ -152,6 +154,7 @@ class FileMeta:
                     0,
                     self.metadata["uuid"],
                     user_meta,
+                    self.preload,
                 )
             while start < numentries:
                 if update:
@@ -166,6 +169,7 @@ class FileMeta:
                     stop,
                     self.metadata["uuid"],
                     user_meta,
+                    self.preload,
                 )
                 start = stop
                 if next_chunksize and next_chunksize != target_chunksize:
@@ -185,6 +189,7 @@ class WorkItem:
     entrystop: int
     fileuuid: str
     usermeta: dict | None = field(default=None, compare=False)
+    preload: frozenset[str] | None = field(default=None, compare=False)
 
     def __len__(self) -> int:
         return self.entrystop - self.entrystart
@@ -1195,6 +1200,7 @@ class Runner:
         reserved_metakeys = _PROTECTED_NAMES
         for dataset, filelist in fileset.items():
             user_meta = None
+            local_preload = None
             if isinstance(filelist, dict):
                 user_meta = filelist["metadata"] if "metadata" in filelist else None
                 if user_meta is not None:
@@ -1211,6 +1217,8 @@ class Runner:
                 local_treename = (
                     filelist["treename"] if "treename" in filelist else treename
                 )
+                if "preload" in filelist:
+                    local_preload = frozenset(filelist["preload"])
                 filelist = filelist["files"]
             elif isinstance(filelist, list):
                 if treename is None:
@@ -1224,10 +1232,14 @@ class Runner:
                 )
             if local_treename is None:
                 for filename, local_treename in filelist.items():
-                    yield FileMeta(dataset, filename, local_treename, user_meta)
+                    yield FileMeta(
+                        dataset, filename, local_treename, user_meta, local_preload
+                    )
             else:
                 for filename in filelist:
-                    yield FileMeta(dataset, filename, local_treename, user_meta)
+                    yield FileMeta(
+                        dataset, filename, local_treename, user_meta, local_preload
+                    )
 
     @staticmethod
     def metadata_fetcher_root(
@@ -1353,6 +1365,70 @@ class Runner:
                 )
         return final_fileset
 
+    def _trace_preload(
+        self,
+        fileset: list[FileMeta],
+        trace_fn: Callable,
+        process_fn: Callable,
+        uproot_options: dict,
+    ) -> None:
+        """Trace columns needed per dataset using the first openable file.
+
+        Sets ``filemeta.preload`` on all FileMeta entries for each dataset,
+        overriding any preload that was specified in the fileset.
+        """
+        # group filemetas by dataset
+        datasets: dict[str, list[FileMeta]] = {}
+        for filemeta in fileset:
+            datasets.setdefault(filemeta.dataset, []).append(filemeta)
+
+        for dataset, metas in datasets.items():
+            preload = None
+            last_exc = None
+            for filemeta in metas:
+                try:
+                    with uproot.open(
+                        {filemeta.filename: None},
+                        timeout=self.xrootdtimeout,
+                        **uproot_options,
+                    ) as file:
+                        factory = NanoEventsFactory.from_root(
+                            file=file,
+                            treepath=filemeta.treename,
+                            schemaclass=self.schema,
+                            metadata={
+                                "dataset": filemeta.dataset,
+                                "filename": filemeta.filename,
+                                "treename": filemeta.treename,
+                            },
+                            mode="virtual",
+                            entry_start=0,
+                            entry_stop=0,
+                        )
+                        events = factory.events()
+                        preload = trace_fn(process_fn, events)
+                    break
+                except Exception as e:
+                    last_exc = e
+                    continue
+
+            if preload is None and last_exc is not None:
+                if not self.skipbadfiles:
+                    raise RuntimeError(
+                        f"Could not open any file for dataset {dataset!r} for tracing. "
+                        f"Last error: {last_exc!r}"
+                    ) from last_exc
+                warnings.warn(
+                    f"Could not trace columns for dataset {dataset!r}, "
+                    f"skipping preload for this dataset. Last error: {last_exc!r}",
+                    stacklevel=2,
+                )
+                continue
+
+            preload = frozenset(preload)
+            for meta in metas:
+                meta.preload = preload
+
     def _chunk_generator(self, fileset: dict, treename: str) -> Generator:
         config = None
         if self.use_skyhook:
@@ -1444,7 +1520,6 @@ class Runner:
         processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
         uproot_options: dict,
         iteritems_options: dict,
-        preload_columns: dict,
         checkpointer: CheckpointerABC,
         cache_function: Callable[[], MutableMapping],
     ) -> dict:
@@ -1493,18 +1568,6 @@ class Runner:
                 f"Failed to open file: {item!r}. The error was: {e!r}."
             ) from e
 
-        # preload logic
-        # Important: same hash as in the TraceProcessor cls, so we use a common method
-        _key = _key_for_tracing(metadata)
-        needed = None
-        if preload_columns is not None:
-            needed = preload_columns.get(_key, None)
-
-        if needed is not None:
-            preload = lambda b: b.name in needed  # noqa
-        else:
-            preload = None
-
         with filecontext as file:
             if schema is None:
                 raise ValueError("Schema must be set")
@@ -1523,7 +1586,7 @@ class Runner:
                             entry_start=item.entrystart,
                             entry_stop=item.entrystop,
                             iteritems_options=iteritems_options,
-                            preload=preload,
+                            preload=item.preload,
                             buffer_cache=cache_function(),
                         )
                         events = factory.events()
@@ -1589,7 +1652,7 @@ class Runner:
         treename: str | None = None,
         uproot_options: dict | None = {},
         iteritems_options: dict | None = {},
-        preload_columns: dict | None = None,
+        trace: Callable | None = None,
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
 
@@ -1599,6 +1662,8 @@ class Runner:
                 A dictionary ``{dataset: [file, file], }``
                 Optionally, if some files' tree name differ, the dictionary can be specified:
                 ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
+                You can also define branches to preload per dataset:
+                ``{dataset: {'preload': ['branch1', 'branch2'], 'files': [file, file]}, }``
             processor_instance : ProcessorABC or Callable
                 An instance of a class deriving from ProcessorABC or a single-argument callable
             treename : str
@@ -1608,8 +1673,13 @@ class Runner:
                 Any options to pass to ``uproot.open``
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
-            preload_columns : dict, optional
-                A mapping of fileset metadata to columns to preload
+            trace : Callable, optional
+                A tracing function that determines which columns a processing function
+                accesses. It takes two arguments — a processing function (accepting events)
+                and a NanoEvents array — and returns an iterable of column name strings.
+                See ``coffea.nanoevents.trace.trace`` for the default implementation.
+                When provided and preprocessing is needed, tracing is performed and takes
+                precedence over fileset-level ``preload``.
         """
         if uproot_options is None:
             uproot_options = {}
@@ -1621,7 +1691,7 @@ class Runner:
             treename=treename,
             uproot_options=uproot_options,
             iteritems_options=iteritems_options,
-            preload_columns=preload_columns,
+            trace=trace,
         )
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
@@ -1635,6 +1705,8 @@ class Runner:
         *,
         treename: str | None = None,
         uproot_options: dict | None = {},
+        trace: Callable | None = None,
+        processor_instance: ProcessorABC | Callable | None = None,
     ) -> Generator:
         """Preprocess the fileset and generate work items
 
@@ -1646,12 +1718,30 @@ class Runner:
                 ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
                 You can also define a different tree name per file in the dictionary:
                 ``{dataset: {'files': {file: 'name'}}, }``
+                You can also define branches to preload per dataset:
+                ``{dataset: {'preload': ['branch1', 'branch2'], 'files': [file, file]}, }``
             treename : str
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
             uproot_options : dict, optional
                 Any options to pass to ``uproot.open``
+            trace : Callable, optional
+                A tracing function that determines which columns a processing function
+                accesses. It takes two arguments — a processing function (accepting events)
+                and a NanoEvents array — and returns an iterable of column name strings.
+                See ``coffea.nanoevents.trace.trace`` for the default implementation.
+                When provided, ``processor_instance`` must also be given. Tracing is
+                performed using the first openable file per dataset and the result
+                overrides any ``preload`` specified in the fileset. If ``None``, no
+                tracing is performed and only fileset-level ``preload`` (if any) is used.
+            processor_instance : ProcessorABC or Callable, optional
+                The processor whose column access will be traced. Required when ``trace``
+                is provided.
         """
+        if trace is not None and processor_instance is None:
+            raise ValueError(
+                "processor_instance must be provided when trace is specified"
+            )
         if not isinstance(fileset, (Mapping, str)):
             raise ValueError(
                 "Expected fileset to be a mapping dataset: list(files) or filename"
@@ -1665,144 +1755,17 @@ class Runner:
 
             self._preprocess_fileset_root(fileset, uproot_options=uproot_options)
             fileset = self._filter_badfiles(fileset)
+
+            if trace is not None:
+                if isinstance(processor_instance, ProcessorABC):
+                    process_fn = processor_instance.process
+                else:
+                    process_fn = processor_instance
+                self._trace_preload(fileset, trace, process_fn, uproot_options)
         elif self.format == "parquet":
             raise NotImplementedError("Parquet format is not supported yet.")
 
         return self._chunk_generator(fileset, treename)
-
-    def maybe_preprocess(
-        self,
-        fileset: dict,
-        treename: str | None = None,
-        uproot_options: dict | None = {},
-    ) -> Generator:
-        """Run the processor_instance on a given fileset if needed
-
-        Parameters
-        ----------
-            fileset : dict | str | List[WorkItem] | Generator
-                - A dictionary ``{dataset: [file, file], }``
-                  Optionally, if some files' tree name differ, the dictionary can be specified:
-                  ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
-                  You can also define a different tree name per file in the dictionary:
-                ``{dataset: {'files': {file: 'name'}}, }``
-                - A single file name
-                - File chunks for self.preprocess()
-                - Chunk generator
-            treename : str, optional
-                name of tree inside each root file, can be ``None``;
-                treename can also be defined in fileset, which will override the passed treename
-                Not needed if processing premade chunks
-            uproot_options : dict, optional
-                Any options to pass to ``uproot.open``
-        """
-        if uproot_options is None:
-            uproot_options = {}
-        meta = False
-        if not isinstance(fileset, (Mapping, str)):
-            if isinstance(fileset, Generator) or isinstance(fileset[0], WorkItem):
-                meta = True
-            else:
-                raise ValueError(
-                    "Expected fileset to be a mapping dataset: list(files) or filename"
-                )
-
-        if meta:
-            chunks = fileset
-        else:
-            chunks = self.preprocess(
-                fileset, treename=treename, uproot_options=uproot_options
-            )
-        return chunks
-
-    def trace_needed_columns(
-        self,
-        fileset: dict | str | list[WorkItem] | Generator,
-        processor_instance=ProcessorABC,
-        treename="Events",
-        uproot_options: dict | None = {},
-        iteritems_options: dict | None = {},
-        trace_method: Callable = trace,
-    ) -> Generator[WorkItem]:
-        """Trace the processor_instance on a given fileset
-
-        Parameters
-        ----------
-            fileset : dict | str | List[WorkItem] | Generator
-                - A dictionary ``{dataset: [file, file], }``
-                  Optionally, if some files' tree name differ, the dictionary can be specified:
-                  ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
-                  You can also define a different tree name per file in the dictionary:
-                ``{dataset: {'files': {file: 'name'}}, }``
-                - A single file name
-                - File chunks for self.preprocess()
-                - Chunk generator
-            processor_instance : ProcessorABC
-                An instance of a class deriving from ProcessorABC
-            treename : str, optional
-                name of tree inside each root file, can be ``None``;
-                treename can also be defined in fileset, which will override the passed treename
-                Not needed if processing premade chunks
-            uproot_options : dict, optional
-                Any options to pass to ``uproot.open``
-            iteritems_options : dict, optional
-                Any options to pass to ``tree.iteritems``
-            trace_method : Callable, Optional
-                A callable that takes a function and a NanoEventsArray and returns
-                the set of columns accessed during the function call.
-                Default is ``coffea.nanoevents.trace.trace``
-        """
-
-        class TraceProcessor(ProcessorABC):
-            """Wraps a processor to trace which columns are accessed during processing."""
-
-            def __init__(self, processor: ProcessorABC):
-                self.processor = processor
-
-            @property
-            def accumulator(self):
-                return {}
-
-            def process(self, events):
-                accum = self.accumulator
-                key = _key_for_tracing(events.metadata)
-                accum[key] = set()
-                columns = trace_method(self.processor.process, events)
-                accum[key] |= columns
-                return accum
-
-            def postprocess(self, accumulator):
-                return accumulator
-
-        # only trace first chunk per dataset
-        def _first_item_per_dataset(gen: Generator) -> Generator:
-            seen = set()
-            for item in gen:
-                if item.dataset not in seen:
-                    seen.add(item.dataset)
-                    yield item
-
-        chunks = _first_item_per_dataset(
-            self.maybe_preprocess(fileset, treename, uproot_options=uproot_options)
-        )
-
-        # wrap
-        trace_processor_instance = TraceProcessor(processor_instance)
-
-        # patch the executor description
-        old_desc = self.executor.desc
-        self.executor.desc = "Tracing"
-        needed = self(
-            chunks,
-            trace_processor_instance,
-            treename,
-            uproot_options=uproot_options,
-            iteritems_options=iteritems_options,
-            preload_columns=None,
-        )
-        # restore the old description
-        self.executor.desc = old_desc
-        return needed
 
     def run(
         self,
@@ -1812,7 +1775,7 @@ class Runner:
         treename: str | None = None,
         uproot_options: dict | None = {},
         iteritems_options: dict | None = {},
-        preload_columns: dict | None = None,
+        trace: Callable | None = None,
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
 
@@ -1826,6 +1789,8 @@ class Runner:
                   ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
                   You can also define a different tree name per file in the dictionary:
                   ``{dataset: {'files': {file: 'name'}}, }``
+                  You can also define branches to preload per dataset:
+                  ``{dataset: {'preload': ['branch1', 'branch2'], 'files': [file, file]}, }``
                 - A single file name
                 - File chunks for self.preprocess()
                 - Chunk generator
@@ -1839,8 +1804,13 @@ class Runner:
                 Any options to pass to ``uproot.open``
             iteritems_options : dict, optional
                 Any options to pass to ``tree.iteritems``
-            preload_columns: dict, optional
-                A mapping of fileset metadata to columns to preload
+            trace : Callable, optional
+                A tracing function that determines which columns a processing function
+                accesses. It takes two arguments — a processing function (accepting events)
+                and a NanoEvents array — and returns an iterable of column name strings.
+                See ``coffea.nanoevents.trace.trace`` for the default implementation.
+                When provided and preprocessing is needed, tracing is performed and takes
+                precedence over fileset-level ``preload``.
         """
         if uproot_options is None:
             uproot_options = {}
@@ -1853,7 +1823,25 @@ class Runner:
                 "Expected processor_instance to derive from ProcessorABC or be a single-argument callable"
             )
 
-        chunks = self.maybe_preprocess(fileset, treename, uproot_options=uproot_options)
+        meta = False
+        if not isinstance(fileset, (Mapping, str)):
+            if isinstance(fileset, Generator) or isinstance(fileset[0], WorkItem):
+                meta = True
+            else:
+                raise ValueError(
+                    "Expected fileset to be a mapping dataset: list(files) or filename"
+                )
+
+        if meta:
+            chunks = fileset
+        else:
+            chunks = self.preprocess(
+                fileset,
+                treename=treename,
+                uproot_options=uproot_options,
+                trace=trace,
+                processor_instance=processor_instance,
+            )
 
         if self.processor_compression is None:
             pi_to_send = processor_instance
@@ -1875,7 +1863,6 @@ class Runner:
                 processor_instance="heavy",
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
-                preload_columns=preload_columns,
                 checkpointer=self.checkpointer,
                 cache_function=partial(self.get_cache, self.cachestrategy),
             )
@@ -1890,7 +1877,6 @@ class Runner:
                 processor_instance=pi_to_send,
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
-                preload_columns=preload_columns,
                 checkpointer=self.checkpointer,
                 cache_function=partial(self.get_cache, self.cachestrategy),
             )
@@ -1941,7 +1927,3 @@ class Runner:
             return wrapped_out["out"]
         else:
             return wrapped_out
-
-
-def _key_for_tracing(metadata):
-    return (metadata["dataset"], metadata["treename"])
