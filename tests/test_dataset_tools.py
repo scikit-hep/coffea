@@ -15,6 +15,10 @@ from coffea.dataset_tools import (
     slice_chunks,
     slice_files,
 )
+from coffea.dataset_tools.filespec import (
+    DataGroupSpec,
+    DatasetSpec,
+)
 from coffea.nanoevents import BaseSchema, NanoAODSchema
 from coffea.processor.test_items import NanoEventsProcessor, NanoTestProcessor
 from coffea.util import decompress_form
@@ -129,7 +133,7 @@ _runnable_result = {
             }
         },
         "metadata": None,
-        "form": None,
+        "compressed_form": None,
     },
     "Data": {
         "files": {
@@ -148,7 +152,7 @@ _runnable_result = {
             }
         },
         "metadata": None,
-        "form": None,
+        "compressed_form": None,
     },
 }
 
@@ -170,7 +174,7 @@ _updated_result = {
             }
         },
         "metadata": None,
-        "form": None,
+        "compressed_form": None,
     },
     "Data": {
         "files": {
@@ -195,7 +199,158 @@ _updated_result = {
             },
         },
         "metadata": None,
-        "form": None,
+        "compressed_form": None,
+    },
+}
+
+_fileset_with_empty_files = {
+    "only_empty": {
+        "files": {
+            "tests/samples/nano_dy_empty.root": "Events",
+        },
+    },
+    "nonempty_and_empty": {
+        "files": {
+            "tests/samples/nano_dy.root": "Events",
+            "tests/samples/nano_dy_empty.root": "Events",
+        },
+    },
+    "empty_and_nonempty": {
+        "files": {
+            "tests/samples/nano_dy_empty.root": "Events",
+            "tests/samples/nano_dy.root": "Events",
+        },
+    },
+    "only_nonempty": {
+        "files": {
+            "tests/samples/nano_dy.root": "Events",
+        },
+    },
+}
+
+_fileset_with_empty_files_preprocessed = {
+    "only_empty": {
+        "files": {
+            "tests/samples/nano_dy_empty.root": {
+                "object_path": "Events",
+                "steps": [[0, 0]],
+                "num_entries": 0,
+                "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
+            }
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+    "nonempty_and_empty": {
+        "files": {
+            "tests/samples/nano_dy.root": {
+                "object_path": "Events",
+                "steps": [[0, 7], [7, 14], [14, 21], [21, 28], [28, 35], [35, 40]],
+                "num_entries": 40,
+                "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
+            },
+            "tests/samples/nano_dy_empty.root": {
+                "object_path": "Events",
+                "steps": [[0, 0]],
+                "num_entries": 0,
+                "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
+            },
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+    "empty_and_nonempty": {
+        "files": {
+            "tests/samples/nano_dy_empty.root": {
+                "object_path": "Events",
+                "steps": [[0, 0]],
+                "num_entries": 0,
+                "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
+            },
+            "tests/samples/nano_dy.root": {
+                "object_path": "Events",
+                "steps": [[0, 7], [7, 14], [14, 21], [21, 28], [28, 35], [35, 40]],
+                "num_entries": 40,
+                "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
+            },
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+    "only_nonempty": {
+        "files": {
+            "tests/samples/nano_dy.root": {
+                "object_path": "Events",
+                "steps": [[0, 7], [7, 14], [14, 21], [21, 28], [28, 35], [35, 40]],
+                "num_entries": 40,
+                "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
+            }
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+}
+
+_fileset_with_empty_files_preprocessed_aligned = {
+    "only_empty": {
+        "files": {
+            "tests/samples/nano_dy_empty.root": {
+                "object_path": "Events",
+                "steps": [[0, 0]],
+                "num_entries": 0,
+                "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
+            }
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+    "nonempty_and_empty": {
+        "files": {
+            "tests/samples/nano_dy.root": {
+                "object_path": "Events",
+                "steps": [[0, 40]],
+                "num_entries": 40,
+                "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
+            },
+            "tests/samples/nano_dy_empty.root": {
+                "object_path": "Events",
+                "steps": [[0, 0]],
+                "num_entries": 0,
+                "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
+            },
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+    "empty_and_nonempty": {
+        "files": {
+            "tests/samples/nano_dy_empty.root": {
+                "object_path": "Events",
+                "steps": [[0, 0]],
+                "num_entries": 0,
+                "uuid": "f73b274c-da3c-11f0-b00b-2100a8c0beef",
+            },
+            "tests/samples/nano_dy.root": {
+                "object_path": "Events",
+                "steps": [[0, 40]],
+                "num_entries": 40,
+                "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
+            },
+        },
+        "compressed_form": None,
+        "metadata": None,
+    },
+    "only_nonempty": {
+        "files": {
+            "tests/samples/nano_dy.root": {
+                "object_path": "Events",
+                "steps": [[0, 40]],
+                "num_entries": 40,
+                "uuid": "a9490124-3648-11ea-89e9-f5b55c90beef",
+            }
+        },
+        "compressed_form": None,
+        "metadata": None,
     },
 }
 
@@ -318,10 +473,14 @@ def test_apply_to_fileset(proc_and_schema):
 
 
 @pytest.mark.dask_client
-def test_apply_to_fileset_hinted_form():
+@pytest.mark.parametrize(
+    "the_fileset",
+    [_starting_fileset, DataGroupSpec(_starting_fileset)],
+)
+def test_apply_to_fileset_hinted_form(the_fileset):
     with Client() as _:
         dataset_runnable, dataset_updated = preprocess(
-            _starting_fileset,
+            the_fileset,
             step_size=7,
             align_clusters=False,
             files_per_batch=10,
@@ -335,7 +494,6 @@ def test_apply_to_fileset_hinted_form():
             schemaclass=NanoAODSchema,
         )
         out = dask.compute(to_compute)[0]
-
         assert out["ZJets"]["cutflow"]["ZJets_pt"] == 18
         assert out["ZJets"]["cutflow"]["ZJets_mass"] == 6
         assert out["Data"]["cutflow"]["Data_pt"] == 84
@@ -358,6 +516,89 @@ def test_preprocess(the_fileset):
 
         assert dataset_runnable == _runnable_result
         assert dataset_updated == _updated_result
+
+
+@pytest.mark.dask_client
+@pytest.mark.parametrize("the_fileset", [{}, DataGroupSpec({})])
+def test_preprocess_empty_fileset(the_fileset):
+    with Client() as _:
+        dataset_runnable, dataset_updated = preprocess(
+            the_fileset,
+            step_size=7,
+            align_clusters=False,
+            files_per_batch=10,
+            skip_bad_files=True,
+        )
+    if isinstance(the_fileset, DataGroupSpec):
+        assert isinstance(dataset_runnable, DataGroupSpec)
+        assert isinstance(dataset_updated, DataGroupSpec)
+    else:
+        assert dataset_runnable == {}
+        assert dataset_updated == {}
+
+
+@pytest.mark.dask_client
+@pytest.mark.parametrize(
+    "the_fileset", [_fileset_with_empty_files, DataGroupSpec(_fileset_with_empty_files)]
+)
+@pytest.mark.parametrize("align_clusters", [False, True])
+def test_preprocess_empty_files(the_fileset, align_clusters):
+    with Client() as _:
+        dataset_runnable, dataset_updated = preprocess(
+            the_fileset,
+            step_size=7,
+            align_clusters=align_clusters,
+            files_per_batch=10,
+            skip_bad_files=True,
+        )
+
+    if align_clusters:
+        expected_runnable = _fileset_with_empty_files_preprocessed_aligned
+        expected_updated = _fileset_with_empty_files_preprocessed_aligned
+    else:
+        expected_runnable = _fileset_with_empty_files_preprocessed
+        expected_updated = _fileset_with_empty_files_preprocessed
+    if isinstance(the_fileset, DataGroupSpec):
+        expected_runnable = DataGroupSpec(expected_runnable)
+        expected_updated = DataGroupSpec(expected_updated)
+    assert dataset_runnable == expected_runnable
+    assert dataset_updated == expected_updated
+
+    def data_manipulation(events):
+        return len(events)
+
+    with Client() as _:
+        to_compute = apply_to_fileset(
+            data_manipulation,
+            dataset_runnable,
+            schemaclass=NanoAODSchema,
+        )
+        out = dask.compute(to_compute)[0]
+
+    assert out == {
+        "only_empty": 0,
+        "nonempty_and_empty": 40,
+        "empty_and_nonempty": 40,
+        "only_nonempty": 40,
+    }
+
+
+@pytest.mark.dask_client
+def test_preprocess_DataGroupSpec_mixed():
+    fileset = DataGroupSpec(_starting_fileset)
+    # Create a mixed DataGroupSpec
+    fileset["Data"] = fileset["Data"].model_dump()
+
+    with Client() as _:
+        dataset_runnable, dataset_updated = preprocess(
+            fileset,
+            step_size=7,
+            align_clusters=False,
+            files_per_batch=10,
+            skip_bad_files=True,
+        )
+    assert len(dataset_runnable) == 2
+    assert isinstance(dataset_runnable["Data"], DatasetSpec)
 
 
 @pytest.mark.dask_client
@@ -385,8 +626,13 @@ def test_preprocess_calculate_form():
             ak_add_doc={"__doc__": "title", "typename": "typename"},
         ).layout.form.to_json()
 
-        assert decompress_form(dataset_runnable["ZJets"]["form"]) == raw_form_dy
-        assert decompress_form(dataset_runnable["Data"]["form"]) == raw_form_data
+        assert (
+            decompress_form(dataset_runnable["ZJets"]["compressed_form"]) == raw_form_dy
+        )
+        assert (
+            decompress_form(dataset_runnable["Data"]["compressed_form"])
+            == raw_form_data
+        )
 
 
 @pytest.mark.dask_client
@@ -443,16 +689,19 @@ def test_preprocess_with_file_exceptions():
                     "uuid": "ad4cd5ec-123e-11ec-92f6-93e3aac0beef",
                 },
             },
-            "form": None,
+            "compressed_form": None,
             "metadata": None,
         },
     }
 
 
-def test_filter_files():
-    filtered_files = filter_files(_updated_result)
+@pytest.mark.parametrize(
+    "the_fileset", [_updated_result, DataGroupSpec(_updated_result)]
+)
+def test_filter_files(the_fileset):
+    filtered_files = filter_files(the_fileset)
 
-    assert filtered_files == {
+    target = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -463,7 +712,7 @@ def test_filter_files():
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
         "Data": {
             "files": {
@@ -475,15 +724,22 @@ def test_filter_files():
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
     }
+    if isinstance(filtered_files, DataGroupSpec):
+        assert filtered_files == DataGroupSpec(target)
+    else:
+        assert filtered_files == target
 
 
-def test_max_files():
-    maxed_files = max_files(_updated_result, 1)
+@pytest.mark.parametrize(
+    "the_fileset", [_updated_result, DataGroupSpec(_updated_result)]
+)
+def test_max_files(the_fileset):
+    maxed_files = max_files(the_fileset, 1)
 
-    assert maxed_files == {
+    target = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -494,7 +750,7 @@ def test_max_files():
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
         "Data": {
             "files": {
@@ -506,16 +762,23 @@ def test_max_files():
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
     }
+    if isinstance(the_fileset, DataGroupSpec):
+        assert maxed_files == DataGroupSpec(target)
+    else:
+        assert maxed_files == target
 
 
-def test_slice_files():
-    sliced_files = slice_files(_updated_result, slice(1, None, 2))
+@pytest.mark.parametrize(
+    "the_fileset", [_updated_result, DataGroupSpec(_updated_result)]
+)
+def test_slice_files(the_fileset):
+    sliced_files = slice_files(the_fileset, slice(1, None, 2))
 
-    assert sliced_files == {
-        "ZJets": {"files": {}, "metadata": None, "form": None},
+    target = {
+        "ZJets": {"files": {}, "metadata": None, "compressed_form": None},
         "Data": {
             "files": {
                 "tests/samples/nano_dimuon_not_there.root": {
@@ -526,15 +789,23 @@ def test_slice_files():
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
     }
+    if isinstance(the_fileset, DataGroupSpec):
+        target["ZJets"]["format"] = "root"
+        assert sliced_files == DataGroupSpec(target)
+    else:
+        assert sliced_files == target
 
 
-def test_max_chunks():
-    max_chunked = max_chunks(_runnable_result, 3)
+@pytest.mark.parametrize(
+    "the_fileset", [_runnable_result, DataGroupSpec(_runnable_result)]
+)
+def test_max_chunks(the_fileset):
+    max_chunked = max_chunks(the_fileset, 3)
 
-    assert max_chunked == {
+    target = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -545,7 +816,7 @@ def test_max_chunks():
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
         "Data": {
             "files": {
@@ -557,13 +828,16 @@ def test_max_chunks():
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
     }
 
-    max_chunked = max_chunks(_starting_fileset_with_steps, 10)
+    if isinstance(the_fileset, DataGroupSpec):
+        assert max_chunked == DataGroupSpec(target)
+    else:
+        assert max_chunked == target
 
-    assert max_chunked == {
+    target2 = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -606,10 +880,14 @@ def test_max_chunks():
             }
         },
     }
+    if isinstance(the_fileset, DataGroupSpec):
+        max_chunked = max_chunks(DataGroupSpec(_starting_fileset_with_steps), 10)
+        assert max_chunked == DataGroupSpec(target2)
+    else:
+        max_chunked = max_chunks(_starting_fileset_with_steps, 10)
+        assert max_chunked == target2
 
-    max_chunked = max_chunks_per_file(_starting_fileset_with_steps, 3)
-
-    assert max_chunked == {
+    target3 = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -643,12 +921,23 @@ def test_max_chunks():
             }
         },
     }
+    if isinstance(the_fileset, DataGroupSpec):
+        max_chunked = max_chunks_per_file(
+            DataGroupSpec(_starting_fileset_with_steps), 3
+        )
+        assert max_chunked == DataGroupSpec(target3)
+    else:
+        max_chunked = max_chunks_per_file(_starting_fileset_with_steps, 3)
+        assert max_chunked == target3
 
 
-def test_slice_chunks():
-    slice_chunked = slice_chunks(_runnable_result, slice(None, None, 2))
+@pytest.mark.parametrize(
+    "the_fileset", [_runnable_result, DataGroupSpec(_runnable_result)]
+)
+def test_slice_chunks(the_fileset):
+    slice_chunked = slice_chunks(the_fileset, slice(None, None, 2))
 
-    assert slice_chunked == {
+    target = {
         "ZJets": {
             "files": {
                 "tests/samples/nano_dy.root": {
@@ -659,7 +948,7 @@ def test_slice_chunks():
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
         "Data": {
             "files": {
@@ -671,24 +960,32 @@ def test_slice_chunks():
                 }
             },
             "metadata": None,
-            "form": None,
+            "compressed_form": None,
         },
     }
+    if isinstance(the_fileset, DataGroupSpec):
+        assert slice_chunked == DataGroupSpec(target)
+    else:
+        assert slice_chunked == target
 
 
+@pytest.mark.parametrize(
+    "the_fileset",
+    [_starting_fileset_with_steps, DataGroupSpec(_starting_fileset_with_steps)],
+)
 @pytest.mark.dask_client
-def test_recover_failed_chunks():
+def test_recover_failed_chunks(the_fileset):
     with Client() as _:
         to_compute = apply_to_fileset(
             NanoEventsProcessor(),
-            _starting_fileset_with_steps,
+            the_fileset,
             schemaclass=NanoAODSchema,
             uproot_options={"allow_read_errors_with_report": True},
         )
         out, reports = dask.compute(*to_compute)
 
-    failed_fset = get_failed_steps_for_fileset(_starting_fileset_with_steps, reports)
-    assert failed_fset == {
+    failed_fset = get_failed_steps_for_fileset(the_fileset, reports)
+    target = {
         "Data": {
             "files": {
                 "tests/samples/nano_dimuon_not_there.root": {
@@ -707,3 +1004,7 @@ def test_recover_failed_chunks():
             }
         }
     }
+    if isinstance(failed_fset, DataGroupSpec):
+        assert failed_fset == DataGroupSpec(target)
+    else:
+        assert failed_fset == target

@@ -130,12 +130,12 @@ class CorrectedJetsFactory:
 
     Parameters
     ----------
-        name_map: dict[str,str]
-            Keys are argument names in the various corrections' signatures (eg: the `signature`
-            attribute of a `FactorizedJJetCorrector` object). Values are the names of the
+        name_map : dict[str, str]
+            Keys are argument names in the various corrections' signatures (eg: the ``signature``
+            attribute of a ``FactorizedJetCorrector`` object). Values are the names of the
             corresponding fields as they would appear in the jet array passed to the `build`
             method.
-        jec_stack: JECStack
+        jec_stack : JECStack
             Contains the corrections that will be applied to the input jet array when calling
             `build`.
     """
@@ -175,7 +175,8 @@ class CorrectedJetsFactory:
 
         if "ptGenJet" not in name_map:
             warnings.warn(
-                'Input JaggedCandidateArray must have "ptGenJet" in order to apply hybrid JER smearing method. Stochastic smearing will be applied.'
+                'Input jet collections must provide "ptGenJet" to apply the hybrid JER smearing method. '
+                "Falling back to stochastic smearing."
             )
             self.forceStochastic = True
 
@@ -204,13 +205,13 @@ class CorrectedJetsFactory:
 
         Parameters
         ----------
-            injets: (Awkward array[jets])
+            injets : awkward.Array or dask_awkward.Array
                 An array of uncorrected jets, to which we want to apply corrections.
 
         Returns
         -------
-            Awkward array of jets, representing the corrected jets, with shape matching
-            `injets`.
+            awkward.Array or dask_awkward.Array
+                Array of jets, representing the corrected jets, with shape matching ``injets``.
         """
         if not isinstance(injets, (awkward.highlevel.Array, dask_awkward.Array)):
             raise Exception("input jets must be an (dask_)awkward array of some kind!")

@@ -167,16 +167,20 @@ class EDM4HEPSchema(BaseSchema):
     @classmethod
     def version(cls, ver="latest"):
         """Choose a version of EDM4HEPSchema to use.
-        Options: ver | string | version of edm4hep.yaml
-                    allowed values for ver:
-                     "latest" (default)--> corresponds to 00.99.01 version of edm4hep.yaml
-                     "00.99.01" --> corresponds to 00.99.01 version of edm4hep.yaml
-                     "00.99.00" --> corresponds to 00.99.00 version of edm4hep.yaml
-                     "00.10.05" --> corresponds to 00.10.05 version of edm4hep.yaml
-                     "00.10.04" --> corresponds to 00.10.04 version of edm4hep.yaml
-                     "00.10.03" --> corresponds to 00.10.03 version of edm4hep.yaml
-                     "00.10.02" --> corresponds to 00.10.02 version of edm4hep.yaml
-                     "00.10.01" --> corresponds to 00.10.01 version of edm4hep.yaml
+
+        Parameters
+        ----------
+            ver : str, optional
+                Version of edm4hep.yaml. Allowed values:
+
+                - "latest" (default): corresponds to 00.99.01 version of edm4hep.yaml
+                - "00.99.01": corresponds to 00.99.01 version of edm4hep.yaml
+                - "00.99.00": corresponds to 00.99.00 version of edm4hep.yaml
+                - "00.10.05": corresponds to 00.10.05 version of edm4hep.yaml
+                - "00.10.04": corresponds to 00.10.04 version of edm4hep.yaml
+                - "00.10.03": corresponds to 00.10.03 version of edm4hep.yaml
+                - "00.10.02": corresponds to 00.10.02 version of edm4hep.yaml
+                - "00.10.01": corresponds to 00.10.01 version of edm4hep.yaml
         """
         version_match = {
             "latest": EDM4HEPSchema,

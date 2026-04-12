@@ -39,12 +39,12 @@ def get_rucio_client(proxy=None) -> Client:
     Parameters
     ----------
         proxy : str, optional
-            Use the provided proxy file if given, if not use `voms-proxy-info` to get the current active one.
+            Use the provided proxy file if given, if not use ``voms-proxy-info`` to get the current active one.
 
     Returns
     -------
-        nativeClient: rucio.Client
-            Rucio client
+        Client
+            Rucio client connected with the resolved proxy credentials.
     """
     try:
         if not proxy:
@@ -60,7 +60,7 @@ def get_rucio_client(proxy=None) -> Client:
 def get_xrootd_sites_map():
     """
     The mapping between RSE (sites) and the xrootd prefix rules is read
-    from `/cvmfs/cms/cern.ch/SITECONF/*site*/storage.json`.
+    from ``/cvmfs/cms/cern.ch/SITECONF/*site*/storage.json``.
 
     This function returns the list of xrootd prefix rules for each site.
     """
@@ -143,11 +143,11 @@ def get_dataset_files_replicas(
     of all the replicas of the files in a CMS dataset.
 
     The sites can be filtered in 3 different ways:
-    - `allowlist_sites`: list of sites to select from. If the file is not found there, raise an Exception.
-    - `blocklist_sites`: list of sites to avoid. If the file has no left site, raise an Exception
-    - `regex_sites`: regex expression to restrict the list of sites.
+    - ``allowlist_sites``: list of sites to select from. If the file is not found there, raise an Exception.
+    - ``blocklist_sites``: list of sites to avoid. If the file has no left site, raise an Exception
+    - ``regex_sites``: regex expression to restrict the list of sites.
 
-    The fileset returned by the function is controlled by the `mode` parameter:
+    The fileset returned by the function is controlled by the ``mode`` parameter:
     - "full": returns the full set of replicas and sites (passing the filtering parameters)
     - "first": returns the first replica found for each file
     - "best": to be implemented (ServiceX..)
@@ -156,38 +156,37 @@ def get_dataset_files_replicas(
     Parameters
     ----------
 
-        dataset: str
+        dataset : str
             The dataset to search for.
-        allowlist_sites: list
+        allowlist_sites : list or None
             List of sites to select from. If the file is not found there, raise an Exception.
-        blocklist_sites: list
+        blocklist_sites : list or None
             List of sites to avoid. If the file has no left site, raise an Exception.
-        regex_sites: list
+        regex_sites : list or None
             Regex expression to restrict the list of sites.
-        mode:  str, default "full"
+        mode : str, default "full"
             One of "full", "first", "best", or "roundrobin". Behavior of each described above.
-        client: rucio Client, optional
+        client : rucio.client.Client or None, optional
             The rucio client to use. If not provided, one will be generated for you.
-        partial_allowed: bool, default False
+        partial_allowed : bool, default False
             If False, throws an exception if any file in the dataset cannot be found. If True,
             will find as many files from the dataset as it can.
-        scope:  rucio scope, "cms"
+        scope : str, default "cms"
             The scope for rucio to search through.
 
     Returns
     -------
-        files: list
-           depending on the `mode` option.
-           - If `mode=="full"`, returns the complete list of replicas for each file in the dataset
-           - If `mode=="first"`, returns only the first replica for each file.
+        files : list
+            Depending on ``mode``. For ``"full"`` this is the list of replicas per file;
+            for ``"first"`` it contains only the first replica per file.
 
-        sites: list
-           depending on the `mode` option.
-           - If `mode=="full"`, returns the list of sites where the file replica is available for each file in the dataset
-           - If `mode=="first"`, returns a list of sites for the first replica of each file.
+        sites : list
+            Depending on ``mode``. For ``"full"`` this is the list of sites where each
+            file replica is available; for ``"first"`` it contains the site of the first
+            replica.
 
-        sites_counts: dict
-           Metadata counting the coverage of the dataset by site
+        sites_counts : dict
+            Metadata counting the coverage of the dataset by site.
 
     """
     sites_xrootd_prefix = get_xrootd_sites_map()
@@ -300,22 +299,24 @@ def query_dataset(
     This function uses the rucio client to query for containers or datasets.
 
     Parameters
-    ---------
-        query: str
-            Query to filter datasets / containers with the rucio list_dids functions
-        client: rucio Client
-            The rucio client to use. If not provided, one will be generated for you
-        tree: bool, default False
-            If True, return the results splitting the dataset name in parts
-        datatype: str, default "container"
-            Options are "container", "dataset".  rucio terminology. "Container"==CMS dataset. "Dataset" == CMS block.
-        scope: str, default "cms"
-            Rucio instance
+    ----------
+        query : str
+            Pattern passed to ``rucio`` ``list_dids``.
+        client : rucio.client.Client or None, optional
+            Client instance to use. If omitted, a new client is created.
+        tree : bool, default False
+            If True, return a mapping grouped by dataset components alongside the list.
+        datatype : str, default "container"
+            Rucio type to query: ``"container"`` (CMS dataset) or ``"dataset"`` (CMS block).
+        scope : str, default "cms"
+            Rucio scope to operate in.
 
     Returns
     -------
-       List of containers/datasets. If tree==True, returns the list of dataset and also a dictionary decomposing
-       the datasets names in the 1st command part and a list of available 2nd parts.
+        list[str] or tuple[list[str], dict[str, dict[str, list[str]]]]
+            When ``tree`` is False, returns the matched dataset names. Otherwise returns
+            a tuple of the flat list and a nested dictionary grouping the names by their
+            components.
 
     """
     client = client if client else get_rucio_client()

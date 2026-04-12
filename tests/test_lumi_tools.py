@@ -62,6 +62,7 @@ def test_lumidata():
 
 
 @pytest.mark.dask_client
+@pytest.mark.network
 @pytest.mark.parametrize(
     "jsonfile",
     [

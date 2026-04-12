@@ -139,7 +139,14 @@ class ParquetSourceMapping(BaseSourceMapping):
             return awkward.Array(out)
 
     def __init__(
-        self, fileopener, start, stop, cache=None, access_log=None, virtual=False
+        self,
+        fileopener,
+        start,
+        stop,
+        cache=None,
+        access_log=None,
+        virtual=False,
+        buffer_cache=None,
     ):
         super().__init__(
             fileopener=fileopener,
@@ -148,6 +155,7 @@ class ParquetSourceMapping(BaseSourceMapping):
             cache=cache,
             access_log=access_log,
             virtual=virtual,
+            buffer_cache=buffer_cache,
         )
 
     @classmethod

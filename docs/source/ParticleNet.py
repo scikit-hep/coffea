@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -216,7 +214,7 @@ class ParticleNet(nn.Module):
         points *= mask
         features *= mask
         coord_shift = (mask == 0) * 1e9
-        counts: Optional[torch.Tensor] = None
+        counts: torch.Tensor | None = None
         if self.use_counts:
             counts = mask.float().sum(dim=-1)
             counts = torch.max(counts, torch.ones_like(counts))  # >=1

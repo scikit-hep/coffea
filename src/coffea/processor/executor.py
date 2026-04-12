@@ -8,19 +8,28 @@ import traceback
 import uuid
 import warnings
 from collections import defaultdict
-from collections.abc import Awaitable, Generator, Iterable, Mapping, MutableMapping
+from collections.abc import (
+    Awaitable,
+    Callable,
+    Generator,
+    Iterable,
+    Mapping,
+    MutableMapping,
+)
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from functools import partial
 from io import BytesIO
 from itertools import repeat
 from typing import (
-    Callable,
+    Any,
+    Literal,
     Optional,
-    Union,
 )
 
+import awkward
 import cloudpickle
+import loky
 import lz4.frame as lz4f
 import toml
 import uproot
@@ -29,8 +38,10 @@ from cachetools import LRUCache
 from coffea.nanoevents.trace import trace
 
 from ..nanoevents import NanoEventsFactory, schemas
+from ..nanoevents.util import key_to_tuple
 from ..util import _exception_chain, _hash, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
+from .checkpointer import CheckpointerABC
 from .processor import ProcessorABC
 
 _PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
@@ -107,6 +118,16 @@ class FileMeta:
                     chunks.append(c)
             if self.metadata["clusters"][-1] != chunks[-1]:
                 chunks.append(self.metadata["clusters"][-1])
+            if chunks == [0]:
+                yield WorkItem(
+                    self.dataset,
+                    self.filename,
+                    self.treename,
+                    0,
+                    0,
+                    self.metadata["uuid"],
+                    user_meta,
+                )
             for start, stop in zip(chunks[:-1], chunks[1:]):
                 yield WorkItem(
                     self.dataset,
@@ -122,6 +143,16 @@ class FileMeta:
             numentries = self.metadata["numentries"]
             update = True
             start = 0
+            if numentries == 0:
+                yield WorkItem(
+                    self.dataset,
+                    self.filename,
+                    self.treename,
+                    0,
+                    0,
+                    self.metadata["uuid"],
+                    user_meta,
+                )
             while start < numentries:
                 if update:
                     n = max(round((numentries - start) / target_chunksize), 1)
@@ -153,7 +184,7 @@ class WorkItem:
     entrystart: int
     entrystop: int
     fileuuid: str
-    usermeta: Optional[dict] = field(default=None, compare=False)
+    usermeta: dict | None = field(default=None, compare=False)
 
     def __len__(self) -> int:
         return self.entrystop - self.entrystart
@@ -326,8 +357,8 @@ class ExecutorBase:
     status: bool = True
     unit: str = "items"
     desc: str = "Processing"
-    compression: Optional[int] = 1
-    function_name: Optional[str] = None
+    compression: int | None = 1
+    function_name: str | None = None
 
     def __call__(
         self,
@@ -349,7 +380,7 @@ def _watcher(
     FH: _FuturesHolder,
     executor: ExecutorBase,
     merge_fcn: Callable,
-    pool: Optional[Callable] = None,
+    pool: Callable | None = None,
 ) -> Accumulatable:
     with rich_bar() as progress:
         p_id = progress.add_task(executor.desc, total=FH.running, unit=executor.unit)
@@ -455,9 +486,12 @@ class IterativeExecutor(ExecutorBase):
             Label of progress bar description
         compression : int, optional
             Ignored for iterative executor
+        retries : int, optional
+            Number of retries for failed tasks (default: 3)
     """
 
     workers: int = 1
+    retries: int = 3
 
     def __call__(
         self,
@@ -497,7 +531,7 @@ class FuturesExecutor(ExecutorBase):
         accumulator : Accumulatable
             An accumulator to collect the output of the function
         pool : concurrent.futures.Executor class or instance, optional
-            The type of futures executor to use, defaults to ProcessPoolExecutor.
+            The type of futures executor to use, defaults to loky.ProcessPoolExecutor.
             You can pass an instance instead of a class to reuse an executor
         workers : int, optional
             Number of parallel processes for futures (default 1)
@@ -521,33 +555,32 @@ class FuturesExecutor(ExecutorBase):
             aka as they are returned try to split completed jobs into 5 batches, but of at least 4 and at most 100 items.
             Default is ``False`` - results get merged as they finish in the main process.
         nparts : int, optional
-            Number of merge jobs to create at a time. Also pass via ``merging(X, ..., ...)''
+            Number of merge jobs to create at a time. Also pass via ``merging(X, ..., ...)``
         minred : int, optional
-            Minimum number of items to merge in one job. Also pass via ``merging(..., X, ...)''
+            Minimum number of items to merge in one job. Also pass via ``merging(..., X, ...)``
         maxred : int, optional
-            maximum number of items to merge in one job. Also pass via ``merging(..., ..., X)''
+            maximum number of items to merge in one job. Also pass via ``merging(..., ..., X)``
         mergepool : concurrent.futures.Executor class or instance | int, optional
             Supply an additional executor to process merge jobs independently.
             An ``int`` will be interpreted as ``ProcessPoolExecutor(max_workers=int)``.
         tailtimeout : int, optional
             Timeout requirement on job tails. Cancel all remaining jobs if none have finished
             in the timeout window.
+        retries : int, optional
+            Number of retries for failed tasks (default: 3)
     """
 
-    pool: Union[
-        Callable[..., concurrent.futures.Executor], concurrent.futures.Executor
-    ] = concurrent.futures.ProcessPoolExecutor  # fmt: skip
-    mergepool: Optional[
-        Union[
-            Callable[..., concurrent.futures.Executor],
-            concurrent.futures.Executor,
-            bool,
-        ]
-    ] = None
+    pool: Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor = (
+        loky.ProcessPoolExecutor
+    )
+    mergepool: None | (
+        Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor | bool
+    ) = None
     recoverable: bool = False
-    merging: Union[bool, tuple[int, int, int]] = False
+    merging: bool | tuple[int, int, int] = False
     workers: int = 1
-    tailtimeout: Optional[int] = None
+    tailtimeout: int | None = None
+    retries: int = 3
 
     def __post_init__(self):
         if not (
@@ -661,7 +694,7 @@ class DaskExecutor(ExecutorBase):
     treereduction: int = 20
     priority: int = 0
     retries: int = 3
-    heavy_input: Optional[bytes] = None
+    heavy_input: bytes | None = None
     use_dataframes: bool = False
     # secret options
     worker_affinity: bool = False
@@ -765,10 +798,9 @@ class DaskExecutor(ExecutorBase):
             work = work[0]
             try:
                 if self.status:
-                    from distributed import progress
+                    from ._dask import progress
 
-                    # FIXME: fancy widget doesn't appear, have to live with boring pbar
-                    progress(work, multi=True, notebook=False)
+                    progress(work, description=f"[green]{self.desc}", unit=self.unit)
                 return (
                     accumulate(
                         [
@@ -839,14 +871,17 @@ class ParslExecutor(ExecutorBase):
         tailtimeout : int, optional
             Timeout requirement on job tails. Cancel all remaining jobs if none have finished
             in the timeout window.
+        retries : int, optional
+            Number of retries for failed tasks (default: 3)
     """
 
-    tailtimeout: Optional[int] = None
+    tailtimeout: int | None = None
     config: Optional["parsl.config.Config"] = None  # noqa
     recoverable: bool = False
-    merging: Optional[Union[bool, tuple[int, int, int]]] = False
-    jobs_executors: Union[str, list] = "all"
-    merges_executors: Union[str, list] = "all"
+    merging: bool | tuple[int, int, int] | None = False
+    jobs_executors: str | list = "all"
+    merges_executors: str | list = "all"
+    retries: int = 3
 
     def __post_init__(self):
         if not (
@@ -1025,22 +1060,28 @@ class Runner:
             determine chunking.  Defaults to a in-memory LRU cache that holds 100k entries
             (about 1MB depending on the length of filenames, etc.)  If you edit an input file
             (please don't) during a session, the session can be restarted to clear the cache.
+        checkpointer : CheckpointerABC, optional
+            A CheckpointerABC instance to manage checkpointing of each chunk output
     """
 
     executor: ExecutorBase
-    pre_executor: Optional[ExecutorBase] = None
+    pre_executor: ExecutorBase | None = None
     chunksize: int = 100000
-    maxchunks: Optional[int] = None
-    metadata_cache: Optional[MutableMapping] = None
-    skipbadfiles: bool = False
-    xrootdtimeout: Optional[int] = 60
+    maxchunks: int | None = None
+    metadata_cache: MutableMapping | None = None
+    skipbadfiles: bool | tuple[type[BaseException], ...] = False
+    xrootdtimeout: int | None = 60
     align_clusters: bool = False
     savemetrics: bool = False
-    schema: Optional[schemas.BaseSchema] = schemas.NanoAODSchema
+    schema: schemas.BaseSchema | None = schemas.NanoAODSchema
     processor_compression: int = 1
-    use_skyhook: Optional[bool] = False
-    skyhook_options: Optional[dict] = field(default_factory=dict)
+    use_skyhook: bool | None = False
+    skyhook_options: dict | None = field(default_factory=dict)
     format: str = "root"
+    checkpointer: CheckpointerABC | None = None
+    cachestrategy: None | (Literal["dask-worker"] | Callable[..., MutableMapping]) = (
+        None
+    )
 
     @staticmethod
     def read_coffea_config():
@@ -1076,10 +1117,7 @@ class Runner:
 
     @property
     def retries(self):
-        if isinstance(self.executor, DaskExecutor):
-            retries = 0
-        else:
-            retries = getattr(self.executor, "retries", 0)
+        retries = getattr(self.executor, "retries", 0)
         assert retries >= 0
         return retries
 
@@ -1091,45 +1129,57 @@ class Runner:
             return False
 
     @staticmethod
-    def automatic_retries(retries: int, skipbadfiles: bool, func, *args, **kwargs):
+    def get_cache(cachestrategy):
+        cache = None
+        if cachestrategy == "dask-worker":
+            from distributed import get_worker
+
+            from coffea.processor.dask import ColumnCache
+
+            worker = get_worker()
+            try:
+                cache = worker.plugins[ColumnCache.name]
+            except KeyError:
+                # emit warning if not found?
+                pass
+        elif callable(cachestrategy):
+            cache = cachestrategy()
+        return cache
+
+    @staticmethod
+    def automatic_retries(
+        retries: int,
+        skipbadfiles: bool | tuple[type[BaseException], ...],
+        func,
+        *args,
+        **kwargs,
+    ):
         """This should probably defined on Executor-level."""
         import warnings
+
+        if not isinstance(skipbadfiles, tuple) and skipbadfiles is True:
+            skipbadfiles = (OSError,)
 
         retry_count = 0
         while retry_count <= retries:
             try:
                 return func(*args, **kwargs)
-            # catch xrootd errors and optionally skip
-            # or retry to read the file
             except Exception as e:
+                warnings.warn(
+                    f"Performed attempt {retry_count + 1} out of {retries + 1}"
+                )
                 chain = _exception_chain(e)
-                if skipbadfiles and any(
-                    isinstance(c, (OSError, UprootMissTreeError)) for c in chain
-                ):
-                    warnings.warn(str(e))
-                    break
                 if (
                     skipbadfiles
                     and (retries == retry_count)
-                    and any(
-                        e in str(c)
-                        for c in chain
-                        for e in [
-                            "Invalid redirect URL",
-                            "Operation expired",
-                            "Socket timeout",
-                        ]
+                    and any(isinstance(c, skipbadfiles) for c in chain)
+                ):
+                    warnings.warn(
+                        f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}"
                     )
-                ):
-                    warnings.warn(str(e))
                     break
-                if (
-                    not skipbadfiles
-                    or any("Auth failed" in str(c) for c in chain)
-                    or retries == retry_count
-                ):
+                if not skipbadfiles or (retries == retry_count):
                     raise e
-                warnings.warn("Attempt %d of %d." % (retry_count + 1, retries + 1))
             retry_count += 1
 
     @staticmethod
@@ -1181,9 +1231,14 @@ class Runner:
 
     @staticmethod
     def metadata_fetcher_root(
-        xrootdtimeout: int, align_clusters: bool, item: FileMeta
+        xrootdtimeout: int,
+        align_clusters: bool,
+        uproot_options: dict,
+        item: FileMeta,
     ) -> Accumulatable:
-        with uproot.open({item.filename: None}, timeout=xrootdtimeout) as file:
+        with uproot.open(
+            {item.filename: None}, timeout=xrootdtimeout, **uproot_options
+        ) as file:
             try:
                 tree = file[item.treename]
             except uproot.exceptions.KeyInFileError as e:
@@ -1214,7 +1269,7 @@ class Runner:
             )
         return out
 
-    def _preprocess_fileset_root(self, fileset: dict) -> None:
+    def _preprocess_fileset_root(self, fileset: dict, uproot_options: dict) -> None:
         # this is a bit of an abuse of map-reduce but ok
         to_get = {
             filemeta
@@ -1237,10 +1292,13 @@ class Runner:
             pre_executor = self.pre_executor.copy(**pre_arg_override)
             closure = partial(
                 self.automatic_retries,
-                self.retries,
+                0 if isinstance(pre_executor, DaskExecutor) else self.retries,
                 self.skipbadfiles,
                 partial(
-                    self.metadata_fetcher_root, self.xrootdtimeout, self.align_clusters
+                    self.metadata_fetcher_root,
+                    self.xrootdtimeout,
+                    self.align_clusters,
+                    uproot_options,
                 ),
             )
             out, _ = pre_executor(to_get, closure, out)
@@ -1273,7 +1331,7 @@ class Runner:
             pre_executor = self.pre_executor.copy(**pre_arg_override)
             closure = partial(
                 self.automatic_retries,
-                self.retries,
+                0 if isinstance(pre_executor, DaskExecutor) else self.retries,
                 self.skipbadfiles,
                 self.metadata_fetcher_parquet,
             )
@@ -1383,17 +1441,43 @@ class Runner:
         use_dataframes: bool,
         savemetrics: bool,
         item: WorkItem,
-        processor_instance: ProcessorABC,
+        processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
         uproot_options: dict,
         iteritems_options: dict,
         preload_columns: dict,
+        checkpointer: CheckpointerABC,
+        cache_function: Callable[[], MutableMapping],
     ) -> dict:
         if "timeout" in uproot_options:
             xrootdtimeout = uproot_options["timeout"]
         if processor_instance == "heavy":
             item, processor_instance = item
-        if not isinstance(processor_instance, ProcessorABC):
+        if not isinstance(processor_instance, ProcessorABC) or not callable(
+            processor_instance
+        ):
             processor_instance = cloudpickle.loads(lz4f.decompress(processor_instance))
+
+        metadata = {
+            "dataset": item.dataset,
+            "filename": item.filename,
+            "treename": item.treename,
+            "entrystart": item.entrystart,
+            "entrystop": item.entrystop,
+            "fileuuid": (
+                str(uuid.UUID(bytes=item.fileuuid)) if len(item.fileuuid) > 0 else ""
+            ),
+        }
+        if item.usermeta is not None:
+            metadata.update(item.usermeta)
+
+        if checkpointer is not None:
+            if not isinstance(checkpointer, CheckpointerABC):
+                raise TypeError("Expected checkpointer to derive from CheckpointerABC")
+            # try to load from checkpoint
+            out = checkpointer.load(metadata, processor_instance)
+            # if we got something, return it
+            if out is not None:
+                return out
 
         try:
             if format == "root":
@@ -1408,19 +1492,6 @@ class Runner:
             raise Exception(
                 f"Failed to open file: {item!r}. The error was: {e!r}."
             ) from e
-
-        metadata = {
-            "dataset": item.dataset,
-            "filename": item.filename,
-            "treename": item.treename,
-            "entrystart": item.entrystart,
-            "entrystop": item.entrystop,
-            "fileuuid": (
-                str(uuid.UUID(bytes=item.fileuuid)) if len(item.fileuuid) > 0 else ""
-            ),
-        }
-        if item.usermeta is not None:
-            metadata.update(item.usermeta)
 
         # preload logic
         # Important: same hash as in the TraceProcessor cls, so we use a common method
@@ -1453,6 +1524,7 @@ class Runner:
                             entry_stop=item.entrystop,
                             iteritems_options=iteritems_options,
                             preload=preload,
+                            buffer_cache=cache_function(),
                         )
                         events = factory.events()
                     elif format == "parquet":
@@ -1470,7 +1542,10 @@ class Runner:
                 )
             tic = time.time()
             try:
-                out = processor_instance.process(events)
+                if isinstance(processor_instance, ProcessorABC):
+                    out = processor_instance.process(events)
+                else:
+                    out = processor_instance(events)
             except Exception as e:
                 raise Exception(
                     f"Failed processing file: {item!r}. The error was: {e!r}."
@@ -1480,28 +1555,41 @@ class Runner:
                     "Output of process() should not be None. Make sure your processor's process() function returns an accumulator."
                 )
             toc = time.time()
-            if use_dataframes:
-                return out
-            else:
+            if not use_dataframes:
                 if savemetrics:
                     metrics = {}
                     if isinstance(file, uproot.ReadOnlyDirectory):
                         metrics["bytesread"] = file.file.source.num_requested_bytes
                     if schema is not None and issubclass(schema, schemas.BaseSchema):
-                        metrics["columns"] = set(materialized)
+                        metrics["columns"] = {
+                            f"{x.branch}-{key_to_tuple(x.buffer_key)[3]}"
+                            for x in materialized
+                        }
                         metrics["entries"] = len(events)
                     metrics["processtime"] = toc - tic
-                    return {"out": out, "metrics": metrics, "processed": {item}}
-                return {"out": out, "processed": {item}}
+                    out = {"out": out, "metrics": metrics, "processed": {item}}
+                else:
+                    out = {"out": out, "processed": {item}}
+
+            if checkpointer is not None:
+                if not isinstance(checkpointer, CheckpointerABC):
+                    raise TypeError(
+                        "Expected checkpointer to derive from CheckpointerABC"
+                    )
+                # save the output
+                checkpointer.save(out, metadata, processor_instance)
+
+            return out
 
     def __call__(
         self,
         fileset: dict,
-        processor_instance: ProcessorABC,
-        treename: Optional[str] = None,
-        uproot_options: Optional[dict] = {},
-        iteritems_options: Optional[dict] = {},
-        preload_columns: Optional[dict] = None,
+        processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
+        *,
+        treename: str | None = None,
+        uproot_options: dict | None = {},
+        iteritems_options: dict | None = {},
+        preload_columns: dict | None = None,
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
 
@@ -1511,8 +1599,8 @@ class Runner:
                 A dictionary ``{dataset: [file, file], }``
                 Optionally, if some files' tree name differ, the dictionary can be specified:
                 ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
-            processor_instance : ProcessorABC
-                An instance of a class deriving from ProcessorABC
+            processor_instance : ProcessorABC or Callable
+                An instance of a class deriving from ProcessorABC or a single-argument callable
             treename : str
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
@@ -1523,13 +1611,17 @@ class Runner:
             preload_columns : dict, optional
                 A mapping of fileset metadata to columns to preload
         """
+        if uproot_options is None:
+            uproot_options = {}
+        if iteritems_options is None:
+            iteritems_options = {}
         wrapped_out = self.run(
-            fileset,
-            processor_instance,
-            treename,
-            uproot_options,
-            iteritems_options,
-            preload_columns,
+            fileset=fileset,
+            processor_instance=processor_instance,
+            treename=treename,
+            uproot_options=uproot_options,
+            iteritems_options=iteritems_options,
+            preload_columns=preload_columns,
         )
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
@@ -1540,9 +1632,11 @@ class Runner:
     def preprocess(
         self,
         fileset: dict,
-        treename: Optional[str] = None,
+        *,
+        treename: str | None = None,
+        uproot_options: dict | None = {},
     ) -> Generator:
-        """Run the processor_instance on a given fileset
+        """Preprocess the fileset and generate work items
 
         Parameters
         ----------
@@ -1555,18 +1649,21 @@ class Runner:
             treename : str
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
+            uproot_options : dict, optional
+                Any options to pass to ``uproot.open``
         """
-
         if not isinstance(fileset, (Mapping, str)):
             raise ValueError(
                 "Expected fileset to be a mapping dataset: list(files) or filename"
             )
+        if uproot_options is None:
+            uproot_options = {}
         if self.format == "root":
             fileset = list(self._normalize_fileset(fileset, treename))
             for filemeta in fileset:
                 filemeta.maybe_populate(self.metadata_cache)
 
-            self._preprocess_fileset_root(fileset)
+            self._preprocess_fileset_root(fileset, uproot_options=uproot_options)
             fileset = self._filter_badfiles(fileset)
         elif self.format == "parquet":
             raise NotImplementedError("Parquet format is not supported yet.")
@@ -1576,7 +1673,7 @@ class Runner:
     def maybe_preprocess(
         self,
         fileset: dict,
-        treename: Optional[str] = None,
+        treename: str | None = None,
     ) -> Generator:
         """Run the processor_instance on a given fileset if needed
 
@@ -1613,11 +1710,11 @@ class Runner:
 
     def trace_needed_columns(
         self,
-        fileset: Union[dict, str, list[WorkItem], Generator],
+        fileset: dict | str | list[WorkItem] | Generator,
         processor_instance=ProcessorABC,
         treename="Events",
-        uproot_options: Optional[dict] = {},
-        iteritems_options: Optional[dict] = {},
+        uproot_options: dict | None = {},
+        iteritems_options: dict | None = {},
         trace_method: Callable = trace,
     ) -> Generator[WorkItem]:
         """Trace the processor_instance on a given fileset
@@ -1700,28 +1797,31 @@ class Runner:
 
     def run(
         self,
-        fileset: Union[dict, str, list[WorkItem], Generator],
-        processor_instance: ProcessorABC,
-        treename: Optional[str] = None,
-        uproot_options: Optional[dict] = {},
-        iteritems_options: Optional[dict] = {},
-        preload_columns: Optional[dict] = None,
+        fileset: dict | str | list[WorkItem] | Generator,
+        processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
+        *,
+        treename: str | None = None,
+        uproot_options: dict | None = {},
+        iteritems_options: dict | None = {},
+        preload_columns: dict | None = None,
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
 
         Parameters
         ----------
             fileset : dict | str | List[WorkItem] | Generator
+                Fileset can be one of the following:
+
                 - A dictionary ``{dataset: [file, file], }``
                   Optionally, if some files' tree name differ, the dictionary can be specified:
                   ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
                   You can also define a different tree name per file in the dictionary:
-                ``{dataset: {'files': {file: 'name'}}, }``
+                  ``{dataset: {'files': {file: 'name'}}, }``
                 - A single file name
                 - File chunks for self.preprocess()
                 - Chunk generator
-            processor_instance : ProcessorABC
-                An instance of a class deriving from ProcessorABC
+            processor_instance : ProcessorABC or Callable
+                An instance of a class deriving from ProcessorABC or a single-argument callable
             treename : str, optional
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
@@ -1733,9 +1833,6 @@ class Runner:
             preload_columns: dict, optional
                 A mapping of fileset metadata to columns to preload
         """
-        if not isinstance(processor_instance, ProcessorABC):
-            raise ValueError("Expected processor_instance to derive from ProcessorABC")
-
         chunks = self.maybe_preprocess(fileset, treename)
 
         if self.processor_compression is None:
@@ -1759,6 +1856,8 @@ class Runner:
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
                 preload_columns=preload_columns,
+                checkpointer=self.checkpointer,
+                cache_function=partial(self.get_cache, self.cachestrategy),
             )
         else:
             closure = partial(
@@ -1772,30 +1871,46 @@ class Runner:
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
                 preload_columns=preload_columns,
+                checkpointer=self.checkpointer,
+                cache_function=partial(self.get_cache, self.cachestrategy),
             )
 
         chunks = list(chunks)
+        if len(chunks) == 0:
+            raise ValueError(
+                "No chunks survived preprocessing.\n"
+                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
+            )
 
         exe_args = {
             "unit": "chunk",
             "function_name": type(processor_instance).__name__,
         }
+        executor = self.executor.copy(**exe_args)
 
         closure = partial(
-            self.automatic_retries, self.retries, self.skipbadfiles, closure
+            self.automatic_retries,
+            0 if isinstance(executor, DaskExecutor) else self.retries,
+            self.skipbadfiles,
+            closure,
         )
 
-        executor = self.executor.copy(**exe_args)
         wrapped_out, e = executor(chunks, closure, None)
         if wrapped_out is None:
             raise ValueError(
-                "No chunks returned results, verify ``processor`` instance structure.\n\
-                if you used skipbadfiles=True, it is possible all your files are bad."
+                "No chunks returned results, verify ``processor`` instance structure.\n"
+                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
             )
         wrapped_out["exception"] = e
 
-        if not self.use_dataframes:
-            processor_instance.postprocess(wrapped_out["out"])
+        if (
+            not self.use_dataframes
+            and hasattr(processor_instance, "postprocess")
+            and callable(processor_instance.postprocess)
+        ):
+            postprocess_out = processor_instance.postprocess(wrapped_out["out"])
+            if postprocess_out is not None:
+                wrapped_out["out"] = postprocess_out
 
         if "metrics" in wrapped_out.keys():
             wrapped_out["metrics"]["chunks"] = len(chunks)

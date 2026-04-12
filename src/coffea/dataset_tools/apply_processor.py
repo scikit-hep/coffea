@@ -1,22 +1,18 @@
 from __future__ import annotations
 
 import copy
-from collections.abc import Hashable
-from typing import Any, Callable, Union
+from collections.abc import Callable, Hashable
+from typing import Any, Union
 
-import awkward
 import dask.base
 import dask_awkward
 
-from coffea.dataset_tools.preprocess import (
+from coffea.dataset_tools.filespec import (
+    DataGroupSpec,
     DatasetSpec,
-    DatasetSpecOptional,
-    FilesetSpec,
-    FilesetSpecOptional,
 )
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 from coffea.processor import ProcessorABC
-from coffea.util import decompress_form
 
 DaskOutputBaseType = Union[
     dask.base.DaskMethodsMixin,
@@ -34,7 +30,7 @@ GenericHEPAnalysis = Callable[[dask_awkward.Array], DaskOutputType]
 
 def apply_to_dataset(
     data_manipulation: ProcessorABC | GenericHEPAnalysis,
-    dataset: DatasetSpec | DatasetSpecOptional,
+    dataset: DatasetSpec | dict,
     schemaclass: BaseSchema = NanoAODSchema,
     metadata: dict[Hashable, Any] = {},
     uproot_options: dict[str, Any] = {},
@@ -46,13 +42,13 @@ def apply_to_dataset(
     ----------
         data_manipulation : ProcessorABC or GenericHEPAnalysis
             The user analysis code to run on the input dataset
-        dataset: DatasetSpec | DatasetSpecOptional
+        dataset: DatasetSpec | dict
             The data to be acted upon by the data manipulation passed in.
-        schemaclass: BaseSchema, default NanoAODSchema
+        schemaclass : BaseSchema, default NanoAODSchema
             The nanoevents schema to interpret the input dataset with.
-        metadata: dict[Hashable, Any], default {}
+        metadata : dict[Hashable, Any], default {}
             Metadata for the dataset that is accessible by the input analysis. Should also be dask-serializable.
-        uproot_options: dict[str, Any], default {}
+        uproot_options : dict[str, Any], default {}
             Options to pass to uproot. Pass at least {"allow_read_errors_with_report": True} to turn on file access reports.
 
     Returns
@@ -62,12 +58,12 @@ def apply_to_dataset(
         report : dask_awkward.Array, optional
             The file access report for running the analysis on the input dataset. Needs to be computed in simultaneously with the analysis to be accurate.
     """
-    maybe_base_form = dataset.get("form", None)
-    if maybe_base_form is not None:
-        maybe_base_form = awkward.forms.from_json(decompress_form(maybe_base_form))
-    files = dataset["files"]
+    if isinstance(dataset, dict):
+        dataset = DatasetSpec.model_validate(dataset)
+    maybe_base_form = dataset.form
+    files = dataset.files
     events = NanoEventsFactory.from_root(
-        files,
+        files.model_dump(),
         metadata=metadata,
         schemaclass=schemaclass,
         known_base_form=maybe_base_form,
@@ -94,7 +90,7 @@ def apply_to_dataset(
 
 def apply_to_fileset(
     data_manipulation: ProcessorABC | GenericHEPAnalysis,
-    fileset: FilesetSpec | FilesetSpecOptional,
+    fileset: DataGroupSpec | dict,
     schemaclass: BaseSchema = NanoAODSchema,
     uproot_options: dict[str, Any] = {},
 ) -> dict[str, DaskOutputType] | tuple[dict[str, DaskOutputType], dask_awkward.Array]:
@@ -105,11 +101,11 @@ def apply_to_fileset(
     ----------
         data_manipulation : ProcessorABC or GenericHEPAnalysis
             The user analysis code to run on the input dataset
-        fileset: FilesetSpec | FilesetSpecOptional
+        fileset: DataGroupSpec | dict
             The data to be acted upon by the data manipulation passed in. Metadata within the fileset should be dask-serializable.
-        schemaclass: BaseSchema, default NanoAODSchema
+        schemaclass : BaseSchema, default NanoAODSchema
             The nanoevents schema to interpret the input dataset with.
-        uproot_options: dict[str, Any], default {}
+        uproot_options : dict[str, Any], default {}
             Options to pass to uproot. Pass at least {"allow_read_errors_with_report": True} to turn on file access reports.
 
     Returns
@@ -119,10 +115,12 @@ def apply_to_fileset(
         report : dask_awkward.Array, optional
             The file access report for running the analysis on the input dataset. Needs to be computed in simultaneously with the analysis to be accurate.
     """
+    if isinstance(fileset, dict):
+        fileset = DataGroupSpec.model_validate(fileset)
     out = {}
     report = {}
     for name, dataset in fileset.items():
-        metadata = copy.deepcopy(dataset.get("metadata", {}))
+        metadata = copy.deepcopy(dataset.metadata)
         if metadata is None:
             metadata = {}
         metadata.setdefault("dataset", name)

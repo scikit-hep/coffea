@@ -1,8 +1,0 @@
-steps:
-- id: notebook
-  uses: ./docker/skyhook
-  runs: [./docker/skyhook/script.sh]
-  options:
-    privileged: true
-    ports:
-      8888/tcp: 8888

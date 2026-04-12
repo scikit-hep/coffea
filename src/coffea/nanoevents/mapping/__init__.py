@@ -1,3 +1,7 @@
+from .buffer_cache import (
+    BufferCache,
+    NoCompressionCodec,
+)
 from .parquet import ParquetSourceMapping, TrivialParquetOpener
 from .preloaded import (
     PreloadedOpener,
@@ -5,9 +9,10 @@ from .preloaded import (
     SimplePreloadedColumnSource,
 )
 from .uproot import TrivialUprootOpener, UprootSourceMapping
-from .util import ArrayLifecycleMapping, CachedMapping
 
 __all__ = [
+    "BufferCache",
+    "NoCompressionCodec",
     "TrivialUprootOpener",
     "UprootSourceMapping",
     "TrivialParquetOpener",
@@ -15,6 +20,4 @@ __all__ = [
     "SimplePreloadedColumnSource",
     "PreloadedOpener",
     "PreloadedSourceMapping",
-    "CachedMapping",
-    "ArrayLifecycleMapping",
 ]

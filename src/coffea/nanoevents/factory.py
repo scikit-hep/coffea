@@ -1,4 +1,3 @@
-import inspect
 import io
 import pathlib
 import warnings
@@ -13,7 +12,6 @@ import fsspec
 import uproot
 
 from coffea.nanoevents.mapping import (
-    CachedMapping,
     ParquetSourceMapping,
     PreloadedOpener,
     PreloadedSourceMapping,
@@ -222,14 +220,13 @@ class NanoEventsFactory:
     the constructor args are properly set.
     """
 
-    def __init__(self, schema, mapping, partition_key, cache=None, mode="eager"):
+    def __init__(self, schema, mapping, partition_key, mode="eager"):
         if mode not in _allowed_modes:
             raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
         self._mode = mode
         self._schema = schema
         self._mapping = mapping
         self._partition_key = partition_key
-        self._cache = cache
         self._events = lambda: None
 
     def __getstate__(self):
@@ -243,31 +240,29 @@ class NanoEventsFactory:
         self._schema = state["schema"]
         self._mapping = state["mapping"]
         self._partition_key = state["partition_key"]
-        self._cache = None
         self._events = lambda: None
 
     @classmethod
     def from_root(
         cls,
         file,
+        *,
+        mode="virtual",
         treepath=uproot._util.unset,
         entry_start=None,
         entry_stop=None,
         steps_per_file=uproot._util.unset,
-        runtime_cache=None,
-        persistent_cache=None,
+        preload=None,
+        buffer_cache=None,
         schemaclass=NanoAODSchema,
         metadata=None,
         uproot_options={},
         iteritems_options={},
         access_log=None,
         use_ak_forth=True,
-        mode="virtual",
         known_base_form=None,
         decompression_executor=None,
         interpretation_executor=None,
-        delayed=uproot._util.unset,
-        preload=None,
     ):
         """Quickly build NanoEvents from a root file
 
@@ -276,19 +271,21 @@ class NanoEventsFactory:
             file : a string or dict input to ``uproot.open()`` or ``uproot.dask()`` or a ``uproot.reading.ReadOnlyDirectory``
                 The filename or dict of filenames including the treepath (as it would be passed directly to ``uproot.open()``
                 or ``uproot.dask()``) already opened file using e.g. ``uproot.open()``.
+            mode:
+                Nanoevents will use "eager", "virtual", or "dask" as a backend.
             treepath : str, optional
-                Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``.
+                Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``
+                or a string that does not contain tree information that uproot can parse on its own.
             entry_start : int, optional (eager and virtual mode only)
                 Start at this entry offset in the tree (default 0)
             entry_stop : int, optional (eager and virtual mode only)
                 Stop at this entry offset in the tree (default end of tree)
             steps_per_file: int, optional
                 Partition files into this many steps (previously "chunks")
-            runtime_cache : dict, optional
-                A dict-like interface to a cache object. This cache is expected to last the
-                duration of the program only, and will be used to hold references to materialized
-                awkward arrays, etc.
-            persistent_cache : dict, optional
+            preload (None or Callable):
+                A function to call to preload specific branches/columns in bulk. Only works in eager and virtual mode.
+                Passed to ``tree.arrays`` as the ``filter_branch`` argument to filter branches to be preloaded.
+            buffer_cache : dict, optional
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
             schemaclass : BaseSchema
@@ -301,47 +298,22 @@ class NanoEventsFactory:
                 Any options to pass to ``tree.iteritems`` when iterating over the tree's branches to extract the form.
             access_log : list, optional
                 Pass a list instance to record which branches were lazily accessed by this instance
-            use_ak_forth:
-                Toggle using awkward_forth to interpret branches in root file.
-            mode:
-                Nanoevents will use "eager", "virtual", or "dask" as a backend.
-            known_base_form:
+            use_ak_forth : bool, default True
+                Toggle using awkward_forth to interpret branches in the ROOT file.
+            known_base_form : dict or None, optional
                 If the base form of the input file is known ahead of time we can skip opening a single file and parsing metadata.
-            decompression_executor (None or Executor with a ``submit`` method):
-                see: https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L109
-            interpretation_executor (None or Executor with a ``submit`` method):
-                see: https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L113
-            preload (None or Callable):
-                A function to call to preload specific branches/columns in bulk. Only works in eager and virtual mode.
-                Passed to ``tree.arrays`` as the ``filter_branch`` argument to filter branches to be preloaded.
+            decompression_executor : Any, optional
+                Executor with a ``submit`` method used for decompression tasks. See
+                https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html.
+            interpretation_executor : Any, optional
+                Executor with a ``submit`` method used for interpretation tasks. See
+                https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L113.
 
         Returns
         -------
-            out: NanoEventsFactory
-                A NanoEventsFactory instance built from the file at `file`.
+            NanoEventsFactory
+                Factory configured from ``file`` that can materialise NanoEvents.
         """
-        if delayed is not uproot._util.unset:
-            msg = """
-            NanoEventsFactory.from_root() behavior has changed.
-            The default behavior is that now it reads the input root file using
-            the newly developed virtual arrays backend of awkward instead of dask.
-            The backend choice is controlled by the `mode` argument of the method
-            which can be set to "eager", "virtual", or "dask".
-            The new default is "virtual" while the `delayed` argument has been removed.
-            The old `delayed=True` is now equivalent to `mode="dask"`.
-            The old `delayed=False` is now equivalent to `mode="eager"`.
-            """
-            raise TypeError(inspect.cleandoc(msg))
-
-        if treepath is not uproot._util.unset and not isinstance(
-            file, uproot.reading.ReadOnlyDirectory
-        ):
-            raise ValueError(
-                """Specification of treename by argument to from_root is no longer supported in coffea 2023.
-            Please use one of the allowed types for "files" specified by uproot: https://github.com/scikit-hep/uproot5/blob/v5.1.2/src/uproot/_dask.py#L109-L132
-            """
-            )
-
         if mode not in _allowed_modes:
             raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
 
@@ -351,8 +323,7 @@ class NanoEventsFactory:
                 small number of inputs (e.g. for early-stage/exploratory analysis) since it does not
                 inform dask of each chunk lengths at creation time, which can cause unexpected
                 slowdowns at scale. If you would like to process larger datasets please specify steps
-                using the appropriate uproot "files" specification:
-                    https://github.com/scikit-hep/uproot5/blob/v5.1.2/src/uproot/_dask.py#L109-L132.
+                using the appropriate uproot "files" specification: https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html
                 """,
                 RuntimeWarning,
             )
@@ -371,6 +342,10 @@ class NanoEventsFactory:
 
             to_open = file
             if isinstance(file, uproot.reading.ReadOnlyDirectory):
+                if treepath is uproot._util.unset:
+                    raise ValueError(
+                        "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
+                    )
                 to_open = file[treepath]
             opener = partial(
                 uproot.dask,
@@ -386,7 +361,7 @@ class NanoEventsFactory:
                 **uproot_options,
             )
 
-            return cls(map_schema, opener, None, cache=None, mode="dask")
+            return cls(map_schema, opener, None, mode="dask")
         elif mode == "dask" and not schemaclass.__dask_capable__:
             warnings.warn(
                 f"{schemaclass} is not dask capable despite requesting dask mode, generating non-dask nanoevents",
@@ -396,7 +371,12 @@ class NanoEventsFactory:
             mode = "virtual"
 
         if isinstance(file, uproot.reading.ReadOnlyDirectory):
+            if treepath is uproot._util.unset:
+                raise ValueError(
+                    "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
+                )
             tree = file[treepath]
+            file_handle = file
         elif "<class 'uproot.rootio.ROOTDirectory'>" == str(type(file)):
             raise RuntimeError(
                 "The file instance (%r) is an uproot3 type, but this module is only compatible with uproot5 or higher"
@@ -404,6 +384,13 @@ class NanoEventsFactory:
             )
         else:
             tree = uproot.open(file, **uproot_options)
+            if isinstance(tree, uproot.reading.ReadOnlyDirectory):
+                if treepath is uproot._util.unset:
+                    raise ValueError(
+                        "The treepath argument must be specified when the file argument is a string that does not contain any treepath information that uproot can parse"
+                    )
+                tree = tree[treepath]
+            file_handle = tree.file
 
         # Get the typenames
         typenames = tree.typenames()
@@ -443,9 +430,11 @@ class NanoEventsFactory:
             entry_stop,
             cache={},
             access_log=access_log,
+            file_handle=file_handle,
             use_ak_forth=use_ak_forth,
             virtual=mode == "virtual",
             preloaded_arrays=preloaded_arrays,
+            buffer_cache=buffer_cache,
         )
         mapping.preload_column_source(partition_key[0], partition_key[1], tree)
 
@@ -458,8 +447,7 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            runtime_cache,
-            persistent_cache,
+            buffer_cache,
             schemaclass,
             metadata,
             mode=mode,
@@ -469,32 +457,31 @@ class NanoEventsFactory:
     def from_parquet(
         cls,
         file,
+        *,
+        mode="virtual",
         entry_start=None,
         entry_stop=None,
-        runtime_cache=None,
-        persistent_cache=None,
+        buffer_cache=None,
         schemaclass=NanoAODSchema,
         metadata=None,
         parquet_options={},
+        storage_options=None,
         skyhook_options={},
         access_log=None,
-        mode="virtual",
     ):
         """Quickly build NanoEvents from a parquet file
 
         Parameters
         ----------
-            file : str, pathlib.Path, pyarrow.NativeFile, or python file-like
+            file : str or pathlib.Path or pyarrow.NativeFile or io.IOBase
                 The filename or already opened file using e.g. ``pyarrow.NativeFile()``.
-            entry_start : int, optional
-                Start at this entry offset in the tree (default 0)
-            entry_stop : int, optional
-                Stop at this entry offset in the tree (default end of tree)
-            runtime_cache : dict, optional
-                A dict-like interface to a cache object. This cache is expected to last the
-                duration of the program only, and will be used to hold references to materialized
-                awkward arrays, etc.
-            persistent_cache : dict, optional
+            mode : {"eager", "virtual", "dask"}, default "virtual"
+                Backend to use when interpreting parquet data.
+            entry_start : int or None, optional
+                Starting entry (only used in eager or virtual mode). Defaults to ``0``.
+            entry_stop : int or None, optional
+                Stopping entry (only used in eager or virtual mode). Defaults to end of dataset.
+            buffer_cache : dict, optional
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
             schemaclass : BaseSchema
@@ -503,15 +490,15 @@ class NanoEventsFactory:
                 Arbitrary metadata to add to the `base.NanoEvents` object
             parquet_options : dict, optional
                 Any options to pass to ``pyarrow.parquet.ParquetFile``
+            storage_options : dict, optional
+                Options to pass to ``fsspec`` when opening the file. Only used when ``file`` is a string path.
             access_log : list, optional
                 Pass a list instance to record which branches were lazily accessed by this instance
-            mode:
-                Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
         Returns
         -------
-            out: NanoEventsFactory
-                A NanoEventsFactory instance built from the file at `file`.
+            NanoEventsFactory
+                Factory configured from ``file`` that can materialise NanoEvents.
         """
         import pyarrow
         import pyarrow.dataset as ds
@@ -556,7 +543,7 @@ class NanoEventsFactory:
             raise NotImplementedError(
                 "Dask-awkward does not yet support lazy loading of parquet files with a schema"
             )
-            return cls(map_schema, opener, None, cache=None, mode="dask")
+            return cls(map_schema, opener, None, mode="dask")
         elif mode == "dask" and not schemaclass.__dask_capable__:
             warnings.warn(
                 f"{schemaclass} is not dask capable despite allowing dask, generating non-dask nanoevents"
@@ -565,7 +552,7 @@ class NanoEventsFactory:
             table_file = pyarrow.parquet.ParquetFile(file, **parquet_options)
         elif isinstance(file, str):
             fs_file = fsspec.open(
-                file, "rb"
+                file, "rb", **(storage_options or {})
             ).open()  # Call open to materialize the file
             table_file = pyarrow.parquet.ParquetFile(fs_file, **parquet_options)
         elif isinstance(file, pyarrow.parquet.ParquetFile):
@@ -594,6 +581,7 @@ class NanoEventsFactory:
             entry_stop,
             access_log=access_log,
             virtual=mode == "virtual",
+            buffer_cache=buffer_cache,
         )
 
         format_ = "parquet"
@@ -620,8 +608,7 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            runtime_cache,
-            persistent_cache,
+            buffer_cache,
             schemaclass,
             metadata,
             mode,
@@ -631,10 +618,10 @@ class NanoEventsFactory:
     def from_preloaded(
         cls,
         array_source,
+        *,
         entry_start=None,
         entry_stop=None,
-        runtime_cache=None,
-        persistent_cache=None,
+        buffer_cache=None,
         schemaclass=NanoAODSchema,
         metadata=None,
         access_log=None,
@@ -646,15 +633,11 @@ class NanoEventsFactory:
             array_source : Mapping[str, awkward.Array]
                 A mapping of names to awkward arrays, it must have a metadata attribute with uuid,
                 num_rows, and path sub-items.
-            entry_start : int, optional
-                Start at this entry offset in the tree (default 0)
-            entry_stop : int, optional
-                Stop at this entry offset in the tree (default end of tree)
-            runtime_cache : dict, optional
-                A dict-like interface to a cache object. This cache is expected to last the
-                duration of the program only, and will be used to hold references to materialized
-                awkward arrays, etc.
-            persistent_cache : dict, optional
+            entry_start : int or None, optional
+                Start index for slicing the array source. Defaults to ``0``.
+            entry_stop : int or None, optional
+                Stop index for slicing the array source. Defaults to the full length.
+            buffer_cache : dict, optional
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
             schemaclass : BaseSchema
@@ -666,8 +649,8 @@ class NanoEventsFactory:
 
         Returns
         -------
-            out: NanoEventsFactory
-                A NanoEventsFactory instance built from information in `array_source`.
+            NanoEventsFactory
+                Factory configured from ``array_source`` that can materialise NanoEvents.
         """
         if not isinstance(array_source, Mapping):
             raise TypeError(
@@ -703,8 +686,7 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            runtime_cache,
-            persistent_cache,
+            buffer_cache,
             schemaclass,
             metadata,
             mode="eager",
@@ -716,8 +698,7 @@ class NanoEventsFactory:
         mapping,
         partition_key,
         base_form,
-        runtime_cache,
-        persistent_cache,
+        buffer_cache,
         schemaclass,
         metadata,
         mode,
@@ -732,11 +713,7 @@ class NanoEventsFactory:
                 Basic information about the column source, uuid, paths.
             base_form : dict
                 The awkward form describing the nanoevents interpretation of the mapped file.
-            runtime_cache : dict
-                A dict-like interface to a cache object. This cache is expected to last the
-                duration of the program only, and will be used to hold references to materialized
-                awkward arrays, etc.
-            persistent_cache : dict
+            buffer_cache : dict
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
             schemaclass : BaseSchema
@@ -747,8 +724,6 @@ class NanoEventsFactory:
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
         """
-        if persistent_cache is not None:
-            mapping = CachedMapping(persistent_cache, mapping)
         if metadata is not None:
             base_form["parameters"]["metadata"] = metadata
         if not callable(schemaclass):
@@ -760,7 +735,6 @@ class NanoEventsFactory:
             schema,
             mapping,
             tuple_to_key(partition_key),
-            cache=runtime_cache,
             mode=mode,
         )
 
@@ -769,20 +743,35 @@ class NanoEventsFactory:
         start, stop = (int(x) for x in entryrange.split("-"))
         return stop - start
 
+    @property
+    def access_log(self):
+        """List of accessed branches, populated when columns are lazily loaded."""
+        return getattr(self._mapping, "_access_log", None)
+
+    @property
+    def file_handle(self):
+        """The file handle used to open the source file, if available."""
+        return getattr(self._mapping, "_file_handle", None)
+
+    @property
+    def buffer_cache(self):
+        """The buffer cache used to store loaded buffers, if available."""
+        return getattr(self._mapping, "_buffer_cache", None)
+
     def events(self):
         """
         Build events
 
         Returns
         -------
-            out:
-                If the NanoEventsFactory is running in dask mode, this is
-                a Dask awkward array of the events. If the mapping also produces a
-                report, the output will be a tuple (events, report).
-                If the factory is running in virtual or eager mode, this is an awkward
-                array of the events.
+            awkward.Array or dask_awkward.Array or tuple
+                Events materialised according to the configured backend. In ``\"dask\"``
+                mode a ``dask_awkward.Array`` is returned (optionally paired with a
+                report). In ``\"virtual\"`` or ``\"eager\"`` mode an ``awkward.Array`` is
+                returned.
         """
         if self._mode == "dask":
+            dask_awkward.lib.core.dak_cache.clear()
             events = self._mapping(form_mapping=self._schema)
             report = None
             if isinstance(events, tuple):
@@ -797,16 +786,26 @@ class NanoEventsFactory:
             form = self._schema.form
             buffer_key = partial(_key_formatter, self._partition_key)
             events = awkward.from_buffers(
-                form,
-                len(self),
-                self._mapping,
+                form=form,
+                length=len(self),
+                container=self._mapping,
                 buffer_key=buffer_key,
+                backend="cpu",
+                byteorder=awkward._util.native_byteorder,
+                allow_noncanonical_form=False,
+                enable_virtualarray_caching=(
+                    True
+                    if self.buffer_cache is None
+                    else lambda form_key, attribute: attribute != "data"
+                ),
+                highlevel=True,
                 behavior=self._schema.behavior(),
-                attrs={"@events_factory": self},
-                allow_noncanonical_form=True,
+                attrs={
+                    "@events_factory": self,
+                    "@form": form,
+                    "@buffer_key": buffer_key,
+                },
             )
-            events.attrs["@form"] = form
-            events.attrs["@buffer_key"] = buffer_key
             self._events = weakref.ref(events)
 
         return events

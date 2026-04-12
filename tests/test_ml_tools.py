@@ -268,7 +268,7 @@ def test_xgboost():
             )
             return [], dict(data=ret)
 
-    xgb_wrap = xgboost_test("tests/samples/xgboost_example.xgb")
+    xgb_wrap = xgboost_test("tests/samples/xgboost_example.ubj")
 
     # Dummy 1000 event array with 20 feature branches
     ak_events = ak.zip(
