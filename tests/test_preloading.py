@@ -113,20 +113,17 @@ def test_preload_executor():
             assert c.preload == frozenset(["nMuon", "Muon_pt"])
 
     # preload via tracing
+    traced_columns = {"nJet", "Jet_pt"}
     chunks = list(runner.preprocess(FILESET, trace=trace, processor_instance=proc))
     for c in chunks:
-        assert c.preload is not None
-        assert "Jet_pt" in c.preload
-        assert "nJet" in c.preload
+        assert c.preload == frozenset(traced_columns)
 
     # tracing takes precedence over fileset preload
     chunks = list(
         runner.preprocess(FILESET_WITH_PRELOAD, trace=trace, processor_instance=proc)
     )
     for c in chunks:
-        assert c.preload is not None
-        assert "Jet_pt" in c.preload
-        assert "Muon_pt" not in c.preload
+        assert c.preload == frozenset(traced_columns)
 
     # --- run ---
 
@@ -142,15 +139,13 @@ def test_preload_executor():
 
     # preload via tracing
     out = runner.run(FILESET, proc, trace=trace)["out"]
-    assert "Jet_pt" in out["ZJets"]["preloaded_keys"]
-    assert "nJet" in out["ZJets"]["preloaded_keys"]
-    assert "Jet_pt" in out["Data"]["preloaded_keys"]
-    assert "nJet" in out["Data"]["preloaded_keys"]
+    assert out["ZJets"]["preloaded_keys"] == traced_columns
+    assert out["Data"]["preloaded_keys"] == traced_columns
 
     # tracing takes precedence over fileset preload
     out = runner.run(FILESET_WITH_PRELOAD, proc, trace=trace)["out"]
-    assert "Jet_pt" in out["ZJets"]["preloaded_keys"]
-    assert "Muon_pt" not in out["Data"]["preloaded_keys"]
+    assert out["ZJets"]["preloaded_keys"] == traced_columns
+    assert out["Data"]["preloaded_keys"] == traced_columns
 
     # --- __call__ ---
 
@@ -166,12 +161,10 @@ def test_preload_executor():
 
     # preload via tracing
     out = runner(FILESET, proc, trace=trace)
-    assert "Jet_pt" in out["ZJets"]["preloaded_keys"]
-    assert "nJet" in out["ZJets"]["preloaded_keys"]
-    assert "Jet_pt" in out["Data"]["preloaded_keys"]
-    assert "nJet" in out["Data"]["preloaded_keys"]
+    assert out["ZJets"]["preloaded_keys"] == traced_columns
+    assert out["Data"]["preloaded_keys"] == traced_columns
 
     # tracing takes precedence over fileset preload
     out = runner(FILESET_WITH_PRELOAD, proc, trace=trace)
-    assert "Jet_pt" in out["ZJets"]["preloaded_keys"]
-    assert "Muon_pt" not in out["Data"]["preloaded_keys"]
+    assert out["ZJets"]["preloaded_keys"] == traced_columns
+    assert out["Data"]["preloaded_keys"] == traced_columns
