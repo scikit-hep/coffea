@@ -1674,6 +1674,7 @@ class Runner:
         self,
         fileset: dict,
         treename: str | None = None,
+        uproot_options: dict | None = {},
     ) -> Generator:
         """Run the processor_instance on a given fileset if needed
 
@@ -1692,7 +1693,11 @@ class Runner:
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
                 Not needed if processing premade chunks
+            uproot_options : dict, optional
+                Any options to pass to ``uproot.open``
         """
+        if uproot_options is None:
+            uproot_options = {}
         meta = False
         if not isinstance(fileset, (Mapping, str)):
             if isinstance(fileset, Generator) or isinstance(fileset[0], WorkItem):
@@ -1705,7 +1710,9 @@ class Runner:
         if meta:
             chunks = fileset
         else:
-            chunks = self.preprocess(fileset, treename)
+            chunks = self.preprocess(
+                fileset, treename=treename, uproot_options=uproot_options
+            )
         return chunks
 
     def trace_needed_columns(
@@ -1775,7 +1782,9 @@ class Runner:
                     seen.add(item.dataset)
                     yield item
 
-        chunks = _first_item_per_dataset(self.maybe_preprocess(fileset, treename))
+        chunks = _first_item_per_dataset(
+            self.maybe_preprocess(fileset, treename, uproot_options=uproot_options)
+        )
 
         # wrap
         trace_processor_instance = TraceProcessor(processor_instance)
@@ -1833,7 +1842,18 @@ class Runner:
             preload_columns: dict, optional
                 A mapping of fileset metadata to columns to preload
         """
-        chunks = self.maybe_preprocess(fileset, treename)
+        if uproot_options is None:
+            uproot_options = {}
+        if iteritems_options is None:
+            iteritems_options = {}
+        if not isinstance(processor_instance, ProcessorABC) and not callable(
+            processor_instance
+        ):
+            raise ValueError(
+                "Expected processor_instance to derive from ProcessorABC or be a single-argument callable"
+            )
+
+        chunks = self.maybe_preprocess(fileset, treename, uproot_options=uproot_options)
 
         if self.processor_compression is None:
             pi_to_send = processor_instance
