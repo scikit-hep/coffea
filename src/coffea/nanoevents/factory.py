@@ -282,9 +282,10 @@ class NanoEventsFactory:
                 Stop at this entry offset in the tree (default end of tree)
             steps_per_file: int, optional
                 Partition files into this many steps (previously "chunks")
-            preload (None or Callable):
-                A function to call to preload specific branches/columns in bulk. Only works in eager and virtual mode.
-                Passed to ``tree.arrays`` as the ``filter_branch`` argument to filter branches to be preloaded.
+            preload (None, Callable, or Iterable[str]):
+                Specifies which branches/columns to preload in bulk. Only works in eager and virtual mode.
+                Can be a callable passed to ``tree.arrays`` as the ``filter_branch`` argument,
+                or an iterable of branch name strings to preload.
             buffer_cache : dict, optional
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
@@ -409,6 +410,9 @@ class NanoEventsFactory:
 
         preloaded_arrays = None
         if preload is not None:
+            if not callable(preload):
+                _preload_names = frozenset(preload)
+                preload = lambda b: b.name in _preload_names  # noqa: E731
             preloaded_arrays = tree.arrays(
                 filter_branch=preload,
                 entry_start=entry_start,
