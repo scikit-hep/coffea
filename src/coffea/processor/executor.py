@@ -1378,9 +1378,9 @@ class Runner:
         overriding any preload that was specified in the fileset.
         """
         # group filemetas by dataset
-        datasets: dict[str, list[FileMeta]] = {}
+        datasets: dict[str, list[FileMeta]] = defaultdict(list)
         for filemeta in fileset:
-            datasets.setdefault(filemeta.dataset, []).append(filemeta)
+            datasets[filemeta.dataset].append(filemeta)
 
         for dataset, metas in datasets.items():
             preload = None
