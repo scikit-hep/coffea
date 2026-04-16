@@ -1699,7 +1699,7 @@ class Runner:
             uproot_options = {}
         if iteritems_options is None:
             iteritems_options = {}
-            
+
         try:
             wrapped_out = self.run(
                 fileset=fileset,
@@ -1709,7 +1709,7 @@ class Runner:
                 iteritems_options=iteritems_options,
                 trace=trace,
             )
-            
+
         except BaseException as e:
             if self.use_result_type:
                 return Err(e)
