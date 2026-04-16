@@ -20,6 +20,7 @@ from .executor import (
     Runner,
 )
 from .processor import ProcessorABC
+from .result import Err, Ok, Result
 from .taskvine_executor import TaskVineExecutor
 
 __all__ = [
@@ -41,4 +42,7 @@ __all__ = [
     "dict_accumulator",
     "defaultdict_accumulator",
     "column_accumulator",
+    "Result",
+    "Ok",
+    "Err",
 ]

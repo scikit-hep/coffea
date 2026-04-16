@@ -41,6 +41,7 @@ from ..util import _exception_chain, _hash, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .checkpointer import CheckpointerABC
 from .processor import ProcessorABC
+from .result import Err, Ok, Result
 
 _PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
 DEFAULT_METADATA_CACHE: MutableMapping = LRUCache(100000)
@@ -1067,6 +1068,9 @@ class Runner:
             (please don't) during a session, the session can be restarted to clear the cache.
         checkpointer : CheckpointerABC, optional
             A CheckpointerABC instance to manage checkpointing of each chunk output
+        use_result_type : bool, optional
+            If True, ``__call__`` returns ``Ok(output)`` or ``Err(exception)``.
+            If False (default), returns the output directly and raises on error.
     """
 
     executor: ExecutorBase
@@ -1078,6 +1082,7 @@ class Runner:
     xrootdtimeout: int | None = 60
     align_clusters: bool = False
     savemetrics: bool = False
+    use_result_type: bool = False
     schema: schemas.BaseSchema | None = schemas.NanoAODSchema
     processor_compression: int = 1
     use_skyhook: bool | None = False
@@ -1653,8 +1658,17 @@ class Runner:
         uproot_options: dict | None = {},
         iteritems_options: dict | None = {},
         trace: Callable | None = None,
-    ) -> Accumulatable:
-        """Run the processor_instance on a given fileset
+    ) -> "Result | Accumulatable":
+        """
+        Run the processor_instance on a given fileset
+
+        When use_result_type=True, returns an object of class Return — either Ok(Accumulatable) or Err(Exception).
+            result.is_ok() - check success whether Result is Ok or Err
+            result.unwrap() - to get the value (Accumulatable or Exception)
+            result.exception - to inspect the error if Result is Err
+
+        When use_result_type=False (default), returns output directly and raises on error.
+        When savemetrics=True, the output value is (output, metrics).
 
         Parameters
         ----------
@@ -1685,19 +1699,38 @@ class Runner:
             uproot_options = {}
         if iteritems_options is None:
             iteritems_options = {}
-        wrapped_out = self.run(
-            fileset=fileset,
-            processor_instance=processor_instance,
-            treename=treename,
-            uproot_options=uproot_options,
-            iteritems_options=iteritems_options,
-            trace=trace,
-        )
+
+        try:
+            wrapped_out = self.run(
+                fileset=fileset,
+                processor_instance=processor_instance,
+                treename=treename,
+                uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
+                trace=trace,
+            )
+
+        except BaseException as e:
+            if self.use_result_type:
+                return Err(e)
+            raise
+
+        exception = wrapped_out.get("exception", 0)
+        if exception != 0:
+            if self.use_result_type:
+                return Err(exception)
+            raise exception
+
         if self.use_dataframes:
-            return wrapped_out  # not wrapped anymore
-        if self.savemetrics:
-            return wrapped_out["out"], wrapped_out["metrics"]
-        return wrapped_out["out"]
+            out = wrapped_out
+        elif self.savemetrics:
+            out = (wrapped_out["out"], wrapped_out["metrics"])
+        else:
+            out = wrapped_out["out"]
+
+        if self.use_result_type:
+            return Ok(out)
+        return out
 
     def preprocess(
         self,
