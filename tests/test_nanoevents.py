@@ -6,6 +6,7 @@ import uproot
 from distributed import Client
 
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+from coffea.nanoevents.schemas import BaseSchema
 
 
 def genroundtrips(genpart):
@@ -291,3 +292,75 @@ def test_file_handle_from_directory(tests_directory, mode):
 
         # file_handle still accessible after events() call
         assert factory.file_handle is not None
+
+
+def test_to_flat_columns_base_raises(tests_directory):
+    """BaseSchema.to_flat_columns is an explicit stub; subclasses must override."""
+    path = f"{tests_directory}/samples/nano_dy.root"
+    events = NanoEventsFactory.from_root(
+        {path: "Events"}, schemaclass=BaseSchema, mode="eager"
+    ).events()
+    with pytest.raises(NotImplementedError):
+        BaseSchema.to_flat_columns(events)
+
+
+def test_to_flat_columns_nanoaod_expands_collections(tests_directory):
+    """NanoAODSchema.to_flat_columns expands record collections to
+    {name}_{subfield} + n{name} and skips cross-reference subfields."""
+    path = f"{tests_directory}/samples/nano_dy.root"
+    events = NanoEventsFactory.from_root(
+        {path: "Events"}, schemaclass=NanoAODSchema, mode="eager"
+    ).events()
+
+    out = NanoAODSchema.to_flat_columns(events)
+
+    assert "Muon_pt" in out
+    assert "Muon_eta" in out
+    assert "nMuon" in out
+    # cross-reference subfields (records of records) must not appear
+    assert "Muon_matched_jet" not in out
+    assert "Muon_matched_gen" not in out
+    # values match the source exactly
+    assert ak.to_list(out["Muon_pt"]) == ak.to_list(events.Muon.pt)
+    assert ak.to_list(out["nMuon"]) == ak.to_list(ak.num(events.Muon))
+
+
+def test_to_flat_columns_nanoaod_parquet_roundtrip(tests_directory, tmp_path):
+    """Round-trip: read ROOT, deconstruct via to_flat_columns, dump to
+    parquet, read back with NanoEventsFactory.from_parquet — sum of Muon.pt
+    must match the source."""
+    path = f"{tests_directory}/samples/nano_dy.root"
+    events = NanoEventsFactory.from_root(
+        {path: "Events"}, schemaclass=NanoAODSchema, mode="eager"
+    ).events()
+    expected_total = float(ak.sum(events.Muon.pt))
+
+    flat = NanoAODSchema.to_flat_columns(events)
+    parquet_path = tmp_path / "flat.parquet"
+    ak.to_parquet(ak.Array(flat), str(parquet_path))
+
+    reread = NanoEventsFactory.from_parquet(
+        str(parquet_path), schemaclass=NanoAODSchema, mode="eager"
+    ).events()
+    assert float(ak.sum(reread.Muon.pt)) == expected_total
+
+
+def test_to_flat_columns_nanoaod_root_roundtrip(tests_directory, tmp_path):
+    """Round-trip: read ROOT, deconstruct via to_flat_columns, write a new
+    ROOT file with uproot, read back with NanoEventsFactory.from_root —
+    sum of Muon.pt must match the source."""
+    src_path = f"{tests_directory}/samples/nano_dy.root"
+    events = NanoEventsFactory.from_root(
+        {src_path: "Events"}, schemaclass=NanoAODSchema, mode="eager"
+    ).events()
+    expected_total = float(ak.sum(events.Muon.pt))
+
+    flat = NanoAODSchema.to_flat_columns(events)
+    out_path = tmp_path / "flat.root"
+    with uproot.recreate(str(out_path)) as fout:
+        fout["Events"] = flat
+
+    reread = NanoEventsFactory.from_root(
+        {str(out_path): "Events"}, schemaclass=NanoAODSchema, mode="eager"
+    ).events()
+    assert float(ak.sum(reread.Muon.pt)) == expected_total
