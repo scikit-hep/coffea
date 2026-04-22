@@ -76,6 +76,28 @@ behavior = {}
 behavior.update(vector.backends.awkward.behavior)
 
 
+# Scikit-hep vector maps each coordinate to a single internal slot, so if
+# a record carries two aliases from the same group (e.g. both ``x`` and
+# ``px``) one is silently ignored. Flag that at validation time.
+_ALIAS_GROUPS = {
+    "x-component": {"x", "px"},
+    "y-component": {"y", "py"},
+    "z-component": {"z", "pz"},
+    "azimuthal radial": {"rho", "pt"},
+    "temporal energy-like": {"t", "E", "e", "energy"},
+    "temporal mass-like": {"tau", "M", "m", "mass"},
+}
+
+
+def _duplicate_alias_errors(fields):
+    errors = []
+    for label, group in _ALIAS_GROUPS.items():
+        overlap = fields & group
+        if len(overlap) > 1:
+            errors.append(f"multiple {label} aliases present: {sorted(overlap)}")
+    return errors
+
+
 @awkward.mixin_class(behavior)
 class TwoVector(MomentumAwkward2D):
     """A cartesian 2-dimensional vector
@@ -146,6 +168,16 @@ class TwoVector(MomentumAwkward2D):
     def unit(self):
         """Unit vector, a vector of length 1 pointing in the same direction"""
         return self / self.r
+
+    def __awkward_validation__(self):
+        fields = set(self.fields)
+        errors = _duplicate_alias_errors(fields)
+        has_cart = bool(fields & {"x", "px"}) and bool(fields & {"y", "py"})
+        has_polar = bool(fields & {"rho", "pt"}) and "phi" in fields
+        if not (has_cart or has_polar):
+            errors.append("missing azimuthal pair (x/px and y/py) or (rho/pt and phi)")
+        if errors:
+            raise ValueError(f"{type(self).__name__}: " + "; ".join(errors))
 
 
 @awkward.mixin_class(behavior)
@@ -238,6 +270,18 @@ class ThreeVector(MomentumAwkward3D):
     def unit(self):
         """Unit vector, a vector of length 1 pointing in the same direction"""
         return self / self.rho
+
+    def __awkward_validation__(self):
+        fields = set(self.fields)
+        errors = _duplicate_alias_errors(fields)
+        has_cart = bool(fields & {"x", "px"}) and bool(fields & {"y", "py"})
+        has_polar = bool(fields & {"rho", "pt"}) and "phi" in fields
+        if not (has_cart or has_polar):
+            errors.append("missing azimuthal pair (x/px and y/py) or (rho/pt and phi)")
+        if not fields & {"z", "pz", "theta", "eta"}:
+            errors.append("missing longitudinal (z/pz or theta or eta)")
+        if errors:
+            raise ValueError(f"{type(self).__name__}: " + "; ".join(errors))
 
 
 @awkward.mixin_class(behavior)
@@ -461,6 +505,20 @@ class LorentzVector(MomentumAwkward4D):
         threshold=None,
     ):
         return _nearest_core(dask_array, other, axis, metric, return_metric, threshold)
+
+    def __awkward_validation__(self):
+        fields = set(self.fields)
+        errors = _duplicate_alias_errors(fields)
+        has_cart = bool(fields & {"x", "px"}) and bool(fields & {"y", "py"})
+        has_polar = bool(fields & {"rho", "pt"}) and "phi" in fields
+        if not (has_cart or has_polar):
+            errors.append("missing azimuthal pair (x/px and y/py) or (rho/pt and phi)")
+        if not fields & {"z", "pz", "theta", "eta"}:
+            errors.append("missing longitudinal (z/pz or theta or eta)")
+        if not fields & {"t", "E", "e", "energy", "tau", "M", "m", "mass"}:
+            errors.append("missing temporal (t/E/e/energy or tau/M/m/mass)")
+        if errors:
+            raise ValueError(f"{type(self).__name__}: " + "; ".join(errors))
 
 
 @awkward.mixin_class(behavior)

@@ -172,6 +172,20 @@ class NanoAODSchema(BaseSchema):
         "Jet_charge": (transforms.full_like_from_offsets_form, ("oJet", 0.0)),
         "FatJet_charge": (transforms.full_like_from_offsets_form, ("oFatJet", 0.0)),
         "TrigObj_mass": (transforms.full_like_from_offsets_form, ("oTrigObj", 0.0)),
+        "FsrPhoton_mass": (transforms.full_like_from_offsets_form, ("oFsrPhoton", 0.0)),
+        "FsrPhoton_charge": (
+            transforms.full_like_from_offsets_form,
+            ("oFsrPhoton", 0.0),
+        ),
+        "CorrT1METJet_mass": (
+            transforms.full_like_from_offsets_form,
+            ("oCorrT1METJet", 0.0),
+        ),
+        "IsoTrack_mass": (transforms.full_like_from_offsets_form, ("oIsoTrack", 0.0)),
+        "SoftActivityJet_mass": (
+            transforms.full_like_from_offsets_form,
+            ("oSoftActivityJet", 0.0),
+        ),
     }
     """Arrays that should be filled with constant values if not present to satisfy 4-vector requirements"""
     rename_items = {
@@ -338,7 +352,7 @@ class NanoAODSchema(BaseSchema):
         # Alias arrays
         for alias_name, original_name in self.alias_items.items():
             if original_name in branch_forms:
-                if alias_name in branch_forms:
+                if alias_name in branch_forms and alias_name != "CorrT1METJet_mass":
                     warnings.warn(
                         f"Branch {alias_name} already exists but it will be replaced with {original_name}",
                         RuntimeWarning,
@@ -464,3 +478,15 @@ class ScoutingNanoAODSchema(NanoAODSchema):
     }
 
     all_cross_references = {**NanoAODSchema.all_cross_references}
+
+    full_like_items = {
+        **NanoAODSchema.full_like_items,
+        "ScoutingJet_charge": (
+            transforms.full_like_from_offsets_form,
+            ("oScoutingJet", 0.0),
+        ),
+        "ScoutingFatJet_charge": (
+            transforms.full_like_from_offsets_form,
+            ("oScoutingFatJet", 0.0),
+        ),
+    }
