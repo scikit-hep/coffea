@@ -15,14 +15,20 @@ _exceptions = (FileNotFoundError, UprootMissTreeError, pyarrow.ArrowInvalid)
 @pytest.mark.parametrize("skipbadfiles", [False, True, _exceptions])
 @pytest.mark.parametrize("maxchunks", [None, 1000])
 @pytest.mark.parametrize("compression", [None, 0, 2])
-@pytest.mark.parametrize("executor", [processor.IterativeExecutor, processor.FuturesExecutor])
+@pytest.mark.parametrize(
+    "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
+)
 @pytest.mark.parametrize("mode", ["eager", "virtual"])
 @pytest.mark.parametrize("processor_type", ["ProcessorABC", "Callable"])
-def test_nanoevents_analysis(executor, compression, maxchunks, skipbadfiles, filetype, mode, processor_type):
+def test_nanoevents_analysis(
+    executor, compression, maxchunks, skipbadfiles, filetype, mode, processor_type
+):
     if processor_type == "Callable":
         processor_instance = NanoEventsProcessor(mode=mode, check_filehandle=True)
     else:
-        processor_instance = NanoEventsProcessor(mode=mode, check_filehandle=True).process
+        processor_instance = NanoEventsProcessor(
+            mode=mode, check_filehandle=True
+        ).process
 
     # for parquet, treename-mismatch isn't a failure mode; substitute a malformed
     # parquet file so the dataset still has a non-OSError raise like root gets
@@ -145,7 +151,10 @@ def test_preprocessing(align_clusters):
                 assert chunk.filename == "tests/samples/nano_dy_empty.root"
                 assert chunk.entrystart == 0
                 assert chunk.entrystop == 0
-            elif chunk.dataset == "nonempty_and_empty" or chunk.dataset == "empty_and_nonempty":
+            elif (
+                chunk.dataset == "nonempty_and_empty"
+                or chunk.dataset == "empty_and_nonempty"
+            ):
                 assert chunk.filename in [
                     "tests/samples/nano_dy.root",
                     "tests/samples/nano_dy_empty.root",
@@ -167,21 +176,32 @@ def test_preprocessing(align_clusters):
                 assert chunk.filename == "tests/samples/nano_dy_empty.root"
                 assert chunk.entrystart == 0
                 assert chunk.entrystop == 0
-            elif chunk.dataset == "nonempty_and_empty" or chunk.dataset == "empty_and_nonempty":
+            elif (
+                chunk.dataset == "nonempty_and_empty"
+                or chunk.dataset == "empty_and_nonempty"
+            ):
                 assert chunk.filename in [
                     "tests/samples/nano_dy.root",
                     "tests/samples/nano_dy_empty.root",
                 ]
                 if chunk.filename == "tests/samples/nano_dy.root":
                     assert chunk.entrystart in [0, 7, 14, 21, 28, 35]
-                    assert chunk.entrystop == chunk.entrystart + 7 if chunk.entrystart != 35 else 40
+                    assert (
+                        chunk.entrystop == chunk.entrystart + 7
+                        if chunk.entrystart != 35
+                        else 40
+                    )
                 else:
                     assert chunk.entrystart == 0
                     assert chunk.entrystop == 0
             elif chunk.dataset == "only_nonempty":
                 assert chunk.filename == "tests/samples/nano_dy.root"
                 assert chunk.entrystart in [0, 7, 14, 21, 28, 35]
-                assert chunk.entrystop == chunk.entrystart + 7 if chunk.entrystart != 35 else 40
+                assert (
+                    chunk.entrystop == chunk.entrystart + 7
+                    if chunk.entrystart != 35
+                    else 40
+                )
 
         def data_manipulation(events):
             dataset = events.metadata["dataset"]
