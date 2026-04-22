@@ -584,6 +584,7 @@ class NanoEventsFactory:
             entry_start,
             entry_stop,
             access_log=access_log,
+            file_handle=table_file,
             virtual=mode == "virtual",
             buffer_cache=buffer_cache,
         )
