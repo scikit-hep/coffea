@@ -29,8 +29,8 @@ def test_nanoevents_analysis(
             mode=mode, check_filehandle=True
         ).process
 
-    if filetype == "parquet":
-        pytest.xfail("parquet nanoevents not supported yet")
+    if filetype == "parquet" and skipbadfiles is True:
+        pytest.xfail("TODO: implement a failure mode for parquet")
 
     filelist = {
         "DummyBadMissingFile": {
