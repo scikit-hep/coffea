@@ -23,9 +23,9 @@ from io import BytesIO
 from itertools import repeat
 from typing import (
     Any,
+    Generic,
     Literal,
     Optional,
-    Generic, 
     TypeVar,
 )
 
@@ -202,10 +202,10 @@ T = TypeVar("T")
 
 class Result(Generic[T]):
     """A Rust-style result type wrapping either a success value or an exception.
- 
+
     Use ``is_ok()`` to check the variant, ``unwrap()`` to retrieve the value,
     and ``exception`` (on ``Err``) to inspect the error.
- 
+
     See Also
     --------
     Ok: Successful result.
@@ -1772,7 +1772,6 @@ class Runner:
         if iteritems_options is None:
             iteritems_options = {}
 
-        
         result = self.run(
             fileset=fileset,
             processor_instance=processor_instance,
@@ -1931,7 +1930,7 @@ class Runner:
             uproot_options = {}
         if iteritems_options is None:
             iteritems_options = {}
-        try: 
+        try:
             if not isinstance(processor_instance, ProcessorABC) and not callable(
                 processor_instance
             ):
@@ -2024,7 +2023,7 @@ class Runner:
                     "If you used skipbadfiles=True or similar, it is possible all your files are bad."
                 )
             wrapped_out["exception"] = e
- 
+
             if (
                 not self.use_dataframes
                 and hasattr(processor_instance, "postprocess")
@@ -2033,13 +2032,13 @@ class Runner:
                 postprocess_out = processor_instance.postprocess(wrapped_out["out"])
                 if postprocess_out is not None:
                     wrapped_out["out"] = postprocess_out
- 
+
             if "metrics" in wrapped_out.keys():
                 wrapped_out["metrics"]["chunks"] = len(chunks)
                 for k, v in wrapped_out["metrics"].items():
                     if isinstance(v, set):
                         wrapped_out["metrics"][k] = list(v)
- 
+
             if self.use_result_type:
                 return Ok(wrapped_out)
             return wrapped_out

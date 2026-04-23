@@ -14,13 +14,13 @@ from .accumulator import (
 from .checkpointer import CheckpointerABC, SimpleCheckpointer
 from .executor import (
     DaskExecutor,
+    Err,
     FuturesExecutor,
     IterativeExecutor,
-    ParslExecutor,
-    Runner,
-    Err,
     Ok,
+    ParslExecutor,
     Result,
+    Runner,
 )
 from .processor import ProcessorABC
 from .taskvine_executor import TaskVineExecutor

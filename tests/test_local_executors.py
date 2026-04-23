@@ -205,7 +205,7 @@ def test_preprocessing(align_clusters):
             "empty_and_nonempty": 40,
             "only_nonempty": 40,
         }
-        
+
 
 _good_fileset = {
     "ZJets": {
@@ -213,15 +213,15 @@ _good_fileset = {
         "files": [osp.abspath("tests/samples/nano_dy.root")],
     }
 }
- 
+
 _bad_fileset = {
     "Missing": {
         "treename": "Events",
         "files": [osp.abspath("tests/samples/non_existent.root")],
     }
 }
- 
- 
+
+
 @pytest.mark.parametrize(
     "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
 )
@@ -233,13 +233,15 @@ def test_use_result_type_ok(executor):
         use_result_type=True,
     )
     processor_instance = NanoEventsProcessor(mode="eager")
-    result = run(_good_fileset, processor_instance=processor_instance, treename="Events")
+    result = run(
+        _good_fileset, processor_instance=processor_instance, treename="Events"
+    )
     assert isinstance(result, Ok), f"Expected Ok, got {result!r}"
     assert result.is_ok()
     out = result.unwrap()
     assert "cutflow" in out
- 
- 
+
+
 @pytest.mark.parametrize(
     "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
 )
@@ -255,8 +257,8 @@ def test_use_result_type_err(executor):
     assert isinstance(result, Err), f"Expected Err, got {result!r}"
     assert result.is_err()
     assert isinstance(result.exception, BaseException)
- 
- 
+
+
 @pytest.mark.parametrize(
     "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
 )
@@ -273,8 +275,8 @@ def test_use_result_type_run_method_ok(executor):
     )
     assert isinstance(result, Ok), f"Expected Ok, got {result!r}"
     assert result.unwrap() is not None
- 
- 
+
+
 @pytest.mark.parametrize(
     "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
 )
@@ -291,8 +293,8 @@ def test_use_result_type_run_method_err(executor):
     )
     assert isinstance(result, Err), f"Expected Err, got {result!r}"
     assert isinstance(result.exception, BaseException)
- 
- 
+
+
 def test_use_result_type_skipbadfiles_incompatible():
     """Combining use_result_type and skipbadfiles raises ValueError."""
     with pytest.raises(ValueError, match="mutually exclusive"):
@@ -301,7 +303,7 @@ def test_use_result_type_skipbadfiles_incompatible():
             use_result_type=True,
             skipbadfiles=True,
         )
- 
+
     with pytest.raises(ValueError, match="mutually exclusive"):
         processor.Runner(
             executor=processor.IterativeExecutor(),
