@@ -844,17 +844,24 @@ def test_awkward_validation():
             with_name="LorentzVector",
             behavior=vector.behavior,
         )
-    # invalid: duplicate temporal energy-like (E and energy)
-    with pytest.raises(ValueError, match="temporal energy-like"):
+    # invalid: duplicate temporal alias (E and energy)
+    with pytest.raises(ValueError, match="temporal"):
         ak.zip(
             {"x": [1.0], "y": [2.0], "z": [3.0], "E": [4.0], "energy": [4.0]},
             with_name="LorentzVector",
             behavior=vector.behavior,
         )
-    # invalid: duplicate temporal mass-like (mass and M)
-    with pytest.raises(ValueError, match="temporal mass-like"):
+    # invalid: duplicate temporal alias (mass and M)
+    with pytest.raises(ValueError, match="temporal"):
         ak.zip(
             {"pt": [1.0], "eta": [0.5], "phi": [0.1], "mass": [1.0], "M": [1.0]},
+            with_name="LorentzVector",
+            behavior=vector.behavior,
+        )
+    # invalid: duplicate temporal alias across energy-like and mass-like names
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"pt": [1.0], "eta": [0.5], "phi": [0.1], "mass": [1.0], "energy": [4.0]},
             with_name="LorentzVector",
             behavior=vector.behavior,
         )
@@ -881,6 +888,12 @@ def test_awkward_validation():
     with pytest.raises(ValueError, match="azimuthal"):
         ak.zip(
             {"eta": [0.5], "energy": [4.0]},
+            with_name="PtEtaPhiELorentzVector",
+            behavior=vector.behavior,
+        )
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"pt": [1.0], "eta": [0.5], "phi": [0.1]},
             with_name="PtEtaPhiELorentzVector",
             behavior=vector.behavior,
         )
@@ -948,6 +961,12 @@ def test_awkward_validation():
     with pytest.raises(ValueError, match="charge"):
         ak.zip(
             {"pt": [1.0], "eta": [0.5], "phi": [0.1], "energy": [4.0]},
+            with_name="PtEtaPhiECandidate",
+            behavior=candidate.behavior,
+        )
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"pt": [1.0], "eta": [0.5], "phi": [0.1], "charge": [1]},
             with_name="PtEtaPhiECandidate",
             behavior=candidate.behavior,
         )

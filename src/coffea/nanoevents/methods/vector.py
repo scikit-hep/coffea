@@ -84,8 +84,7 @@ _ALIAS_GROUPS = {
     "y-component": {"y", "py"},
     "z-component": {"z", "pz"},
     "azimuthal radial": {"rho", "pt"},
-    "temporal energy-like": {"t", "E", "e", "energy"},
-    "temporal mass-like": {"tau", "M", "m", "mass"},
+    "temporal": {"t", "tau", "mass", "m", "M", "energy", "e", "E"},
 }
 
 
