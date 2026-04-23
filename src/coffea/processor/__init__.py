@@ -18,9 +18,11 @@ from .executor import (
     IterativeExecutor,
     ParslExecutor,
     Runner,
+    Err,
+    Ok,
+    Result,
 )
 from .processor import ProcessorABC
-from .result import Err, Ok, Result
 from .taskvine_executor import TaskVineExecutor
 
 __all__ = [

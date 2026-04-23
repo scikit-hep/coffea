@@ -25,6 +25,8 @@ from typing import (
     Any,
     Literal,
     Optional,
+    Generic, 
+    TypeVar,
 )
 
 import awkward
@@ -41,7 +43,6 @@ from ..util import _exception_chain, _hash, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .checkpointer import CheckpointerABC
 from .processor import ProcessorABC
-from .result import Err, Ok, Result
 
 _PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
 DEFAULT_METADATA_CACHE: MutableMapping = LRUCache(100000)
@@ -194,6 +195,72 @@ class WorkItem:
 
     def __len__(self) -> int:
         return self.entrystop - self.entrystart
+
+
+T = TypeVar("T")
+
+
+class Result(Generic[T]):
+    """A Rust-style result type wrapping either a success value or an exception.
+ 
+    Use ``is_ok()`` to check the variant, ``unwrap()`` to retrieve the value,
+    and ``exception`` (on ``Err``) to inspect the error.
+ 
+    See Also
+    --------
+    Ok: Successful result.
+    Err: Failed result.
+    """
+
+    def is_ok(self) -> bool:
+        raise NotImplementedError
+
+    def is_err(self) -> bool:
+        return not self.is_ok()
+
+    def unwrap(self) -> T:
+        """Either returns value (accumulator) for Ok Result or an exception if Err result."""
+        raise NotImplementedError
+
+
+class Ok(Result[T]):
+    """A successful result containing a value."""
+
+    def __init__(self, value: T) -> None:
+        self._value = value
+
+    @property
+    def value(self) -> T:
+        return self._value
+
+    def is_ok(self) -> bool:
+        return True
+
+    def unwrap(self) -> T:
+        return self._value
+
+    def __repr__(self) -> str:
+        return f"Ok({self._value!r})"
+
+
+class Err(Result):
+    """A failed result containing an exception."""
+
+    def __init__(self, exception: BaseException) -> None:
+        self._exception = exception
+
+    @property
+    def exception(self) -> BaseException:
+        return self._exception
+
+    def is_ok(self) -> bool:
+        return False
+
+    def unwrap(self):
+        raise self._exception
+
+    def __repr__(self) -> str:
+        return f"Err({self._exception!r})"
 
 
 def _compress(item, compression):
@@ -1125,6 +1192,13 @@ class Runner:
 
         assert self.format in ("root", "parquet")
 
+        if self.use_result_type and self.skipbadfiles is not False:
+            raise ValueError(
+                "use_result_type and skipbadfiles are mutually exclusive. "
+                "skipbadfiles silently drops file-level errors, while use_result_type "
+                "captures them explicitly as Err."
+            )
+
     @property
     def retries(self):
         retries = getattr(self.executor, "retries", 0)
@@ -1659,16 +1733,7 @@ class Runner:
         iteritems_options: dict | None = {},
         trace: Callable | None = None,
     ) -> "Result | Accumulatable":
-        """
-        Run the processor_instance on a given fileset
-
-        When use_result_type=True, returns an object of class Return — either Ok(Accumulatable) or Err(Exception).
-            result.is_ok() - check success whether Result is Ok or Err
-            result.unwrap() - to get the value (Accumulatable or Exception)
-            result.exception - to inspect the error if Result is Err
-
-        When use_result_type=False (default), returns output directly and raises on error.
-        When savemetrics=True, the output value is (output, metrics).
+        """Run the processor_instance on a given fileset
 
         Parameters
         ----------
@@ -1694,43 +1759,55 @@ class Runner:
                 See ``coffea.nanoevents.trace.trace`` for the default implementation.
                 When provided and preprocessing is needed, tracing is performed and takes
                 precedence over fileset-level ``preload``.
+
+            Returns
+            -------
+            Result or Accumulatable
+                When ``use_result_type=True``, returns ``Ok(output)`` or ``Err(exception)``.
+                When ``use_result_type=False`` (default), returns the output directly and raises on error.
+                When ``savemetrics=True``, the output value is ``(output, metrics)``.
         """
         if uproot_options is None:
             uproot_options = {}
         if iteritems_options is None:
             iteritems_options = {}
 
-        try:
-            wrapped_out = self.run(
-                fileset=fileset,
-                processor_instance=processor_instance,
-                treename=treename,
-                uproot_options=uproot_options,
-                iteritems_options=iteritems_options,
-                trace=trace,
-            )
-
-        except BaseException as e:
-            if self.use_result_type:
-                return Err(e)
-            raise
-
-        exception = wrapped_out.get("exception", 0)
-        if exception != 0:
-            if self.use_result_type:
-                return Err(exception)
-            raise exception
-
-        if self.use_dataframes:
-            out = wrapped_out
-        elif self.savemetrics:
-            out = (wrapped_out["out"], wrapped_out["metrics"])
-        else:
-            out = wrapped_out["out"]
+        
+        result = self.run(
+            fileset=fileset,
+            processor_instance=processor_instance,
+            treename=treename,
+            uproot_options=uproot_options,
+            iteritems_options=iteritems_options,
+            trace=trace,
+        )
 
         if self.use_result_type:
+            if isinstance(result, Err):
+                return result
+            wrapped_out = result.unwrap()
+            exception = wrapped_out.get("exception", 0)
+            if exception != 0:
+                return Err(exception)
+            if self.use_dataframes:
+                out = wrapped_out["out"]
+            elif self.savemetrics:
+                out = (wrapped_out["out"], wrapped_out["metrics"])
+            else:
+                out = wrapped_out["out"]
             return Ok(out)
-        return out
+        else:
+            wrapped_out = result
+            exception = wrapped_out.get("exception", 0)
+            if exception != 0:
+                raise exception
+            if self.use_dataframes:
+                out = wrapped_out["out"]
+            elif self.savemetrics:
+                out = (wrapped_out["out"], wrapped_out["metrics"])
+            else:
+                out = wrapped_out["out"]
+            return out
 
     def preprocess(
         self,
@@ -1809,8 +1886,13 @@ class Runner:
         uproot_options: dict | None = {},
         iteritems_options: dict | None = {},
         trace: Callable | None = None,
-    ) -> Accumulatable:
+    ) -> "Result | dict":
         """Run the processor_instance on a given fileset
+
+        Returns the raw executor result dict.  When ``use_result_type=True``,
+        the dict is wrapped in ``Ok``; any exception is caught and returned as
+        ``Err``.  Use ``__call__`` for the user-facing output with
+        ``savemetrics`` / ``use_dataframes`` extraction applied.
 
         Parameters
         ----------
@@ -1849,114 +1931,120 @@ class Runner:
             uproot_options = {}
         if iteritems_options is None:
             iteritems_options = {}
-        if not isinstance(processor_instance, ProcessorABC) and not callable(
-            processor_instance
-        ):
-            raise ValueError(
-                "Expected processor_instance to derive from ProcessorABC or be a single-argument callable"
-            )
-
-        meta = False
-        if not isinstance(fileset, (Mapping, str)):
-            if isinstance(fileset, Generator) or isinstance(fileset[0], WorkItem):
-                meta = True
-            else:
+        try: 
+            if not isinstance(processor_instance, ProcessorABC) and not callable(
+                processor_instance
+            ):
                 raise ValueError(
-                    "Expected fileset to be a mapping dataset: list(files) or filename"
+                    "Expected processor_instance to derive from ProcessorABC or be a single-argument callable"
                 )
 
-        if meta:
-            chunks = fileset
-        else:
-            chunks = self.preprocess(
-                fileset,
-                treename=treename,
-                uproot_options=uproot_options,
-                trace=trace,
-                processor_instance=processor_instance,
-            )
+            meta = False
+            if not isinstance(fileset, (Mapping, str)):
+                if isinstance(fileset, Generator) or isinstance(fileset[0], WorkItem):
+                    meta = True
+                else:
+                    raise ValueError(
+                        "Expected fileset to be a mapping dataset: list(files) or filename"
+                    )
 
-        if self.processor_compression is None:
-            pi_to_send = processor_instance
-        else:
-            pi_to_send = lz4f.compress(
-                cloudpickle.dumps(processor_instance),
-                compression_level=self.processor_compression,
-            )
-        # hack around dask/dask#5503 which is really a silly request but here we are
-        if isinstance(self.executor, DaskExecutor):
-            self.executor.heavy_input = pi_to_send
+            if meta:
+                chunks = fileset
+            else:
+                chunks = self.preprocess(
+                    fileset,
+                    treename=treename,
+                    uproot_options=uproot_options,
+                    trace=trace,
+                    processor_instance=processor_instance,
+                )
+
+            if self.processor_compression is None:
+                pi_to_send = processor_instance
+            else:
+                pi_to_send = lz4f.compress(
+                    cloudpickle.dumps(processor_instance),
+                    compression_level=self.processor_compression,
+                )
+            # hack around dask/dask#5503 which is really a silly request but here we are
+            if isinstance(self.executor, DaskExecutor):
+                self.executor.heavy_input = pi_to_send
+                closure = partial(
+                    self._work_function,
+                    self.format,
+                    self.xrootdtimeout,
+                    self.schema,
+                    self.use_dataframes,
+                    self.savemetrics,
+                    processor_instance="heavy",
+                    uproot_options=uproot_options,
+                    iteritems_options=iteritems_options,
+                    checkpointer=self.checkpointer,
+                    cache_function=partial(self.get_cache, self.cachestrategy),
+                )
+            else:
+                closure = partial(
+                    self._work_function,
+                    self.format,
+                    self.xrootdtimeout,
+                    self.schema,
+                    self.use_dataframes,
+                    self.savemetrics,
+                    processor_instance=pi_to_send,
+                    uproot_options=uproot_options,
+                    iteritems_options=iteritems_options,
+                    checkpointer=self.checkpointer,
+                    cache_function=partial(self.get_cache, self.cachestrategy),
+                )
+
+            chunks = list(chunks)
+            if len(chunks) == 0:
+                raise ValueError(
+                    "No chunks survived preprocessing.\n"
+                    "If you used skipbadfiles=True or similar, it is possible all your files are bad."
+                )
+
+            exe_args = {
+                "unit": "chunk",
+                "function_name": type(processor_instance).__name__,
+            }
+            executor = self.executor.copy(**exe_args)
+
             closure = partial(
-                self._work_function,
-                self.format,
-                self.xrootdtimeout,
-                self.schema,
-                self.use_dataframes,
-                self.savemetrics,
-                processor_instance="heavy",
-                uproot_options=uproot_options,
-                iteritems_options=iteritems_options,
-                checkpointer=self.checkpointer,
-                cache_function=partial(self.get_cache, self.cachestrategy),
-            )
-        else:
-            closure = partial(
-                self._work_function,
-                self.format,
-                self.xrootdtimeout,
-                self.schema,
-                self.use_dataframes,
-                self.savemetrics,
-                processor_instance=pi_to_send,
-                uproot_options=uproot_options,
-                iteritems_options=iteritems_options,
-                checkpointer=self.checkpointer,
-                cache_function=partial(self.get_cache, self.cachestrategy),
+                self.automatic_retries,
+                0 if isinstance(executor, DaskExecutor) else self.retries,
+                self.skipbadfiles,
+                closure,
             )
 
-        chunks = list(chunks)
-        if len(chunks) == 0:
-            raise ValueError(
-                "No chunks survived preprocessing.\n"
-                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
-            )
-
-        exe_args = {
-            "unit": "chunk",
-            "function_name": type(processor_instance).__name__,
-        }
-        executor = self.executor.copy(**exe_args)
-
-        closure = partial(
-            self.automatic_retries,
-            0 if isinstance(executor, DaskExecutor) else self.retries,
-            self.skipbadfiles,
-            closure,
-        )
-
-        wrapped_out, e = executor(chunks, closure, None)
-        if wrapped_out is None:
-            raise ValueError(
-                "No chunks returned results, verify ``processor`` instance structure.\n"
-                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
-            )
-        wrapped_out["exception"] = e
-
-        if (
-            not self.use_dataframes
-            and hasattr(processor_instance, "postprocess")
-            and callable(processor_instance.postprocess)
-        ):
-            postprocess_out = processor_instance.postprocess(wrapped_out["out"])
-            if postprocess_out is not None:
-                wrapped_out["out"] = postprocess_out
-
-        if "metrics" in wrapped_out.keys():
-            wrapped_out["metrics"]["chunks"] = len(chunks)
-            for k, v in wrapped_out["metrics"].items():
-                if isinstance(v, set):
-                    wrapped_out["metrics"][k] = list(v)
-        if self.use_dataframes:
-            return wrapped_out["out"]
-        else:
+            wrapped_out, e = executor(chunks, closure, None)
+            if wrapped_out is None:
+                raise ValueError(
+                    "No chunks returned results, verify ``processor`` instance structure.\n"
+                    "If you used skipbadfiles=True or similar, it is possible all your files are bad."
+                )
+            wrapped_out["exception"] = e
+ 
+            if (
+                not self.use_dataframes
+                and hasattr(processor_instance, "postprocess")
+                and callable(processor_instance.postprocess)
+            ):
+                postprocess_out = processor_instance.postprocess(wrapped_out["out"])
+                if postprocess_out is not None:
+                    wrapped_out["out"] = postprocess_out
+ 
+            if "metrics" in wrapped_out.keys():
+                wrapped_out["metrics"]["chunks"] = len(chunks)
+                for k, v in wrapped_out["metrics"].items():
+                    if isinstance(v, set):
+                        wrapped_out["metrics"][k] = list(v)
+ 
+            if self.use_result_type:
+                return Ok(wrapped_out)
             return wrapped_out
+
+        except BaseException as e:
+            if self.use_result_type:
+                return Err(e)
+            raise
