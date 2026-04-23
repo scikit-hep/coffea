@@ -288,6 +288,8 @@ class FCCSchema(BaseSchema):
                 (k.replace(k, self._replacement[k]) if k in self._replacement else k): v
                 for k, v in collection_content.items()
             }
+            if mixin == "ReconstructedParticle":
+                collection_content.pop("E", None)
 
             output[name] = zip_forms(sort_dict(collection_content), name, mixin)
             # Update some metadata

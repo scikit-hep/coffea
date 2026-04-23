@@ -106,7 +106,6 @@ branches = {
     "GPStringKeys": [],
     "GPStringValues": [],
     "Jet": [
-        "E",
         "PDG",
         "charge",
         "clusters_idx_EFlowNeutralHadron_collectionID",
@@ -178,7 +177,6 @@ branches = {
     "Photon_IsolationVar": [],
     "Photon_objIdx": ["collectionID", "index"],
     "ReconstructedParticles": [
-        "E",
         "Link_from_ReconstructedParticles",
         "Link_to_Particle",
         "PDG",
@@ -266,7 +264,7 @@ all_methods = {
             ],
         ),
     },
-    "ParticleIDs": {"get_reconstructedparticles": ("E", numpy.float32(5.1393394))},
+    "ParticleIDs": {"get_reconstructedparticles": ("mass", numpy.float32(0.13957039))},
     "EFlowNeutralHadron": {
         "get_cluster_photons": (None, [[]]),
         "get_hits": ("time", [1.01947987829476e-08]),

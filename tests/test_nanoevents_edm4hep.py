@@ -162,7 +162,6 @@ branches = {
         "weight",
     ],
     "ReconstructedParticleCollection": [
-        "E",
         "PDG",
         "charge",
         "clusters_idx_ClusterCollection_collectionID",
