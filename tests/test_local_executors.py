@@ -4,6 +4,7 @@ import pytest
 
 from coffea import processor
 from coffea.nanoevents import schemas
+from coffea.processor import Err, Ok
 from coffea.processor.executor import UprootMissTreeError
 from coffea.processor.test_items import NanoEventsProcessor
 
@@ -204,3 +205,108 @@ def test_preprocessing(align_clusters):
             "empty_and_nonempty": 40,
             "only_nonempty": 40,
         }
+
+
+_good_fileset = {
+    "ZJets": {
+        "treename": "Events",
+        "files": [osp.abspath("tests/samples/nano_dy.root")],
+    }
+}
+
+_bad_fileset = {
+    "Missing": {
+        "treename": "Events",
+        "files": [osp.abspath("tests/samples/non_existent.root")],
+    }
+}
+
+
+@pytest.mark.parametrize(
+    "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
+)
+def test_use_result_type_ok(executor):
+    """use_result_type=True returns Ok(output) on a successful run."""
+    run = processor.Runner(
+        executor=executor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+    )
+    processor_instance = NanoEventsProcessor(mode="eager")
+    result = run(
+        _good_fileset, processor_instance=processor_instance, treename="Events"
+    )
+    assert isinstance(result, Ok), f"Expected Ok, got {result!r}"
+    assert result.is_ok()
+    out = result.unwrap()
+    assert "cutflow" in out
+
+
+@pytest.mark.parametrize(
+    "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
+)
+def test_use_result_type_err(executor):
+    """use_result_type=True returns Err(exception) instead of raising on failure."""
+    run = processor.Runner(
+        executor=executor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+    )
+    processor_instance = NanoEventsProcessor(mode="eager")
+    result = run(_bad_fileset, processor_instance=processor_instance, treename="Events")
+    assert isinstance(result, Err), f"Expected Err, got {result!r}"
+    assert result.is_err()
+    assert isinstance(result.exception, BaseException)
+
+
+@pytest.mark.parametrize(
+    "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
+)
+def test_use_result_type_run_method_ok(executor):
+    """use_result_type=True also works when calling run() directly."""
+    run = processor.Runner(
+        executor=executor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+    )
+    processor_instance = NanoEventsProcessor(mode="eager")
+    result = run.run(
+        _good_fileset, processor_instance=processor_instance, treename="Events"
+    )
+    assert isinstance(result, Ok), f"Expected Ok, got {result!r}"
+    assert result.unwrap() is not None
+
+
+@pytest.mark.parametrize(
+    "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
+)
+def test_use_result_type_run_method_err(executor):
+    """use_result_type=True via run() returns Err instead of raising on failure."""
+    run = processor.Runner(
+        executor=executor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+    )
+    processor_instance = NanoEventsProcessor(mode="eager")
+    result = run.run(
+        _bad_fileset, processor_instance=processor_instance, treename="Events"
+    )
+    assert isinstance(result, Err), f"Expected Err, got {result!r}"
+    assert isinstance(result.exception, BaseException)
+
+
+def test_use_result_type_skipbadfiles_incompatible():
+    """Combining use_result_type and skipbadfiles raises ValueError."""
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        processor.Runner(
+            executor=processor.IterativeExecutor(),
+            use_result_type=True,
+            skipbadfiles=True,
+        )
+
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        processor.Runner(
+            executor=processor.IterativeExecutor(),
+            use_result_type=True,
+            skipbadfiles=(FileNotFoundError,),
+        )
