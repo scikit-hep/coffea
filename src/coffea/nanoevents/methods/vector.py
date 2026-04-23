@@ -84,17 +84,50 @@ _ALIAS_GROUPS = {
     "y-component": {"y", "py"},
     "z-component": {"z", "pz"},
     "azimuthal radial": {"rho", "pt"},
-    "temporal": {"t", "tau", "mass", "m", "M", "energy", "e", "E"},
+    "temporal": {"t", "tau", "E", "e", "energy", "M", "m", "mass"},
 }
 
 
-def _duplicate_alias_errors(fields):
+def _coordinate_validation(fields):
     errors = []
-    for label, group in _ALIAS_GROUPS.items():
-        overlap = fields & group
+    for label, aliases in _ALIAS_GROUPS.items():
+        overlap = fields & aliases
         if len(overlap) > 1:
             errors.append(f"multiple {label} aliases present: {sorted(overlap)}")
-    return errors
+    has_xy = bool(fields & {"x", "px"}) and bool(fields & {"y", "py"})
+    has_rhophi = bool(fields & {"rho", "pt"}) and "phi" in fields
+    if (has_xy and fields & {"rho", "pt", "phi"}) or (
+        has_rhophi and fields & {"x", "px", "y", "py"}
+    ):
+        cartesian = sorted(fields & {"x", "px", "y", "py"})
+        polar = sorted(fields & {"rho", "pt", "phi"})
+        errors.append(
+            "conflicting azimuthal coordinate representations present: "
+            f"cartesian={cartesian}, polar={polar}"
+        )
+
+    has_z = bool(fields & {"z", "pz"})
+    has_theta = "theta" in fields
+    has_eta = "eta" in fields
+    if sum((has_z, has_theta, has_eta)) > 1:
+        present_longitudinal = []
+        if has_z:
+            present_longitudinal.append(f"z/pz={sorted(fields & {'z', 'pz'})}")
+        if has_theta:
+            present_longitudinal.append("theta=['theta']")
+        if has_eta:
+            present_longitudinal.append("eta=['eta']")
+        errors.append(
+            "conflicting longitudinal coordinate representations present: "
+            + ", ".join(present_longitudinal)
+        )
+    return (
+        errors,
+        has_xy,
+        has_rhophi,
+        has_z or has_theta or has_eta,
+        bool(fields & _ALIAS_GROUPS["temporal"]),
+    )
 
 
 @awkward.mixin_class(behavior)
@@ -170,11 +203,17 @@ class TwoVector(MomentumAwkward2D):
 
     def __awkward_validation__(self):
         fields = set(self.fields)
-        errors = _duplicate_alias_errors(fields)
-        has_cart = bool(fields & {"x", "px"}) and bool(fields & {"y", "py"})
-        has_polar = bool(fields & {"rho", "pt"}) and "phi" in fields
+        errors, has_cart, has_polar, has_longitudinal, has_temporal = (
+            _coordinate_validation(fields)
+        )
         if not (has_cart or has_polar):
-            errors.append("missing azimuthal pair (x/px and y/py) or (rho/pt and phi)")
+            errors.append(
+                "missing azimuthal coordinates: need x/px and y/py, or rho/pt and phi"
+            )
+        if has_longitudinal or has_temporal:
+            errors.append(
+                "2D vectors cannot include longitudinal or temporal coordinates"
+            )
         if errors:
             raise ValueError(f"{type(self).__name__}: " + "; ".join(errors))
 
@@ -272,13 +311,17 @@ class ThreeVector(MomentumAwkward3D):
 
     def __awkward_validation__(self):
         fields = set(self.fields)
-        errors = _duplicate_alias_errors(fields)
-        has_cart = bool(fields & {"x", "px"}) and bool(fields & {"y", "py"})
-        has_polar = bool(fields & {"rho", "pt"}) and "phi" in fields
+        errors, has_cart, has_polar, has_longitudinal, has_temporal = (
+            _coordinate_validation(fields)
+        )
         if not (has_cart or has_polar):
-            errors.append("missing azimuthal pair (x/px and y/py) or (rho/pt and phi)")
-        if not fields & {"z", "pz", "theta", "eta"}:
-            errors.append("missing longitudinal (z/pz or theta or eta)")
+            errors.append(
+                "missing azimuthal coordinates: need x/px and y/py, or rho/pt and phi"
+            )
+        if not has_longitudinal:
+            errors.append("missing longitudinal coordinate: need z/pz, theta, or eta")
+        if has_temporal:
+            errors.append("3D vectors cannot include temporal coordinates")
         if errors:
             raise ValueError(f"{type(self).__name__}: " + "; ".join(errors))
 
@@ -507,15 +550,19 @@ class LorentzVector(MomentumAwkward4D):
 
     def __awkward_validation__(self):
         fields = set(self.fields)
-        errors = _duplicate_alias_errors(fields)
-        has_cart = bool(fields & {"x", "px"}) and bool(fields & {"y", "py"})
-        has_polar = bool(fields & {"rho", "pt"}) and "phi" in fields
+        errors, has_cart, has_polar, has_longitudinal, has_temporal = (
+            _coordinate_validation(fields)
+        )
         if not (has_cart or has_polar):
-            errors.append("missing azimuthal pair (x/px and y/py) or (rho/pt and phi)")
-        if not fields & {"z", "pz", "theta", "eta"}:
-            errors.append("missing longitudinal (z/pz or theta or eta)")
-        if not fields & {"t", "E", "e", "energy", "tau", "M", "m", "mass"}:
-            errors.append("missing temporal (t/E/e/energy or tau/M/m/mass)")
+            errors.append(
+                "missing azimuthal coordinates: need x/px and y/py, or rho/pt and phi"
+            )
+        if not has_longitudinal:
+            errors.append("missing longitudinal coordinate: need z/pz, theta, or eta")
+        if not has_temporal:
+            errors.append(
+                "missing temporal coordinate: need t/E/e/energy or tau/M/m/mass"
+            )
         if errors:
             raise ValueError(f"{type(self).__name__}: " + "; ".join(errors))
 

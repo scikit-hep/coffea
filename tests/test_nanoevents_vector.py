@@ -741,6 +741,15 @@ def test_awkward_validation():
             with_name="TwoVector",
             behavior=vector.behavior,
         )
+    # invalid: mixed cartesian and polar azimuthal coordinates
+    with pytest.raises(
+        ValueError, match="conflicting azimuthal coordinate representations"
+    ):
+        ak.zip(
+            {"x": [1.0], "y": [2.0], "phi": [0.1]},
+            with_name="TwoVector",
+            behavior=vector.behavior,
+        )
 
     # ---- vector.PolarTwoVector (inherits TwoVector validation) ----
     ak.zip(
@@ -792,6 +801,23 @@ def test_awkward_validation():
     with pytest.raises(ValueError, match="z-component"):
         ak.zip(
             {"x": [1.0], "y": [2.0], "z": [3.0], "pz": [3.0]},
+            with_name="ThreeVector",
+            behavior=vector.behavior,
+        )
+    # invalid: more than one longitudinal coordinate
+    with pytest.raises(
+        ValueError, match="conflicting longitudinal coordinate representations"
+    ):
+        ak.zip(
+            {"x": [1.0], "y": [2.0], "theta": [0.5], "eta": [0.1]},
+            with_name="ThreeVector",
+            behavior=vector.behavior,
+        )
+    with pytest.raises(
+        ValueError, match="conflicting longitudinal coordinate representations"
+    ):
+        ak.zip(
+            {"pt": [1.0], "phi": [0.1], "z": [3.0], "eta": [0.1]},
             with_name="ThreeVector",
             behavior=vector.behavior,
         )
@@ -862,6 +888,15 @@ def test_awkward_validation():
     with pytest.raises(ValueError, match="temporal"):
         ak.zip(
             {"pt": [1.0], "eta": [0.5], "phi": [0.1], "mass": [1.0], "energy": [4.0]},
+            with_name="LorentzVector",
+            behavior=vector.behavior,
+        )
+    # invalid: more than one longitudinal coordinate
+    with pytest.raises(
+        ValueError, match="conflicting longitudinal coordinate representations"
+    ):
+        ak.zip(
+            {"x": [1.0], "y": [2.0], "z": [3.0], "eta": [0.5], "t": [4.0]},
             with_name="LorentzVector",
             behavior=vector.behavior,
         )
