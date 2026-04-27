@@ -1,7 +1,6 @@
 import concurrent.futures
 import json
 import math
-import os
 import pickle
 import time
 import traceback
@@ -31,7 +30,6 @@ import awkward
 import cloudpickle
 import loky
 import lz4.frame as lz4f
-import toml
 import uproot
 from cachetools import LRUCache
 
@@ -1080,29 +1078,11 @@ class Runner:
     savemetrics: bool = False
     schema: schemas.BaseSchema | None = schemas.NanoAODSchema
     processor_compression: int = 1
-    use_skyhook: bool | None = False
-    skyhook_options: dict | None = field(default_factory=dict)
     format: str = "root"
     checkpointer: CheckpointerABC | None = None
     cachestrategy: None | (Literal["dask-worker"] | Callable[..., MutableMapping]) = (
         None
     )
-
-    @staticmethod
-    def read_coffea_config():
-        config_path = None
-        if "HOME" in os.environ:
-            config_path = os.path.join(os.environ["HOME"], ".coffea.toml")
-        elif "_CONDOR_SCRATCH_DIR" in os.environ:
-            config_path = os.path.join(
-                os.environ["_CONDOR_SCRATCH_DIR"], ".coffea.toml"
-            )
-
-        if config_path is not None and os.path.exists(config_path):
-            with open(config_path) as f:
-                return toml.loads(f.read())
-        else:
-            return dict()
 
     def __post_init__(self):
         if self.pre_executor is None:
@@ -1430,84 +1410,26 @@ class Runner:
                 meta.preload = preload
 
     def _chunk_generator(self, fileset: dict, treename: str) -> Generator:
-        config = None
-        if self.use_skyhook:
-            config = Runner.read_coffea_config()
-        if not self.use_skyhook and (self.format == "root" or self.format == "parquet"):
-            if self.maxchunks is None:
-                last_chunksize = self.chunksize
-                for filemeta in fileset:
-                    last_chunksize = yield from filemeta.chunks(
-                        last_chunksize,
-                        self.align_clusters,
-                    )
-            else:
-                # get just enough file info to compute chunking
-                nchunks = defaultdict(int)
-                chunks = []
-                for filemeta in fileset:
-                    if nchunks[filemeta.dataset] >= self.maxchunks:
-                        continue
-                    for chunk in filemeta.chunks(self.chunksize, self.align_clusters):
-                        chunks.append(chunk)
-                        nchunks[filemeta.dataset] += 1
-                        if nchunks[filemeta.dataset] >= self.maxchunks:
-                            break
-                yield from (c for c in chunks)
+        if self.maxchunks is None:
+            last_chunksize = self.chunksize
+            for filemeta in fileset:
+                last_chunksize = yield from filemeta.chunks(
+                    last_chunksize,
+                    self.align_clusters,
+                )
         else:
-            if self.use_skyhook and not config.get("skyhook", None):
-                print("No skyhook config found, using defaults")
-                config["skyhook"] = dict()
-
-            dataset_filelist_map = {}
-            if self.use_skyhook:
-                import pyarrow.dataset as ds
-
-                for dataset, basedir in fileset.items():
-                    ds_ = ds.dataset(basedir, format="parquet")
-                    dataset_filelist_map[dataset] = ds_.files
-            else:
-                for dataset, maybe_filelist in fileset.items():
-                    if isinstance(maybe_filelist, list):
-                        dataset_filelist_map[dataset] = maybe_filelist
-                    elif isinstance(maybe_filelist, dict):
-                        if "files" not in maybe_filelist:
-                            raise ValueError(
-                                "Dataset definition must have key 'files' defined!"
-                            )
-                        dataset_filelist_map[dataset] = maybe_filelist["files"]
-                    else:
-                        raise ValueError(
-                            "Dataset definition in fileset must be dict[str: list[str]] or dict[str: dict[str: Any]]"
-                        )
+            # get just enough file info to compute chunking
+            nchunks = defaultdict(int)
             chunks = []
-            for dataset, filelist in dataset_filelist_map.items():
-                for filename in filelist:
-                    # If skyhook config is provided and is not empty,
-                    if self.use_skyhook:
-                        ceph_config_path = config["skyhook"].get(
-                            "ceph_config_path", "/etc/ceph/ceph.conf"
-                        )
-                        ceph_data_pool = config["skyhook"].get(
-                            "ceph_data_pool", "cephfs_data"
-                        )
-                        filename = f"{ceph_config_path}:{ceph_data_pool}:{filename}"
-                    chunks.append(
-                        WorkItem(
-                            dataset,
-                            filename,
-                            treename,
-                            0,
-                            0,
-                            "",
-                            (
-                                fileset[dataset]["metadata"]
-                                if "metadata" in fileset[dataset]
-                                else None
-                            ),
-                        )
-                    )
-            yield from iter(chunks)
+            for filemeta in fileset:
+                if nchunks[filemeta.dataset] >= self.maxchunks:
+                    continue
+                for chunk in filemeta.chunks(self.chunksize, self.align_clusters):
+                    chunks.append(chunk)
+                    nchunks[filemeta.dataset] += 1
+                    if nchunks[filemeta.dataset] >= self.maxchunks:
+                        break
+            yield from (c for c in chunks)
 
     @staticmethod
     def _work_function(
