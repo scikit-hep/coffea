@@ -470,7 +470,6 @@ class NanoEventsFactory:
         metadata=None,
         parquet_options={},
         storage_options=None,
-        skyhook_options={},
         access_log=None,
     ):
         """Quickly build NanoEvents from a parquet file
@@ -505,7 +504,6 @@ class NanoEventsFactory:
                 Factory configured from ``file`` that can materialise NanoEvents.
         """
         import pyarrow
-        import pyarrow.dataset as ds
         import pyarrow.parquet
 
         ftypes = (
@@ -589,21 +587,7 @@ class NanoEventsFactory:
             buffer_cache=buffer_cache,
         )
 
-        format_ = "parquet"
-        dataset = None
-        shim = None
-        if len(skyhook_options) > 0:
-            format_ = ds.SkyhookFileFormat(
-                "parquet",
-                skyhook_options["ceph_config_path"].encode(),
-                skyhook_options["ceph_data_pool"].encode(),
-            )
-            dataset = ds.dataset(file, schema=table_file.schema_arrow, format=format_)
-            shim = TrivialParquetOpener.UprootLikeShim(file, dataset)
-        else:
-            shim = TrivialParquetOpener.UprootLikeShim(
-                table_file, dataset, openfile=fs_file
-            )
+        shim = TrivialParquetOpener.UprootLikeShim(table_file, None, openfile=fs_file)
 
         mapping.preload_column_source(partition_key[0], partition_key[1], shim)
 
