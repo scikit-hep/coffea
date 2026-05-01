@@ -106,6 +106,7 @@ dev = [
   "flake8",
   "black",
   "pytest",
+  "pytest-xdist",
   "pytest-cov",
   "pytest-mpl",
   "pytest-asyncio",
