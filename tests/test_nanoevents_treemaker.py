@@ -40,7 +40,7 @@ def test_collection_exists(events, collection):
         ("Photons", "PtEtaPhiELorentzVector"),
         ("Jets", "PtEtaPhiELorentzVector"),
         ("JetsAK8", "PtEtaPhiELorentzVector"),
-        ("Tracks", "LorentzVector"),
+        ("Tracks", "ThreeVector"),
         ("GenParticles", "PtEtaPhiELorentzVector"),
         ("PrimaryVertices", "ThreeVector"),
     ],

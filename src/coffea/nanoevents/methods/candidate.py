@@ -51,6 +51,13 @@ class Candidate(vector.LorentzVector):
             behavior=self.behavior,
         )
 
+    def __awkward_validation__(self):
+        if "charge" not in self.fields:
+            raise ValueError(f"{type(self).__name__} requires the 'charge' field")
+        parent = super()
+        if hasattr(parent, "__awkward_validation__"):
+            parent.__awkward_validation__()
+
 
 @awkward.mixin_class(behavior)
 class PtEtaPhiMCandidate(Candidate, vector.PtEtaPhiMLorentzVector):

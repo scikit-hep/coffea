@@ -298,6 +298,7 @@ class DelphesSchema(BaseSchema):
                 content["y"] = content["Y"]
                 content["z"] = content["Z"]
             elif mixin == "Particle" or mixin == "Jet" or mixin == "Track":
+                content.pop("E", None)
                 content["pt"] = content["PT"]
                 content["eta"] = content["Eta"]
                 content["phi"] = content["Phi"]
@@ -309,6 +310,7 @@ class DelphesSchema(BaseSchema):
                 or mixin == "Muon"
                 or mixin == "Tower"
             ):
+                content.pop("E", None)
                 if "PT" not in content and "ET" in content:
                     content["PT"] = content["ET"]
                 content["pt"] = content["PT"]

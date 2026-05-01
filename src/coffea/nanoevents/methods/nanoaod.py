@@ -759,6 +759,16 @@ class Vertex(base.NanoCollection):
             behavior=self.behavior,
         )
 
+    def __awkward_validation__(self):
+        fields = set(self.fields)
+        required = {"x", "y", "z"}
+        missing = required - fields
+        if missing:
+            raise ValueError(
+                f"{type(self).__name__} requires fields {sorted(required)}; "
+                f"missing: {sorted(missing)}"
+            )
+
 
 _set_repr_name("Vertex")
 
@@ -780,6 +790,17 @@ class SecondaryVertex(Vertex):
             with_name="PtEtaPhiMLorentzVector",
             behavior=self.behavior,
         )
+
+    def __awkward_validation__(self):
+        fields = set(self.fields)
+        required = {"pt", "eta", "phi", "mass"}
+        missing = required - fields
+        if missing:
+            raise ValueError(
+                f"{type(self).__name__} requires fields {sorted(required)} "
+                f"(in addition to x/y/z); missing: {sorted(missing)}"
+            )
+        super().__awkward_validation__()
 
 
 _set_repr_name("SecondaryVertex")

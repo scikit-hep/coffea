@@ -683,3 +683,450 @@ def test_photon_zero_mass_charge(optimization_enabled):
             daskdiphotons["mass"].compute(), daskmll.compute(), check_parameters=False
         )
         assert ak.almost_equal(eagerdiphotons["mass"], daskdiphotons["mass"].compute())
+
+
+def test_awkward_validation():
+    from coffea.nanoevents.methods import candidate, vector
+
+    # ---- vector.TwoVector ----
+    # valid: cartesian
+    ak.zip(
+        {"x": [1.0], "y": [2.0]},
+        with_name="TwoVector",
+        behavior=vector.behavior,
+    )
+    # valid: momentum cartesian
+    ak.zip(
+        {"px": [1.0], "py": [2.0]},
+        with_name="TwoVector",
+        behavior=vector.behavior,
+    )
+    # valid: polar
+    ak.zip(
+        {"rho": [1.0], "phi": [0.1]},
+        with_name="TwoVector",
+        behavior=vector.behavior,
+    )
+    # valid: momentum polar
+    ak.zip(
+        {"pt": [1.0], "phi": [0.1]},
+        with_name="TwoVector",
+        behavior=vector.behavior,
+    )
+    # invalid: missing y
+    with pytest.raises(ValueError, match="azimuthal"):
+        ak.zip(
+            {"x": [1.0]},
+            with_name="TwoVector",
+            behavior=vector.behavior,
+        )
+    # invalid: only phi
+    with pytest.raises(ValueError, match="azimuthal"):
+        ak.zip(
+            {"phi": [0.1]},
+            with_name="TwoVector",
+            behavior=vector.behavior,
+        )
+    # invalid: duplicate x-component alias (x and px)
+    with pytest.raises(ValueError, match="x-component"):
+        ak.zip(
+            {"x": [1.0], "px": [1.0], "y": [2.0]},
+            with_name="TwoVector",
+            behavior=vector.behavior,
+        )
+    # invalid: duplicate azimuthal-radial alias (rho and pt)
+    with pytest.raises(ValueError, match="azimuthal radial"):
+        ak.zip(
+            {"rho": [1.0], "pt": [1.0], "phi": [0.1]},
+            with_name="TwoVector",
+            behavior=vector.behavior,
+        )
+    # invalid: mixed cartesian and polar azimuthal coordinates
+    with pytest.raises(
+        ValueError, match="conflicting azimuthal coordinate representations"
+    ):
+        ak.zip(
+            {"x": [1.0], "y": [2.0], "phi": [0.1]},
+            with_name="TwoVector",
+            behavior=vector.behavior,
+        )
+
+    # ---- vector.PolarTwoVector (inherits TwoVector validation) ----
+    ak.zip(
+        {"rho": [1.0], "phi": [0.1]},
+        with_name="PolarTwoVector",
+        behavior=vector.behavior,
+    )
+    with pytest.raises(ValueError, match="azimuthal"):
+        ak.zip(
+            {"rho": [1.0]},
+            with_name="PolarTwoVector",
+            behavior=vector.behavior,
+        )
+
+    # ---- vector.ThreeVector ----
+    # valid: cartesian
+    ak.zip(
+        {"x": [1.0], "y": [2.0], "z": [3.0]},
+        with_name="ThreeVector",
+        behavior=vector.behavior,
+    )
+    # valid: polar + eta
+    ak.zip(
+        {"pt": [1.0], "phi": [0.1], "eta": [0.5]},
+        with_name="ThreeVector",
+        behavior=vector.behavior,
+    )
+    # valid: polar + theta
+    ak.zip(
+        {"rho": [1.0], "phi": [0.1], "theta": [0.5]},
+        with_name="ThreeVector",
+        behavior=vector.behavior,
+    )
+    # invalid: missing longitudinal
+    with pytest.raises(ValueError, match="longitudinal"):
+        ak.zip(
+            {"x": [1.0], "y": [2.0]},
+            with_name="ThreeVector",
+            behavior=vector.behavior,
+        )
+    # invalid: missing azimuthal
+    with pytest.raises(ValueError, match="azimuthal"):
+        ak.zip(
+            {"z": [1.0]},
+            with_name="ThreeVector",
+            behavior=vector.behavior,
+        )
+    # invalid: duplicate z-component alias (z and pz)
+    with pytest.raises(ValueError, match="z-component"):
+        ak.zip(
+            {"x": [1.0], "y": [2.0], "z": [3.0], "pz": [3.0]},
+            with_name="ThreeVector",
+            behavior=vector.behavior,
+        )
+    # invalid: more than one longitudinal coordinate
+    with pytest.raises(
+        ValueError, match="conflicting longitudinal coordinate representations"
+    ):
+        ak.zip(
+            {"x": [1.0], "y": [2.0], "theta": [0.5], "eta": [0.1]},
+            with_name="ThreeVector",
+            behavior=vector.behavior,
+        )
+    with pytest.raises(
+        ValueError, match="conflicting longitudinal coordinate representations"
+    ):
+        ak.zip(
+            {"pt": [1.0], "phi": [0.1], "z": [3.0], "eta": [0.1]},
+            with_name="ThreeVector",
+            behavior=vector.behavior,
+        )
+
+    # ---- vector.SphericalThreeVector (inherits ThreeVector validation) ----
+    ak.zip(
+        {"rho": [1.0], "theta": [0.5], "phi": [0.1]},
+        with_name="SphericalThreeVector",
+        behavior=vector.behavior,
+    )
+    with pytest.raises(ValueError, match="longitudinal"):
+        ak.zip(
+            {"rho": [1.0], "phi": [0.1]},
+            with_name="SphericalThreeVector",
+            behavior=vector.behavior,
+        )
+
+    # ---- vector.LorentzVector ----
+    # valid: full cartesian
+    ak.zip(
+        {"x": [1.0], "y": [2.0], "z": [3.0], "t": [4.0]},
+        with_name="LorentzVector",
+        behavior=vector.behavior,
+    )
+    # valid: momentum-style with energy
+    ak.zip(
+        {"px": [1.0], "py": [2.0], "pz": [3.0], "energy": [4.0]},
+        with_name="LorentzVector",
+        behavior=vector.behavior,
+    )
+    # valid: pt/eta/phi/mass
+    ak.zip(
+        {"pt": [1.0], "eta": [0.5], "phi": [0.1], "mass": [0.0]},
+        with_name="LorentzVector",
+        behavior=vector.behavior,
+    )
+    # invalid: missing temporal
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"x": [1.0], "y": [2.0], "z": [3.0]},
+            with_name="LorentzVector",
+            behavior=vector.behavior,
+        )
+    # invalid: missing longitudinal and temporal
+    with pytest.raises(
+        ValueError, match="longitudinal.*temporal|temporal.*longitudinal"
+    ):
+        ak.zip(
+            {"pt": [1.0], "phi": [0.1]},
+            with_name="LorentzVector",
+            behavior=vector.behavior,
+        )
+    # invalid: duplicate temporal alias (E and energy)
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"x": [1.0], "y": [2.0], "z": [3.0], "E": [4.0], "energy": [4.0]},
+            with_name="LorentzVector",
+            behavior=vector.behavior,
+        )
+    # invalid: duplicate temporal alias (mass and M)
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"pt": [1.0], "eta": [0.5], "phi": [0.1], "mass": [1.0], "M": [1.0]},
+            with_name="LorentzVector",
+            behavior=vector.behavior,
+        )
+    # invalid: duplicate temporal alias across energy-like and mass-like names
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"pt": [1.0], "eta": [0.5], "phi": [0.1], "mass": [1.0], "energy": [4.0]},
+            with_name="LorentzVector",
+            behavior=vector.behavior,
+        )
+    # invalid: more than one longitudinal coordinate
+    with pytest.raises(
+        ValueError, match="conflicting longitudinal coordinate representations"
+    ):
+        ak.zip(
+            {"x": [1.0], "y": [2.0], "z": [3.0], "eta": [0.5], "t": [4.0]},
+            with_name="LorentzVector",
+            behavior=vector.behavior,
+        )
+
+    # ---- vector.PtEtaPhiMLorentzVector (inherits LorentzVector) ----
+    ak.zip(
+        {"pt": [1.0], "eta": [0.5], "phi": [0.1], "mass": [0.0]},
+        with_name="PtEtaPhiMLorentzVector",
+        behavior=vector.behavior,
+    )
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"pt": [1.0], "eta": [0.5], "phi": [0.1]},
+            with_name="PtEtaPhiMLorentzVector",
+            behavior=vector.behavior,
+        )
+
+    # ---- vector.PtEtaPhiELorentzVector (inherits LorentzVector) ----
+    ak.zip(
+        {"pt": [1.0], "eta": [0.5], "phi": [0.1], "energy": [4.0]},
+        with_name="PtEtaPhiELorentzVector",
+        behavior=vector.behavior,
+    )
+    with pytest.raises(ValueError, match="azimuthal"):
+        ak.zip(
+            {"eta": [0.5], "energy": [4.0]},
+            with_name="PtEtaPhiELorentzVector",
+            behavior=vector.behavior,
+        )
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"pt": [1.0], "eta": [0.5], "phi": [0.1]},
+            with_name="PtEtaPhiELorentzVector",
+            behavior=vector.behavior,
+        )
+
+    # ---- candidate.Candidate (charge + LorentzVector super-chain) ----
+    ak.zip(
+        {"x": [1.0], "y": [2.0], "z": [3.0], "t": [4.0], "charge": [1]},
+        with_name="Candidate",
+        behavior=candidate.behavior,
+    )
+    # invalid: missing charge
+    with pytest.raises(ValueError, match="charge"):
+        ak.zip(
+            {"x": [1.0], "y": [2.0], "z": [3.0], "t": [4.0]},
+            with_name="Candidate",
+            behavior=candidate.behavior,
+        )
+    # invalid: charge present but missing temporal -> super-chain fires LorentzVector error
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"x": [1.0], "y": [2.0], "z": [3.0], "charge": [1]},
+            with_name="Candidate",
+            behavior=candidate.behavior,
+        )
+
+    # ---- candidate.PtEtaPhiMCandidate ----
+    ak.zip(
+        {
+            "pt": [1.0],
+            "eta": [0.5],
+            "phi": [0.1],
+            "mass": [0.0],
+            "charge": [1],
+        },
+        with_name="PtEtaPhiMCandidate",
+        behavior=candidate.behavior,
+    )
+    # missing charge
+    with pytest.raises(ValueError, match="charge"):
+        ak.zip(
+            {"pt": [1.0], "eta": [0.5], "phi": [0.1], "mass": [0.0]},
+            with_name="PtEtaPhiMCandidate",
+            behavior=candidate.behavior,
+        )
+    # charge present, missing mass -> LorentzVector temporal error via super chain
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"pt": [1.0], "eta": [0.5], "phi": [0.1], "charge": [1]},
+            with_name="PtEtaPhiMCandidate",
+            behavior=candidate.behavior,
+        )
+
+    # ---- candidate.PtEtaPhiECandidate ----
+    ak.zip(
+        {
+            "pt": [1.0],
+            "eta": [0.5],
+            "phi": [0.1],
+            "energy": [4.0],
+            "charge": [1],
+        },
+        with_name="PtEtaPhiECandidate",
+        behavior=candidate.behavior,
+    )
+    with pytest.raises(ValueError, match="charge"):
+        ak.zip(
+            {"pt": [1.0], "eta": [0.5], "phi": [0.1], "energy": [4.0]},
+            with_name="PtEtaPhiECandidate",
+            behavior=candidate.behavior,
+        )
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"pt": [1.0], "eta": [0.5], "phi": [0.1], "charge": [1]},
+            with_name="PtEtaPhiECandidate",
+            behavior=candidate.behavior,
+        )
+
+    # duplicate y-component alias
+    with pytest.raises(ValueError, match="y-component"):
+        ak.zip(
+            {"x": [1.0], "y": [2.0], "py": [2.0]},
+            with_name="TwoVector",
+            behavior=vector.behavior,
+        )
+
+    # ---- edm4hep.MomentumCandidate (charge + super-chain to LorentzVector) ----
+    from coffea.nanoevents.methods import edm4hep
+
+    ak.zip(
+        {
+            "px": [1.0],
+            "py": [2.0],
+            "pz": [3.0],
+            "E": [4.0],
+            "charge": [1],
+        },
+        with_name="MomentumCandidate",
+        behavior=edm4hep.behavior,
+    )
+    with pytest.raises(ValueError, match="charge"):
+        ak.zip(
+            {"px": [1.0], "py": [2.0], "pz": [3.0], "E": [4.0]},
+            with_name="MomentumCandidate",
+            behavior=edm4hep.behavior,
+        )
+    # charge present, missing temporal -> LorentzVector super-chain fires
+    with pytest.raises(ValueError, match="temporal"):
+        ak.zip(
+            {"px": [1.0], "py": [2.0], "pz": [3.0], "charge": [1]},
+            with_name="MomentumCandidate",
+            behavior=edm4hep.behavior,
+        )
+
+    # ---- fcc.MomentumCandidate (charge + super-chain to LorentzVector) ----
+    from coffea.nanoevents.methods import fcc
+
+    ak.zip(
+        {
+            "px": [1.0],
+            "py": [2.0],
+            "pz": [3.0],
+            "E": [4.0],
+            "charge": [1],
+        },
+        with_name="MomentumCandidate",
+        behavior=fcc.behavior,
+    )
+    with pytest.raises(ValueError, match="charge"):
+        ak.zip(
+            {"px": [1.0], "py": [2.0], "pz": [3.0], "E": [4.0]},
+            with_name="MomentumCandidate",
+            behavior=fcc.behavior,
+        )
+    with pytest.raises(ValueError, match="longitudinal"):
+        ak.zip(
+            {"px": [1.0], "py": [2.0], "E": [4.0], "charge": [1]},
+            with_name="MomentumCandidate",
+            behavior=fcc.behavior,
+        )
+
+    # ---- nanoaod.Vertex (x/y/z required) ----
+    from coffea.nanoevents.methods import nanoaod
+
+    ak.zip(
+        {"x": [1.0], "y": [2.0], "z": [3.0]},
+        with_name="Vertex",
+        behavior=nanoaod.behavior,
+    )
+    with pytest.raises(ValueError, match="missing"):
+        ak.zip(
+            {"x": [1.0], "y": [2.0]},
+            with_name="Vertex",
+            behavior=nanoaod.behavior,
+        )
+    with pytest.raises(ValueError, match="missing"):
+        ak.zip(
+            {"x": [1.0]},
+            with_name="Vertex",
+            behavior=nanoaod.behavior,
+        )
+
+    # ---- nanoaod.SecondaryVertex (pt/eta/phi/mass + super-chain to Vertex) ----
+    ak.zip(
+        {
+            "x": [1.0],
+            "y": [2.0],
+            "z": [3.0],
+            "pt": [1.0],
+            "eta": [0.5],
+            "phi": [0.1],
+            "mass": [0.0],
+        },
+        with_name="SecondaryVertex",
+        behavior=nanoaod.behavior,
+    )
+    # missing SV-specific field (mass)
+    with pytest.raises(ValueError, match="missing"):
+        ak.zip(
+            {
+                "x": [1.0],
+                "y": [2.0],
+                "z": [3.0],
+                "pt": [1.0],
+                "eta": [0.5],
+                "phi": [0.1],
+            },
+            with_name="SecondaryVertex",
+            behavior=nanoaod.behavior,
+        )
+    # SV fields present, Vertex x/y/z missing -> super-chain surfaces Vertex error
+    with pytest.raises(ValueError, match="missing"):
+        ak.zip(
+            {
+                "pt": [1.0],
+                "eta": [0.5],
+                "phi": [0.1],
+                "mass": [0.0],
+            },
+            with_name="SecondaryVertex",
+            behavior=nanoaod.behavior,
+        )

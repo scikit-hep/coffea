@@ -943,6 +943,8 @@ class EDM4HEPSchema(BaseSchema):
                 (k.replace(k, self._replacement[k]) if k in self._replacement else k): v
                 for k, v in collection_content.items()
             }
+            if mixin == "ReconstructedParticle":
+                collection_content.pop("E", None)
 
             first_var_form = collection_content[list(collection_content.keys())[0]]
             offset_form = {
