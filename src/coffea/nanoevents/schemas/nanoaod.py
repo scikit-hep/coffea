@@ -1,7 +1,13 @@
 import warnings
 
+import awkward
+
 from coffea.nanoevents import transforms
-from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
+from coffea.nanoevents.schemas.base import (
+    BaseSchema,
+    _is_flat_or_jagged_numeric,
+    zip_forms,
+)
 
 
 def _key_formatter(prefix, form_key, form, attribute):
@@ -397,6 +403,33 @@ class NanoAODSchema(BaseSchema):
         from coffea.nanoevents.methods import nanoaod
 
         return nanoaod.behavior
+
+    @staticmethod
+    def to_flat_columns(events):
+        """Deconstruct ``events`` to the NanoAOD flat-branch layout.
+
+        Record-typed collections are expanded into ``{name}_{subfield}``
+        columns for 1-d numeric and 1-d jagged-numeric subfields; jagged
+        collections also emit an ``n{name}`` counter. Scalar fields pass
+        through. Cross-reference and nested-record subfields are skipped.
+        """
+        out = {}
+        for name in events.fields:
+            column = events[name]
+            if column.fields:
+                wrote_any = False
+                for sub in column.fields:
+                    child = column[sub]
+                    if _is_flat_or_jagged_numeric(child):
+                        out[f"{name}_{sub}"] = awkward.to_packed(
+                            awkward.without_parameters(child)
+                        )
+                        wrote_any = True
+                if wrote_any and column.ndim >= 2:
+                    out[f"n{name}"] = awkward.to_packed(awkward.num(column))
+            elif _is_flat_or_jagged_numeric(column):
+                out[name] = awkward.to_packed(awkward.without_parameters(column))
+        return out
 
 
 class PFNanoAODSchema(NanoAODSchema):

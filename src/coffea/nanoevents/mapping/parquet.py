@@ -145,6 +145,7 @@ class ParquetSourceMapping(BaseSourceMapping):
         stop,
         cache=None,
         access_log=None,
+        file_handle=None,
         virtual=False,
         buffer_cache=None,
     ):
@@ -154,6 +155,7 @@ class ParquetSourceMapping(BaseSourceMapping):
             stop=stop,
             cache=cache,
             access_log=access_log,
+            file_handle=file_handle,
             virtual=virtual,
             buffer_cache=buffer_cache,
         )

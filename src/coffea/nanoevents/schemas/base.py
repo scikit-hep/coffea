@@ -1,5 +1,21 @@
+import awkward
+
 from coffea.nanoevents import transforms
 from coffea.nanoevents.util import concat, quote
+
+
+def _is_flat_or_jagged_numeric(array):
+    """True if ``array`` is 1-d numeric or a 1-d list of 1-d numeric."""
+    t = awkward.type(array)
+    if not isinstance(t, awkward.types.ArrayType):
+        return False
+    if isinstance(t.content, awkward.types.NumpyType):
+        return True
+    if isinstance(t.content, awkward.types.ListType) and isinstance(
+        t.content.content, awkward.types.NumpyType
+    ):
+        return True
+    return False
 
 
 def listarray_form(content, offsets):
@@ -131,3 +147,15 @@ class BaseSchema:
         from coffea.nanoevents.methods import base
 
         return base.behavior
+
+    @staticmethod
+    def to_flat_columns(events):
+        """Deconstruct ``events`` into a flat ``{branch: array}`` dict.
+
+        Must be overridden per schema to invert the schema-specific zipping
+        applied during construction. Output is intended for columnar writers
+        (``ak.to_parquet``, ``uproot.TTree``).
+        """
+        raise NotImplementedError(
+            "to_flat_columns is not implemented for this schema; override it on the subclass"
+        )

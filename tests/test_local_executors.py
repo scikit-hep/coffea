@@ -1,5 +1,6 @@
 import os.path as osp
 
+import pyarrow
 import pytest
 
 from coffea import processor
@@ -7,7 +8,7 @@ from coffea.nanoevents import schemas
 from coffea.processor.executor import UprootMissTreeError
 from coffea.processor.test_items import NanoEventsProcessor
 
-_exceptions = (FileNotFoundError, UprootMissTreeError)
+_exceptions = (FileNotFoundError, UprootMissTreeError, pyarrow.ArrowInvalid)
 
 
 @pytest.mark.parametrize("filetype", ["root", "parquet"])
@@ -29,8 +30,19 @@ def test_nanoevents_analysis(
             mode=mode, check_filehandle=True
         ).process
 
-    if filetype == "parquet":
-        pytest.xfail("parquet nanoevents not supported yet")
+    # for parquet, treename-mismatch isn't a failure mode; substitute a malformed
+    # parquet file so the dataset still has a non-OSError raise like root gets
+    # from UprootMissTreeError
+    bad_second_file = (
+        "tests/samples/nano_dy_malformed.parquet"
+        if filetype == "parquet"
+        else f"tests/samples/nano_dy_SpecialTree.{filetype}"
+    )
+    bad_only_file = (
+        "tests/samples/nano_dy_malformed.parquet"
+        if filetype == "parquet"
+        else f"tests/samples/nano_dy.{filetype}"
+    )
 
     filelist = {
         "DummyBadMissingFile": {
@@ -41,12 +53,12 @@ def test_nanoevents_analysis(
             "treename": "NotEvents",
             "files": [
                 osp.abspath(f"tests/samples/nano_dy.{filetype}"),
-                osp.abspath(f"tests/samples/nano_dy_SpecialTree.{filetype}"),
+                osp.abspath(bad_second_file),
             ],
         },
         "ZJetsBadMissingTreeAllFiles": {
             "treename": "NotEvents",
-            "files": [osp.abspath(f"tests/samples/nano_dy.{filetype}")],
+            "files": [osp.abspath(bad_only_file)],
         },
         "ZJets": {
             "treename": "Events",

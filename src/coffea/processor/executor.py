@@ -1,4 +1,5 @@
 import concurrent.futures
+import dataclasses
 import json
 import math
 import pickle
@@ -1484,7 +1485,7 @@ class Runner:
                     **uproot_options,
                 )
             elif format == "parquet":
-                raise NotImplementedError("Parquet format is not supported yet.")
+                filecontext = ParquetFileContext(item.filename)
         except Exception as e:
             raise Exception(
                 f"Failed to open file: {item!r}. The error was: {e!r}."
@@ -1513,9 +1514,29 @@ class Runner:
                         )
                         events = factory.events()
                     elif format == "parquet":
-                        raise NotImplementedError(
-                            "Parquet format is not supported yet."
+                        skyhook_options = {}
+                        if ":" in item.filename:
+                            (
+                                ceph_config_path,
+                                ceph_data_pool,
+                                filename,
+                            ) = item.filename.split(":")
+                            item = dataclasses.replace(item, filename=filename)
+                            skyhook_options["ceph_config_path"] = ceph_config_path
+                            skyhook_options["ceph_data_pool"] = ceph_data_pool
+                        materialized = []
+                        factory = NanoEventsFactory.from_parquet(
+                            file=item.filename,
+                            schemaclass=schema,
+                            metadata=metadata,
+                            skyhook_options=skyhook_options,
+                            mode="virtual",
+                            entry_start=item.entrystart,
+                            entry_stop=item.entrystop,
+                            access_log=materialized,
+                            buffer_cache=cache_function(),
                         )
+                        events = factory.events()
                 except Exception as e:
                     raise Exception(
                         f"Failed creating nanoevents: {item!r}. The error was: {e!r}."
@@ -1685,7 +1706,12 @@ class Runner:
                     process_fn = processor_instance
                 self._trace_preload(fileset, trace, process_fn, uproot_options)
         elif self.format == "parquet":
-            raise NotImplementedError("Parquet format is not supported yet.")
+            fileset = list(self._normalize_fileset(fileset, treename))
+            for filemeta in fileset:
+                filemeta.maybe_populate(self.metadata_cache)
+
+            self._preprocess_fileset_parquet(fileset)
+            fileset = self._filter_badfiles(fileset)
 
         return self._chunk_generator(fileset, treename)
 
