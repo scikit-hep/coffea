@@ -5,6 +5,7 @@ import awkward
 import dask_awkward
 import numpy
 
+from coffea.jetmet_tools.cbrng import Squares
 from coffea.util import awkward_rewrap, maybe_map_partitions, rewrap_recordarray
 
 _stack_parts = ["jec", "junc", "jer", "jersf"]
@@ -29,7 +30,42 @@ class _AwkwardRewrapFn:
         return awkward.transform(func, like_what, behavior=like_what.behavior)
 
 
-def rand_gauss(item):
+def rand_gauss(event_number, phi, eta, rng):
+    """Generate per-jet Gaussian random numbers using a counter-based RNG.
+
+    Each jet gets a deterministic random number derived from its event number,
+    phi, and eta, making the result independent of data partitioning.
+    """
+    event_number = numpy.asarray(
+        awkward.typetracer.length_zero_if_typetracer(event_number), dtype=numpy.uint64
+    )
+    phi_arr = numpy.asarray(
+        awkward.typetracer.length_zero_if_typetracer(phi), dtype=numpy.float32
+    )
+    eta_arr = numpy.asarray(
+        awkward.typetracer.length_zero_if_typetracer(eta), dtype=numpy.float32
+    )
+
+    # Build 128-bit counter: [event_number(64), phi_bits(32) << 32 | eta_bits(32)]
+    counter = numpy.empty((len(phi_arr), 2), dtype=numpy.uint64)
+    counter[:, 0] = event_number
+    counter[:, 1] = (
+        numpy.round(phi_arr, 3).view(numpy.uint32).astype(numpy.uint64).byteswap()
+    )
+    counter[:, 1] |= numpy.round(eta_arr, 3).view(numpy.uint32).astype(numpy.uint64)
+
+    rand = rng.normal(counter).astype(numpy.float32)
+
+    out = awkward.Array(rand)
+    if awkward.backend(phi) == "typetracer":
+        out = awkward.Array(
+            out.layout.to_typetracer(forget_length=True), behavior=out.behavior
+        )
+    return out
+
+
+def _legacy_rand_gauss(item):
+    """Legacy partition-dependent random number generator (kept for backwards compatibility)."""
     seeds = (
         awkward.typetracer.length_one_if_typetracer(item).to_numpy()[[0, -1]].view("i4")
     )
@@ -198,7 +234,7 @@ class CorrectedJetsFactory:
             out.extend([f"JES_{unc}" for unc in self.jec_stack.junc.levels])
         return out
 
-    def build(self, injets):
+    def build(self, injets, event_number=None, seeds=("JER",)):
         """
         Apply the corrections to the array of jets, returning an array of corrected
         jets.
@@ -207,6 +243,14 @@ class CorrectedJetsFactory:
         ----------
             injets : awkward.Array or dask_awkward.Array
                 An array of uncorrected jets, to which we want to apply corrections.
+            event_number : awkward.Array or dask_awkward.Array, optional
+                Per-event event numbers (1D, one per event, same length as
+                ``injets``).  Automatically broadcast to per-jet.
+                When provided, uses a counter-based RNG seeded from per-jet
+                (event_number, phi, eta) for partition-independent reproducibility.
+                If ``None``, falls back to the legacy partition-dependent RNG.
+            seeds : tuple of str or int, optional
+                Seeds for the counter-based RNG.  Default is ``("JER",)``.
 
         Returns
         -------
@@ -289,10 +333,27 @@ class CorrectedJetsFactory:
                 self.jec_stack.jersf.getScaleFactor(**jersfargs)
             )
 
-            out_dict["jet_resolution_rand_gauss"] = maybe_map_partitions(
-                rand_gauss,
-                out_dict[self.name_map["JetPt"] + "_orig"],
-            )
+            if event_number is not None:
+                # Counter-based RNG: deterministic per-jet, partition-independent
+                flat_event = awkward.flatten(
+                    awkward.broadcast_arrays(
+                        event_number, jets[self.name_map["JetPt"]]
+                    )[0]
+                )
+                rng = Squares(*seeds)
+                out_dict["jet_resolution_rand_gauss"] = maybe_map_partitions(
+                    rand_gauss,
+                    flat_event,
+                    out_dict[self.name_map["JetPhi"]],
+                    out_dict[self.name_map["JetEta"]],
+                    rng,
+                )
+            else:
+                # Legacy RNG: partition-dependent (for backwards compatibility)
+                out_dict["jet_resolution_rand_gauss"] = maybe_map_partitions(
+                    _legacy_rand_gauss,
+                    out_dict[self.name_map["JetPt"] + "_orig"],
+                )
 
             init_jerc = maybe_map_partitions(
                 jer_smear,
