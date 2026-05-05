@@ -102,29 +102,34 @@ def test_nanoevents_analysis(
             )
 
 
+@pytest.mark.parametrize("filetype", ["ttree", "rntuple"])
 @pytest.mark.parametrize("align_clusters", [False, True])
-def test_preprocessing(align_clusters):
+def test_preprocessing(align_clusters, filetype):
+    suffix = "_rntuple.root" if filetype == "rntuple" else ".root"
+    nano_dy = f"tests/samples/nano_dy{suffix}"
+    nano_dy_empty = f"tests/samples/nano_dy_empty{suffix}"
+
     fileset = {
         "only_empty": {
             "files": {
-                "tests/samples/nano_dy_empty.root": "Events",
+                nano_dy_empty: "Events",
             },
         },
         "nonempty_and_empty": {
             "files": {
-                "tests/samples/nano_dy.root": "Events",
-                "tests/samples/nano_dy_empty.root": "Events",
+                nano_dy: "Events",
+                nano_dy_empty: "Events",
             },
         },
         "empty_and_nonempty": {
             "files": {
-                "tests/samples/nano_dy_empty.root": "Events",
-                "tests/samples/nano_dy.root": "Events",
+                nano_dy_empty: "Events",
+                nano_dy: "Events",
             },
         },
         "only_nonempty": {
             "files": {
-                "tests/samples/nano_dy.root": "Events",
+                nano_dy: "Events",
             },
         },
     }
@@ -141,43 +146,37 @@ def test_preprocessing(align_clusters):
         assert len(chunks) == 6
         for chunk in chunks:
             if chunk.dataset == "only_empty":
-                assert chunk.filename == "tests/samples/nano_dy_empty.root"
+                assert chunk.filename == nano_dy_empty
                 assert chunk.entrystart == 0
                 assert chunk.entrystop == 0
             elif (
                 chunk.dataset == "nonempty_and_empty"
                 or chunk.dataset == "empty_and_nonempty"
             ):
-                assert chunk.filename in [
-                    "tests/samples/nano_dy.root",
-                    "tests/samples/nano_dy_empty.root",
-                ]
-                if chunk.filename == "tests/samples/nano_dy.root":
+                assert chunk.filename in [nano_dy, nano_dy_empty]
+                if chunk.filename == nano_dy:
                     assert chunk.entrystart == 0
                     assert chunk.entrystop == 40
                 else:
                     assert chunk.entrystart == 0
                     assert chunk.entrystop == 0
             elif chunk.dataset == "only_nonempty":
-                assert chunk.filename == "tests/samples/nano_dy.root"
+                assert chunk.filename == nano_dy
                 assert chunk.entrystart == 0
                 assert chunk.entrystop == 40
     else:
         assert len(chunks) == 21
         for chunk in chunks:
             if chunk.dataset == "only_empty":
-                assert chunk.filename == "tests/samples/nano_dy_empty.root"
+                assert chunk.filename == nano_dy_empty
                 assert chunk.entrystart == 0
                 assert chunk.entrystop == 0
             elif (
                 chunk.dataset == "nonempty_and_empty"
                 or chunk.dataset == "empty_and_nonempty"
             ):
-                assert chunk.filename in [
-                    "tests/samples/nano_dy.root",
-                    "tests/samples/nano_dy_empty.root",
-                ]
-                if chunk.filename == "tests/samples/nano_dy.root":
+                assert chunk.filename in [nano_dy, nano_dy_empty]
+                if chunk.filename == nano_dy:
                     assert chunk.entrystart in [0, 7, 14, 21, 28, 35]
                     assert (
                         chunk.entrystop == chunk.entrystart + 7
@@ -188,7 +187,7 @@ def test_preprocessing(align_clusters):
                     assert chunk.entrystart == 0
                     assert chunk.entrystop == 0
             elif chunk.dataset == "only_nonempty":
-                assert chunk.filename == "tests/samples/nano_dy.root"
+                assert chunk.filename == nano_dy
                 assert chunk.entrystart in [0, 7, 14, 21, 28, 35]
                 assert (
                     chunk.entrystop == chunk.entrystart + 7
