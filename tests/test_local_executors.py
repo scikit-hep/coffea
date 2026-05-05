@@ -10,7 +10,7 @@ from coffea.processor.test_items import NanoEventsProcessor
 _exceptions = (FileNotFoundError, UprootMissTreeError)
 
 
-@pytest.mark.parametrize("filetype", ["root", "parquet"])
+@pytest.mark.parametrize("filetype", ["ttree", "rntuple", "parquet"])
 @pytest.mark.parametrize("skipbadfiles", [False, True, _exceptions])
 @pytest.mark.parametrize("maxchunks", [None, 1000])
 @pytest.mark.parametrize("compression", [None, 0, 2])
@@ -32,30 +32,35 @@ def test_nanoevents_analysis(
     if filetype == "parquet":
         pytest.xfail("parquet nanoevents not supported yet")
 
+    suffix = {"ttree": ".root", "rntuple": "_rntuple.root", "parquet": ".parquet"}[
+        filetype
+    ]
+    runner_format = "parquet" if filetype == "parquet" else "root"
+
     filelist = {
         "DummyBadMissingFile": {
             "treename": "Events",
-            "files": [osp.abspath(f"tests/samples/non_existent.{filetype}")],
+            "files": [osp.abspath(f"tests/samples/non_existent{suffix}")],
         },
         "ZJetsBadMissingTree": {
             "treename": "NotEvents",
             "files": [
-                osp.abspath(f"tests/samples/nano_dy.{filetype}"),
-                osp.abspath(f"tests/samples/nano_dy_SpecialTree.{filetype}"),
+                osp.abspath(f"tests/samples/nano_dy{suffix}"),
+                osp.abspath(f"tests/samples/nano_dy_SpecialTree{suffix}"),
             ],
         },
         "ZJetsBadMissingTreeAllFiles": {
             "treename": "NotEvents",
-            "files": [osp.abspath(f"tests/samples/nano_dy.{filetype}")],
+            "files": [osp.abspath(f"tests/samples/nano_dy{suffix}")],
         },
         "ZJets": {
             "treename": "Events",
-            "files": [osp.abspath(f"tests/samples/nano_dy.{filetype}")],
+            "files": [osp.abspath(f"tests/samples/nano_dy{suffix}")],
             "metadata": {"checkusermeta": True, "someusermeta": "hello"},
         },
         "Data": {
             "treename": "Events",
-            "files": [osp.abspath(f"tests/samples/nano_dimuon.{filetype}")],
+            "files": [osp.abspath(f"tests/samples/nano_dimuon{suffix}")],
             "metadata": {"checkusermeta": True, "someusermeta2": "world"},
         },
     }
@@ -66,7 +71,7 @@ def test_nanoevents_analysis(
         skipbadfiles=skipbadfiles,
         schema=schemas.NanoAODSchema,
         maxchunks=maxchunks,
-        format=filetype,
+        format=runner_format,
     )
 
     if skipbadfiles == _exceptions:
