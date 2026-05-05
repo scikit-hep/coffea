@@ -1,5 +1,4 @@
 import concurrent.futures
-import dataclasses
 import json
 import math
 import pickle
@@ -1514,22 +1513,11 @@ class Runner:
                         )
                         events = factory.events()
                     elif format == "parquet":
-                        skyhook_options = {}
-                        if ":" in item.filename:
-                            (
-                                ceph_config_path,
-                                ceph_data_pool,
-                                filename,
-                            ) = item.filename.split(":")
-                            item = dataclasses.replace(item, filename=filename)
-                            skyhook_options["ceph_config_path"] = ceph_config_path
-                            skyhook_options["ceph_data_pool"] = ceph_data_pool
                         materialized = []
                         factory = NanoEventsFactory.from_parquet(
                             file=item.filename,
                             schemaclass=schema,
                             metadata=metadata,
-                            skyhook_options=skyhook_options,
                             mode="virtual",
                             entry_start=item.entrystart,
                             entry_stop=item.entrystop,
