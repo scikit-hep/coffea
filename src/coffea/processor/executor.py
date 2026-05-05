@@ -1099,6 +1099,8 @@ class Runner:
             self.metadata_cache = DEFAULT_METADATA_CACHE
 
         assert self.format in ("root", "parquet")
+        if self.format == "parquet" and self.align_clusters:
+            raise ValueError("align_clusters is only supported for ROOT input")
 
     @property
     def retries(self):

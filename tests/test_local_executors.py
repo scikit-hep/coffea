@@ -109,46 +109,67 @@ def test_nanoevents_analysis(
             )
 
 
+@pytest.mark.parametrize("filetype", ["root", "parquet"])
 @pytest.mark.parametrize("align_clusters", [False, True])
-def test_preprocessing(align_clusters):
+def test_preprocessing(align_clusters, filetype):
+    nonempty_path = f"tests/samples/nano_dy.{filetype}"
+    if filetype == "root":
+        empty_path = "tests/samples/nano_dy_empty.root"
+    else:
+        empty_path = "tests/samples/nano_dy_empty.parquet"
+
     fileset = {
         "only_empty": {
             "files": {
-                "tests/samples/nano_dy_empty.root": "Events",
+                empty_path: "Events",
             },
         },
         "nonempty_and_empty": {
             "files": {
-                "tests/samples/nano_dy.root": "Events",
-                "tests/samples/nano_dy_empty.root": "Events",
+                nonempty_path: "Events",
+                empty_path: "Events",
             },
         },
         "empty_and_nonempty": {
             "files": {
-                "tests/samples/nano_dy_empty.root": "Events",
-                "tests/samples/nano_dy.root": "Events",
+                empty_path: "Events",
+                nonempty_path: "Events",
             },
         },
         "only_nonempty": {
             "files": {
-                "tests/samples/nano_dy.root": "Events",
+                nonempty_path: "Events",
             },
         },
     }
 
     executor = processor.IterativeExecutor()
+    if filetype == "parquet" and align_clusters:
+        with pytest.raises(
+            ValueError, match="align_clusters is only supported for ROOT"
+        ):
+            processor.Runner(
+                executor=executor,
+                schema=schemas.NanoAODSchema,
+                chunksize=7,
+                align_clusters=align_clusters,
+                format=filetype,
+            )
+        return
+
     run = processor.Runner(
         executor=executor,
         schema=schemas.NanoAODSchema,
         chunksize=7,
         align_clusters=align_clusters,
+        format=filetype,
     )
     chunks = list(run.preprocess(fileset))
     if align_clusters:
         assert len(chunks) == 6
         for chunk in chunks:
             if chunk.dataset == "only_empty":
-                assert chunk.filename == "tests/samples/nano_dy_empty.root"
+                assert chunk.filename == empty_path
                 assert chunk.entrystart == 0
                 assert chunk.entrystop == 0
             elif (
@@ -156,24 +177,24 @@ def test_preprocessing(align_clusters):
                 or chunk.dataset == "empty_and_nonempty"
             ):
                 assert chunk.filename in [
-                    "tests/samples/nano_dy.root",
-                    "tests/samples/nano_dy_empty.root",
+                    nonempty_path,
+                    empty_path,
                 ]
-                if chunk.filename == "tests/samples/nano_dy.root":
+                if chunk.filename == nonempty_path:
                     assert chunk.entrystart == 0
                     assert chunk.entrystop == 40
                 else:
                     assert chunk.entrystart == 0
                     assert chunk.entrystop == 0
             elif chunk.dataset == "only_nonempty":
-                assert chunk.filename == "tests/samples/nano_dy.root"
+                assert chunk.filename == nonempty_path
                 assert chunk.entrystart == 0
                 assert chunk.entrystop == 40
     else:
         assert len(chunks) == 21
         for chunk in chunks:
             if chunk.dataset == "only_empty":
-                assert chunk.filename == "tests/samples/nano_dy_empty.root"
+                assert chunk.filename == empty_path
                 assert chunk.entrystart == 0
                 assert chunk.entrystop == 0
             elif (
@@ -181,10 +202,10 @@ def test_preprocessing(align_clusters):
                 or chunk.dataset == "empty_and_nonempty"
             ):
                 assert chunk.filename in [
-                    "tests/samples/nano_dy.root",
-                    "tests/samples/nano_dy_empty.root",
+                    nonempty_path,
+                    empty_path,
                 ]
-                if chunk.filename == "tests/samples/nano_dy.root":
+                if chunk.filename == nonempty_path:
                     assert chunk.entrystart in [0, 7, 14, 21, 28, 35]
                     assert (
                         chunk.entrystop == chunk.entrystart + 7
@@ -195,7 +216,7 @@ def test_preprocessing(align_clusters):
                     assert chunk.entrystart == 0
                     assert chunk.entrystop == 0
             elif chunk.dataset == "only_nonempty":
-                assert chunk.filename == "tests/samples/nano_dy.root"
+                assert chunk.filename == nonempty_path
                 assert chunk.entrystart in [0, 7, 14, 21, 28, 35]
                 assert (
                     chunk.entrystop == chunk.entrystart + 7
