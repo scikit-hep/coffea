@@ -1243,7 +1243,13 @@ class Runner:
                 metadata.update(item.metadata)
             metadata.update({"numentries": tree.num_entries, "uuid": file.file.fUUID})
             if align_clusters:
-                metadata["clusters"] = tree.common_entry_offsets()
+                if isinstance(tree, uproot.behaviors.RNTuple.HasFields):
+                    cluster_starts = [c.num_first_entry for c in tree.cluster_summaries]
+                    metadata["clusters"] = sorted(
+                        set(cluster_starts) | {tree.num_entries}
+                    )
+                else:
+                    metadata["clusters"] = tree.common_entry_offsets()
             out = set_accumulator(
                 [FileMeta(item.dataset, item.filename, item.treename, metadata)]
             )
