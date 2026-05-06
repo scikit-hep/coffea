@@ -2,7 +2,6 @@ import os
 from collections.abc import MutableMapping
 from threading import Lock
 
-import blosc2
 from distributed import WorkerPlugin, get_worker
 from zict import LRU, Buffer, File, Func
 
@@ -16,6 +15,17 @@ class ColumnCache(WorkerPlugin, MutableMapping):
         self._maxdisk = maxdisk
 
     def setup(self, worker):
+        try:
+            import blosc2
+        except ModuleNotFoundError as err:
+            raise ModuleNotFoundError("""to use ColumnCache, you must install blosc2:
+
+pip install blosc2
+
+or
+
+conda install -c conda-forge python-blosc2""") from err
+
         self.cache = Buffer(
             fast={},
             slow=Func(

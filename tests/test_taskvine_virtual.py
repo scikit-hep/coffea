@@ -13,8 +13,9 @@ def test_taskvine_executor_with_virtual_arrays():
     """Test TaskVineExecutor with virtual arrays (lazy loading) and eager evaluation"""
     import os.path as osp
 
+    from test_processors import NanoEventsProcessor
+
     from coffea.nanoevents import schemas
-    from coffea.processor.test_items import NanoEventsProcessor
 
     # Use the same filelist as in local executors test
     filelist = {

@@ -2,6 +2,7 @@ import dask
 import pytest
 import uproot
 from distributed import Client
+from test_processors import NanoEventsProcessor, NanoTestProcessor
 from uproot.exceptions import KeyInFileError
 
 from coffea.dataset_tools import (
@@ -20,7 +21,6 @@ from coffea.dataset_tools.filespec import (
     DatasetSpec,
 )
 from coffea.nanoevents import BaseSchema, NanoAODSchema
-from coffea.processor.test_items import NanoEventsProcessor, NanoTestProcessor
 from coffea.util import decompress_form
 
 _starting_fileset_list = {

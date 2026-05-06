@@ -6,11 +6,11 @@ import math
 import warnings
 from collections.abc import Callable
 from functools import partial
+from typing import Any
 
 import awkward
 import dask
 import dask.base
-import dask_awkward
 import numpy
 import uproot
 from uproot._util import no_filter
@@ -22,11 +22,16 @@ from coffea.dataset_tools.filespec import (
     ModelFactory,
     PreprocessedFiles,
 )
-from coffea.util import _is_interpretable, compress_form, decompress_form
+from coffea.util import (
+    _import_dask_awkward,
+    _is_interpretable,
+    compress_form,
+    decompress_form,
+)
 
 
 def get_steps(
-    normed_files: awkward.Array | dask_awkward.Array,
+    normed_files: awkward.Array | Any,
     step_size: int | None = None,
     align_clusters: bool = False,
     recalculate_steps: bool = False,
@@ -35,7 +40,7 @@ def get_steps(
     save_form: bool = False,
     step_size_safety_factor: float = 0.5,
     uproot_options: dict = {},
-) -> awkward.Array | dask_awkward.Array:
+) -> awkward.Array | Any:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
 
@@ -295,6 +300,8 @@ def preprocess(
         out_updated : DataGroupSpec | dict
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
+    dask_awkward = _import_dask_awkward()
+
     out_updated = copy.deepcopy(fileset)
     out_available = copy.deepcopy(fileset)
 

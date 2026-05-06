@@ -10,16 +10,12 @@ from functools import lru_cache
 
 import awkward
 import dask.array
-import dask_awkward
 import hist
-import hist.dask
 import numpy
-from dask_awkward.lib.core import compatible_partitions
-from dask_awkward.utils import IncompatiblePartitions
 
 import coffea.processor
 import coffea.util
-from coffea.util import coffea_console
+from coffea.util import _import_dask_awkward, _isinstance, coffea_console
 
 __all__ = [
     "WeightStatistics",
@@ -41,6 +37,25 @@ _rcol = {
     6: "#E69F00",  # gambage
     7: "#F0E442",  # paris daisy
 }
+
+
+def _get_hist_class(delayed_mode):
+    if delayed_mode:
+        try:
+            from hist.dask import Hist as DaskHist
+        except (ImportError, ModuleNotFoundError) as err:
+            raise ImportError(
+                """to use dask histogramming, you must install dask-histogram:
+
+pip install dask-histogram
+
+or
+
+conda install -c conda-forge dask-histogram"""
+            ) from err
+
+        return DaskHist
+    return hist.Hist
 
 
 def _generate_slices(array_length, max_elements=128):
@@ -254,6 +269,8 @@ class Weights:
 
     def __add_delayed(self, name, weight, weightUp, weightDown, shift):
         """Add a new weight with delayed calculation"""
+        dask_awkward = _import_dask_awkward()
+
         if isinstance(dask_awkward.type(weight), awkward.types.OptionType):
             # TODO what to do with option-type? is it representative of unknown weight
             # and we default to one or is it an invalid weight and we should never use this
@@ -310,8 +327,9 @@ class Weights:
             self._weight, numpy.ndarray
         ):
             self.__add_eager(name, weight, weightUp, weightDown, shift)
-        elif isinstance(weight, dask_awkward.Array) and isinstance(
-            self._weight, (dask_awkward.Array, type(None))
+        elif _isinstance(weight, "dask_awkward.lib.core.Array") and (
+            _isinstance(self._weight, "dask_awkward.lib.core.Array")
+            or self._weight is None
         ):
             self.__add_delayed(name, weight, weightUp, weightDown, shift)
         else:
@@ -377,6 +395,8 @@ class Weights:
         self, name, weight, modifierNames, weightsUp, weightsDown, shift=False
     ):
         """Add a new weight with multiple variations in delayed mode"""
+        dask_awkward = _import_dask_awkward()
+
         if isinstance(weight, awkward.types.OptionType):
             # TODO what to do with option-type? is it representative of unknown weight
             # and we default to one or is it an invalid weight and we should never use this
@@ -451,8 +471,9 @@ class Weights:
             self.__add_multivariation_eager(
                 name, weight, modifierNames, weightsUp, weightsDown, shift
             )
-        elif isinstance(weight, dask_awkward.Array) and isinstance(
-            self._weight, (dask_awkward.Array, type(None))
+        elif _isinstance(weight, "dask_awkward.lib.core.Array") and (
+            _isinstance(self._weight, "dask_awkward.lib.core.Array")
+            or self._weight is None
         ):
             self.__add_multivariation_delayed(
                 name, weight, modifierNames, weightsUp, weightsDown, shift
@@ -483,6 +504,8 @@ class Weights:
 
     def __add_variation_delayed(self, name, weight, weightUp, weightDown, shift):
         """Helper function to add a delayed-calculation weight variation."""
+        dask_awkward = _import_dask_awkward()
+
         if weightUp is not None:
             weightUp = coffea.util._ensure_flat(weightUp, allow_missing=True)
             if isinstance(dask_awkward.type(weightUp), awkward.types.OptionType):
@@ -528,7 +551,7 @@ class Weights:
         """
         if isinstance(weight, numpy.ndarray):
             self.__add_variation_eager(name, weight, weightUp, weightDown, shift)
-        elif isinstance(weight, dask_awkward.Array):
+        elif _isinstance(weight, "dask_awkward.lib.core.Array"):
             self.__add_variation_delayed(name, weight, weightUp, weightDown, shift)
 
     def weight(self, modifier=None):
@@ -599,7 +622,8 @@ class Weights:
         w = None
         if isinstance(self._weight, numpy.ndarray):
             w = numpy.ones(self._weight.size)
-        elif isinstance(self._weight, dask_awkward.Array):
+        elif _isinstance(self._weight, "dask_awkward.lib.core.Array"):
+            dask_awkward = _import_dask_awkward()
             w = dask_awkward.ones_like(self._weight)
 
         for name in names:
@@ -1131,7 +1155,7 @@ class NminusOne:
                 raise ValueError(
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
-        Hist = hist.Hist if not self._delayed_mode else hist.dask.Hist
+        Hist = _get_hist_class(self._delayed_mode)
         labels = ["initial"] + [f"N - {i}" for i in self._names] + ["N"]
         axes = [hist.axis.Integer(0, len(labels), name="nminusone", label="N-1")]
         if do_categorical:
@@ -1154,6 +1178,8 @@ class NminusOne:
                 weighttofill = [wgt * scale for wgt in weighttofill]
             h.fill(numpy.arange(len(labels), dtype=int), weight=weighttofill)
         elif self._delayed_mode and not do_categorical:
+            dask_awkward = _import_dask_awkward()
+
             if categorical is not None:
                 raise NotImplementedError(
                     "yieldhist is not implemented for non-delayed mode (v1) with categorical"
@@ -1294,12 +1320,16 @@ class NminusOne:
                 raise ValueError(
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
-        Hist = hist.dask.Hist if self._delayed_mode else hist.Hist
+        Hist = _get_hist_class(self._delayed_mode)
         if do_categorical:
             catax = categorical.get("axis")
             catvar = categorical.get("values")
             catlabels = categorical.get("labels")
         if self._delayed_mode:
+            dask_awkward = _import_dask_awkward()
+            compatible_partitions = dask_awkward.lib.core.compatible_partitions
+            IncompatiblePartitions = dask_awkward.lib.core.IncompatiblePartitions
+
             for name, var in vars.items():
                 if not compatible_partitions(var, self._masks[0]):
                     raise IncompatiblePartitions("plot_vars", var, self._masks[0])
@@ -1706,7 +1736,7 @@ class Cutflow:
                 raise ValueError(
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
-        Hist = hist.Hist if not self._delayed_mode else hist.dask.Hist
+        Hist = _get_hist_class(self._delayed_mode)
         labels = ["initial"] + list(self._names)
         axes = [hist.axis.Integer(0, len(labels), name="onecut")]
         if do_categorical:
@@ -1734,11 +1764,13 @@ class Cutflow:
             honecut.fill(numpy.arange(len(labels), dtype=int), weight=weightonecut)
             hcutflow.fill(numpy.arange(len(labels), dtype=int), weight=weightcutflow)
         elif self._delayed_mode and not do_categorical:
+            dask_awkward = _import_dask_awkward()
+
             if categorical is not None:
                 raise NotImplementedError(
                     "yieldhist is not implemented for non-delayed mode (v1) with categorical"
                 )
-            honecut = hist.dask.Hist(*axes)
+            honecut = Hist(*axes)
             hcutflow = honecut.copy()
             hcutflow.axes.name = ("cutflow",)
 
@@ -1925,12 +1957,16 @@ class Cutflow:
                 raise ValueError(
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
-        Hist = hist.dask.Hist if self._delayed_mode else hist.Hist
+        Hist = _get_hist_class(self._delayed_mode)
         if do_categorical:
             catax = categorical.get("axis")
             catvar = categorical.get("values")
             catlabels = categorical.get("labels")
         if self._delayed_mode:
+            dask_awkward = _import_dask_awkward()
+            compatible_partitions = dask_awkward.lib.core.compatible_partitions
+            IncompatiblePartitions = dask_awkward.lib.core.IncompatiblePartitions
+
             for name, var in vars.items():
                 if not compatible_partitions(var, self._masksonecut[0]):
                     raise IncompatiblePartitions("plot_vars", var, self._masksonecut[0])
@@ -2107,7 +2143,7 @@ class PackedSelection:
             bool
                 True if the PackedSelection is in delayed mode.
         """
-        if isinstance(self._data, dask_awkward.Array):
+        if _isinstance(self._data, "dask_awkward.lib.core.Array"):
             return True
         elif isinstance(self._data, numpy.ndarray):
             return False
@@ -2131,6 +2167,8 @@ class PackedSelection:
 
     def __add_delayed(self, name, selection, fill_value):
         """Add a new delayed boolean array"""
+        dask_awkward = _import_dask_awkward()
+
         selection = coffea.util._ensure_flat(selection, allow_missing=True)
         sel_type = dask_awkward.type(selection)
         if isinstance(sel_type, awkward.types.OptionType):
@@ -2140,7 +2178,10 @@ class PackedSelection:
             raise ValueError(f"Expected a boolean array, received {sel_type.primitive}")
         if len(self._names) == 0:
             self._data = dask_awkward.zeros_like(selection, dtype=self._dtype)
-        if isinstance(selection, dask_awkward.Array) and not self.delayed_mode:
+        if (
+            _isinstance(selection, "dask_awkward.lib.core.Array")
+            and not self.delayed_mode
+        ):
             raise ValueError(
                 f"New selection '{name}' is not eager while PackedSelection is!"
             )
@@ -2211,7 +2252,7 @@ class PackedSelection:
         selection = coffea.util._ensure_flat(selection, allow_missing=True)
         if isinstance(selection, numpy.ndarray):
             self.__add_eager(name, selection, fill_value)
-        elif isinstance(selection, dask_awkward.Array):
+        elif _isinstance(selection, "dask_awkward.lib.core.Array"):
             self.__add_delayed(name, selection, fill_value)
 
     def add_multiple(self, selections, fill_value=False):
@@ -2386,6 +2427,8 @@ class PackedSelection:
                 wgtev.extend([numpy.sum(wgt) for wgt in wgts])
 
         else:
+            dask_awkward = _import_dask_awkward()
+
             nev = [
                 (
                     dask_awkward.sum(commonmask)
@@ -2495,6 +2538,8 @@ class PackedSelection:
                 wgtevcutflow.extend([numpy.sum(wgt2) for wgt2 in weightscutflow])
 
         else:
+            dask_awkward = _import_dask_awkward()
+
             nevonecut = [
                 (
                     dask_awkward.sum(commonmask)

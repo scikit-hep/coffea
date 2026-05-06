@@ -7,7 +7,6 @@ from functools import partial
 from types import FunctionType
 
 import awkward
-import dask_awkward
 import fsspec
 import uproot
 
@@ -21,7 +20,7 @@ from coffea.nanoevents.mapping import (
 )
 from coffea.nanoevents.schemas import BaseSchema, NanoAODSchema
 from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
-from coffea.util import _is_interpretable
+from coffea.util import _import_dask_awkward, _is_interpretable
 
 _offsets_label = quote(",!offsets")
 
@@ -523,6 +522,7 @@ class NanoEventsFactory:
             and not isinstance(schemaclass, FunctionType)
             and schemaclass.__dask_capable__
         ):
+            dask_awkward = _import_dask_awkward()
             map_schema = _map_schema_parquet(
                 schemaclass=schemaclass,
                 behavior=dict(schemaclass.behavior()),
@@ -760,6 +760,7 @@ class NanoEventsFactory:
                 returned.
         """
         if self._mode == "dask":
+            dask_awkward = _import_dask_awkward()
             dask_awkward.lib.core.dak_cache.clear()
             events = self._mapping(form_mapping=self._schema)
             report = None

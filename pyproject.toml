@@ -47,8 +47,8 @@ dependencies = [
   "awkward>=2.8.11",
   "uproot>=5.7.0",
   "dask[array]>=2024.3.0",
-  "dask-awkward>=2025.9.0",
-  "dask-histogram>=2025.2.0",
+  "distributed>=2024.3.0",
+  "bokeh!=3.0.*,>=2.4.2",
   "loky>=3.5.6",
   "vector>=1.4.1,!=1.6.0",
   "correctionlib>=2.6.0",
@@ -81,9 +81,8 @@ Homepage = "https://github.com/coffeateam/coffea"
 
 [project.optional-dependencies]
 dask = [
-  "distributed>=2024.3.0",
-  "bokeh!=3.0.*,>=2.4.2",
-  "blosc2",
+  "dask-awkward>=2025.9.0",
+  "dask-histogram>=2025.2.0",
 ]
 parsl = [
   "parsl>=2024.12.09"
@@ -102,6 +101,8 @@ caches = [
   "zict>=3.0.0",
 ]
 dev = [
+  "dask-awkward>=2025.9.0",
+  "dask-histogram>=2025.2.0",
   "pre-commit",
   "flake8",
   "black",

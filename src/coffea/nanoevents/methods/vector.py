@@ -48,12 +48,13 @@ import numbers
 import awkward
 import numpy
 import vector
-from dask_awkward import dask_method
 from vector.backends.awkward import (
     MomentumAwkward2D,
     MomentumAwkward3D,
     MomentumAwkward4D,
 )
+
+from coffea.util import dask_method
 
 # TODO: add this back in when there is an actual plan to only use scikit-hep vector
 # from coffea.util import deprecate

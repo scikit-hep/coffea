@@ -1,9 +1,9 @@
 import os
 
 import pytest
+from test_processors import NanoEventsProcessor
 
 from coffea.processor import defaultdict_accumulator, dict_accumulator
-from coffea.processor.test_items import NanoEventsProcessor
 from coffea.util import load, save
 
 

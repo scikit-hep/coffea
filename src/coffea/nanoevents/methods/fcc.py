@@ -1,8 +1,8 @@
 import awkward
 import numpy
-from dask_awkward.lib.core import dask_property
 
 from coffea.nanoevents.methods import base, edm4hep, vector
+from coffea.util import dask_property
 
 behavior = {}
 behavior.update(base.behavior)

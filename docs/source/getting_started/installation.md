@@ -63,7 +63,7 @@ In particular, all of the [](./concepts.md#distributed-executors) require additi
 The necessary dependencies can be installed easily via ``pip`` using the setuptools [extras](https://setuptools.readthedocs.io/en/latest/setuptools.html#declaring-extras-optional-features-with-their-own-dependencies) facility:
 
    - [parsl](http://parsl-project.org/) distributed executor: ``pip install coffea[parsl]``
-   - [dask](https://distributed.dask.org/en/latest/) distributed executor: ``pip install coffea[dask]``
+   - dask-awkward and dask-histogram support: ``pip install coffea[dask]``
    - [TaskVine](https://ccl.cse.nd.edu/software/taskvine/) distributed executor: see the installation guide in their docs and use the `TaskVineExecutor` in coffea.
 
 Multiple extras can be installed together via, e.g. `pip install coffea[dask,parsl]`
