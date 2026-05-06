@@ -23,7 +23,7 @@ def test_parsl_start_stop(tmp_path):
 
 
 def do_parsl_job(filelist, flatten=False, compression=0, config=None):
-    from test_processors import NanoTestProcessor
+    from coffea.processor.test_items import NanoTestProcessor
 
     executor = processor.ParslExecutor(compression=compression, config=config)
     run = processor.Runner(executor=executor, schema=BaseSchema)

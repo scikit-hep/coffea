@@ -2,11 +2,11 @@ import os.path as osp
 
 import pyarrow
 import pytest
-from test_processors import NanoEventsProcessor
 
 from coffea import processor
 from coffea.nanoevents import schemas
 from coffea.processor.executor import UprootMissTreeError
+from coffea.processor.test_items import NanoEventsProcessor
 
 _exceptions = (FileNotFoundError, UprootMissTreeError, pyarrow.ArrowInvalid)
 
