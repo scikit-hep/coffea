@@ -1,5 +1,4 @@
 import awkward as ak
-import dask
 import numpy as np
 import pytest
 
@@ -44,6 +43,8 @@ def test_single_field_variation(tests_directory, mode, kind):
     expected_met_pt = events.MET.pt
     expected_met_phi = events.MET.phi
     if mode == "dask":
+        import dask
+
         (
             expected_muon_pt,
             expected_jet_pt,
@@ -152,6 +153,8 @@ def test_multi_field_variation(tests_directory, mode):
     expected_met_pt = events.MET.pt
     expected_met_phi = events.MET.phi
     if mode == "dask":
+        import dask
+
         (
             expected_muon_pt,
             expected_jet_pt,
@@ -303,6 +306,8 @@ def test_single_and_multi_field_variation(tests_directory, mode):
     expected_met_pt = events.MET.pt
     expected_met_phi = events.MET.phi
     if mode == "dask":
+        import dask
+
         (
             expected_muon_pt,
             expected_jet_pt,

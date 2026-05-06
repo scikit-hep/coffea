@@ -2,8 +2,13 @@ import os
 from collections.abc import MutableMapping
 from threading import Lock
 
-from distributed import WorkerPlugin, get_worker
 from zict import LRU, Buffer, File, Func
+
+from coffea.util import _import_distributed
+
+_distributed = _import_distributed()
+WorkerPlugin = _distributed.WorkerPlugin
+get_worker = _distributed.get_worker
 
 
 class ColumnCache(WorkerPlugin, MutableMapping):

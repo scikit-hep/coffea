@@ -3,7 +3,6 @@ import os
 from uuid import uuid4
 
 import awkward as ak
-import dask
 import pytest
 import uproot
 
@@ -58,6 +57,8 @@ def events():
 
 
 def test_load_single_field_of_linked(events):
+    import dask
+
     with dask.config.set({"awkward.raise-failed-meta": True}):
         events.Electrons.caloClusters.calE.compute()
 

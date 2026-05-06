@@ -6,7 +6,7 @@ from rich.progress import Progress
 from rich.traceback import Traceback
 from tornado.ioloop import IOLoop
 
-from coffea.util import rich_bar
+from coffea.util import _import_distributed, rich_bar
 
 
 class RichProgressBar(ProgressBar):
@@ -74,8 +74,7 @@ class RichProgressBar(ProgressBar):
 def progress(*futures, complete=True, **kwargs):
     # fallback to normal dask progress bar if any special kwargs are given
     if "multi" in kwargs or "group_by" in kwargs:
-        from distributed import progress as dask_progress
-
+        dask_progress = _import_distributed().progress
         dask_progress(*futures, complete=complete, **kwargs)
     else:
         futures = futures_of(futures)

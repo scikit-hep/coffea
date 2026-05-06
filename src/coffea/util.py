@@ -14,7 +14,6 @@ import hist
 import numba
 import numpy
 import uproot
-from dask.base import unpack_collections
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -44,6 +43,9 @@ __all__ = [
     "coffea_console",
     "dask_method",
     "dask_property",
+    "_import_dask",
+    "_import_distributed",
+    "_import_dask_awkward",
 ]
 
 
@@ -100,6 +102,36 @@ def _isinstance(arg: Any, *class_prefixes: str) -> bool:
         if any(class_name.startswith(prefix) for prefix in class_prefixes):
             return True
     return False
+
+
+def _import_dask():
+    try:
+        import dask
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError("""to use this feature, you must install dask:
+
+pip install dask
+
+or
+
+conda install -c conda-forge dask""") from err
+
+    return dask
+
+
+def _import_distributed():
+    try:
+        import distributed
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError("""to use this feature, you must install distributed:
+
+pip install distributed
+
+or
+
+conda install -c conda-forge distributed""") from err
+
+    return distributed
 
 
 def _import_dask_awkward():
@@ -411,7 +443,15 @@ def maybe_map_partitions(func, *args, **kwargs):
     traverse = kwargs.pop("traverse", True)
 
     func_kwargs = {k: v for k, v in kwargs.items() if k not in _MP_ONLY}
-    deps, _ = unpack_collections(*args, *func_kwargs.values(), traverse=traverse)
+
+    try:
+        dask = _import_dask()
+    except ModuleNotFoundError:
+        return func(*args, **func_kwargs)
+
+    deps, _ = dask.base.unpack_collections(
+        *args, *func_kwargs.values(), traverse=traverse
+    )
 
     if len(deps) > 0:
         dask_awkward = _import_dask_awkward()

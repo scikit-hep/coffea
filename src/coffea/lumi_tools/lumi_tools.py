@@ -2,16 +2,13 @@ import json
 from functools import partial
 
 import awkward
-import dask.delayed
 import fsspec
 import numba
 import numpy
-from dask.base import tokenize
-from dask.highlevelgraph import HighLevelGraph
 from numba import types
 from numba.typed import Dict
 
-from coffea.util import _import_dask_awkward, _isinstance
+from coffea.util import _import_dask, _import_dask_awkward, _isinstance
 
 _numba_bool = None
 if hasattr(types, "bool"):
@@ -128,6 +125,7 @@ class LumiData:
             )
             # delayed object cache
             if _isinstance(runlumis, "dask_awkward.lib.core.Array"):
+                dask = _import_dask()
                 self.index_delayed = dask.delayed(
                     tuple([runs, lumis, self._lumidata[:, 2]])
                 )
@@ -293,7 +291,10 @@ def _wrap_unique(array):
 
 
 def _lumilist_dak_unique(runs_and_lumis, split_every=8):
+    dask = _import_dask()
     dask_awkward = _import_dask_awkward()
+    tokenize = dask.base.tokenize
+    HighLevelGraph = dask.highlevelgraph.HighLevelGraph
 
     concat_fn = partial(awkward.concatenate, axis=0)
 

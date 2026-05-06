@@ -9,13 +9,12 @@ from collections import namedtuple
 from functools import lru_cache
 
 import awkward
-import dask.array
 import hist
 import numpy
 
 import coffea.processor
 import coffea.util
-from coffea.util import _import_dask_awkward, _isinstance, coffea_console
+from coffea.util import _import_dask, _import_dask_awkward, _isinstance, coffea_console
 
 __all__ = [
     "WeightStatistics",
@@ -44,15 +43,13 @@ def _get_hist_class(delayed_mode):
         try:
             from hist.dask import Hist as DaskHist
         except (ImportError, ModuleNotFoundError) as err:
-            raise ImportError(
-                """to use dask histogramming, you must install dask-histogram:
+            raise ImportError("""to use this feature, you must install dask-histogram:
 
 pip install dask-histogram
 
 or
 
-conda install -c conda-forge dask-histogram"""
-            ) from err
+conda install -c conda-forge dask-histogram""") from err
 
         return DaskHist
     return hist.Hist
@@ -720,23 +717,31 @@ class NminusOneToNpz:
         return self._weightsmodifier
 
     def compute(self):
-        (
-            self._nev,
-            self._commonmask,
-            self._wgtev,
-            self._masks,
-            self._weights_wmodifier,
-        ) = dask.compute(
-            self._nev,
-            self._commonmask,
-            self._wgtev,
-            self._masks,
+        if _isinstance(self._nev, "dask.", "dask_awkward."):
+            dask = _import_dask()
             (
+                self._nev,
+                self._commonmask,
+                self._wgtev,
+                self._masks,
+                self._weights_wmodifier,
+            ) = dask.compute(
+                self._nev,
+                self._commonmask,
+                self._wgtev,
+                self._masks,
+                (
+                    self._weights.weight(self._weightsmodifier)
+                    if self._weights is not None
+                    else None
+                ),
+            )
+        else:
+            self._weights_wmodifier = (
                 self._weights.weight(self._weightsmodifier)
                 if self._weights is not None
                 else None
-            ),
-        )
+            )
         self._nev = list(self._nev)
         self._masks = list(self._masks)
         self._commonmask = list(self._commonmask) if self._commonmasked else None
@@ -851,29 +856,37 @@ class CutflowToNpz:
     def compute(self):
         # Weights has no compute method, ergo it will pass through uncomputed, i.e. as a delayed object
         # self._weights = list(self._weights) if isinstance(self._weights, (tuple, list)) else self._weights
-        (
-            self._nevonecut,
-            self._nevcutflow,
-            self._commonmask,
-            self._wgtevonecut,
-            self._wgtevcutflow,
-            self._masksonecut,
-            self._maskscutflow,
-            self._weights_wmodifier,
-        ) = dask.compute(
-            self._nevonecut,
-            self._nevcutflow,
-            self._commonmask,
-            self._wgtevonecut,
-            self._wgtevcutflow,
-            self._masksonecut,
-            self._maskscutflow,
+        if _isinstance(self._nevonecut, "dask.", "dask_awkward."):
+            dask = _import_dask()
             (
+                self._nevonecut,
+                self._nevcutflow,
+                self._commonmask,
+                self._wgtevonecut,
+                self._wgtevcutflow,
+                self._masksonecut,
+                self._maskscutflow,
+                self._weights_wmodifier,
+            ) = dask.compute(
+                self._nevonecut,
+                self._nevcutflow,
+                self._commonmask,
+                self._wgtevonecut,
+                self._wgtevcutflow,
+                self._masksonecut,
+                self._maskscutflow,
+                (
+                    self._weights.weight(self._weightsmodifier)
+                    if self._weights is not None
+                    else None
+                ),
+            )
+        else:
+            self._weights_wmodifier = (
                 self._weights.weight(self._weightsmodifier)
                 if self._weights is not None
                 else None
-            ),
-        )
+            )
         self._nevonecut = list(self._nevonecut)
         self._nevcutflow = list(self._nevcutflow)
         self._masksonecut = list(self._masksonecut)
@@ -1083,6 +1096,8 @@ class NminusOne:
                 )
 
         if self._delayed_mode:
+            dask = _import_dask()
+
             warnings.warn(
                 "Printing the N-1 selection statistics is going to compute dask_awkward objects."
             )
@@ -1657,6 +1672,8 @@ class Cutflow:
                 )
 
         if self._delayed_mode:
+            dask = _import_dask()
+
             warnings.warn(
                 "Printing the cutflow statistics is going to compute dask_awkward objects."
             )
@@ -2245,7 +2262,7 @@ class PackedSelection:
         """
         if name in self._names:
             raise ValueError(f"Selection '{name}' already exists")
-        if isinstance(selection, dask.array.Array):
+        if _isinstance(selection, "dask.array.core.Array"):
             raise ValueError(
                 "Dask arrays are not supported, please convert them to dask_awkward.Array by using dask_awkward.from_dask_array()"
             )

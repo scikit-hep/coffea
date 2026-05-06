@@ -3,7 +3,11 @@ from pathlib import Path
 import awkward as ak
 import pytest
 import uproot
-from distributed import Client
+
+try:
+    from distributed import Client
+except ImportError:
+    Client = None
 
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 

@@ -4,7 +4,7 @@ from functools import partial
 import awkward
 import numpy
 
-from coffea.util import _import_dask_awkward, _isinstance
+from coffea.util import _import_dask, _import_dask_awkward, _isinstance
 
 
 def getfunction(
@@ -106,8 +106,7 @@ class lookup_base:
 
         # if our inputs are all dask_awkward arrays, then we should map_partitions
         if any(_isinstance(x, "dask_awkward.lib.core.Array") for x in args):
-            import dask.delayed
-
+            dask = _import_dask()
             dask_awkward = _import_dask_awkward()
             out_meta = tomap(self, *tuple([arg._meta for arg in actual_args]))
 

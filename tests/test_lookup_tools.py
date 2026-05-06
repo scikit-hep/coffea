@@ -1,8 +1,21 @@
+import contextlib
 import os
 
 import awkward as ak
-import dask
 import pytest
+
+try:
+    import dask
+
+    def _dask_cfg(opt):
+        return dask.config.set({"awkward.optimization.enabled": opt})
+
+except ImportError:
+
+    def _dask_cfg(opt):
+        return contextlib.nullcontext()
+
+
 from dummy_distributions import dummy_jagged_eta_pt
 
 from coffea import lookup_tools
@@ -145,7 +158,7 @@ def test_evaluate_noimpl():
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_correctionlib(optimization_enabled):
     dak = pytest.importorskip("dask_awkward")
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         extractor = lookup_tools.extractor()
         extractor.add_weight_sets(["* * tests/samples/testSF2d.corr.json.gz"])
 
@@ -195,7 +208,7 @@ def test_correctionlib(optimization_enabled):
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_root_scalefactors(optimization_enabled):
     dak = pytest.importorskip("dask_awkward")
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         extractor = lookup_tools.extractor()
         extractor.add_weight_sets(
             ["testSF2d scalefactors_Tight_Electron tests/samples/testSF2d.histo.root"]

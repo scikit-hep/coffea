@@ -73,20 +73,20 @@ jobs:
       if: startsWith( matrix.os, 'ubuntu' )
       run: |
         if [ "${{ matrix.python-version }}" = "3.14t" ]; then
-          uv pip install '.[dev,caches,parsl,dask]'
+          uv pip install '.[dev,caches,parsl,dask,dask-awkward]'
         else
-          uv pip install '.[dev,caches,parsl,dask,triton]'
+          uv pip install '.[dev,caches,parsl,dask,dask-awkward,triton]'
         fi
 
     - name: Install coffea and dependencies (macOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        uv pip install '.[dev,caches,dask]'
+        uv pip install '.[dev,caches,dask,dask-awkward]'
 
     - name: Install coffea and dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install '.[dev,caches,dask]'
+        uv pip install '.[dev,caches,dask,dask-awkward]'
 
     - name: Start triton server with example model
       if: startsWith( matrix.os, 'ubuntu' ) && matrix.python-version != '3.14t'
@@ -128,7 +128,7 @@ jobs:
     defaults:
       run:
         shell: bash -el {0}
-    name: Test without dask-awkward - py 3.13
+    name: Test without dask
     steps:
     - uses: actions/checkout@v6
     - name: Set up micromamba
@@ -143,10 +143,16 @@ jobs:
           uv
           pytest-xdist
         cache-environment: true
-    - name: Install coffea and dependencies
+    - name: Install coffea (no dask at all)
       run: |
         uv pip install '.[dev,caches,parsl,triton]'
-    - name: Test with pytest
+    - name: Test with pytest (no dask)
+      run: |
+        python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py -m "not dask_client" -n 4
+    - name: Install dask and distributed (no dask-awkward)
+      run: |
+        uv pip install '.[dask]'
+    - name: Test with pytest (dask only, no dask-awkward)
       run: |
         python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py -m "not dask_client" -n 4
 
@@ -177,7 +183,7 @@ jobs:
         cache-environment: true
     - name: Install coffea
       run: |
-        uv pip install '.[dask]' 'dask<2025.1.0'
+        uv pip install '.[dask,dask-awkward]' 'dask<2025.1.0'
     - name: Test with pytest coffea with dask + taskvine
       timeout-minutes: 5
       run: |

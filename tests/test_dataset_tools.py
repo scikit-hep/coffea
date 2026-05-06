@@ -1,7 +1,5 @@
-import dask
 import pytest
 import uproot
-from distributed import Client
 from uproot.exceptions import KeyInFileError
 
 from coffea.dataset_tools import (
@@ -24,6 +22,13 @@ from coffea.processor.test_items import NanoEventsProcessor, NanoTestProcessor
 from coffea.util import decompress_form
 
 dask_awkward = pytest.importorskip("dask_awkward")
+
+import dask  # noqa: E402
+
+try:
+    from distributed import Client
+except ImportError:
+    Client = None
 
 _starting_fileset_list = {
     "ZJets": ["tests/samples/nano_dy.root:Events"],

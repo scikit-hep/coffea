@@ -102,10 +102,9 @@ def test_weights():
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_weights_dak(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     import dask
     import dask.array as da
-
-    dak = pytest.importorskip("dask_awkward")
 
     from coffea.analysis_tools import Weights
 
@@ -222,10 +221,9 @@ def test_weights_multivariation():
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_weights_multivariation_dak(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     import dask
     import dask.array as da
-
-    dak = pytest.importorskip("dask_awkward")
 
     from coffea.analysis_tools import Weights
 
@@ -353,10 +351,9 @@ def test_weights_partial():
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_weights_partial_dak(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     import dask
     import dask.array as da
-
-    dak = pytest.importorskip("dask_awkward")
 
     from coffea.analysis_tools import Weights
 
@@ -428,9 +425,9 @@ def test_weights_partial_dak(optimization_enabled):
 @pytest.mark.parametrize("dtype", ["uint16", "uint32", "uint64"])
 def test_packed_selection_basic(dtype):
     import awkward as ak
-    import dask.array as da
 
     dak = pytest.importorskip("dask_awkward")
+    import dask.array as da
 
     from coffea.analysis_tools import PackedSelection
 
@@ -1060,10 +1057,10 @@ def test_packed_selection_cutflow_extended(weighted, commonmasked, withcategoric
 @pytest.mark.parametrize("dtype", ["uint16", "uint32", "uint64"])
 def test_packed_selection_basic_dak(optimization_enabled, dtype):
     import awkward as ak
-    import dask
-    import dask.array as da
 
     dak = pytest.importorskip("dask_awkward")
+    import dask
+    import dask.array as da
 
     from coffea.analysis_tools import PackedSelection
 
@@ -1189,7 +1186,8 @@ def test_packed_selection_nminusone_extended_by_mode(
     mode, optimization_enabled, weighted, commonmasked, withcategorical
 ):
     import awkward as ak
-    import dask
+
+    dask = pytest.importorskip("dask")
 
     from coffea.analysis_tools import PackedSelection, Weights
 
@@ -1553,9 +1551,9 @@ def test_packed_selection_nminusone_extended_by_mode(
 def test_packed_selection_cutflow_extended_by_mode(
     mode, optimization_enabled, weighted, commonmasked, withcategorical
 ):
-
     import awkward as ak
-    import dask
+
+    dask = pytest.importorskip("dask")
 
     from coffea.analysis_tools import PackedSelection, Weights
 
@@ -2003,9 +2001,8 @@ def test_packed_selection_cutflow_extended_by_mode(
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_packed_selection_nminusone_dak_uproot_only(optimization_enabled):
-    import dask
-
     dak = pytest.importorskip("dask_awkward")
+    import dask
 
     from coffea.analysis_tools import PackedSelection
 
@@ -2133,9 +2130,8 @@ def test_packed_selection_nminusone_dak_uproot_only(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_packed_selection_cutflow_dak_uproot_only(optimization_enabled):
-    import dask
-
     dak = pytest.importorskip("dask_awkward")
+    import dask
 
     from coffea.analysis_tools import PackedSelection
 

@@ -12,8 +12,6 @@ if TYPE_CHECKING:
     import dask_awkward
 
 import awkward
-import dask
-import dask.base
 import numpy
 import uproot
 from uproot._util import no_filter
@@ -26,6 +24,7 @@ from coffea.dataset_tools.filespec import (
     PreprocessedFiles,
 )
 from coffea.util import (
+    _import_dask,
     _import_dask_awkward,
     _is_interpretable,
     compress_form,
@@ -102,6 +101,7 @@ def get_steps(
                 filter_branch=partial(_is_interpretable, emit_warning=False),
             ).layout.form.to_json()
             # the function cache needs to be popped if present to prevent memory growth
+            dask = _import_dask()
             if hasattr(dask.base, "function_cache"):
                 dask.base.function_cache.popitem()
 
@@ -303,6 +303,7 @@ def preprocess(
         out_updated : DataGroupSpec | dict
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
+    dask = _import_dask()
     dask_awkward = _import_dask_awkward()
 
     out_updated = copy.deepcopy(fileset)

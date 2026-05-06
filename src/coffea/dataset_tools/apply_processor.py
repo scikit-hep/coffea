@@ -4,9 +4,8 @@ import copy
 from collections.abc import Callable, Hashable
 from typing import TYPE_CHECKING, Any, Union
 
-import dask.base
-
 if TYPE_CHECKING:
+    import dask.base
     import dask_awkward
 
 from coffea.dataset_tools.filespec import (
@@ -16,18 +15,16 @@ from coffea.dataset_tools.filespec import (
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 from coffea.processor import ProcessorABC
 
-DaskOutputBaseType = Union[
-    dask.base.DaskMethodsMixin,
-    dict[Hashable, dask.base.DaskMethodsMixin],
-    set[dask.base.DaskMethodsMixin],
-    list[dask.base.DaskMethodsMixin],
-    tuple[dask.base.DaskMethodsMixin],
-]
-
-# NOTE TO USERS: You can use nested python containers as arguments to dask.compute!
-DaskOutputType = Union[DaskOutputBaseType, tuple[DaskOutputBaseType, ...]]
-
 if TYPE_CHECKING:
+    DaskOutputBaseType = Union[
+        dask.base.DaskMethodsMixin,
+        dict[Hashable, dask.base.DaskMethodsMixin],
+        set[dask.base.DaskMethodsMixin],
+        list[dask.base.DaskMethodsMixin],
+        tuple[dask.base.DaskMethodsMixin],
+    ]
+    # NOTE TO USERS: You can use nested python containers as arguments to dask.compute!
+    DaskOutputType = Union[DaskOutputBaseType, tuple[DaskOutputBaseType, ...]]
     GenericHEPAnalysis = Callable[[dask_awkward.Array], DaskOutputType]
 
 

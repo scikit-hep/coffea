@@ -2,11 +2,9 @@ import abc
 import warnings
 
 import awkward
-import dask
 import numpy
-from dask.base import unpack_collections
 
-from coffea.util import _import_dask_awkward, _isinstance
+from coffea.util import _import_dask, _import_dask_awkward, _isinstance
 
 
 class nonserializable_attribute:
@@ -255,6 +253,9 @@ class numpy_call_wrapper(abc.ABC):
         return to be singular awkward array, we provide the additional format
         converters to translate numpy_calls that returns container of arrays.
         """
+        dask = _import_dask()
+        unpack_collections = dask.base.unpack_collections
+
         dask_awkward = _import_dask_awkward()
 
         def pack_ret_array(ret):
