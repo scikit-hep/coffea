@@ -5,14 +5,20 @@ from coffea.nanoevents.util import concat, quote
 
 
 def _is_flat_or_jagged_numeric(array):
-    """True if ``array`` is 1-d numeric or a 1-d list of 1-d numeric."""
+    """True if ``array`` is 1-d numeric or a 1-d list of 1-d numeric.
+
+    ``awkward.type`` wraps the content in an ``ArrayType`` with a concrete
+    length for eager arrays and returns the unwrapped content for
+    dask-awkward arrays; strip the wrapper if present so the same check
+    works in both modes.
+    """
     t = awkward.type(array)
-    if not isinstance(t, awkward.types.ArrayType):
-        return False
-    if isinstance(t.content, awkward.types.NumpyType):
+    if isinstance(t, awkward.types.ArrayType):
+        t = t.content
+    if isinstance(t, awkward.types.NumpyType):
         return True
-    if isinstance(t.content, awkward.types.ListType) and isinstance(
-        t.content.content, awkward.types.NumpyType
+    if isinstance(t, awkward.types.ListType) and isinstance(
+        t.content, awkward.types.NumpyType
     ):
         return True
     return False

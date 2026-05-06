@@ -304,12 +304,16 @@ def test_to_flat_columns_base_raises(tests_directory):
         BaseSchema.to_flat_columns(events)
 
 
-def test_to_flat_columns_nanoaod_expands_collections(tests_directory):
+@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
+def test_to_flat_columns_nanoaod_expands_collections(tests_directory, mode):
     """NanoAODSchema.to_flat_columns expands record collections to
-    {name}_{subfield} + n{name} and skips cross-reference subfields."""
+    {name}_{subfield} + n{name} and skips cross-reference subfields, in
+    all three factory modes."""
+    import dask
+
     path = f"{tests_directory}/samples/nano_dy.root"
     events = NanoEventsFactory.from_root(
-        {path: "Events"}, schemaclass=NanoAODSchema, mode="eager"
+        {path: "Events"}, schemaclass=NanoAODSchema, mode=mode
     ).events()
 
     out = NanoAODSchema.to_flat_columns(events)
@@ -320,9 +324,17 @@ def test_to_flat_columns_nanoaod_expands_collections(tests_directory):
     # cross-reference subfields (records of records) must not appear
     assert "Muon_matched_jet" not in out
     assert "Muon_matched_gen" not in out
+
+    if mode == "dask":
+        out_muon_pt, out_nmuon, src_muon_pt, src_nmuon = dask.compute(
+            out["Muon_pt"], out["nMuon"], events.Muon.pt, ak.num(events.Muon)
+        )
+    else:
+        out_muon_pt, out_nmuon = out["Muon_pt"], out["nMuon"]
+        src_muon_pt, src_nmuon = events.Muon.pt, ak.num(events.Muon)
     # values match the source exactly
-    assert ak.to_list(out["Muon_pt"]) == ak.to_list(events.Muon.pt)
-    assert ak.to_list(out["nMuon"]) == ak.to_list(ak.num(events.Muon))
+    assert ak.to_list(out_muon_pt) == ak.to_list(src_muon_pt)
+    assert ak.to_list(out_nmuon) == ak.to_list(src_nmuon)
 
 
 def test_to_flat_columns_nanoaod_parquet_roundtrip(tests_directory, tmp_path):
