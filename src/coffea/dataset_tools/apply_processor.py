@@ -27,7 +27,8 @@ DaskOutputBaseType = Union[
 # NOTE TO USERS: You can use nested python containers as arguments to dask.compute!
 DaskOutputType = Union[DaskOutputBaseType, tuple[DaskOutputBaseType, ...]]
 
-GenericHEPAnalysis = Callable[[dask_awkward.Array], DaskOutputType]
+if TYPE_CHECKING:
+    GenericHEPAnalysis = Callable[[dask_awkward.Array], DaskOutputType]
 
 
 def apply_to_dataset(
