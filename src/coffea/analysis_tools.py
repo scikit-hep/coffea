@@ -668,6 +668,7 @@ class NminusOneToNpz:
         weights=None,
         weightsmodifier=None,
         includeweights=None,
+        delayed_mode=False,
     ):
         self._file = file
         self._labels = labels
@@ -680,6 +681,7 @@ class NminusOneToNpz:
         self._weightsmodifier = weightsmodifier
         self._commonmasked = self.commonmask is not None
         self._weighted = self._wgtev is not None
+        self._delayed_mode = delayed_mode
 
     def __repr__(self):
         return f"NminusOneToNpz(file={self._file}), labels={self._labels}, commonmasked={self._commonmasked}, weighted={self._weighted}, weightsmodifier={self._weightsmodifier})"
@@ -717,7 +719,7 @@ class NminusOneToNpz:
         return self._weightsmodifier
 
     def compute(self):
-        if _isinstance(self._nev, "dask.", "dask_awkward."):
+        if self._delayed_mode:
             dask = _import_dask()
             (
                 self._nev,
@@ -788,6 +790,7 @@ class CutflowToNpz:
         weights=None,
         weightsmodifier=None,
         includeweights=None,
+        delayed_mode=False,
     ):
         self._file = file
         self._labels = labels
@@ -805,6 +808,7 @@ class CutflowToNpz:
         self._weighted = (self._wgtevonecut is not None) and (
             self._wgtevcutflow is not None
         )
+        self._delayed_mode = delayed_mode
 
     def __repr__(self):
         return f"CutflowToNpz(file={self._file}), labels={self._labels}, commonmasked={self._commonmasked}, weighted={self._weighted}, weightsmodifier={self._weightsmodifier})"
@@ -856,7 +860,7 @@ class CutflowToNpz:
     def compute(self):
         # Weights has no compute method, ergo it will pass through uncomputed, i.e. as a delayed object
         # self._weights = list(self._weights) if isinstance(self._weights, (tuple, list)) else self._weights
-        if _isinstance(self._nevonecut, "dask.", "dask_awkward."):
+        if self._delayed_mode:
             dask = _import_dask()
             (
                 self._nevonecut,
@@ -1067,6 +1071,7 @@ class NminusOne:
             weights,
             weightsmodifier,
             includeweights=includeweights,
+            delayed_mode=self._delayed_mode,
         )
         if compute:
             out.compute()
@@ -1643,6 +1648,7 @@ class Cutflow:
             weights,
             weightsmodifier,
             includeweights=includeweights,
+            delayed_mode=self._delayed_mode,
         )
         if compute:
             out.compute()

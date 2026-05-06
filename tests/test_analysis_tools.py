@@ -1,3 +1,4 @@
+import contextlib
 import os
 import tempfile
 
@@ -8,6 +9,24 @@ import uproot
 from dummy_distributions import dummy_jagged_eta_pt
 
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+
+try:
+    import dask
+
+    def _dask_cfg(opt):
+        return dask.config.set({"awkward.optimization.enabled": opt})
+
+    def _compute(value):
+        return dask.compute(value)[0]
+
+except ImportError:
+
+    def _dask_cfg(opt):
+        return contextlib.nullcontext()
+
+    def _compute(value):
+        return value
+
 
 try:
     import dask_awkward  # noqa: F401
@@ -1187,8 +1206,6 @@ def test_packed_selection_nminusone_extended_by_mode(
 ):
     import awkward as ak
 
-    dask = pytest.importorskip("dask")
-
     from coffea.analysis_tools import PackedSelection, Weights
 
     if mode == "dask":
@@ -1209,7 +1226,7 @@ def test_packed_selection_nminusone_extended_by_mode(
 
     selection = PackedSelection()
 
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         twoelectron = ak.num(events.Electron) == 2
         nomuon = ak.num(events.Muon) == 0
         leadpt20 = ak.any(events.Electron.pt >= 20.0, axis=1) | ak.any(
@@ -1364,7 +1381,7 @@ def test_packed_selection_nminusone_extended_by_mode(
             "h_fill_arrays": h_fill_arrays,
             "h_fill_weights": h_fill_weights,
         }
-        computed = dask.compute(to_compute)[0]
+        computed = _compute(to_compute)
         computed_nev = computed["nev"]
         computed_masks = computed["masks"]
         computed_r_commonmask = computed["r_commonmask"]
@@ -1553,8 +1570,6 @@ def test_packed_selection_cutflow_extended_by_mode(
 ):
     import awkward as ak
 
-    dask = pytest.importorskip("dask")
-
     from coffea.analysis_tools import PackedSelection, Weights
 
     if mode == "dask":
@@ -1574,7 +1589,7 @@ def test_packed_selection_cutflow_extended_by_mode(
         raise ValueError(f"Mode {mode} not recognized")
     selection = PackedSelection()
 
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         twoelectron = ak.num(events.Electron) == 2
         nomuon = ak.num(events.Muon) == 0
         leadpt20 = ak.any(events.Electron.pt >= 20.0, axis=1) | ak.any(
@@ -1773,7 +1788,7 @@ def test_packed_selection_cutflow_extended_by_mode(
             "hcutflows_fill_weights": hcutflows_fill_weights,
         }
 
-        computed = dask.compute(to_compute)[0]
+        computed = _compute(to_compute)
         computed_nevonecut = computed["nevonecut"]
         computed_nevcutflow = computed["nevcutflow"]
         computed_masksonecut = computed["masksonecut"]
