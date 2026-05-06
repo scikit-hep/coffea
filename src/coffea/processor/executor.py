@@ -1,4 +1,5 @@
 import concurrent.futures
+import hashlib
 import json
 import math
 import pickle
@@ -1098,7 +1099,8 @@ class Runner:
         if self.metadata_cache is None:
             self.metadata_cache = DEFAULT_METADATA_CACHE
 
-        assert self.format in ("root", "parquet")
+        if self.format not in ("root", "parquet"):
+            raise ValueError(f"format must be 'root' or 'parquet', got {self.format!r}")
         if self.format == "parquet" and self.align_clusters:
             raise ValueError("align_clusters is only supported for ROOT input")
 
@@ -1262,7 +1264,10 @@ class Runner:
             if item.metadata:
                 metadata.update(item.metadata)
             metadata.update(
-                {"numentries": file.num_entries, "uuid": b"NO_UUID_0000_000"}
+                {
+                    "numentries": file.num_entries,
+                    "uuid": hashlib.md5(item.filename.encode()).digest(),
+                }
             )
             out = set_accumulator(
                 [FileMeta(item.dataset, item.filename, item.treename, metadata)]
@@ -1681,6 +1686,12 @@ class Runner:
             raise ValueError(
                 "processor_instance must be provided when trace is specified"
             )
+        if self.format == "parquet" and trace is not None:
+            raise NotImplementedError(
+                "trace/preload is not supported for parquet input"
+            )
+        if self.format == "parquet" and uproot_options:
+            raise ValueError("uproot_options has no effect with format='parquet'")
         if not isinstance(fileset, (Mapping, str)):
             raise ValueError(
                 "Expected fileset to be a mapping dataset: list(files) or filename"
@@ -1703,6 +1714,10 @@ class Runner:
                 self._trace_preload(fileset, trace, process_fn, uproot_options)
         elif self.format == "parquet":
             fileset = list(self._normalize_fileset(fileset, treename))
+            if any(filemeta.preload is not None for filemeta in fileset):
+                raise NotImplementedError(
+                    "fileset-level 'preload' is not supported for parquet input"
+                )
             for filemeta in fileset:
                 filemeta.maybe_populate(self.metadata_cache)
 
@@ -1760,6 +1775,10 @@ class Runner:
             uproot_options = {}
         if iteritems_options is None:
             iteritems_options = {}
+        if self.format == "parquet" and (uproot_options or iteritems_options):
+            raise ValueError(
+                "uproot_options/iteritems_options have no effect with format='parquet'"
+            )
         if not isinstance(processor_instance, ProcessorABC) and not callable(
             processor_instance
         ):
