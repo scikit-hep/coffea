@@ -1,5 +1,6 @@
 import os.path as osp
 
+import pyarrow
 import pytest
 
 from coffea import processor
@@ -7,7 +8,7 @@ from coffea.nanoevents import schemas
 from coffea.processor.executor import UprootMissTreeError
 from coffea.processor.test_items import NanoEventsProcessor
 
-_exceptions = (FileNotFoundError, UprootMissTreeError)
+_exceptions = (FileNotFoundError, UprootMissTreeError, pyarrow.ArrowInvalid)
 
 
 @pytest.mark.parametrize("filetype", ["ttree", "rntuple", "parquet"])
@@ -29,13 +30,23 @@ def test_nanoevents_analysis(
             mode=mode, check_filehandle=True
         ).process
 
-    if filetype == "parquet":
-        pytest.xfail("parquet nanoevents not supported yet")
-
     suffix = {"ttree": ".root", "rntuple": "_rntuple.root", "parquet": ".parquet"}[
         filetype
     ]
     runner_format = "parquet" if filetype == "parquet" else "root"
+    # for parquet, treename-mismatch isn't a failure mode; substitute a malformed
+    # parquet file so the dataset still has a non-OSError raise like root gets
+    # from UprootMissTreeError
+    bad_second_file = (
+        "tests/samples/nano_dy_malformed.parquet"
+        if filetype == "parquet"
+        else f"tests/samples/nano_dy_SpecialTree{suffix}"
+    )
+    bad_only_file = (
+        "tests/samples/nano_dy_malformed.parquet"
+        if filetype == "parquet"
+        else f"tests/samples/nano_dy{suffix}"
+    )
 
     filelist = {
         "DummyBadMissingFile": {
@@ -46,12 +57,12 @@ def test_nanoevents_analysis(
             "treename": "NotEvents",
             "files": [
                 osp.abspath(f"tests/samples/nano_dy{suffix}"),
-                osp.abspath(f"tests/samples/nano_dy_SpecialTree{suffix}"),
+                osp.abspath(bad_second_file),
             ],
         },
         "ZJetsBadMissingTreeAllFiles": {
             "treename": "NotEvents",
-            "files": [osp.abspath(f"tests/samples/nano_dy{suffix}")],
+            "files": [osp.abspath(bad_only_file)],
         },
         "ZJets": {
             "treename": "Events",
@@ -102,10 +113,13 @@ def test_nanoevents_analysis(
             )
 
 
-@pytest.mark.parametrize("filetype", ["ttree", "rntuple"])
+@pytest.mark.parametrize("filetype", ["ttree", "rntuple", "parquet"])
 @pytest.mark.parametrize("align_clusters", [False, True])
 def test_preprocessing(align_clusters, filetype):
-    suffix = "_rntuple.root" if filetype == "rntuple" else ".root"
+    suffix = {"ttree": ".root", "rntuple": "_rntuple.root", "parquet": ".parquet"}[
+        filetype
+    ]
+    runner_format = "parquet" if filetype == "parquet" else "root"
     nano_dy = f"tests/samples/nano_dy{suffix}"
     nano_dy_empty = f"tests/samples/nano_dy_empty{suffix}"
 
@@ -135,11 +149,25 @@ def test_preprocessing(align_clusters, filetype):
     }
 
     executor = processor.IterativeExecutor()
+    if filetype == "parquet" and align_clusters:
+        with pytest.raises(
+            ValueError, match="align_clusters is only supported for ROOT"
+        ):
+            processor.Runner(
+                executor=executor,
+                schema=schemas.NanoAODSchema,
+                chunksize=7,
+                align_clusters=align_clusters,
+                format=runner_format,
+            )
+        return
+
     run = processor.Runner(
         executor=executor,
         schema=schemas.NanoAODSchema,
         chunksize=7,
         align_clusters=align_clusters,
+        format=runner_format,
     )
     chunks = list(run.preprocess(fileset))
     if align_clusters:
