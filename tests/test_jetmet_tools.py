@@ -2,7 +2,6 @@ import time
 
 import awkward as ak
 import dask
-import dask_awkward as dak
 import pyinstrument
 import pytest
 from dummy_distributions import dummy_jagged_eta_pt
@@ -43,6 +42,7 @@ evaluator = jetmet_evaluator()
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_factorized_jet_corrector(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import FactorizedJetCorrector
 
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
@@ -296,6 +296,7 @@ def test_factorized_jet_corrector(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_jet_resolution(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import JetResolution
 
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
@@ -369,6 +370,7 @@ def test_jet_resolution(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_jet_correction_uncertainty(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import JetCorrectionUncertainty
 
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
@@ -436,6 +438,7 @@ def test_jet_correction_uncertainty(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_jet_correction_uncertainty_sources(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import JetCorrectionUncertainty
 
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
@@ -517,6 +520,7 @@ def test_jet_correction_uncertainty_sources(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_jet_correction_regrouped_uncertainty_sources(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import JetCorrectionUncertainty
 
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
@@ -594,6 +598,7 @@ def test_jet_correction_regrouped_uncertainty_sources(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_jet_resolution_sf(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import JetResolutionScaleFactor
 
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
@@ -654,6 +659,7 @@ def test_jet_resolution_sf(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_jet_resolution_sf_2d(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import JetResolutionScaleFactor
 
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
@@ -942,6 +948,7 @@ def test_corrected_jets_factory():
 @pytest.mark.dask_client
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_corrected_jets_factory_dak(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     import os
 
     from distributed import Client

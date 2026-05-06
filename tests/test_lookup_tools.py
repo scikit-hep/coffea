@@ -2,7 +2,6 @@ import os
 
 import awkward as ak
 import dask
-import dask_awkward as dak
 import pytest
 from dummy_distributions import dummy_jagged_eta_pt
 
@@ -145,6 +144,7 @@ def test_evaluate_noimpl():
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_correctionlib(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
         extractor = lookup_tools.extractor()
         extractor.add_weight_sets(["* * tests/samples/testSF2d.corr.json.gz"])
@@ -194,6 +194,7 @@ def test_correctionlib(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_root_scalefactors(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
         extractor = lookup_tools.extractor()
         extractor.add_weight_sets(
@@ -372,6 +373,7 @@ def test_jec_txt_effareas():
 
 
 def test_rochester(tests_directory):
+    dak = pytest.importorskip("dask_awkward")
     rochester_data = lookup_tools.txt_converters.convert_rochester_file(
         f"{tests_directory}/samples/RoccoR2018.txt.gz", loaduncs=True
     )

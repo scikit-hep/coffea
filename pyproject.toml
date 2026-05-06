@@ -101,8 +101,6 @@ caches = [
   "zict>=3.0.0",
 ]
 dev = [
-  "dask-awkward>=2025.9.0",
-  "dask-histogram>=2025.2.0",
   "pre-commit",
   "flake8",
   "black",

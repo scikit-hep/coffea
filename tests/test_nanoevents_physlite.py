@@ -7,6 +7,13 @@ import dask
 import pytest
 import uproot
 
+try:
+    import dask_awkward  # noqa: F401
+
+    _dak_available = True
+except ImportError:
+    _dak_available = False
+
 from coffea.nanoevents import NanoEventsFactory, PHYSLITESchema
 from coffea.nanoevents.mapping import SimplePreloadedColumnSource
 
@@ -46,6 +53,7 @@ def unwrapper(obj, mode):
 
 @pytest.fixture(scope="module")
 def events():
+    pytest.importorskip("dask_awkward")
     return _events()
 
 
@@ -54,7 +62,19 @@ def test_load_single_field_of_linked(events):
         events.Electrons.caloClusters.calE.compute()
 
 
-@pytest.mark.parametrize("mode", ["dask", "virtual", "eager"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        pytest.param(
+            "dask",
+            marks=pytest.mark.skipif(
+                not _dak_available, reason="dask-awkward not installed"
+            ),
+        ),
+        "virtual",
+        "eager",
+    ],
+)
 @pytest.mark.parametrize("do_slice", [False, True])
 def test_electron_track_links(do_slice, mode):
     events = _events(mode=mode)
@@ -75,7 +95,19 @@ def test_electron_track_links(do_slice, mode):
                 )
 
 
-@pytest.mark.parametrize("mode", ["dask", "virtual", "eager"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        pytest.param(
+            "dask",
+            marks=pytest.mark.skipif(
+                not _dak_available, reason="dask-awkward not installed"
+            ),
+        ),
+        "virtual",
+        "eager",
+    ],
+)
 @pytest.mark.parametrize("do_slice", [False, True])
 def test_muon_track_links(do_slice, mode):
     events = _events(mode=mode)
@@ -143,7 +175,19 @@ def test_muon_track_links_preloaded(filt):
                 )
 
 
-@pytest.mark.parametrize("mode", ["dask", "virtual", "eager"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        pytest.param(
+            "dask",
+            marks=pytest.mark.skipif(
+                not _dak_available, reason="dask-awkward not installed"
+            ),
+        ),
+        "virtual",
+        "eager",
+    ],
+)
 def test_objects_are_four_vectors(mode):
     events = _events(mode=mode)
     events.Electrons.E
@@ -157,7 +201,19 @@ def mock_empty(form, behavior={}):
     )
 
 
-@pytest.mark.parametrize("mode", ["dask", "virtual", "eager"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        pytest.param(
+            "dask",
+            marks=pytest.mark.skipif(
+                not _dak_available, reason="dask-awkward not installed"
+            ),
+        ),
+        "virtual",
+        "eager",
+    ],
+)
 def test_electron_forms(mode):
     def filter_name(name):
         return name in [
@@ -253,7 +309,19 @@ def test_electron_forms(mode):
     assert json.dumps(expected_json) == mocked.to_json()
 
 
-@pytest.mark.parametrize("mode", ["dask", "virtual", "eager"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        pytest.param(
+            "dask",
+            marks=pytest.mark.skipif(
+                not _dak_available, reason="dask-awkward not installed"
+            ),
+        ),
+        "virtual",
+        "eager",
+    ],
+)
 def test_jet_forms(mode):
     def filter_name(name):
         return name in [

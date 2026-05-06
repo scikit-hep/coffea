@@ -202,6 +202,7 @@ def test_missing_eventIds_warning(tests_directory):
 
 @pytest.mark.dask_client
 def test_missing_eventIds_warning_dask(tests_directory):
+    pytest.importorskip("dask_awkward")
     path = f"{tests_directory}/samples/missing_luminosityBlock.root:Events"
     NanoAODSchema.error_missing_event_ids = False
     with Client() as _:

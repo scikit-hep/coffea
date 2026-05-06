@@ -9,6 +9,13 @@ from dummy_distributions import dummy_jagged_eta_pt
 
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 
+try:
+    import dask_awkward  # noqa: F401
+
+    _dak_available = True
+except ImportError:
+    _dak_available = False
+
 fname = "tests/samples/nano_dy.root"
 eagerevents = NanoEventsFactory.from_root(
     {os.path.abspath(fname): "Events"},
@@ -22,13 +29,17 @@ virtualevents = NanoEventsFactory.from_root(
     metadata={"dataset": "DYJets"},
     mode="virtual",
 ).events()
-dakevents = NanoEventsFactory.from_root(
-    {os.path.abspath(fname): "Events"},
-    schemaclass=NanoAODSchema,
-    metadata={"dataset": "DYJets"},
-    mode="dask",
-).events()
-uprootevents = uproot.dask({fname: "Events"})
+if _dak_available:
+    dakevents = NanoEventsFactory.from_root(
+        {os.path.abspath(fname): "Events"},
+        schemaclass=NanoAODSchema,
+        metadata={"dataset": "DYJets"},
+        mode="dask",
+    ).events()
+    uprootevents = uproot.dask({fname: "Events"})
+else:
+    dakevents = None
+    uprootevents = None
 
 
 def test_weights():
@@ -93,7 +104,8 @@ def test_weights():
 def test_weights_dak(optimization_enabled):
     import dask
     import dask.array as da
-    import dask_awkward as dak
+
+    dak = pytest.importorskip("dask_awkward")
 
     from coffea.analysis_tools import Weights
 
@@ -212,7 +224,8 @@ def test_weights_multivariation():
 def test_weights_multivariation_dak(optimization_enabled):
     import dask
     import dask.array as da
-    import dask_awkward as dak
+
+    dak = pytest.importorskip("dask_awkward")
 
     from coffea.analysis_tools import Weights
 
@@ -342,7 +355,8 @@ def test_weights_partial():
 def test_weights_partial_dak(optimization_enabled):
     import dask
     import dask.array as da
-    import dask_awkward as dak
+
+    dak = pytest.importorskip("dask_awkward")
 
     from coffea.analysis_tools import Weights
 
@@ -415,7 +429,8 @@ def test_weights_partial_dak(optimization_enabled):
 def test_packed_selection_basic(dtype):
     import awkward as ak
     import dask.array as da
-    import dask_awkward as dak
+
+    dak = pytest.importorskip("dask_awkward")
 
     from coffea.analysis_tools import PackedSelection
 
@@ -1047,7 +1062,8 @@ def test_packed_selection_basic_dak(optimization_enabled, dtype):
     import awkward as ak
     import dask
     import dask.array as da
-    import dask_awkward as dak
+
+    dak = pytest.importorskip("dask_awkward")
 
     from coffea.analysis_tools import PackedSelection
 
@@ -1152,7 +1168,19 @@ def test_packed_selection_basic_dak(optimization_enabled, dtype):
             sel.add("dask_array", daskarray)
 
 
-@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "eager",
+        "virtual",
+        pytest.param(
+            "dask",
+            marks=pytest.mark.skipif(
+                not _dak_available, reason="dask-awkward not installed"
+            ),
+        ),
+    ],
+)
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 @pytest.mark.parametrize("weighted", [True, False])
 @pytest.mark.parametrize("commonmasked", [True, False])
@@ -1505,7 +1533,19 @@ def test_packed_selection_nminusone_extended_by_mode(
                 assert np.all(np.isclose(counts[1:-1], c))
 
 
-@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "eager",
+        "virtual",
+        pytest.param(
+            "dask",
+            marks=pytest.mark.skipif(
+                not _dak_available, reason="dask-awkward not installed"
+            ),
+        ),
+    ],
+)
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 @pytest.mark.parametrize("weighted", [True, False])
 @pytest.mark.parametrize("commonmasked", [True, False])
@@ -1964,7 +2004,8 @@ def test_packed_selection_cutflow_extended_by_mode(
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_packed_selection_nminusone_dak_uproot_only(optimization_enabled):
     import dask
-    import dask_awkward as dak
+
+    dak = pytest.importorskip("dask_awkward")
 
     from coffea.analysis_tools import PackedSelection
 
@@ -2093,7 +2134,8 @@ def test_packed_selection_nminusone_dak_uproot_only(optimization_enabled):
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_packed_selection_cutflow_dak_uproot_only(optimization_enabled):
     import dask
-    import dask_awkward as dak
+
+    dak = pytest.importorskip("dask_awkward")
 
     from coffea.analysis_tools import PackedSelection
 

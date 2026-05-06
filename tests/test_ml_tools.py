@@ -1,8 +1,9 @@
 import awkward as ak
-import dask_awkward as dak
 import numpy as np
 import pytest
 from distributed import Client
+
+dak = pytest.importorskip("dask_awkward")
 
 
 def prepare_jets_array(njets, tmp_path):

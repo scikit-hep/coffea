@@ -1,7 +1,6 @@
 import awkward as ak
 import cloudpickle
 import dask
-import dask_awkward as dak
 import numpy as np
 import pytest
 from dask.distributed import Client
@@ -71,6 +70,7 @@ def test_lumidata():
     ],
 )
 def test_lumimask(jsonfile):
+    dak = pytest.importorskip("dask_awkward")
     client = Client()
 
     lumimask = LumiMask(jsonfile)
@@ -140,6 +140,7 @@ def test_lumilist():
 
 
 def test_lumilist_dask():
+    dak = pytest.importorskip("dask_awkward")
     lumidata = LumiData("tests/samples/lumi_small.csv")
 
     runslumis1 = np.zeros((10, 2), dtype=np.uint32)
@@ -168,6 +169,7 @@ def test_lumilist_dask():
 
 @pytest.mark.dask_client
 def test_lumilist_client_fromfile():
+    dak = pytest.importorskip("dask_awkward")  # noqa: F841
     with Client() as _:
         events = NanoEventsFactory.from_root(
             {"tests/samples/nano_dy.root": "Events"},
@@ -183,6 +185,7 @@ def test_lumilist_client_fromfile():
 
 @pytest.mark.dask_client
 def test_1259_avoid_pickle_numba_dict():
+    dak = pytest.importorskip("dask_awkward")
 
     runs_eager = ak.Array([368229, 368229, 368229, 368229])
     runs = dak.from_awkward(runs_eager, 2)
