@@ -1,4 +1,5 @@
 import concurrent.futures
+import hashlib
 import json
 import math
 import pickle
@@ -1098,7 +1099,10 @@ class Runner:
         if self.metadata_cache is None:
             self.metadata_cache = DEFAULT_METADATA_CACHE
 
-        assert self.format in ("root", "parquet")
+        if self.format not in ("root", "parquet"):
+            raise ValueError(f"format must be 'root' or 'parquet', got {self.format!r}")
+        if self.format == "parquet" and self.align_clusters:
+            raise ValueError("align_clusters is only supported for ROOT input")
 
     @property
     def retries(self):
@@ -1260,7 +1264,10 @@ class Runner:
             if item.metadata:
                 metadata.update(item.metadata)
             metadata.update(
-                {"numentries": file.num_entries, "uuid": b"NO_UUID_0000_000"}
+                {
+                    "numentries": file.num_entries,
+                    "uuid": hashlib.md5(item.filename.encode()).digest(),
+                }
             )
             out = set_accumulator(
                 [FileMeta(item.dataset, item.filename, item.treename, metadata)]
@@ -1490,7 +1497,7 @@ class Runner:
                     **uproot_options,
                 )
             elif format == "parquet":
-                raise NotImplementedError("Parquet format is not supported yet.")
+                filecontext = ParquetFileContext(item.filename)
         except Exception as e:
             raise Exception(
                 f"Failed to open file: {item!r}. The error was: {e!r}."
@@ -1519,9 +1526,18 @@ class Runner:
                         )
                         events = factory.events()
                     elif format == "parquet":
-                        raise NotImplementedError(
-                            "Parquet format is not supported yet."
+                        materialized = []
+                        factory = NanoEventsFactory.from_parquet(
+                            file=item.filename,
+                            schemaclass=schema,
+                            metadata=metadata,
+                            mode="virtual",
+                            entry_start=item.entrystart,
+                            entry_stop=item.entrystop,
+                            access_log=materialized,
+                            buffer_cache=cache_function(),
                         )
+                        events = factory.events()
                 except Exception as e:
                     raise Exception(
                         f"Failed creating nanoevents: {item!r}. The error was: {e!r}."
@@ -1670,6 +1686,12 @@ class Runner:
             raise ValueError(
                 "processor_instance must be provided when trace is specified"
             )
+        if self.format == "parquet" and trace is not None:
+            raise NotImplementedError(
+                "trace/preload is not supported for parquet input"
+            )
+        if self.format == "parquet" and uproot_options:
+            raise ValueError("uproot_options has no effect with format='parquet'")
         if not isinstance(fileset, (Mapping, str)):
             raise ValueError(
                 "Expected fileset to be a mapping dataset: list(files) or filename"
@@ -1691,7 +1713,16 @@ class Runner:
                     process_fn = processor_instance
                 self._trace_preload(fileset, trace, process_fn, uproot_options)
         elif self.format == "parquet":
-            raise NotImplementedError("Parquet format is not supported yet.")
+            fileset = list(self._normalize_fileset(fileset, treename))
+            if any(filemeta.preload is not None for filemeta in fileset):
+                raise NotImplementedError(
+                    "fileset-level 'preload' is not supported for parquet input"
+                )
+            for filemeta in fileset:
+                filemeta.maybe_populate(self.metadata_cache)
+
+            self._preprocess_fileset_parquet(fileset)
+            fileset = self._filter_badfiles(fileset)
 
         return self._chunk_generator(fileset, treename)
 
@@ -1744,6 +1775,10 @@ class Runner:
             uproot_options = {}
         if iteritems_options is None:
             iteritems_options = {}
+        if self.format == "parquet" and (uproot_options or iteritems_options):
+            raise ValueError(
+                "uproot_options/iteritems_options have no effect with format='parquet'"
+            )
         if not isinstance(processor_instance, ProcessorABC) and not callable(
             processor_instance
         ):
