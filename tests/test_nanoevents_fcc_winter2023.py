@@ -103,7 +103,6 @@ branches = {
     "EFlowTrackidx1": ["collectionID", "index"],
     "Electronidx0": ["collectionID", "index"],
     "Jet": [
-        "E",
         "charge",
         "clusters",
         "covMatrix_10_",
@@ -126,7 +125,6 @@ branches = {
     "Jetidx5": ["collectionID", "index"],
     "MCRecoAssociations": ["mc", "reco", "weight"],
     "MissingET": [
-        "E",
         "charge",
         "clusters",
         "covMatrix_10_",
@@ -173,7 +171,6 @@ branches = {
     "Particleidx1": ["collectionID", "index"],
     "Photonidx0": ["collectionID", "index"],
     "ReconstructedParticles": [
-        "E",
         "Electronidx0_indexGlobal",
         "MCRecoAssociationsidx0_indexGlobal",
         "Muonidx0_indexGlobal",
