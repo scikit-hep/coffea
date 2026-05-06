@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Callable, Hashable
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import dask.base
+
+if TYPE_CHECKING:
+    import dask_awkward
 
 from coffea.dataset_tools.filespec import (
     DataGroupSpec,
@@ -24,7 +27,7 @@ DaskOutputBaseType = Union[
 # NOTE TO USERS: You can use nested python containers as arguments to dask.compute!
 DaskOutputType = Union[DaskOutputBaseType, tuple[DaskOutputBaseType, ...]]
 
-GenericHEPAnalysis = Callable[[Any], DaskOutputType]
+GenericHEPAnalysis = Callable[[dask_awkward.Array], DaskOutputType]
 
 
 def apply_to_dataset(
@@ -33,7 +36,7 @@ def apply_to_dataset(
     schemaclass: BaseSchema = NanoAODSchema,
     metadata: dict[Hashable, Any] = {},
     uproot_options: dict[str, Any] = {},
-) -> DaskOutputType | tuple[DaskOutputType, Any]:
+) -> DaskOutputType | tuple[DaskOutputType, dask_awkward.Array]:
     """
     Apply the supplied function or processor to the supplied dataset.
 
@@ -92,7 +95,7 @@ def apply_to_fileset(
     fileset: DataGroupSpec | dict,
     schemaclass: BaseSchema = NanoAODSchema,
     uproot_options: dict[str, Any] = {},
-) -> dict[str, DaskOutputType] | tuple[dict[str, DaskOutputType], Any]:
+) -> dict[str, DaskOutputType] | tuple[dict[str, DaskOutputType], dask_awkward.Array]:
     """
     Apply the supplied function or processor to the supplied fileset (set of datasets).
 

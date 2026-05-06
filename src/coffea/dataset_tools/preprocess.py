@@ -6,7 +6,10 @@ import math
 import warnings
 from collections.abc import Callable
 from functools import partial
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import dask_awkward
 
 import awkward
 import dask
@@ -31,7 +34,7 @@ from coffea.util import (
 
 
 def get_steps(
-    normed_files: awkward.Array | Any,
+    normed_files: awkward.Array | dask_awkward.Array,
     step_size: int | None = None,
     align_clusters: bool = False,
     recalculate_steps: bool = False,
@@ -40,7 +43,7 @@ def get_steps(
     save_form: bool = False,
     step_size_safety_factor: float = 0.5,
     uproot_options: dict = {},
-) -> awkward.Array | Any:
+) -> awkward.Array | dask_awkward.Array:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
 
