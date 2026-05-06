@@ -716,8 +716,9 @@ class DaskExecutor(ExecutorBase):
             return accumulator
 
         distributed = _import_distributed()
-        dask = _import_dask()
-        dd = dask.dataframe
+        _import_dask()
+        import dask.dataframe as dd
+
         Client = distributed.client.Client
         KilledWorker = distributed.scheduler.KilledWorker
 
