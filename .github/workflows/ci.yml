@@ -149,7 +149,7 @@ jobs:
         cache-environment: true
     - name: Install coffea
       run: |
-        uv pip install . 'dask<2025.1.0'
+        uv pip install '.[dask]' 'dask<2025.1.0'
     - name: Test with pytest coffea with dask + taskvine
       timeout-minutes: 5
       run: |
