@@ -154,6 +154,9 @@ class PHYSLITESchema(BaseSchema):
                 mixin = self.mixins.get(objname, None)
                 if mixin == "TrackParticle":
                     to_zip["p"] = transforms.qoverp_to_p_form(to_zip["qOverP"])
+                    to_zip["pt"] = transforms.qoverp_theta_to_pt_form(
+                        to_zip["qOverP"], to_zip["theta"]
+                    )
                     to_zip["tau"] = transforms.full_like_from_content_form(
                         to_zip["theta"], 139.570
                     )
