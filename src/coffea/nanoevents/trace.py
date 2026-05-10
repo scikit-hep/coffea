@@ -23,7 +23,11 @@ def _make_typetracer(
         form=events.attrs["@form"],
         buffer_key=events.attrs["@buffer_key"],
         behavior=events.behavior,
-        attrs=events.attrs.copy(),
+        attrs=(
+            events.attrs
+            if isinstance(events.attrs, ak._attrs.Attrs)
+            else events.attrs.copy()
+        ),
         highlevel=True,
     )
     tracer.attrs["@original_array"] = tracer
@@ -79,7 +83,11 @@ def _make_length_zero_one_tracer(
         allow_noncanonical_form=False,
         highlevel=True,
         behavior=events.behavior,
-        attrs=events.attrs.copy(),
+        attrs=(
+            events.attrs
+            if isinstance(events.attrs, ak._attrs.Attrs)
+            else events.attrs.copy()
+        ),
     )
     array.attrs["@original_array"] = array
 
