@@ -1,7 +1,7 @@
 import concurrent.futures
+import hashlib
 import json
 import math
-import os
 import pickle
 import time
 import traceback
@@ -33,7 +33,6 @@ import awkward
 import cloudpickle
 import loky
 import lz4.frame as lz4f
-import toml
 import uproot
 from cachetools import LRUCache
 
@@ -1152,29 +1151,11 @@ class Runner:
     use_result_type: bool = False
     schema: schemas.BaseSchema | None = schemas.NanoAODSchema
     processor_compression: int = 1
-    use_skyhook: bool | None = False
-    skyhook_options: dict | None = field(default_factory=dict)
     format: str = "root"
     checkpointer: CheckpointerABC | None = None
     cachestrategy: None | (Literal["dask-worker"] | Callable[..., MutableMapping]) = (
         None
     )
-
-    @staticmethod
-    def read_coffea_config():
-        config_path = None
-        if "HOME" in os.environ:
-            config_path = os.path.join(os.environ["HOME"], ".coffea.toml")
-        elif "_CONDOR_SCRATCH_DIR" in os.environ:
-            config_path = os.path.join(
-                os.environ["_CONDOR_SCRATCH_DIR"], ".coffea.toml"
-            )
-
-        if config_path is not None and os.path.exists(config_path):
-            with open(config_path) as f:
-                return toml.loads(f.read())
-        else:
-            return dict()
 
     def __post_init__(self):
         if self.pre_executor is None:
@@ -1190,7 +1171,10 @@ class Runner:
         if self.metadata_cache is None:
             self.metadata_cache = DEFAULT_METADATA_CACHE
 
-        assert self.format in ("root", "parquet")
+        if self.format not in ("root", "parquet"):
+            raise ValueError(f"format must be 'root' or 'parquet', got {self.format!r}")
+        if self.format == "parquet" and self.align_clusters:
+            raise ValueError("align_clusters is only supported for ROOT input")
 
         if self.use_result_type and self.skipbadfiles is not False:
             raise ValueError(
@@ -1340,7 +1324,13 @@ class Runner:
                 metadata.update(item.metadata)
             metadata.update({"numentries": tree.num_entries, "uuid": file.file.fUUID})
             if align_clusters:
-                metadata["clusters"] = tree.common_entry_offsets()
+                if isinstance(tree, uproot.behaviors.RNTuple.HasFields):
+                    cluster_starts = [c.num_first_entry for c in tree.cluster_summaries]
+                    metadata["clusters"] = sorted(
+                        set(cluster_starts) | {tree.num_entries}
+                    )
+                else:
+                    metadata["clusters"] = tree.common_entry_offsets()
             out = set_accumulator(
                 [FileMeta(item.dataset, item.filename, item.treename, metadata)]
             )
@@ -1353,7 +1343,10 @@ class Runner:
             if item.metadata:
                 metadata.update(item.metadata)
             metadata.update(
-                {"numentries": file.num_entries, "uuid": b"NO_UUID_0000_000"}
+                {
+                    "numentries": file.num_entries,
+                    "uuid": hashlib.md5(item.filename.encode()).digest(),
+                }
             )
             out = set_accumulator(
                 [FileMeta(item.dataset, item.filename, item.treename, metadata)]
@@ -1509,84 +1502,26 @@ class Runner:
                 meta.preload = preload
 
     def _chunk_generator(self, fileset: dict, treename: str) -> Generator:
-        config = None
-        if self.use_skyhook:
-            config = Runner.read_coffea_config()
-        if not self.use_skyhook and (self.format == "root" or self.format == "parquet"):
-            if self.maxchunks is None:
-                last_chunksize = self.chunksize
-                for filemeta in fileset:
-                    last_chunksize = yield from filemeta.chunks(
-                        last_chunksize,
-                        self.align_clusters,
-                    )
-            else:
-                # get just enough file info to compute chunking
-                nchunks = defaultdict(int)
-                chunks = []
-                for filemeta in fileset:
-                    if nchunks[filemeta.dataset] >= self.maxchunks:
-                        continue
-                    for chunk in filemeta.chunks(self.chunksize, self.align_clusters):
-                        chunks.append(chunk)
-                        nchunks[filemeta.dataset] += 1
-                        if nchunks[filemeta.dataset] >= self.maxchunks:
-                            break
-                yield from (c for c in chunks)
+        if self.maxchunks is None:
+            last_chunksize = self.chunksize
+            for filemeta in fileset:
+                last_chunksize = yield from filemeta.chunks(
+                    last_chunksize,
+                    self.align_clusters,
+                )
         else:
-            if self.use_skyhook and not config.get("skyhook", None):
-                print("No skyhook config found, using defaults")
-                config["skyhook"] = dict()
-
-            dataset_filelist_map = {}
-            if self.use_skyhook:
-                import pyarrow.dataset as ds
-
-                for dataset, basedir in fileset.items():
-                    ds_ = ds.dataset(basedir, format="parquet")
-                    dataset_filelist_map[dataset] = ds_.files
-            else:
-                for dataset, maybe_filelist in fileset.items():
-                    if isinstance(maybe_filelist, list):
-                        dataset_filelist_map[dataset] = maybe_filelist
-                    elif isinstance(maybe_filelist, dict):
-                        if "files" not in maybe_filelist:
-                            raise ValueError(
-                                "Dataset definition must have key 'files' defined!"
-                            )
-                        dataset_filelist_map[dataset] = maybe_filelist["files"]
-                    else:
-                        raise ValueError(
-                            "Dataset definition in fileset must be dict[str: list[str]] or dict[str: dict[str: Any]]"
-                        )
+            # get just enough file info to compute chunking
+            nchunks = defaultdict(int)
             chunks = []
-            for dataset, filelist in dataset_filelist_map.items():
-                for filename in filelist:
-                    # If skyhook config is provided and is not empty,
-                    if self.use_skyhook:
-                        ceph_config_path = config["skyhook"].get(
-                            "ceph_config_path", "/etc/ceph/ceph.conf"
-                        )
-                        ceph_data_pool = config["skyhook"].get(
-                            "ceph_data_pool", "cephfs_data"
-                        )
-                        filename = f"{ceph_config_path}:{ceph_data_pool}:{filename}"
-                    chunks.append(
-                        WorkItem(
-                            dataset,
-                            filename,
-                            treename,
-                            0,
-                            0,
-                            "",
-                            (
-                                fileset[dataset]["metadata"]
-                                if "metadata" in fileset[dataset]
-                                else None
-                            ),
-                        )
-                    )
-            yield from iter(chunks)
+            for filemeta in fileset:
+                if nchunks[filemeta.dataset] >= self.maxchunks:
+                    continue
+                for chunk in filemeta.chunks(self.chunksize, self.align_clusters):
+                    chunks.append(chunk)
+                    nchunks[filemeta.dataset] += 1
+                    if nchunks[filemeta.dataset] >= self.maxchunks:
+                        break
+            yield from (c for c in chunks)
 
     @staticmethod
     def _work_function(
@@ -1641,7 +1576,7 @@ class Runner:
                     **uproot_options,
                 )
             elif format == "parquet":
-                raise NotImplementedError("Parquet format is not supported yet.")
+                filecontext = ParquetFileContext(item.filename)
         except Exception as e:
             raise Exception(
                 f"Failed to open file: {item!r}. The error was: {e!r}."
@@ -1670,9 +1605,18 @@ class Runner:
                         )
                         events = factory.events()
                     elif format == "parquet":
-                        raise NotImplementedError(
-                            "Parquet format is not supported yet."
+                        materialized = []
+                        factory = NanoEventsFactory.from_parquet(
+                            file=item.filename,
+                            schemaclass=schema,
+                            metadata=metadata,
+                            mode="virtual",
+                            entry_start=item.entrystart,
+                            entry_stop=item.entrystop,
+                            access_log=materialized,
+                            buffer_cache=cache_function(),
                         )
+                        events = factory.events()
                 except Exception as e:
                     raise Exception(
                         f"Failed creating nanoevents: {item!r}. The error was: {e!r}."
@@ -1851,6 +1795,12 @@ class Runner:
             raise ValueError(
                 "processor_instance must be provided when trace is specified"
             )
+        if self.format == "parquet" and trace is not None:
+            raise NotImplementedError(
+                "trace/preload is not supported for parquet input"
+            )
+        if self.format == "parquet" and uproot_options:
+            raise ValueError("uproot_options has no effect with format='parquet'")
         if not isinstance(fileset, (Mapping, str)):
             raise ValueError(
                 "Expected fileset to be a mapping dataset: list(files) or filename"
@@ -1872,7 +1822,16 @@ class Runner:
                     process_fn = processor_instance
                 self._trace_preload(fileset, trace, process_fn, uproot_options)
         elif self.format == "parquet":
-            raise NotImplementedError("Parquet format is not supported yet.")
+            fileset = list(self._normalize_fileset(fileset, treename))
+            if any(filemeta.preload is not None for filemeta in fileset):
+                raise NotImplementedError(
+                    "fileset-level 'preload' is not supported for parquet input"
+                )
+            for filemeta in fileset:
+                filemeta.maybe_populate(self.metadata_cache)
+
+            self._preprocess_fileset_parquet(fileset)
+            fileset = self._filter_badfiles(fileset)
 
         return self._chunk_generator(fileset, treename)
 
@@ -1931,6 +1890,10 @@ class Runner:
         if iteritems_options is None:
             iteritems_options = {}
         try:
+            if self.format == "parquet" and (uproot_options or iteritems_options):
+                raise ValueError(
+                    "uproot_options/iteritems_options have no effect with format='parquet'"
+                )
             if not isinstance(processor_instance, ProcessorABC) and not callable(
                 processor_instance
             ):

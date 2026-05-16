@@ -7,7 +7,7 @@ from coffea import processor
 from coffea.nanoevents import BaseSchema
 
 
-def test_parsl_start_stop():
+def test_parsl_start_stop(tmp_path):
     pytest.importorskip("parsl", minversion="0.7.2")
 
     from coffea.processor.parsl.detail import (
@@ -16,6 +16,7 @@ def test_parsl_start_stop():
         _parsl_stop,
     )
 
+    _default_cfg.run_dir = str(tmp_path / "runinfo")
     _parsl_initialize(config=_default_cfg)
 
     _parsl_stop()
@@ -40,7 +41,7 @@ def do_parsl_job(filelist, flatten=False, compression=0, config=None):
 
 
 # @pytest.mark.skipif(sys.platform.startswith('darwin'), reason='parsl htex not working on osx again')
-def test_parsl_htex_executor():
+def test_parsl_htex_executor(tmp_path):
     pytest.importorskip("parsl", minversion="0.7.2")
     import os
     import os.path as osp
@@ -71,6 +72,7 @@ def test_parsl_htex_executor():
             )
         ],
         strategy=None,
+        run_dir=str(tmp_path / "runinfo"),
     )
     parsl.load(parsl_config)
 

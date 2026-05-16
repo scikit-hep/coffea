@@ -111,9 +111,9 @@ def test_muon_track_links(do_slice, mode):
         ["*AuxDyn*"],
         [
             r"/AnalysisMuonsAuxDyn\..*/i",
-            "/InDetTrackParticlesAuxDyn.(d0|z0|qOverP|theta)/i",
-            "/CombinedMuonTrackParticlesAuxDyn.(d0|z0|qOverP|theta)/i",
-            "/ExtrapolatedMuonTrackParticlesAuxDyn.(d0|z0|qOverP|theta)/i",
+            "/InDetTrackParticlesAuxDyn.(d0|z0|qOverP|theta|phi)/i",
+            "/CombinedMuonTrackParticlesAuxDyn.(d0|z0|qOverP|theta|phi)/i",
+            "/ExtrapolatedMuonTrackParticlesAuxDyn.(d0|z0|qOverP|theta|phi)/i",
         ],
     ],
 )

@@ -5,7 +5,7 @@ import pytest
 from distributed import Client
 
 
-def prepare_jets_array(njets):
+def prepare_jets_array(njets, tmp_path):
     # Creating jagged Jet-with-constituent array, returning both awkward and lazy
     # dask_awkward arrays
     NFEAT = 100
@@ -37,8 +37,9 @@ def prepare_jets_array(njets):
     jets["pfcands"] = pfcands[:]
 
     ak_jets = jets[:]
-    ak.to_parquet(jets, "ml_tools.parquet")
-    dak_jets = dak.from_parquet("ml_tools.parquet")
+    parquet_path = str(tmp_path / "ml_tools.parquet")
+    ak.to_parquet(jets, parquet_path)
+    dak_jets = dak.from_parquet(parquet_path)
     return ak_jets, dak_jets
 
 
@@ -77,7 +78,7 @@ def common_prepare_awkward(jets):
 
 
 @pytest.mark.dask_client
-def test_triton():
+def test_triton(tmp_path):
     _ = pytest.importorskip("tritonclient")
 
     from coffea.ml_tools.triton_wrapper import triton_wrapper
@@ -100,7 +101,7 @@ def test_triton():
         ),  # Solves SSL version mismatch for local inference server
     )
 
-    ak_jets, dak_jets = prepare_jets_array(njets=256)
+    ak_jets, dak_jets = prepare_jets_array(njets=256, tmp_path=tmp_path)
 
     # Vanilla awkward arrays
     ak_res = tw(["output"], ak_jets)
@@ -130,7 +131,7 @@ def test_triton():
 
 
 @pytest.mark.dask_client
-def test_torch():
+def test_torch(tmp_path):
     _ = pytest.importorskip("torch")
 
     from coffea.ml_tools.torch_wrapper import torch_wrapper
@@ -147,7 +148,7 @@ def test_torch():
             }
 
     tw = torch_wrapper_test("tests/samples/pn_demo.pt")
-    ak_jets, dak_jets = prepare_jets_array(njets=256)
+    ak_jets, dak_jets = prepare_jets_array(njets=256, tmp_path=tmp_path)
     ak_res = tw(ak_jets)
     dak_res = tw(dak_jets)
 
@@ -166,7 +167,7 @@ def test_torch():
 
     # Length-0 testing
     tw = torch_wrapper_test("tests/samples/pn_demo.pt", expected_output_shape=(None,))
-    ak_jets, dak_jets = prepare_jets_array(njets=256)
+    ak_jets, dak_jets = prepare_jets_array(njets=256, tmp_path=tmp_path)
     ak_jets = ak_jets[ak_jets.eta < -100]  # Mimicking a low efficiency selection
     dak_jets = dak_jets[dak_jets.eta < -100]
     ak_res, dak_res = tw(ak_jets), tw(dak_jets)
@@ -176,7 +177,7 @@ def test_torch():
 
 
 @pytest.mark.dask_client
-def test_tensorflow():
+def test_tensorflow(tmp_path):
     _ = pytest.importorskip("tensorflow")
 
     from coffea.ml_tools.tf_wrapper import tf_wrapper
@@ -215,7 +216,7 @@ def test_tensorflow():
 
     # The tensorflow model here is used to classify jet constitutes
     tfw = tf_wrapper_test("tests/samples/tf_model.keras")
-    ak_jets, dak_jets = prepare_jets_array(njets=256)
+    ak_jets, dak_jets = prepare_jets_array(njets=256, tmp_path=tmp_path)
 
     ak_res = tfw(ak_jets)
     dak_res = tfw(dak_jets)
@@ -236,15 +237,17 @@ def test_tensorflow():
 
     # Making an explicit shape
     arr = ak.from_numpy(np.random.random(size=(10, 64, 18)))
-    ak.to_parquet(arr, "tf_length10.parquet")
-    darr = dak.from_parquet("tf_length10.parquet")
+    tf_length10_path = str(tmp_path / "tf_length10.parquet")
+    ak.to_parquet(arr, tf_length10_path)
+    darr = dak.from_parquet(tf_length10_path)
     ak_res = tfw_length0_tester(arr)
     dak_res = tfw_length0_tester(darr)
     assert np.all(np.isclose(ak_res, dak_res.compute()))
     # Reducing the length 0
     arr = ak.from_numpy(np.zeros(shape=(0, 64, 18)))
-    ak.to_parquet(arr, "tf_length0.parquet")
-    darr = dak.from_parquet("tf_length0.parquet")
+    tf_length0_path = str(tmp_path / "tf_length0.parquet")
+    ak.to_parquet(arr, tf_length0_path)
+    darr = dak.from_parquet(tf_length0_path)
     ak_res = tfw_length0_tester(arr)
     dak_res = tfw_length0_tester(darr)
 
@@ -252,7 +255,7 @@ def test_tensorflow():
 
 
 @pytest.mark.dask_client
-def test_xgboost():
+def test_xgboost(tmp_path):
     _ = pytest.importorskip("xgboost")
 
     from coffea.ml_tools.xgboost_wrapper import xgboost_wrapper
@@ -274,8 +277,9 @@ def test_xgboost():
     ak_events = ak.zip(
         {f"feat{i}": ak.from_numpy(np.random.random(size=1_000)) for i in range(20)}
     )
-    ak.to_parquet(ak_events, "ml_tools.xgboost.parquet")
-    dak_events = dak.from_parquet("ml_tools.xgboost.parquet")
+    xgboost_path = str(tmp_path / "ml_tools.xgboost.parquet")
+    ak.to_parquet(ak_events, xgboost_path)
+    dak_events = dak.from_parquet(xgboost_path)
 
     ak_res = xgb_wrap(ak_events)
     dak_res = xgb_wrap(dak_events)
