@@ -10,6 +10,7 @@ class ShapeDTypeStruct:
     dtype: np.dtype
     shape: tuple[int, ...]
     strides: tuple[int, ...]
+    compressed: bool
 
 
 ByteBuffer: tp.TypeAlias = bytes
@@ -23,7 +24,8 @@ class Codec(tp.Protocol):
 
 class NoCompressionCodec(Codec):
     def encode(self, arr: np.ndarray) -> tuple[ByteBuffer, ShapeDTypeStruct]:
-        struct = ShapeDTypeStruct(dtype=arr.dtype, shape=arr.shape, strides=arr.strides)
+        struct = ShapeDTypeStruct(dtype=arr.dtype, shape=arr.shape, strides=arr.strides,
+                                  compressed=False)
         return arr.tobytes(), struct
 
     def decode(self, buffer: ByteBuffer, struct: ShapeDTypeStruct) -> np.ndarray:
@@ -38,12 +40,21 @@ class NumCodecsWrapper:
         self._codec = codec
 
     def encode(self, arr: np.ndarray) -> tuple[ByteBuffer, ShapeDTypeStruct]:
-        struct = ShapeDTypeStruct(dtype=arr.dtype, shape=arr.shape, strides=arr.strides)
-        encoded = self._codec.encode(arr.tobytes())
+        if arr.nbytes > 16:
+            encoded = self._codec.encode(arr.tobytes())
+            struct = ShapeDTypeStruct(dtype=arr.dtype, shape=arr.shape, strides=arr.strides,
+                                      compressed=True)
+        else:
+            encoded = arr.tobytes()
+            struct = ShapeDTypeStruct(dtype=arr.dtype, shape=arr.shape, strides=arr.strides,
+                                      compressed=False)
         return encoded, struct
 
     def decode(self, buffer: ByteBuffer, struct: ShapeDTypeStruct) -> np.ndarray:
-        decoded = self._codec.decode(buffer)
+        if struct.compressed:
+            decoded = self._codec.decode(buffer)
+        else:
+            decoded = buffer
         arr = np.frombuffer(decoded, struct.dtype)
         return np.lib.stride_tricks.as_strided(arr, struct.shape, struct.strides)
 
