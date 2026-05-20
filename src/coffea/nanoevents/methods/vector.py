@@ -79,12 +79,20 @@ behavior.update(vector.backends.awkward.behavior)
 # Scikit-hep vector maps each coordinate to a single internal slot, so if
 # a record carries two aliases from the same group (e.g. both ``x`` and
 # ``px``) one is silently ignored. Flag that at validation time.
+_X_COMPONENT = frozenset({"x", "px"})
+_Y_COMPONENT = frozenset({"y", "py"})
+_Z_COMPONENT = frozenset({"z", "pz"})
+_AZIMUTHAL_RADIAL = frozenset({"rho", "pt"})
+_TEMPORAL = frozenset({"t", "tau", "E", "e", "energy", "M", "m", "mass"})
+_AZIMUTHAL_POLAR = frozenset({"rho", "pt", "phi"})
+_AZIMUTHAL_CARTESIAN = frozenset({"x", "px", "y", "py"})
+
 _ALIAS_GROUPS = {
-    "x-component": {"x", "px"},
-    "y-component": {"y", "py"},
-    "z-component": {"z", "pz"},
-    "azimuthal radial": {"rho", "pt"},
-    "temporal": {"t", "tau", "E", "e", "energy", "M", "m", "mass"},
+    "x-component": _X_COMPONENT,
+    "y-component": _Y_COMPONENT,
+    "z-component": _Z_COMPONENT,
+    "azimuthal radial": _AZIMUTHAL_RADIAL,
+    "temporal": _TEMPORAL,
 }
 
 
@@ -94,25 +102,25 @@ def _coordinate_validation(fields):
         overlap = fields & aliases
         if len(overlap) > 1:
             errors.append(f"multiple {label} aliases present: {sorted(overlap)}")
-    has_xy = bool(fields & {"x", "px"}) and bool(fields & {"y", "py"})
-    has_rhophi = bool(fields & {"rho", "pt"}) and "phi" in fields
-    if (has_xy and fields & {"rho", "pt", "phi"}) or (
-        has_rhophi and fields & {"x", "px", "y", "py"}
+    has_xy = bool(fields & _X_COMPONENT) and bool(fields & _Y_COMPONENT)
+    has_rhophi = bool(fields & _AZIMUTHAL_RADIAL) and "phi" in fields
+    if (has_xy and fields & _AZIMUTHAL_POLAR) or (
+        has_rhophi and fields & _AZIMUTHAL_CARTESIAN
     ):
-        cartesian = sorted(fields & {"x", "px", "y", "py"})
-        polar = sorted(fields & {"rho", "pt", "phi"})
+        cartesian = sorted(fields & _AZIMUTHAL_CARTESIAN)
+        polar = sorted(fields & _AZIMUTHAL_POLAR)
         errors.append(
             "conflicting azimuthal coordinate representations present: "
             f"cartesian={cartesian}, polar={polar}"
         )
 
-    has_z = bool(fields & {"z", "pz"})
+    has_z = bool(fields & _Z_COMPONENT)
     has_theta = "theta" in fields
     has_eta = "eta" in fields
     if sum((has_z, has_theta, has_eta)) > 1:
         present_longitudinal = []
         if has_z:
-            present_longitudinal.append(f"z/pz={sorted(fields & {'z', 'pz'})}")
+            present_longitudinal.append(f"z/pz={sorted(fields & _Z_COMPONENT)}")
         if has_theta:
             present_longitudinal.append("theta=['theta']")
         if has_eta:
@@ -126,7 +134,7 @@ def _coordinate_validation(fields):
         has_xy,
         has_rhophi,
         has_z or has_theta or has_eta,
-        bool(fields & _ALIAS_GROUPS["temporal"]),
+        bool(fields & _TEMPORAL),
     )
 
 
