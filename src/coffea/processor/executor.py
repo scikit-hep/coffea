@@ -1842,7 +1842,7 @@ class Runner:
         iteritems_options: dict | None = {},
         trace: Callable | None = None,
     ) -> Result | Accumulatable:
-        """Run the processor_instance and return the raw executor result dict.
+        """Run the processor_instance on a given fileset
 
         When ``use_result_type=True``, the result is wrapped in ``Ok`` on
         success and any exception is captured as ``Err``; otherwise the dict
