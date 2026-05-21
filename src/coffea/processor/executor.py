@@ -560,6 +560,11 @@ class IterativeExecutor(ExecutorBase):
             Ignored for iterative executor
         retries : int, optional
             Number of retries for failed tasks (default: 3)
+
+    Returns
+    -------
+        out : tuple(Accumulatable, int | BaseException)
+            ``(accumulator, 0)`` after all items have been merged.
     """
 
     workers: int = 1
@@ -640,6 +645,13 @@ class FuturesExecutor(ExecutorBase):
             in the timeout window.
         retries : int, optional
             Number of retries for failed tasks (default: 3)
+
+    Returns
+    -------
+        out : tuple(Accumulatable, int | BaseException)
+            ``(accumulator, 0)`` after all items have been merged, or
+            ``(partial_accumulator, exception)`` when ``recoverable=True`` and
+            an exception was captured.
     """
 
     pool: Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor = (
@@ -760,6 +772,12 @@ class DaskExecutor(ExecutorBase):
             The outputs of individual tasks must be Pandas DataFrames.
 
             .. note:: If ``heavy_input`` is set, ``function`` is assumed to be pure.
+
+    Returns
+    -------
+        out : tuple(Accumulatable, int | BaseException)
+            ``(accumulator, 0)`` after the tree reduction completes. When
+            ``use_dataframes=True``, the accumulator is ``{"out": dd.DataFrame}``.
     """
 
     client: Optional["dask.distributed.Client"] = None  # noqa
@@ -945,6 +963,13 @@ class ParslExecutor(ExecutorBase):
             in the timeout window.
         retries : int, optional
             Number of retries for failed tasks (default: 3)
+
+    Returns
+    -------
+        out : tuple(Accumulatable, int | BaseException)
+            ``(accumulator, 0)`` after all items have been merged, or
+            ``(partial_accumulator, exception)`` when ``recoverable=True`` and
+            an exception was captured.
     """
 
     tailtimeout: int | None = None
@@ -1787,6 +1812,14 @@ class Runner:
             processor_instance : ProcessorABC or Callable, optional
                 The processor whose column access will be traced. Required when ``trace``
                 is provided.
+
+        Returns
+        -------
+            chunks : Generator[WorkItem, int, int]
+                A generator yielding :class:`WorkItem` chunks ready to be passed to
+                :meth:`run`. The caller may ``.send(new_chunksize)`` to adjust the
+                target chunksize on the fly; the generator's return value is the
+                final chunksize used.
         """
         if trace is not None and processor_instance is None:
             raise ValueError(
