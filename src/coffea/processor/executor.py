@@ -2006,7 +2006,7 @@ class Runner:
                 return Ok(wrapped_out)
             return wrapped_out
 
-        except BaseException as e:
+        except Exception as e:
             if self.use_result_type:
                 return Err(e)
             raise

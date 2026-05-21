@@ -8,12 +8,14 @@ from coffea.dataset_tools import (
     apply_to_fileset,
     filter_files,
     get_failed_steps_for_fileset,
+    hash_fileset,
     max_chunks,
     max_chunks_per_file,
     max_files,
     preprocess,
     slice_chunks,
     slice_files,
+    split_fileset,
 )
 from coffea.dataset_tools.filespec import (
     DataGroupSpec,
@@ -1008,3 +1010,266 @@ def test_recover_failed_chunks(the_fileset):
         assert failed_fset == DataGroupSpec(target)
     else:
         assert failed_fset == target
+
+
+_splitting_fs_dict = {
+    "ZJets": {
+        "files": {
+            "/data/zjets/a.root": "Events",
+            "/data/zjets/b.root": "Events",
+            "/data/zjets/c.root": "Events",
+            "/data/zjets/d.root": "Events",
+        }
+    },
+    "Data": {
+        "files": {
+            "/data/data/a.root": "Events",
+            "/data/data/b.root": "Events",
+        }
+    },
+}
+
+_splitting_fs_list_in_dict = {
+    "ZJets": {
+        "treename": "Events",
+        "files": [
+            "/data/zjets/a.root",
+            "/data/zjets/b.root",
+            "/data/zjets/c.root",
+            "/data/zjets/d.root",
+        ],
+    },
+    "Data": {
+        "treename": "Events",
+        "files": [
+            "/data/data/a.root",
+            "/data/data/b.root",
+        ],
+    },
+}
+
+_splitting_fs_bare_list = {
+    "ZJets": [
+        "/data/zjets/a.root",
+        "/data/zjets/b.root",
+        "/data/zjets/c.root",
+        "/data/zjets/d.root",
+    ],
+    "Data": [
+        "/data/data/a.root",
+        "/data/data/b.root",
+    ],
+}
+
+
+def test_split_fileset_strategy_by_dataset():
+    chunks = split_fileset(_splitting_fs_dict, strategy="by_dataset")
+    assert len(chunks) == 2
+    assert {next(iter(c)) for c in chunks} == {"ZJets", "Data"}
+
+
+def test_split_fileset_no_args_returns_single_group():
+    chunks = split_fileset(_splitting_fs_dict)
+    assert len(chunks) == 1
+    assert set(chunks[0].keys()) == {"ZJets", "Data"}
+
+
+def test_split_fileset_percentage_mixed():
+    chunks = split_fileset(_splitting_fs_dict, percentage=50)
+    assert len(chunks) == 2
+    for chunk in chunks:
+        assert set(chunk.keys()) == {"ZJets", "Data"}
+    total_zjets = sum(len(c["ZJets"]["files"]) for c in chunks)
+    total_data = sum(len(c["Data"]["files"]) for c in chunks)
+    assert total_zjets == 4
+    assert total_data == 2
+
+
+def test_split_fileset_strategy_and_percentage():
+    chunks = split_fileset(_splitting_fs_dict, strategy="by_dataset", percentage=50)
+    assert len(chunks) == 4
+    for chunk in chunks:
+        assert len(chunk) == 1
+
+
+def test_split_fileset_datasets_filter_list():
+    chunks = split_fileset(
+        _splitting_fs_dict, strategy="by_dataset", datasets=["ZJets"]
+    )
+    assert len(chunks) == 1
+    assert "ZJets" in chunks[0]
+
+
+def test_split_fileset_datasets_filter_callable():
+    chunks = split_fileset(
+        _splitting_fs_dict,
+        strategy="by_dataset",
+        datasets=lambda name: name.startswith("Z"),
+    )
+    assert len(chunks) == 1
+    assert "ZJets" in chunks[0]
+
+
+def test_split_fileset_invalid_strategy():
+    with pytest.raises(ValueError, match="Unknown strategy"):
+        split_fileset(_splitting_fs_dict, strategy="nope")
+
+
+@pytest.mark.parametrize("bad", [0, 3, 7, 101, 1.5, "50"])
+def test_split_fileset_invalid_percentage(bad):
+    with pytest.raises(ValueError, match="percentage"):
+        split_fileset(_splitting_fs_dict, percentage=bad)
+
+
+def test_split_fileset_deterministic_under_dict_reorder():
+    """Splitting must not depend on input dict insertion order."""
+    fs1 = {
+        "Data": {
+            "files": {
+                "/p/b.root": "Events",
+                "/p/a.root": "Events",
+                "/p/d.root": "Events",
+                "/p/c.root": "Events",
+            }
+        }
+    }
+    fs2 = {
+        "Data": {
+            "files": {
+                "/p/a.root": "Events",
+                "/p/b.root": "Events",
+                "/p/c.root": "Events",
+                "/p/d.root": "Events",
+            }
+        }
+    }
+    c1 = split_fileset(fs1, percentage=50)
+    c2 = split_fileset(fs2, percentage=50)
+    for chunk_a, chunk_b in zip(c1, c2):
+        assert list(chunk_a["Data"]["files"].keys()) == list(
+            chunk_b["Data"]["files"].keys()
+        )
+
+
+def test_split_fileset_supports_list_files_inside_dict():
+    chunks = split_fileset(
+        _splitting_fs_list_in_dict, strategy="by_dataset", percentage=50
+    )
+    assert len(chunks) == 4
+    for chunk in chunks:
+        (data,) = chunk.values()
+        assert isinstance(data["files"], list)
+        assert data["treename"] == "Events"
+
+
+def test_split_fileset_promotes_bare_list_with_treename():
+    chunks = split_fileset(
+        _splitting_fs_bare_list,
+        strategy="by_dataset",
+        percentage=50,
+        treename="Events",
+    )
+    assert len(chunks) == 4
+    for chunk in chunks:
+        (data,) = chunk.values()
+        assert isinstance(data, dict)
+        assert isinstance(data["files"], list)
+        assert data["treename"] == "Events"
+
+
+def test_split_fileset_bare_list_requires_treename():
+    with pytest.raises(ValueError, match="treename"):
+        split_fileset(_splitting_fs_bare_list, strategy="by_dataset")
+
+
+def test_split_fileset_list_files_in_dict_requires_treename():
+    fs = {"A": {"files": ["/p/a.root", "/p/b.root"]}}
+    with pytest.raises(ValueError, match="treename"):
+        split_fileset(fs, percentage=50)
+
+
+def test_split_fileset_list_files_in_dict_promoted_with_treename():
+    fs = {"A": {"files": ["/p/a.root", "/p/b.root"]}}
+    chunks = split_fileset(fs, percentage=50, treename="Events")
+    for chunk in chunks:
+        assert chunk["A"]["treename"] == "Events"
+
+
+def test_split_fileset_preserves_extra_dataset_fields():
+    fs = {
+        "ZJets": {
+            "treename": "Events",
+            "preload": ["nMuon", "Muon_pt"],
+            "metadata": {"xsec": 1.0},
+            "files": {"/p/a.root": "Events", "/p/b.root": "Events"},
+        }
+    }
+    chunks = split_fileset(fs, percentage=50)
+    for chunk in chunks:
+        assert chunk["ZJets"]["treename"] == "Events"
+        assert chunk["ZJets"]["preload"] == ["nMuon", "Muon_pt"]
+        assert chunk["ZJets"]["metadata"] == {"xsec": 1.0}
+
+
+def test_hash_fileset_stable_across_dict_order():
+    fs1 = {
+        "B": {"files": {"/p/y.root": "Events", "/p/x.root": "Events"}},
+        "A": {"files": {"/p/b.root": "Events", "/p/a.root": "Events"}},
+    }
+    fs2 = {
+        "A": {"files": {"/p/a.root": "Events", "/p/b.root": "Events"}},
+        "B": {"files": {"/p/x.root": "Events", "/p/y.root": "Events"}},
+    }
+    assert hash_fileset(fs1) == hash_fileset(fs2)
+
+
+def test_hash_fileset_changes_with_treename():
+    fs1 = {"A": {"files": {"/p/a.root": "Events"}}}
+    fs2 = {"A": {"files": {"/p/a.root": "Other"}}}
+    assert hash_fileset(fs1) != hash_fileset(fs2)
+
+
+def test_hash_fileset_changes_with_dataset_level_treename():
+    fs1 = {"A": {"treename": "Events", "files": ["/p/a.root"]}}
+    fs2 = {"A": {"treename": "Other", "files": ["/p/a.root"]}}
+    assert hash_fileset(fs1) != hash_fileset(fs2)
+
+
+def test_hash_fileset_changes_with_preload():
+    fs1 = {"A": {"preload": ["a"], "files": {"/p/a.root": "Events"}}}
+    fs2 = {"A": {"preload": ["b"], "files": {"/p/a.root": "Events"}}}
+    assert hash_fileset(fs1) != hash_fileset(fs2)
+
+
+def test_hash_fileset_preload_order_insensitive():
+    fs1 = {"A": {"preload": ["a", "b"], "files": {"/p/a.root": "Events"}}}
+    fs2 = {"A": {"preload": ["b", "a"], "files": {"/p/a.root": "Events"}}}
+    assert hash_fileset(fs1) == hash_fileset(fs2)
+
+
+def test_hash_fileset_chunks_from_split_are_unique():
+    chunks = split_fileset(_splitting_fs_dict, strategy="by_dataset", percentage=50)
+    hashes = {hash_fileset(c) for c in chunks}
+    assert len(hashes) == len(chunks)
+
+
+def test_hash_fileset_rejects_bare_list():
+    with pytest.raises(TypeError, match="split_fileset"):
+        hash_fileset(_splitting_fs_bare_list)
+
+
+def test_hash_fileset_rejects_list_files_without_treename():
+    fs = {"A": {"files": ["/p/a.root"]}}
+    with pytest.raises(ValueError, match="treename"):
+        hash_fileset(fs)
+
+
+def test_hash_fileset_distinguishes_treenames_for_promoted_chunks():
+    chunks_a = split_fileset(
+        _splitting_fs_bare_list, strategy="by_dataset", treename="Events"
+    )
+    chunks_b = split_fileset(
+        _splitting_fs_bare_list, strategy="by_dataset", treename="OtherTree"
+    )
+    for a, b in zip(chunks_a, chunks_b):
+        assert hash_fileset(a) != hash_fileset(b)
