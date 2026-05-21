@@ -263,6 +263,7 @@ def test_use_result_type_ok(executor):
         executor=executor(),
         schema=schemas.NanoAODSchema,
         use_result_type=True,
+        skipbadfiles=True,
     )
     processor_instance = NanoEventsProcessor(mode="eager")
     result = run(
@@ -278,11 +279,13 @@ def test_use_result_type_ok(executor):
     "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
 )
 def test_use_result_type_err(executor):
-    """use_result_type=True returns Err(exception) instead of raising on failure."""
+    """use_result_type=True returns Err(exception) for an exception type
+    matching skipbadfiles instead of raising."""
     run = processor.Runner(
         executor=executor(),
         schema=schemas.NanoAODSchema,
         use_result_type=True,
+        skipbadfiles=True,  # default tuple matches OSError → FileNotFoundError
     )
     processor_instance = NanoEventsProcessor(mode="eager")
     result = run(_bad_fileset, processor_instance=processor_instance, treename="Events")
@@ -300,6 +303,7 @@ def test_use_result_type_run_method_ok(executor):
         executor=executor(),
         schema=schemas.NanoAODSchema,
         use_result_type=True,
+        skipbadfiles=True,
     )
     processor_instance = NanoEventsProcessor(mode="eager")
     result = run.run(
@@ -313,11 +317,12 @@ def test_use_result_type_run_method_ok(executor):
     "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
 )
 def test_use_result_type_run_method_err(executor):
-    """use_result_type=True via run() returns Err instead of raising on failure."""
+    """use_result_type=True via run() returns Err for matching exception types."""
     run = processor.Runner(
         executor=executor(),
         schema=schemas.NanoAODSchema,
         use_result_type=True,
+        skipbadfiles=True,
     )
     processor_instance = NanoEventsProcessor(mode="eager")
     result = run.run(
@@ -342,16 +347,17 @@ def test_err_value_defaults_to_none():
 
 
 def test_use_result_type_err_preserves_partial_recoverable_output():
-    """When a recoverable executor surfaces an exception via wrapped_out['exception'],
-    __call__ must return Err(value=partial_output) instead of dropping the partial."""
+    """When a recoverable executor surfaces a matching exception via
+    wrapped_out['exception'], __call__ returns Err(value=partial_output)
+    instead of dropping the partial."""
     run = processor.Runner(
         executor=processor.IterativeExecutor(),
         schema=schemas.NanoAODSchema,
         savemetrics=True,
         use_result_type=True,
+        skipbadfiles=(RuntimeError,),
     )
 
-    # Simulate the recoverable-executor return shape by stubbing run().
     boom = RuntimeError("simulated partial failure")
     partial_out = {"cutflow": {"events": 42}}
     metrics = {"chunks": 1}
@@ -375,18 +381,59 @@ def test_use_result_type_err_preserves_partial_recoverable_output():
     assert result.value == (partial_out, metrics)
 
 
-def test_use_result_type_skipbadfiles_incompatible():
-    """Combining use_result_type and skipbadfiles raises ValueError."""
-    with pytest.raises(ValueError, match="mutually exclusive"):
-        processor.Runner(
-            executor=processor.IterativeExecutor(),
-            use_result_type=True,
-            skipbadfiles=True,
+def test_use_result_type_recoverable_non_matching_propagates():
+    """A recoverable exception that doesn't match skipbadfiles' filter must
+    still propagate (it's a real bug, not an expected failure)."""
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+        skipbadfiles=(OSError,),  # filter doesn't include AssertionError
+    )
+
+    boom = AssertionError("real bug")
+
+    def fake_run(**kwargs):
+        return Ok({"out": {"x": 1}, "exception": boom})
+
+    run.run = fake_run
+    with pytest.raises(AssertionError, match="real bug"):
+        run(
+            {"x": {"files": {"f.root": "Events"}}},
+            processor_instance=NanoEventsProcessor(mode="eager"),
         )
 
-    with pytest.raises(ValueError, match="mutually exclusive"):
+
+def test_use_result_type_run_non_matching_propagates():
+    """A non-matching exception raised inside _run must propagate, not become Err."""
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+        skipbadfiles=(OSError,),
+    )
+    # An empty/invalid fileset triggers ValueError in _run; ValueError is not
+    # OSError, so it must propagate rather than be captured as Err.
+    with pytest.raises(ValueError):
+        run.run({}, processor_instance=NanoEventsProcessor(mode="eager"))
+
+
+def test_use_result_type_requires_skipbadfiles():
+    """use_result_type=True must be paired with skipbadfiles."""
+    with pytest.raises(ValueError, match="requires skipbadfiles"):
         processor.Runner(
             executor=processor.IterativeExecutor(),
             use_result_type=True,
-            skipbadfiles=(FileNotFoundError,),
         )
+
+    # accepted shapes
+    processor.Runner(
+        executor=processor.IterativeExecutor(),
+        use_result_type=True,
+        skipbadfiles=True,
+    )
+    processor.Runner(
+        executor=processor.IterativeExecutor(),
+        use_result_type=True,
+        skipbadfiles=(FileNotFoundError,),
+    )

@@ -1171,8 +1171,12 @@ class Runner:
         checkpointer : CheckpointerABC, optional
             A CheckpointerABC instance to manage checkpointing of each chunk output
         use_result_type : bool, optional
-            If True, ``__call__`` returns ``Ok(output)`` or ``Err(exception)``.
-            If False (default), returns the output directly and raises on error.
+            If True, ``__call__`` returns ``Ok(output)`` or ``Err(exception)``
+            instead of raising. Requires ``skipbadfiles`` to be set (``True``
+            or a tuple of exception types); the same set of exception types
+            controls which errors get captured as ``Err`` — anything outside
+            that set still propagates. If False (default), returns the output
+            directly and raises on error.
     """
 
     executor: ExecutorBase
@@ -1212,11 +1216,12 @@ class Runner:
         if self.format == "parquet" and self.align_clusters:
             raise ValueError("align_clusters is only supported for ROOT input")
 
-        if self.use_result_type and self.skipbadfiles is not False:
+        if self.use_result_type and self.skipbadfiles is False:
             raise ValueError(
-                "use_result_type and skipbadfiles are mutually exclusive. "
-                "skipbadfiles silently drops file-level errors, while use_result_type "
-                "captures them explicitly as Err."
+                "use_result_type=True requires skipbadfiles to be set "
+                "(True or a tuple of exception types). The skipbadfiles "
+                "value defines which exception types are captured as Err; "
+                "other exceptions propagate unchanged."
             )
 
     @property
@@ -1256,13 +1261,13 @@ class Runner:
         skipbadfiles: bool | tuple[type[BaseException], ...],
         func,
         *args,
+        use_result_type: bool = False,
         **kwargs,
     ):
         """This should probably defined on Executor-level."""
         import warnings
 
-        if not isinstance(skipbadfiles, tuple) and skipbadfiles is True:
-            skipbadfiles = (OSError,)
+        skipbadfiles = (OSError,) if skipbadfiles is True else skipbadfiles
 
         retry_count = 0
         while retry_count <= retries:
@@ -1278,6 +1283,10 @@ class Runner:
                     and (retries == retry_count)
                     and any(isinstance(c, skipbadfiles) for c in chain)
                 ):
+                    if use_result_type:
+                        # surface the exception instead of silently skipping
+                        # so the Runner can wrap it as Err
+                        raise e
                     warnings.warn(
                         f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}"
                     )
@@ -1420,6 +1429,7 @@ class Runner:
                     self.align_clusters,
                     uproot_options,
                 ),
+                use_result_type=self.use_result_type,
             )
             out, _ = pre_executor(to_get, closure, out)
             while out:
@@ -1454,6 +1464,7 @@ class Runner:
                 0 if isinstance(pre_executor, DaskExecutor) else self.retries,
                 self.skipbadfiles,
                 self.metadata_fetcher_parquet,
+                use_result_type=self.use_result_type,
             )
             out, _ = pre_executor(to_get, closure, out)
             while out:
@@ -1771,8 +1782,14 @@ class Runner:
             else:
                 out = wrapped_out["out"]
             if exception != 0:
-                # Preserve the partial accumulator for recoverable workflows.
-                return Err(exception, value=out)
+                # From a recoverable executor: preserve the partial accumulator
+                # alongside the captured exception, but only if it matches the
+                # user's allowed set; otherwise re-raise so unexpected failures
+                # surface as actual bugs.
+                allowed = (OSError,) if self.skipbadfiles is True else self.skipbadfiles
+                if isinstance(exception, allowed):
+                    return Err(exception, value=out)
+                raise exception
             return Ok(out)
         wrapped_out = self.run(
             fileset=fileset,
@@ -1954,7 +1971,7 @@ class Runner:
                     trace=trace,
                 )
             )
-        except Exception as e:
+        except (OSError,) if self.skipbadfiles is True else self.skipbadfiles as e:
             return Err(e)
 
     def _run(
@@ -2058,6 +2075,7 @@ class Runner:
             0 if isinstance(executor, DaskExecutor) else self.retries,
             self.skipbadfiles,
             closure,
+            use_result_type=self.use_result_type,
         )
 
         wrapped_out, e = executor(chunks, closure, None)
