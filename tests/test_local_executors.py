@@ -418,6 +418,33 @@ def test_use_result_type_run_non_matching_propagates():
         run.run({}, processor_instance=NanoEventsProcessor(mode="eager"))
 
 
+def test_use_result_type_matches_through_exception_chain():
+    """A wrapped exception whose __cause__ matches skipbadfiles must become Err,
+    consistent with automatic_retries' chain-based matching."""
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+        skipbadfiles=(OSError,),
+    )
+
+    # head=RuntimeError, cause=OSError; head doesn't match the filter but cause does.
+    cause = OSError("disk gone")
+    head = RuntimeError("processor blew up")
+    head.__cause__ = cause
+
+    def fake_run(**kwargs):
+        return Ok({"out": {"x": 1}, "exception": head})
+
+    run.run = fake_run
+    result = run(
+        {"x": {"files": {"f.root": "Events"}}},
+        processor_instance=NanoEventsProcessor(mode="eager"),
+    )
+    assert isinstance(result, Err), f"Expected Err, got {result!r}"
+    assert result.exception is head
+
+
 def test_use_result_type_requires_skipbadfiles():
     """use_result_type=True must be paired with skipbadfiles."""
     with pytest.raises(ValueError, match="requires skipbadfiles"):

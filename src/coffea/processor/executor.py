@@ -1784,10 +1784,11 @@ class Runner:
             if exception != 0:
                 # From a recoverable executor: preserve the partial accumulator
                 # alongside the captured exception, but only if it matches the
-                # user's allowed set; otherwise re-raise so unexpected failures
-                # surface as actual bugs.
+                # user's allowed set (walking the chain to stay consistent with
+                # ``automatic_retries``); otherwise re-raise so unexpected
+                # failures surface as actual bugs.
                 allowed = (OSError,) if self.skipbadfiles is True else self.skipbadfiles
-                if isinstance(exception, allowed):
+                if any(isinstance(c, allowed) for c in _exception_chain(exception)):
                     return Err(exception, value=out)
                 raise exception
             return Ok(out)
@@ -1971,8 +1972,14 @@ class Runner:
                     trace=trace,
                 )
             )
-        except (OSError,) if self.skipbadfiles is True else self.skipbadfiles as e:
-            return Err(e)
+        except Exception as e:
+            # Match against the full exception chain to stay consistent with
+            # ``automatic_retries`` — a wrapped exception whose ``__cause__``
+            # matches ``skipbadfiles`` should still surface as ``Err``.
+            allowed = (OSError,) if self.skipbadfiles is True else self.skipbadfiles
+            if any(isinstance(c, allowed) for c in _exception_chain(e)):
+                return Err(e)
+            raise
 
     def _run(
         self,
