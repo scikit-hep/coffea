@@ -1676,7 +1676,7 @@ class Runner:
         uproot_options: dict | None = {},
         iteritems_options: dict | None = {},
         trace: Callable | None = None,
-    ) -> "Result | Accumulatable":
+    ) -> Result | Accumulatable:
         """Run the processor_instance on a given fileset
 
         Parameters
@@ -1704,8 +1704,8 @@ class Runner:
                 When provided and preprocessing is needed, tracing is performed and takes
                 precedence over fileset-level ``preload``.
 
-            Returns
-            -------
+        Returns
+        -------
             Result or Accumulatable
                 When ``use_result_type=True``, returns ``Ok(output)`` or ``Err(exception)``.
                 When ``use_result_type=False`` (default), returns the output directly and raises on error.
@@ -1715,17 +1715,15 @@ class Runner:
             uproot_options = {}
         if iteritems_options is None:
             iteritems_options = {}
-
-        result = self.run(
-            fileset=fileset,
-            processor_instance=processor_instance,
-            treename=treename,
-            uproot_options=uproot_options,
-            iteritems_options=iteritems_options,
-            trace=trace,
-        )
-
         if self.use_result_type:
+            result = self.run(
+                fileset=fileset,
+                processor_instance=processor_instance,
+                treename=treename,
+                uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
+                trace=trace,
+            )
             if isinstance(result, Err):
                 return result
             wrapped_out = result.unwrap()
@@ -1733,24 +1731,23 @@ class Runner:
             if exception != 0:
                 return Err(exception)
             if self.use_dataframes:
-                out = wrapped_out["out"]
-            elif self.savemetrics:
-                out = (wrapped_out["out"], wrapped_out["metrics"])
-            else:
-                out = wrapped_out["out"]
-            return Ok(out)
-        else:
-            wrapped_out = result
-            exception = wrapped_out.get("exception", 0)
-            if exception != 0:
-                raise exception
-            if self.use_dataframes:
-                out = wrapped_out["out"]
-            elif self.savemetrics:
-                out = (wrapped_out["out"], wrapped_out["metrics"])
-            else:
-                out = wrapped_out["out"]
-            return out
+                return Ok(wrapped_out["out"])
+            if self.savemetrics:
+                return Ok((wrapped_out["out"], wrapped_out["metrics"]))
+            return Ok(wrapped_out["out"])
+        wrapped_out = self.run(
+            fileset=fileset,
+            processor_instance=processor_instance,
+            treename=treename,
+            uproot_options=uproot_options,
+            iteritems_options=iteritems_options,
+            trace=trace,
+        )
+        if self.use_dataframes:
+            return wrapped_out  # not wrapped anymore
+        if self.savemetrics:
+            return wrapped_out["out"], wrapped_out["metrics"]
+        return wrapped_out["out"]
 
     def preprocess(
         self,
@@ -1844,13 +1841,49 @@ class Runner:
         uproot_options: dict | None = {},
         iteritems_options: dict | None = {},
         trace: Callable | None = None,
-    ) -> "Result | dict":
-        """Run the processor_instance on a given fileset
+    ) -> Result | Accumulatable:
+        """Run the processor_instance and return the raw executor result dict.
 
-        Returns the raw executor result dict.  When ``use_result_type=True``,
-        the dict is wrapped in ``Ok``; any exception is caught and returned as
-        ``Err``.  Use ``__call__`` for the user-facing output with
-        ``savemetrics`` / ``use_dataframes`` extraction applied.
+        When ``use_result_type=True``, the result is wrapped in ``Ok`` on
+        success and any exception is captured as ``Err``; otherwise the dict
+        is returned directly and exceptions propagate. See ``__call__`` for
+        the user-facing output with ``savemetrics`` / ``use_dataframes``
+        extraction applied.
+        """
+        if not self.use_result_type:
+            return self._run(
+                fileset,
+                processor_instance,
+                treename=treename,
+                uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
+                trace=trace,
+            )
+        try:
+            return Ok(
+                self._run(
+                    fileset,
+                    processor_instance,
+                    treename=treename,
+                    uproot_options=uproot_options,
+                    iteritems_options=iteritems_options,
+                    trace=trace,
+                )
+            )
+        except Exception as e:
+            return Err(e)
+
+    def _run(
+        self,
+        fileset: dict | str | list[WorkItem] | Generator,
+        processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
+        *,
+        treename: str | None = None,
+        uproot_options: dict | None = {},
+        iteritems_options: dict | None = {},
+        trace: Callable | None = None,
+    ) -> Accumulatable:
+        """Run the processor_instance on a given fileset
 
         Parameters
         ----------
@@ -1889,124 +1922,118 @@ class Runner:
             uproot_options = {}
         if iteritems_options is None:
             iteritems_options = {}
-        try:
-            if self.format == "parquet" and (uproot_options or iteritems_options):
-                raise ValueError(
-                    "uproot_options/iteritems_options have no effect with format='parquet'"
-                )
-            if not isinstance(processor_instance, ProcessorABC) and not callable(
-                processor_instance
-            ):
-                raise ValueError(
-                    "Expected processor_instance to derive from ProcessorABC or be a single-argument callable"
-                )
-
-            meta = False
-            if not isinstance(fileset, (Mapping, str)):
-                if isinstance(fileset, Generator) or isinstance(fileset[0], WorkItem):
-                    meta = True
-                else:
-                    raise ValueError(
-                        "Expected fileset to be a mapping dataset: list(files) or filename"
-                    )
-
-            if meta:
-                chunks = fileset
-            else:
-                chunks = self.preprocess(
-                    fileset,
-                    treename=treename,
-                    uproot_options=uproot_options,
-                    trace=trace,
-                    processor_instance=processor_instance,
-                )
-
-            if self.processor_compression is None:
-                pi_to_send = processor_instance
-            else:
-                pi_to_send = lz4f.compress(
-                    cloudpickle.dumps(processor_instance),
-                    compression_level=self.processor_compression,
-                )
-            # hack around dask/dask#5503 which is really a silly request but here we are
-            if isinstance(self.executor, DaskExecutor):
-                self.executor.heavy_input = pi_to_send
-                closure = partial(
-                    self._work_function,
-                    self.format,
-                    self.xrootdtimeout,
-                    self.schema,
-                    self.use_dataframes,
-                    self.savemetrics,
-                    processor_instance="heavy",
-                    uproot_options=uproot_options,
-                    iteritems_options=iteritems_options,
-                    checkpointer=self.checkpointer,
-                    cache_function=partial(self.get_cache, self.cachestrategy),
-                )
-            else:
-                closure = partial(
-                    self._work_function,
-                    self.format,
-                    self.xrootdtimeout,
-                    self.schema,
-                    self.use_dataframes,
-                    self.savemetrics,
-                    processor_instance=pi_to_send,
-                    uproot_options=uproot_options,
-                    iteritems_options=iteritems_options,
-                    checkpointer=self.checkpointer,
-                    cache_function=partial(self.get_cache, self.cachestrategy),
-                )
-
-            chunks = list(chunks)
-            if len(chunks) == 0:
-                raise ValueError(
-                    "No chunks survived preprocessing.\n"
-                    "If you used skipbadfiles=True or similar, it is possible all your files are bad."
-                )
-
-            exe_args = {
-                "unit": "chunk",
-                "function_name": type(processor_instance).__name__,
-            }
-            executor = self.executor.copy(**exe_args)
-
-            closure = partial(
-                self.automatic_retries,
-                0 if isinstance(executor, DaskExecutor) else self.retries,
-                self.skipbadfiles,
-                closure,
+        if self.format == "parquet" and (uproot_options or iteritems_options):
+            raise ValueError(
+                "uproot_options/iteritems_options have no effect with format='parquet'"
+            )
+        if not isinstance(processor_instance, ProcessorABC) and not callable(
+            processor_instance
+        ):
+            raise ValueError(
+                "Expected processor_instance to derive from ProcessorABC or be a single-argument callable"
             )
 
-            wrapped_out, e = executor(chunks, closure, None)
-            if wrapped_out is None:
+        meta = False
+        if not isinstance(fileset, (Mapping, str)):
+            if isinstance(fileset, Generator) or isinstance(fileset[0], WorkItem):
+                meta = True
+            else:
                 raise ValueError(
-                    "No chunks returned results, verify ``processor`` instance structure.\n"
-                    "If you used skipbadfiles=True or similar, it is possible all your files are bad."
+                    "Expected fileset to be a mapping dataset: list(files) or filename"
                 )
-            wrapped_out["exception"] = e
 
-            if (
-                not self.use_dataframes
-                and hasattr(processor_instance, "postprocess")
-                and callable(processor_instance.postprocess)
-            ):
-                postprocess_out = processor_instance.postprocess(wrapped_out["out"])
-                if postprocess_out is not None:
-                    wrapped_out["out"] = postprocess_out
+        if meta:
+            chunks = fileset
+        else:
+            chunks = self.preprocess(
+                fileset,
+                treename=treename,
+                uproot_options=uproot_options,
+                trace=trace,
+                processor_instance=processor_instance,
+            )
 
-            if "metrics" in wrapped_out.keys():
-                wrapped_out["metrics"]["chunks"] = len(chunks)
-                for k, v in wrapped_out["metrics"].items():
-                    if isinstance(v, set):
-                        wrapped_out["metrics"][k] = list(v)
+        if self.processor_compression is None:
+            pi_to_send = processor_instance
+        else:
+            pi_to_send = lz4f.compress(
+                cloudpickle.dumps(processor_instance),
+                compression_level=self.processor_compression,
+            )
+        # hack around dask/dask#5503 which is really a silly request but here we are
+        if isinstance(self.executor, DaskExecutor):
+            self.executor.heavy_input = pi_to_send
+            closure = partial(
+                self._work_function,
+                self.format,
+                self.xrootdtimeout,
+                self.schema,
+                self.use_dataframes,
+                self.savemetrics,
+                processor_instance="heavy",
+                uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
+                checkpointer=self.checkpointer,
+                cache_function=partial(self.get_cache, self.cachestrategy),
+            )
+        else:
+            closure = partial(
+                self._work_function,
+                self.format,
+                self.xrootdtimeout,
+                self.schema,
+                self.use_dataframes,
+                self.savemetrics,
+                processor_instance=pi_to_send,
+                uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
+                checkpointer=self.checkpointer,
+                cache_function=partial(self.get_cache, self.cachestrategy),
+            )
 
-            if self.use_result_type:
-                return Ok(wrapped_out)
+        chunks = list(chunks)
+        if len(chunks) == 0:
+            raise ValueError(
+                "No chunks survived preprocessing.\n"
+                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
+            )
+
+        exe_args = {
+            "unit": "chunk",
+            "function_name": type(processor_instance).__name__,
+        }
+        executor = self.executor.copy(**exe_args)
+
+        closure = partial(
+            self.automatic_retries,
+            0 if isinstance(executor, DaskExecutor) else self.retries,
+            self.skipbadfiles,
+            closure,
+        )
+
+        wrapped_out, e = executor(chunks, closure, None)
+        if wrapped_out is None:
+            raise ValueError(
+                "No chunks returned results, verify ``processor`` instance structure.\n"
+                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
+            )
+        wrapped_out["exception"] = e
+
+        if (
+            not self.use_dataframes
+            and hasattr(processor_instance, "postprocess")
+            and callable(processor_instance.postprocess)
+        ):
+            postprocess_out = processor_instance.postprocess(wrapped_out["out"])
+            if postprocess_out is not None:
+                wrapped_out["out"] = postprocess_out
+
+        if "metrics" in wrapped_out.keys():
+            wrapped_out["metrics"]["chunks"] = len(chunks)
+            for k, v in wrapped_out["metrics"].items():
+                if isinstance(v, set):
+                    wrapped_out["metrics"][k] = list(v)
+        if self.use_dataframes:
+            return wrapped_out["out"]
+        else:
             return wrapped_out
-
-        except Exception as e:
-            if self.use_result_type:
-                return Err(e)
-            raise
