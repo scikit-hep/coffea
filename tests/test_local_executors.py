@@ -327,6 +327,54 @@ def test_use_result_type_run_method_err(executor):
     assert isinstance(result.exception, BaseException)
 
 
+def test_err_carries_partial_value():
+    """Err.value preserves a partial accumulator passed alongside the exception."""
+    boom = ValueError("boom")
+    err = Err(boom, value={"out": "partial", "metrics": {"chunks": 3}})
+    assert err.is_err()
+    assert err.exception is boom
+    assert err.value == {"out": "partial", "metrics": {"chunks": 3}}
+
+
+def test_err_value_defaults_to_none():
+    err = Err(RuntimeError("no partial"))
+    assert err.value is None
+
+
+def test_use_result_type_err_preserves_partial_recoverable_output():
+    """When a recoverable executor surfaces an exception via wrapped_out['exception'],
+    __call__ must return Err(value=partial_output) instead of dropping the partial."""
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+        savemetrics=True,
+        use_result_type=True,
+    )
+
+    # Simulate the recoverable-executor return shape by stubbing run().
+    boom = RuntimeError("simulated partial failure")
+    partial_out = {"cutflow": {"events": 42}}
+    metrics = {"chunks": 1}
+
+    def fake_run(**kwargs):
+        return Ok(
+            {
+                "out": partial_out,
+                "metrics": metrics,
+                "exception": boom,
+            }
+        )
+
+    run.run = fake_run
+    result = run(
+        {"x": {"files": {"f.root": "Events"}}},
+        processor_instance=NanoEventsProcessor(mode="eager"),
+    )
+    assert isinstance(result, Err), f"Expected Err, got {result!r}"
+    assert result.exception is boom
+    assert result.value == (partial_out, metrics)
+
+
 def test_use_result_type_skipbadfiles_incompatible():
     """Combining use_result_type and skipbadfiles raises ValueError."""
     with pytest.raises(ValueError, match="mutually exclusive"):

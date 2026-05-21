@@ -218,7 +218,7 @@ class Result(Generic[T]):
         return not self.is_ok()
 
     def unwrap(self) -> T:
-        """Either returns value (accumulator) for Ok Result or an exception if Err result."""
+        """Return the contained value on ``Ok``; on ``Err`` re-raise the captured exception."""
         raise NotImplementedError
 
 
@@ -243,14 +243,25 @@ class Ok(Result[T]):
 
 
 class Err(Result):
-    """A failed result containing an exception."""
+    """A failed result containing an exception, optionally with a partial value.
 
-    def __init__(self, exception: BaseException) -> None:
+    When the executor was run with ``recoverable=True`` and produced a
+    partial accumulator before the failure, the partial output is preserved
+    on ``value`` so callers can still salvage progress.
+    """
+
+    def __init__(self, exception, value=None):
         self._exception = exception
+        self._value = value
 
     @property
     def exception(self) -> BaseException:
         return self._exception
+
+    @property
+    def value(self):
+        """Partial output captured before the failure, if any."""
+        return self._value
 
     def is_ok(self) -> bool:
         return False
@@ -1755,11 +1766,14 @@ class Runner:
             if self.use_dataframes:
                 return Ok(wrapped_out)  # already the raw out from run()
             exception = wrapped_out.get("exception", 0)
-            if exception != 0:
-                return Err(exception)
             if self.savemetrics:
-                return Ok((wrapped_out["out"], wrapped_out["metrics"]))
-            return Ok(wrapped_out["out"])
+                out = (wrapped_out["out"], wrapped_out["metrics"])
+            else:
+                out = wrapped_out["out"]
+            if exception != 0:
+                # Preserve the partial accumulator for recoverable workflows.
+                return Err(exception, value=out)
+            return Ok(out)
         wrapped_out = self.run(
             fileset=fileset,
             processor_instance=processor_instance,

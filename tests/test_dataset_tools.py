@@ -1273,3 +1273,23 @@ def test_hash_fileset_distinguishes_treenames_for_promoted_chunks():
     )
     for a, b in zip(chunks_a, chunks_b):
         assert hash_fileset(a) != hash_fileset(b)
+
+
+def test_hash_fileset_ignores_undocumented_fields():
+    """Undocumented dataset-level keys must not affect the hash, and must not
+    blow up on non-JSON-serializable values."""
+    base = {"A": {"files": {"/p/a.root": "Events"}}}
+    extra_unserializable = {
+        "A": {
+            "files": {"/p/a.root": "Events"},
+            "compressed_form": object(),  # not JSON-serializable
+            "internal_flag": True,
+        }
+    }
+    assert hash_fileset(base) == hash_fileset(extra_unserializable)
+
+
+def test_hash_fileset_accepts_frozenset_preload():
+    fs1 = {"A": {"preload": frozenset({"a", "b"}), "files": {"/p/a.root": "Events"}}}
+    fs2 = {"A": {"preload": ["a", "b"], "files": {"/p/a.root": "Events"}}}
+    assert hash_fileset(fs1) == hash_fileset(fs2)

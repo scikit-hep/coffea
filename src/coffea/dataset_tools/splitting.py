@@ -28,10 +28,12 @@ def hash_fileset(chunk):
     """
     Return a stable SHA-256 hash for a fileset chunk.
 
-    The hash considers dataset names, file paths and all output-affecting
-    dataset-level fields (``treename``, ``preload``, ``metadata``) in a
-    canonical sorted form, so chunks that differ in any of those fields
-    produce different hashes.
+    The hash considers dataset names, file paths and a fixed set of
+    output-affecting dataset-level fields — ``treename``, ``preload`` and
+    ``metadata`` — in a canonical sorted form, so chunks that differ in any
+    of those fields produce different hashes. Any other dataset-level keys
+    (e.g. preprocessing bookkeeping such as ``compressed_form``) are ignored
+    by the hash on purpose, so they may evolve without invalidating caches.
 
     Parameters
     ----------
@@ -69,13 +71,11 @@ def hash_fileset(chunk):
         for key in ("treename", "preload", "metadata"):
             if key in data:
                 value = data[key]
-                if key == "preload" and isinstance(value, (list, tuple, set)):
+                if key == "preload" and isinstance(
+                    value, (list, tuple, set, frozenset)
+                ):
                     value = sorted(value)
                 entry[key] = value
-        for key in data:
-            if key in ("files", "treename", "preload", "metadata"):
-                continue
-            entry[key] = data[key]
         canonical[dataset] = entry
     serialized = json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(serialized).hexdigest()
