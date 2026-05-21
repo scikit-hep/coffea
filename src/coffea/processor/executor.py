@@ -1727,11 +1727,11 @@ class Runner:
             if isinstance(result, Err):
                 return result
             wrapped_out = result.unwrap()
+            if self.use_dataframes:
+                return Ok(wrapped_out)  # already the raw out from run()
             exception = wrapped_out.get("exception", 0)
             if exception != 0:
                 return Err(exception)
-            if self.use_dataframes:
-                return Ok(wrapped_out["out"])
             if self.savemetrics:
                 return Ok((wrapped_out["out"], wrapped_out["metrics"]))
             return Ok(wrapped_out["out"])
@@ -1844,11 +1844,48 @@ class Runner:
     ) -> Result | Accumulatable:
         """Run the processor_instance on a given fileset
 
-        When ``use_result_type=True``, the result is wrapped in ``Ok`` on
-        success and any exception is captured as ``Err``; otherwise the dict
-        is returned directly and exceptions propagate. See ``__call__`` for
-        the user-facing output with ``savemetrics`` / ``use_dataframes``
-        extraction applied.
+        Parameters
+        ----------
+            fileset : dict | str | List[WorkItem] | Generator
+                Fileset can be one of the following:
+
+                - A dictionary ``{dataset: [file, file], }``
+                  Optionally, if some files' tree name differ, the dictionary can be specified:
+                  ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
+                  You can also define a different tree name per file in the dictionary:
+                  ``{dataset: {'files': {file: 'name'}}, }``
+                  You can also define branches to preload per dataset:
+                  ``{dataset: {'preload': ['branch1', 'branch2'], 'files': [file, file]}, }``
+                - A single file name
+                - File chunks for self.preprocess()
+                - Chunk generator
+            processor_instance : ProcessorABC or Callable
+                An instance of a class deriving from ProcessorABC or a single-argument callable
+            treename : str, optional
+                name of tree inside each root file, can be ``None``;
+                treename can also be defined in fileset, which will override the passed treename
+                Not needed if processing premade chunks
+            uproot_options : dict, optional
+                Any options to pass to ``uproot.open``
+            iteritems_options : dict, optional
+                Any options to pass to ``tree.iteritems``
+            trace : Callable, optional
+                A tracing function that determines which columns a processing function
+                accesses. It takes two arguments — a processing function (accepting events)
+                and a NanoEvents array — and returns an iterable of column name strings.
+                See ``coffea.nanoevents.trace.trace`` for the default implementation.
+                When provided and preprocessing is needed, tracing is performed and takes
+                precedence over fileset-level ``preload``.
+
+        Returns
+        -------
+            Result or Accumulatable
+                When ``use_result_type=True``, returns ``Ok(output)`` on success
+                and ``Err(exception)`` on failure (exceptions are captured, not
+                raised). When ``use_result_type=False`` (default), returns the
+                raw output dict and exceptions propagate. See ``__call__`` for
+                the user-facing output with ``savemetrics`` / ``use_dataframes``
+                extraction applied.
         """
         if not self.use_result_type:
             return self._run(
@@ -1883,41 +1920,6 @@ class Runner:
         iteritems_options: dict | None = {},
         trace: Callable | None = None,
     ) -> Accumulatable:
-        """Run the processor_instance on a given fileset
-
-        Parameters
-        ----------
-            fileset : dict | str | List[WorkItem] | Generator
-                Fileset can be one of the following:
-
-                - A dictionary ``{dataset: [file, file], }``
-                  Optionally, if some files' tree name differ, the dictionary can be specified:
-                  ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
-                  You can also define a different tree name per file in the dictionary:
-                  ``{dataset: {'files': {file: 'name'}}, }``
-                  You can also define branches to preload per dataset:
-                  ``{dataset: {'preload': ['branch1', 'branch2'], 'files': [file, file]}, }``
-                - A single file name
-                - File chunks for self.preprocess()
-                - Chunk generator
-            processor_instance : ProcessorABC or Callable
-                An instance of a class deriving from ProcessorABC or a single-argument callable
-            treename : str, optional
-                name of tree inside each root file, can be ``None``;
-                treename can also be defined in fileset, which will override the passed treename
-                Not needed if processing premade chunks
-            uproot_options : dict, optional
-                Any options to pass to ``uproot.open``
-            iteritems_options : dict, optional
-                Any options to pass to ``tree.iteritems``
-            trace : Callable, optional
-                A tracing function that determines which columns a processing function
-                accesses. It takes two arguments — a processing function (accepting events)
-                and a NanoEvents array — and returns an iterable of column name strings.
-                See ``coffea.nanoevents.trace.trace`` for the default implementation.
-                When provided and preprocessing is needed, tracing is performed and takes
-                precedence over fileset-level ``preload``.
-        """
         if uproot_options is None:
             uproot_options = {}
         if iteritems_options is None:
