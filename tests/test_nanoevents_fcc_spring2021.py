@@ -23,6 +23,7 @@ def eager_events():
 
 @pytest.fixture(scope="module")
 def delayed_events():
+    pytest.importorskip("dask_awkward")
     return _events(mode="dask")
 
 

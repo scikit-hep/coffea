@@ -12,7 +12,6 @@ Two JSON-POG test files are used:
 import os
 
 import awkward as ak
-import dask_awkward as dak
 import numpy as np
 import pytest
 from dummy_distributions import dummy_jagged_eta_pt
@@ -101,6 +100,7 @@ def test_correctionlib_jec_jagged(clib_stack, flat_jet_arrays):
 
 
 def test_correctionlib_jec_dask(clib_stack, flat_jet_arrays):
+    dak = pytest.importorskip("dask_awkward")
     counts, test_A, test_eta, test_pt, test_Rho = flat_jet_arrays
 
     jec = clib_stack.jec
@@ -302,6 +302,7 @@ def test_corrected_jets_factory_with_correctionlib(clib_stack):
 
 def test_corrected_jets_factory_with_correctionlib_dask(clib_stack):
     """Full integration test with dask arrays."""
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import CorrectedJetsFactory
 
     name_map = clib_stack.blank_name_map

@@ -2,10 +2,14 @@ import warnings
 from functools import partial
 
 import awkward
-import dask_awkward
 import numpy
 
-from coffea.util import awkward_rewrap, maybe_map_partitions, rewrap_recordarray
+from coffea.util import (
+    _isinstance,
+    awkward_rewrap,
+    maybe_map_partitions,
+    rewrap_recordarray,
+)
 
 _stack_parts = ["jec", "junc", "jer", "jersf"]
 _MIN_JET_ENERGY = numpy.float32(1e-2)
@@ -213,7 +217,9 @@ class CorrectedJetsFactory:
             awkward.Array or dask_awkward.Array
                 Array of jets, representing the corrected jets, with shape matching ``injets``.
         """
-        if not isinstance(injets, (awkward.highlevel.Array, dask_awkward.Array)):
+        if not _isinstance(
+            injets, "awkward.highlevel.Array", "dask_awkward.lib.core.Array"
+        ):
             raise Exception("input jets must be an (dask_)awkward array of some kind!")
 
         jets = injets
@@ -225,7 +231,9 @@ class CorrectedJetsFactory:
         out = awkward.flatten(jets)
         wrap = partial(
             awkward_rewrap,
-            like_what=jets._meta if isinstance(jets, dask_awkward.Array) else jets,
+            like_what=(
+                jets._meta if _isinstance(jets, "dask_awkward.lib.core.Array") else jets
+            ),
             gfunc=rewrap_recordarray,
         )
 
@@ -480,7 +488,7 @@ class CorrectedJetsFactory:
             out_dict, depth_limit=1, parameters=out_parms, behavior=out.behavior
         )
 
-        if isinstance(jets, dask_awkward.Array):
+        if _isinstance(jets, "dask_awkward.lib.core.Array"):
             out_meta = wrap(out._meta)
 
             return maybe_map_partitions(

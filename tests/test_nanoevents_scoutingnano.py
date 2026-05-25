@@ -7,6 +7,7 @@ from coffea.nanoevents import NanoEventsFactory, ScoutingNanoAODSchema
 
 @pytest.fixture(scope="module")
 def events(tests_directory):
+    pytest.importorskip("dask_awkward")
     path = os.path.join(tests_directory, "samples/scouting_nano.root")
     ScoutingNanoAODSchema.warn_missing_crossrefs = False
     events = NanoEventsFactory.from_root(

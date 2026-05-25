@@ -1,13 +1,23 @@
+import contextlib
 import time
 
 import awkward as ak
-import dask
-import dask_awkward as dak
 import pyinstrument
 import pytest
 from dummy_distributions import dummy_jagged_eta_pt
 
 from coffea.util import numpy as np
+
+try:
+    import dask
+
+    def _dask_cfg(opt):
+        return dask.config.set({"awkward.optimization.enabled": opt})
+
+except ImportError:
+
+    def _dask_cfg(opt):
+        return contextlib.nullcontext()
 
 
 def jetmet_evaluator():
@@ -43,9 +53,10 @@ evaluator = jetmet_evaluator()
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_factorized_jet_corrector(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import FactorizedJetCorrector
 
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         counts, test_eta, test_pt = dummy_jagged_eta_pt()
         test_Rho = np.full_like(test_eta, 100.0)
         test_A = np.full_like(test_eta, 5.0)
@@ -296,9 +307,10 @@ def test_factorized_jet_corrector(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_jet_resolution(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import JetResolution
 
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         counts, test_eta, test_pt = dummy_jagged_eta_pt()
         test_Rho = np.full_like(test_eta, 10.0)
 
@@ -369,9 +381,10 @@ def test_jet_resolution(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_jet_correction_uncertainty(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import JetCorrectionUncertainty
 
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         counts, test_eta, test_pt = dummy_jagged_eta_pt()
 
         test_pt_jag = ak.unflatten(test_pt, counts)
@@ -436,9 +449,10 @@ def test_jet_correction_uncertainty(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_jet_correction_uncertainty_sources(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import JetCorrectionUncertainty
 
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         counts, test_eta, test_pt = dummy_jagged_eta_pt()
 
         test_pt_jag = ak.unflatten(test_pt, counts)
@@ -517,9 +531,10 @@ def test_jet_correction_uncertainty_sources(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_jet_correction_regrouped_uncertainty_sources(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import JetCorrectionUncertainty
 
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         counts, test_eta, test_pt = dummy_jagged_eta_pt()
 
         test_pt_jag = ak.unflatten(test_pt, counts)
@@ -594,9 +609,10 @@ def test_jet_correction_regrouped_uncertainty_sources(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_jet_resolution_sf(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import JetResolutionScaleFactor
 
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         counts, test_eta, test_pt = dummy_jagged_eta_pt()
 
         test_pt_jag = ak.unflatten(test_pt, counts)
@@ -654,9 +670,10 @@ def test_jet_resolution_sf(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_jet_resolution_sf_2d(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     from coffea.jetmet_tools import JetResolutionScaleFactor
 
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         counts, test_eta, test_pt = dummy_jagged_eta_pt()
 
         test_pt_jag = ak.unflatten(test_pt, counts)
@@ -942,6 +959,7 @@ def test_corrected_jets_factory():
 @pytest.mark.dask_client
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_corrected_jets_factory_dak(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     import os
 
     from distributed import Client
@@ -953,7 +971,7 @@ def test_corrected_jets_factory_dak(optimization_enabled):
 
     with (
         Client(),
-        dask.config.set({"awkward.optimization.enabled": optimization_enabled}),
+        _dask_cfg(optimization_enabled),
     ):
         events = NanoEventsFactory.from_root(
             {os.path.abspath("tests/samples/nano_dy.root"): "Events"},

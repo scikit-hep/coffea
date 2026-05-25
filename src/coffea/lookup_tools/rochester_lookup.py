@@ -1,5 +1,4 @@
 import awkward
-import dask_awkward as dak
 import numpy
 
 from coffea.lookup_tools.dense_lookup import dense_lookup
@@ -8,6 +7,7 @@ from coffea.lookup_tools.dense_lookup import dense_lookup
 # the PR can be merged
 # from scipy.stats import crystalball
 from coffea.lookup_tools.doublecrystalball import doublecrystalball
+from coffea.util import _import_dask_awkward, _isinstance
 
 
 class rochester_lookup:
@@ -229,7 +229,8 @@ class rochester_lookup:
 
         args = (u_flat, cbA_flat, cbA_flat, cbN_flat, cbN_flat, loc, cbS_flat)
 
-        if any(isinstance(arg, dak.Array) for arg in args):
+        if any(_isinstance(arg, "dask_awkward.lib.core.Array") for arg in args):
+            dak = _import_dask_awkward()
 
             def apply(*args):
                 args_lz = [
