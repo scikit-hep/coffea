@@ -9,13 +9,11 @@ from typing import Any
 
 import awkward
 import cloudpickle
-import dask_awkward
 import fsspec
 import hist
 import numba
 import numpy
 import uproot
-from dask.base import unpack_collections
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -29,7 +27,6 @@ from rich.progress import (
 )
 
 ak = awkward
-dak = dask_awkward
 np = numpy
 nb = numba
 
@@ -44,6 +41,11 @@ __all__ = [
     "compress_form",
     "decompress_form",
     "coffea_console",
+    "dask_method",
+    "dask_property",
+    "_import_dask",
+    "_import_distributed",
+    "_import_dask_awkward",
 ]
 
 
@@ -93,13 +95,74 @@ def _hash(items):
     return int(x.hexdigest()[:16], base=16)
 
 
+def _isinstance(arg: Any, *class_prefixes: str) -> bool:
+    """Return True if arg is an instance of a class with any given prefix."""
+    for cls in type(arg).__mro__:
+        class_name = f"{cls.__module__}.{cls.__qualname__}"
+        if any(class_name.startswith(prefix) for prefix in class_prefixes):
+            return True
+    return False
+
+
+def _import_dask():
+    try:
+        import dask
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError("""to use this feature, you must install dask:
+
+pip install dask
+
+or
+
+conda install -c conda-forge dask""") from err
+
+    return dask
+
+
+def _import_distributed():
+    try:
+        import distributed
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError("""to use this feature, you must install distributed:
+
+pip install distributed
+
+or
+
+conda install -c conda-forge distributed""") from err
+
+    return distributed
+
+
+def _import_dask_awkward():
+    try:
+        import dask_awkward
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError("""to use this feature, you must install dask-awkward:
+
+pip install dask-awkward
+
+or
+
+conda install -c conda-forge dask-awkward""") from err
+
+    return dask_awkward
+
+
 def _ensure_flat(array, allow_missing=False):
     """Normalize an array to a flat numpy array, or ensure it is a flat dask-awkward array, or raise ValueError"""
-    if not isinstance(array, (dak.Array, ak.Array, numpy.ndarray)):
+    if not _isinstance(
+        array,
+        "dask_awkward.lib.core.Array",
+        "awkward.highlevel.Array",
+        "numpy.ndarray",
+    ):
         raise ValueError("Expected a numpy or awkward array, received: %r" % array)
 
     aktype = (
-        ak.type(array) if not isinstance(array, dak.Array) else ak.type(array._meta)
+        ak.type(array._meta)
+        if _isinstance(array, "dask_awkward.lib.core.Array")
+        else ak.type(array)
     )
     if not isinstance(aktype, ak.types.ArrayType):
         raise ValueError("Expected an array type, received: %r" % aktype)
@@ -131,8 +194,10 @@ def _gethistogramaxis(name, var, bins, start, stop, edges, transform, delayed_mo
         start = ak.min(var) - 1e-6 if start is None else start
         stop = ak.max(var) + 1e-6 if stop is None else stop
     elif delayed_mode:
-        start = dak.min(var).compute() - 1e-6 if start is None else start
-        stop = dak.max(var).compute() + 1e-6 if stop is None else stop
+        dask_awkward = _import_dask_awkward()
+
+        start = dask_awkward.min(var).compute() - 1e-6 if start is None else start
+        stop = dask_awkward.max(var).compute() + 1e-6 if stop is None else stop
     bins = 20 if bins is None else bins
 
     return hist.axis.Regular(
@@ -230,26 +295,6 @@ def rewrap_recordarray(layout, depth, data, **kwargs):
     return None
 
 
-def maybe_map_partitions(func, *args, **kwargs):
-    _MP_ONLY = {
-        "label",
-        "token",
-        "meta",
-        "output_divisions",
-        "traverse",
-        "opt_touch_all",
-    }
-    traverse = kwargs.pop("traverse", True)
-
-    func_kwargs = {k: v for k, v in kwargs.items() if k not in _MP_ONLY}
-    deps, _ = unpack_collections(*args, *func_kwargs.values(), traverse=traverse)
-
-    if len(deps) > 0:
-        return dask_awkward.map_partitions(func, *args, traverse=traverse, **kwargs)
-
-    return func(*args, **func_kwargs)
-
-
 # shorthand for compressing forms
 def compress_form(formjson):
     return base64.b64encode(gzip.compress(formjson.encode("utf-8"))).decode("ascii")
@@ -303,3 +348,114 @@ def _is_interpretable(branch, emit_warning=True):
         return False
     else:
         return True
+
+
+def _make_dask_descriptor(func):
+    def descriptor(instance, owner, dask_array):
+        impl = func.__get__(instance, owner)
+        return impl(dask_array)
+
+    return descriptor
+
+
+def _make_dask_method(func):
+    def descriptor(instance, owner, dask_array):
+        def impl(*args, **kwargs):
+            impl = func.__get__(instance, owner)
+            return impl(dask_array, *args, **kwargs)
+
+        return impl
+
+    return descriptor
+
+
+class _DaskProperty(property):
+    _dask_get = None
+
+    def dask(self, func):
+        assert self._dask_get is None
+        self._dask_get = _make_dask_descriptor(func)
+        return self
+
+
+def _adapt_naive_dask_get(func):
+    def wrapper(self, dask_array, *args, **kwargs):
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+def dask_property(maybe_func=None, *, no_dispatch=False):
+    def dask_property_wrapper(func):
+        prop = _DaskProperty(func)
+        if no_dispatch:
+            return prop.dask(_adapt_naive_dask_get(func))
+        else:
+            return prop
+
+    if maybe_func is None:
+        return dask_property_wrapper
+    else:
+        return dask_property_wrapper(maybe_func)
+
+
+class _DaskMethod:
+    _dask_get = None
+
+    def __init__(self, impl):
+        self._impl = impl
+
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self
+
+        return self._impl.__get__(instance, owner)
+
+    def dask(self, func):
+        self._dask_get = _make_dask_method(func)
+        return self
+
+
+def dask_method(maybe_func=None, *, no_dispatch=False):
+    def dask_method_wrapper(func):
+        method = _DaskMethod(func)
+
+        if no_dispatch:
+            return method.dask(_adapt_naive_dask_get(func))
+        else:
+            return method
+
+    if maybe_func is None:
+        return dask_method_wrapper
+    else:
+        return dask_method_wrapper(maybe_func)
+
+
+def maybe_map_partitions(func, *args, **kwargs):
+    _MP_ONLY = {
+        "label",
+        "token",
+        "meta",
+        "output_divisions",
+        "traverse",
+        "opt_touch_all",
+    }
+    traverse = kwargs.pop("traverse", True)
+
+    func_kwargs = {k: v for k, v in kwargs.items() if k not in _MP_ONLY}
+
+    try:
+        dask = _import_dask()
+    except ModuleNotFoundError:
+        return func(*args, **func_kwargs)
+
+    deps, _ = dask.base.unpack_collections(
+        *args, *func_kwargs.values(), traverse=traverse
+    )
+
+    if len(deps) > 0:
+        dask_awkward = _import_dask_awkward()
+
+        return dask_awkward.map_partitions(func, *args, traverse=traverse, **kwargs)
+
+    return func(*args, **func_kwargs)

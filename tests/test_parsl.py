@@ -141,7 +141,7 @@ def test_parsl_condor_cfg():
     print(condor_config())
 
 
-def test_parsl_slurm_cfg():
+def test_parsl_slurm_cfg(tmp_path):
     pytest.importorskip("parsl", minversion="0.7.2")
     import os
 
@@ -152,4 +152,4 @@ def test_parsl_slurm_cfg():
 
     from coffea.processor.parsl.slurm_config import slurm_config
 
-    print(slurm_config())
+    print(slurm_config(work_dir=str(tmp_path)))

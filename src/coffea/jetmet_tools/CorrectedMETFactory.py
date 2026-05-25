@@ -1,8 +1,7 @@
 import awkward
-import dask_awkward
 import numpy
 
-from coffea.util import maybe_map_partitions
+from coffea.util import _isinstance, maybe_map_partitions
 
 
 def corrected_polar_met(
@@ -81,10 +80,12 @@ class CorrectedMETFactory:
             awkward.Array or dask_awkward.Array
                 Array of corrected MET values with shape matching ``in_MET``.
         """
-        if not isinstance(
-            in_MET, (awkward.highlevel.Array, dask_awkward.Array)
-        ) or not isinstance(
-            in_corrected_jets, (awkward.highlevel.Array, dask_awkward.Array)
+        if not _isinstance(
+            in_MET, "awkward.highlevel.Array", "dask_awkward.lib.core.Array"
+        ) or not _isinstance(
+            in_corrected_jets,
+            "awkward.highlevel.Array",
+            "dask_awkward.lib.core.Array",
         ):
             raise Exception(
                 "'MET' and 'corrected_jets' must be an (dask_)awkward array of some kind!"

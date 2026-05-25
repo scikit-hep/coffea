@@ -1,7 +1,5 @@
 import awkward as ak
-import dask_awkward as dak
 import hist
-import hist.dask as dah
 
 from coffea import processor
 from coffea.nanoevents.methods import vector
@@ -31,6 +29,8 @@ class NanoDaskProcessor(processor.ProcessorABC):
         pt_axis = hist.axis.Regular(30000, 0.24, 300, name="pt", label=r"$p_{T}$ [GeV]")
 
         if self.mode == "dask":
+            import hist.dask as dah
+
             mass_hist = dah.Hist(dataset_axis, mass_axis)
             pt_hist = dah.Hist(dataset_axis, pt_axis)
         elif self.mode in ["eager", "virtual"]:
@@ -78,6 +78,8 @@ class NanoDaskProcessor(processor.ProcessorABC):
         output["cutflow"]["%s_mass" % dataset] = ak.sum(ak.num(dimuon, axis=1))
 
         if self.mode == "dask":
+            import dask_awkward as dak
+
             output["skim"][dataset] = dak.to_parquet(
                 dimuon, f"test_skim/{dataset}", compute=False
             )

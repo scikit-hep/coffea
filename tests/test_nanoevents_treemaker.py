@@ -1,11 +1,12 @@
 import os
 
 import awkward as ak
-import dask_awkward as dak
 import pytest
 import uproot
 
 from coffea.nanoevents import NanoEventsFactory, TreeMakerSchema
+
+dak = pytest.importorskip("dask_awkward")
 
 
 @pytest.fixture(scope="module")

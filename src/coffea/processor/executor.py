@@ -36,7 +36,7 @@ from cachetools import LRUCache
 
 from ..nanoevents import NanoEventsFactory, schemas
 from ..nanoevents.util import key_to_tuple
-from ..util import _exception_chain, _hash, rich_bar
+from ..util import _exception_chain, _hash, _import_dask, _import_distributed, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .checkpointer import CheckpointerABC
 from .processor import ProcessorABC
@@ -715,9 +715,12 @@ class DaskExecutor(ExecutorBase):
         if len(items) == 0:
             return accumulator
 
+        distributed = _import_distributed()
+        _import_dask()
         import dask.dataframe as dd
-        from dask.distributed import Client
-        from distributed.scheduler import KilledWorker
+
+        Client = distributed.client.Client
+        KilledWorker = distributed.scheduler.KilledWorker
 
         if self.client is None:
             self.client = Client(threads_per_worker=1)
@@ -827,8 +830,7 @@ class DaskExecutor(ExecutorBase):
                 )
         else:
             if self.status:
-                from distributed import progress
-
+                progress = _import_distributed().progress
                 progress(work, multi=True, notebook=False)
             return {"out": dd.from_delayed(work)}, 0
 
@@ -1121,8 +1123,7 @@ class Runner:
     def get_cache(cachestrategy):
         cache = None
         if cachestrategy == "dask-worker":
-            from distributed import get_worker
-
+            get_worker = _import_distributed().get_worker
             from coffea.processor.dask import ColumnCache
 
             worker = get_worker()
