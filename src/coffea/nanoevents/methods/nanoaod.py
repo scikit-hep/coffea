@@ -3,9 +3,9 @@
 import warnings
 
 import awkward
-from dask_awkward import dask_property
 
 from coffea.nanoevents.methods import base, candidate, vector
+from coffea.util import dask_property
 
 behavior = {}
 behavior.update(base.behavior)

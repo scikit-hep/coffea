@@ -1,10 +1,11 @@
 import os
 
 import awkward as ak
-import dask_awkward as dak
 import pytest
 
 from coffea.nanoevents import DelphesSchema, NanoEventsFactory
+
+dak = pytest.importorskip("dask_awkward")
 
 
 def _events(**kwargs):

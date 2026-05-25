@@ -1,7 +1,5 @@
-import dask
 import pytest
 import uproot
-from distributed import Client
 from uproot.exceptions import KeyInFileError
 
 from coffea.dataset_tools import (
@@ -24,6 +22,15 @@ from coffea.dataset_tools.filespec import (
 from coffea.nanoevents import BaseSchema, NanoAODSchema
 from coffea.processor.test_items import NanoEventsProcessor, NanoTestProcessor
 from coffea.util import decompress_form
+
+dask_awkward = pytest.importorskip("dask_awkward")
+
+import dask  # noqa: E402
+
+try:
+    from distributed import Client
+except ImportError:
+    Client = None
 
 _starting_fileset_list = {
     "ZJets": ["tests/samples/nano_dy.root:Events"],
@@ -367,8 +374,6 @@ def _my_analysis_output_3(events):
 
 @pytest.mark.parametrize("allow_read_errors_with_report", [True, False])
 def test_tuple_data_manipulation_output(allow_read_errors_with_report):
-    import dask_awkward
-
     out = apply_to_fileset(
         _my_analysis_output_2,
         _runnable_result,

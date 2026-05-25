@@ -7,6 +7,7 @@ from coffea.nanoevents import NanoEventsFactory, PFNanoAODSchema
 
 @pytest.fixture(scope="module")
 def events(tests_directory):
+    pytest.importorskip("dask_awkward")
     path = os.path.join(tests_directory, "samples/pfnano.root")
     events = NanoEventsFactory.from_root(
         {path: "Events"},

@@ -9,6 +9,7 @@ from coffea.util import load, save
 
 @pytest.mark.parametrize("compression", [None, "lz4"])
 def test_loadsave(compression):
+    pytest.importorskip("hist.dask")
     filename = "testprocessor.coffea"
     try:
         aprocessor = NanoEventsProcessor()

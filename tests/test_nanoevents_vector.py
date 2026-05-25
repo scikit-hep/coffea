@@ -568,6 +568,7 @@ def test_inherited_method_transpose(lcoord, threecoord, twocoord):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_dask_metric_table_and_nearest(optimization_enabled):
+    pytest.importorskip("dask_awkward")
     import dask
 
     from coffea.nanoevents import NanoEventsFactory
@@ -618,6 +619,7 @@ def test_dask_metric_table_and_nearest(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_photon_zero_mass_charge(optimization_enabled):
+    pytest.importorskip("dask_awkward")
     import dask
 
     from coffea.nanoevents import NanoEventsFactory

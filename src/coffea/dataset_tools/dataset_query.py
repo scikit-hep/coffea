@@ -6,14 +6,13 @@ import random
 from collections import defaultdict
 
 import yaml
-from dask.distributed import Client
 from rich import print
 from rich.console import Console
 from rich.prompt import Confirm, FloatPrompt, IntPrompt, Prompt
 from rich.table import Table
 from rich.tree import Tree
 
-from coffea.util import coffea_console
+from coffea.util import _import_distributed, coffea_console
 
 from . import rucio_utils
 from .preprocess import preprocess
@@ -694,6 +693,7 @@ Some basic commands:
         with self.console.status(
             "[red] Preprocessing files to extract available chunks with dask[/]"
         ):
+            Client = _import_distributed().client.Client
             with Client(scheduler_url) as ddcsched:
                 self.preprocessed_available, self.preprocessed_total = preprocess(
                     self.final_output,
