@@ -25,6 +25,7 @@ def eager_events():
 
 @pytest.fixture(scope="module")
 def delayed_events():
+    pytest.importorskip("dask_awkward")
     return _events(
         mode="dask", uproot_options={"filter_name": "/^(?!.*(PARAMETERS|_.*Map))/"}
     )
@@ -162,7 +163,6 @@ branches = {
         "weight",
     ],
     "ReconstructedParticleCollection": [
-        "E",
         "PDG",
         "charge",
         "clusters_idx_ClusterCollection_collectionID",

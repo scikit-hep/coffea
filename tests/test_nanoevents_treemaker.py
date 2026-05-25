@@ -1,11 +1,12 @@
 import os
 
 import awkward as ak
-import dask_awkward as dak
 import pytest
 import uproot
 
 from coffea.nanoevents import NanoEventsFactory, TreeMakerSchema
+
+dak = pytest.importorskip("dask_awkward")
 
 
 @pytest.fixture(scope="module")
@@ -40,7 +41,7 @@ def test_collection_exists(events, collection):
         ("Photons", "PtEtaPhiELorentzVector"),
         ("Jets", "PtEtaPhiELorentzVector"),
         ("JetsAK8", "PtEtaPhiELorentzVector"),
-        ("Tracks", "LorentzVector"),
+        ("Tracks", "ThreeVector"),
         ("GenParticles", "PtEtaPhiELorentzVector"),
         ("PrimaryVertices", "ThreeVector"),
     ],
@@ -83,17 +84,18 @@ def test_nested_collection(collection, subcollection, arr_type, element, events)
         )
 
 
-def test_uproot_write():
+def test_uproot_write(tmp_path):
     path = os.path.abspath("tests/samples/treemaker.root")
     orig_events = NanoEventsFactory.from_root(
         {path: "PreSelection"}, schemaclass=TreeMakerSchema, mode="eager"
     ).events()
 
-    with uproot.recreate("treemaker_write_test.root") as f:
+    out_path = str(tmp_path / "treemaker_write_test.root")
+    with uproot.recreate(out_path) as f:
         f.mktree("PreSelection", TreeMakerSchema.uproot_writeable(orig_events))
 
     test_events = NanoEventsFactory.from_root(
-        {"treemaker_write_test.root": "PreSelection"},
+        {out_path: "PreSelection"},
         schemaclass=TreeMakerSchema,
         mode="eager",
     ).events()

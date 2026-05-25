@@ -7,7 +7,6 @@ from functools import partial
 from types import FunctionType
 
 import awkward
-import dask_awkward
 import fsspec
 import uproot
 
@@ -21,7 +20,7 @@ from coffea.nanoevents.mapping import (
 )
 from coffea.nanoevents.schemas import BaseSchema, NanoAODSchema
 from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
-from coffea.util import _is_interpretable
+from coffea.util import _import_dask_awkward, _is_interpretable
 
 _offsets_label = quote(",!offsets")
 
@@ -274,16 +273,18 @@ class NanoEventsFactory:
             mode:
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
             treepath : str, optional
-                Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``.
+                Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``
+                or a string that does not contain tree information that uproot can parse on its own.
             entry_start : int, optional (eager and virtual mode only)
                 Start at this entry offset in the tree (default 0)
             entry_stop : int, optional (eager and virtual mode only)
                 Stop at this entry offset in the tree (default end of tree)
             steps_per_file: int, optional
                 Partition files into this many steps (previously "chunks")
-            preload (None or Callable):
-                A function to call to preload specific branches/columns in bulk. Only works in eager and virtual mode.
-                Passed to ``tree.arrays`` as the ``filter_branch`` argument to filter branches to be preloaded.
+            preload (None, Callable, or Iterable[str]):
+                Specifies which branches/columns to preload in bulk. Only works in eager and virtual mode.
+                Can be a callable passed to ``tree.arrays`` as the ``filter_branch`` argument,
+                or an iterable of branch name strings to preload.
             buffer_cache : dict, optional
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
@@ -303,7 +304,7 @@ class NanoEventsFactory:
                 If the base form of the input file is known ahead of time we can skip opening a single file and parsing metadata.
             decompression_executor : Any, optional
                 Executor with a ``submit`` method used for decompression tasks. See
-                https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L109.
+                https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html.
             interpretation_executor : Any, optional
                 Executor with a ``submit`` method used for interpretation tasks. See
                 https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L113.
@@ -313,15 +314,6 @@ class NanoEventsFactory:
             NanoEventsFactory
                 Factory configured from ``file`` that can materialise NanoEvents.
         """
-        if treepath is not uproot._util.unset and not isinstance(
-            file, uproot.reading.ReadOnlyDirectory
-        ):
-            raise ValueError(
-                """Specification of treename by argument to from_root is no longer supported in coffea 2023.
-            Please use one of the allowed types for "files" specified by uproot: https://github.com/scikit-hep/uproot5/blob/v5.1.2/src/uproot/_dask.py#L109-L132
-            """
-            )
-
         if mode not in _allowed_modes:
             raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
 
@@ -331,8 +323,7 @@ class NanoEventsFactory:
                 small number of inputs (e.g. for early-stage/exploratory analysis) since it does not
                 inform dask of each chunk lengths at creation time, which can cause unexpected
                 slowdowns at scale. If you would like to process larger datasets please specify steps
-                using the appropriate uproot "files" specification:
-                    https://github.com/scikit-hep/uproot5/blob/v5.1.2/src/uproot/_dask.py#L109-L132.
+                using the appropriate uproot "files" specification: https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html
                 """,
                 RuntimeWarning,
             )
@@ -351,6 +342,10 @@ class NanoEventsFactory:
 
             to_open = file
             if isinstance(file, uproot.reading.ReadOnlyDirectory):
+                if treepath is uproot._util.unset:
+                    raise ValueError(
+                        "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
+                    )
                 to_open = file[treepath]
             opener = partial(
                 uproot.dask,
@@ -376,6 +371,10 @@ class NanoEventsFactory:
             mode = "virtual"
 
         if isinstance(file, uproot.reading.ReadOnlyDirectory):
+            if treepath is uproot._util.unset:
+                raise ValueError(
+                    "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
+                )
             tree = file[treepath]
             file_handle = file
         elif "<class 'uproot.rootio.ROOTDirectory'>" == str(type(file)):
@@ -385,6 +384,12 @@ class NanoEventsFactory:
             )
         else:
             tree = uproot.open(file, **uproot_options)
+            if isinstance(tree, uproot.reading.ReadOnlyDirectory):
+                if treepath is uproot._util.unset:
+                    raise ValueError(
+                        "The treepath argument must be specified when the file argument is a string that does not contain any treepath information that uproot can parse"
+                    )
+                tree = tree[treepath]
             file_handle = tree.file
 
         # Get the typenames
@@ -404,6 +409,9 @@ class NanoEventsFactory:
 
         preloaded_arrays = None
         if preload is not None:
+            if not callable(preload):
+                _preload_names = frozenset(preload)
+                preload = lambda b: b.name in _preload_names  # noqa: E731
             preloaded_arrays = tree.arrays(
                 filter_branch=preload,
                 entry_start=entry_start,
@@ -461,7 +469,6 @@ class NanoEventsFactory:
         metadata=None,
         parquet_options={},
         storage_options=None,
-        skyhook_options={},
         access_log=None,
     ):
         """Quickly build NanoEvents from a parquet file
@@ -496,7 +503,6 @@ class NanoEventsFactory:
                 Factory configured from ``file`` that can materialise NanoEvents.
         """
         import pyarrow
-        import pyarrow.dataset as ds
         import pyarrow.parquet
 
         ftypes = (
@@ -516,6 +522,7 @@ class NanoEventsFactory:
             and not isinstance(schemaclass, FunctionType)
             and schemaclass.__dask_capable__
         ):
+            dask_awkward = _import_dask_awkward()
             map_schema = _map_schema_parquet(
                 schemaclass=schemaclass,
                 behavior=dict(schemaclass.behavior()),
@@ -575,25 +582,12 @@ class NanoEventsFactory:
             entry_start,
             entry_stop,
             access_log=access_log,
+            file_handle=table_file,
             virtual=mode == "virtual",
             buffer_cache=buffer_cache,
         )
 
-        format_ = "parquet"
-        dataset = None
-        shim = None
-        if len(skyhook_options) > 0:
-            format_ = ds.SkyhookFileFormat(
-                "parquet",
-                skyhook_options["ceph_config_path"].encode(),
-                skyhook_options["ceph_data_pool"].encode(),
-            )
-            dataset = ds.dataset(file, schema=table_file.schema_arrow, format=format_)
-            shim = TrivialParquetOpener.UprootLikeShim(file, dataset)
-        else:
-            shim = TrivialParquetOpener.UprootLikeShim(
-                table_file, dataset, openfile=fs_file
-            )
+        shim = TrivialParquetOpener.UprootLikeShim(table_file, None, openfile=fs_file)
 
         mapping.preload_column_source(partition_key[0], partition_key[1], shim)
 
@@ -766,6 +760,7 @@ class NanoEventsFactory:
                 returned.
         """
         if self._mode == "dask":
+            dask_awkward = _import_dask_awkward()
             dask_awkward.lib.core.dak_cache.clear()
             events = self._mapping(form_mapping=self._schema)
             report = None

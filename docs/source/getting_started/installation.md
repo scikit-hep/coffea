@@ -64,9 +64,10 @@ The necessary dependencies can be installed easily via ``pip`` using the setupto
 
    - [parsl](http://parsl-project.org/) distributed executor: ``pip install coffea[parsl]``
    - [dask](https://distributed.dask.org/en/latest/) distributed executor: ``pip install coffea[dask]``
+   - [dask-awkward](https://dask-awkward.readthedocs.io/en/stable/) and [dask-histogram](https://dask-histogram.readthedocs.io/en/stable/) support: ``pip install coffea[dask-awkward]``
    - [TaskVine](https://ccl.cse.nd.edu/software/taskvine/) distributed executor: see the installation guide in their docs and use the `TaskVineExecutor` in coffea.
 
-Multiple extras can be installed together via, e.g. `pip install coffea[dask,parsl]`
+Multiple extras can be installed together via, e.g. `pip install coffea[dask,dask-awkward,parsl]`
 
 ## Virtual environment
 

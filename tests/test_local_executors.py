@@ -1,5 +1,6 @@
 import os.path as osp
 
+import pyarrow
 import pytest
 
 from coffea import processor
@@ -7,10 +8,10 @@ from coffea.nanoevents import schemas
 from coffea.processor.executor import UprootMissTreeError
 from coffea.processor.test_items import NanoEventsProcessor
 
-_exceptions = (FileNotFoundError, UprootMissTreeError)
+_exceptions = (FileNotFoundError, UprootMissTreeError, pyarrow.ArrowInvalid)
 
 
-@pytest.mark.parametrize("filetype", ["root", "parquet"])
+@pytest.mark.parametrize("filetype", ["ttree", "rntuple", "parquet"])
 @pytest.mark.parametrize("skipbadfiles", [False, True, _exceptions])
 @pytest.mark.parametrize("maxchunks", [None, 1000])
 @pytest.mark.parametrize("compression", [None, 0, 2])
@@ -29,33 +30,48 @@ def test_nanoevents_analysis(
             mode=mode, check_filehandle=True
         ).process
 
-    if filetype == "parquet":
-        pytest.xfail("parquet nanoevents not supported yet")
+    suffix = {"ttree": ".root", "rntuple": "_rntuple.root", "parquet": ".parquet"}[
+        filetype
+    ]
+    runner_format = "parquet" if filetype == "parquet" else "root"
+    # for parquet, treename-mismatch isn't a failure mode; substitute a malformed
+    # parquet file so the dataset still has a non-OSError raise like root gets
+    # from UprootMissTreeError
+    bad_second_file = (
+        "tests/samples/nano_dy_malformed.parquet"
+        if filetype == "parquet"
+        else f"tests/samples/nano_dy_SpecialTree{suffix}"
+    )
+    bad_only_file = (
+        "tests/samples/nano_dy_malformed.parquet"
+        if filetype == "parquet"
+        else f"tests/samples/nano_dy{suffix}"
+    )
 
     filelist = {
         "DummyBadMissingFile": {
             "treename": "Events",
-            "files": [osp.abspath(f"tests/samples/non_existent.{filetype}")],
+            "files": [osp.abspath(f"tests/samples/non_existent{suffix}")],
         },
         "ZJetsBadMissingTree": {
             "treename": "NotEvents",
             "files": [
-                osp.abspath(f"tests/samples/nano_dy.{filetype}"),
-                osp.abspath(f"tests/samples/nano_dy_SpecialTree.{filetype}"),
+                osp.abspath(f"tests/samples/nano_dy{suffix}"),
+                osp.abspath(bad_second_file),
             ],
         },
         "ZJetsBadMissingTreeAllFiles": {
             "treename": "NotEvents",
-            "files": [osp.abspath(f"tests/samples/nano_dy.{filetype}")],
+            "files": [osp.abspath(bad_only_file)],
         },
         "ZJets": {
             "treename": "Events",
-            "files": [osp.abspath(f"tests/samples/nano_dy.{filetype}")],
+            "files": [osp.abspath(f"tests/samples/nano_dy{suffix}")],
             "metadata": {"checkusermeta": True, "someusermeta": "hello"},
         },
         "Data": {
             "treename": "Events",
-            "files": [osp.abspath(f"tests/samples/nano_dimuon.{filetype}")],
+            "files": [osp.abspath(f"tests/samples/nano_dimuon{suffix}")],
             "metadata": {"checkusermeta": True, "someusermeta2": "world"},
         },
     }
@@ -66,7 +82,7 @@ def test_nanoevents_analysis(
         skipbadfiles=skipbadfiles,
         schema=schemas.NanoAODSchema,
         maxchunks=maxchunks,
-        format=filetype,
+        format=runner_format,
     )
 
     if skipbadfiles == _exceptions:
@@ -97,82 +113,98 @@ def test_nanoevents_analysis(
             )
 
 
+@pytest.mark.parametrize("filetype", ["ttree", "rntuple", "parquet"])
 @pytest.mark.parametrize("align_clusters", [False, True])
-def test_preprocessing(align_clusters):
+def test_preprocessing(align_clusters, filetype):
+    suffix = {"ttree": ".root", "rntuple": "_rntuple.root", "parquet": ".parquet"}[
+        filetype
+    ]
+    runner_format = "parquet" if filetype == "parquet" else "root"
+    nano_dy = f"tests/samples/nano_dy{suffix}"
+    nano_dy_empty = f"tests/samples/nano_dy_empty{suffix}"
+
     fileset = {
         "only_empty": {
             "files": {
-                "tests/samples/nano_dy_empty.root": "Events",
+                nano_dy_empty: "Events",
             },
         },
         "nonempty_and_empty": {
             "files": {
-                "tests/samples/nano_dy.root": "Events",
-                "tests/samples/nano_dy_empty.root": "Events",
+                nano_dy: "Events",
+                nano_dy_empty: "Events",
             },
         },
         "empty_and_nonempty": {
             "files": {
-                "tests/samples/nano_dy_empty.root": "Events",
-                "tests/samples/nano_dy.root": "Events",
+                nano_dy_empty: "Events",
+                nano_dy: "Events",
             },
         },
         "only_nonempty": {
             "files": {
-                "tests/samples/nano_dy.root": "Events",
+                nano_dy: "Events",
             },
         },
     }
 
     executor = processor.IterativeExecutor()
+    if filetype == "parquet" and align_clusters:
+        with pytest.raises(
+            ValueError, match="align_clusters is only supported for ROOT"
+        ):
+            processor.Runner(
+                executor=executor,
+                schema=schemas.NanoAODSchema,
+                chunksize=7,
+                align_clusters=align_clusters,
+                format=runner_format,
+            )
+        return
+
     run = processor.Runner(
         executor=executor,
         schema=schemas.NanoAODSchema,
         chunksize=7,
         align_clusters=align_clusters,
+        format=runner_format,
     )
     chunks = list(run.preprocess(fileset))
     if align_clusters:
         assert len(chunks) == 6
         for chunk in chunks:
             if chunk.dataset == "only_empty":
-                assert chunk.filename == "tests/samples/nano_dy_empty.root"
+                assert chunk.filename == nano_dy_empty
                 assert chunk.entrystart == 0
                 assert chunk.entrystop == 0
             elif (
                 chunk.dataset == "nonempty_and_empty"
                 or chunk.dataset == "empty_and_nonempty"
             ):
-                assert chunk.filename in [
-                    "tests/samples/nano_dy.root",
-                    "tests/samples/nano_dy_empty.root",
-                ]
-                if chunk.filename == "tests/samples/nano_dy.root":
+                assert chunk.filename in [nano_dy, nano_dy_empty]
+                if chunk.filename == nano_dy:
                     assert chunk.entrystart == 0
                     assert chunk.entrystop == 40
                 else:
                     assert chunk.entrystart == 0
                     assert chunk.entrystop == 0
             elif chunk.dataset == "only_nonempty":
-                assert chunk.filename == "tests/samples/nano_dy.root"
+                assert chunk.filename == nano_dy
                 assert chunk.entrystart == 0
                 assert chunk.entrystop == 40
     else:
         assert len(chunks) == 21
         for chunk in chunks:
             if chunk.dataset == "only_empty":
-                assert chunk.filename == "tests/samples/nano_dy_empty.root"
+                assert chunk.filename == nano_dy_empty
                 assert chunk.entrystart == 0
                 assert chunk.entrystop == 0
             elif (
                 chunk.dataset == "nonempty_and_empty"
                 or chunk.dataset == "empty_and_nonempty"
             ):
-                assert chunk.filename in [
-                    "tests/samples/nano_dy.root",
-                    "tests/samples/nano_dy_empty.root",
-                ]
-                if chunk.filename == "tests/samples/nano_dy.root":
+                assert chunk.filename in [nano_dy, nano_dy_empty]
+                if chunk.filename == nano_dy:
                     assert chunk.entrystart in [0, 7, 14, 21, 28, 35]
                     assert (
                         chunk.entrystop == chunk.entrystart + 7
@@ -183,7 +215,7 @@ def test_preprocessing(align_clusters):
                     assert chunk.entrystart == 0
                     assert chunk.entrystop == 0
             elif chunk.dataset == "only_nonempty":
-                assert chunk.filename == "tests/samples/nano_dy.root"
+                assert chunk.filename == nano_dy
                 assert chunk.entrystart in [0, 7, 14, 21, 28, 35]
                 assert (
                     chunk.entrystop == chunk.entrystart + 7

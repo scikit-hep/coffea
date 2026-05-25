@@ -53,9 +53,7 @@ class TreeMakerSchema(BaseSchema):
             {k.split("/")[0].rstrip("_") for k in branch_forms if "/" in k}
         )
 
-        composite_behavior = {  # Dictionary for overriding the default behavior
-            "Tracks": "LorentzVector"
-        }
+        composite_behavior = {}  # Dictionary for overriding the default behavior
         for objname in composite_objects:
             components = {  # Extracting the various composite object names
                 k.split(".")[-1]: k

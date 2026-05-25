@@ -1,8 +1,8 @@
 import awkward
 import numpy
-from dask_awkward.lib.core import dask_property
 
 from coffea.nanoevents.methods import base, edm4hep, vector
+from coffea.util import dask_property
 
 behavior = {}
 behavior.update(base.behavior)
@@ -64,6 +64,13 @@ class MomentumCandidate(vector.LorentzVector):
     @property
     def absolute_mass(self):
         return numpy.sqrt(numpy.abs(self.mass2))
+
+    def __awkward_validation__(self):
+        if "charge" not in self.fields:
+            raise ValueError(f"{type(self).__name__} requires the 'charge' field")
+        parent = super()
+        if hasattr(parent, "__awkward_validation__"):
+            parent.__awkward_validation__()
 
 
 behavior.update(
