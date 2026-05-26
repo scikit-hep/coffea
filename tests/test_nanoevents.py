@@ -314,6 +314,7 @@ def test_to_flat_columns_nanoaod_expands_collections(tests_directory, mode):
     """NanoAODSchema.to_flat_columns expands record collections to
     {name}_{subfield} + n{name} and skips cross-reference subfields, in
     all three factory modes."""
+    pytest.importorskip("dask_awkward")
     import dask
 
     path = f"{tests_directory}/samples/nano_dy.root"
