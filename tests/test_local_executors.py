@@ -5,6 +5,7 @@ import pytest
 
 from coffea import processor
 from coffea.nanoevents import schemas
+from coffea.processor import Err, Ok
 from coffea.processor.executor import UprootMissTreeError
 from coffea.processor.test_items import NanoEventsProcessor
 
@@ -236,3 +237,230 @@ def test_preprocessing(align_clusters, filetype):
             "empty_and_nonempty": 40,
             "only_nonempty": 40,
         }
+
+
+_good_fileset = {
+    "ZJets": {
+        "treename": "Events",
+        "files": [osp.abspath("tests/samples/nano_dy.root")],
+    }
+}
+
+_bad_fileset = {
+    "Missing": {
+        "treename": "Events",
+        "files": [osp.abspath("tests/samples/non_existent.root")],
+    }
+}
+
+
+@pytest.mark.parametrize(
+    "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
+)
+def test_use_result_type_ok(executor):
+    """use_result_type=True returns Ok(output) on a successful run."""
+    run = processor.Runner(
+        executor=executor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+        skipbadfiles=True,
+    )
+    processor_instance = NanoEventsProcessor(mode="eager")
+    result = run(
+        _good_fileset, processor_instance=processor_instance, treename="Events"
+    )
+    assert isinstance(result, Ok), f"Expected Ok, got {result!r}"
+    assert result.is_ok()
+    out = result.unwrap()
+    assert "cutflow" in out
+
+
+@pytest.mark.parametrize(
+    "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
+)
+def test_use_result_type_err(executor):
+    """use_result_type=True returns Err(exception) for an exception type
+    matching skipbadfiles instead of raising."""
+    run = processor.Runner(
+        executor=executor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+        skipbadfiles=True,  # default tuple matches OSError → FileNotFoundError
+    )
+    processor_instance = NanoEventsProcessor(mode="eager")
+    result = run(_bad_fileset, processor_instance=processor_instance, treename="Events")
+    assert isinstance(result, Err), f"Expected Err, got {result!r}"
+    assert result.is_err()
+    assert isinstance(result.exception, BaseException)
+
+
+@pytest.mark.parametrize(
+    "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
+)
+def test_use_result_type_run_method_ok(executor):
+    """use_result_type=True also works when calling run() directly."""
+    run = processor.Runner(
+        executor=executor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+        skipbadfiles=True,
+    )
+    processor_instance = NanoEventsProcessor(mode="eager")
+    result = run.run(
+        _good_fileset, processor_instance=processor_instance, treename="Events"
+    )
+    assert isinstance(result, Ok), f"Expected Ok, got {result!r}"
+    assert result.unwrap() is not None
+
+
+@pytest.mark.parametrize(
+    "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
+)
+def test_use_result_type_run_method_err(executor):
+    """use_result_type=True via run() returns Err for matching exception types."""
+    run = processor.Runner(
+        executor=executor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+        skipbadfiles=True,
+    )
+    processor_instance = NanoEventsProcessor(mode="eager")
+    result = run.run(
+        _bad_fileset, processor_instance=processor_instance, treename="Events"
+    )
+    assert isinstance(result, Err), f"Expected Err, got {result!r}"
+    assert isinstance(result.exception, BaseException)
+
+
+def test_err_carries_partial_value():
+    """Err.value preserves a partial accumulator passed alongside the exception."""
+    boom = ValueError("boom")
+    err = Err(boom, value={"out": "partial", "metrics": {"chunks": 3}})
+    assert err.is_err()
+    assert err.exception is boom
+    assert err.value == {"out": "partial", "metrics": {"chunks": 3}}
+
+
+def test_err_value_defaults_to_none():
+    err = Err(RuntimeError("no partial"))
+    assert err.value is None
+
+
+def test_use_result_type_err_preserves_partial_recoverable_output():
+    """When a recoverable executor surfaces a matching exception via
+    wrapped_out['exception'], __call__ returns Err(value=partial_output)
+    instead of dropping the partial."""
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+        savemetrics=True,
+        use_result_type=True,
+        skipbadfiles=(RuntimeError,),
+    )
+
+    boom = RuntimeError("simulated partial failure")
+    partial_out = {"cutflow": {"events": 42}}
+    metrics = {"chunks": 1}
+
+    def fake_run(**kwargs):
+        return Ok(
+            {
+                "out": partial_out,
+                "metrics": metrics,
+                "exception": boom,
+            }
+        )
+
+    run.run = fake_run
+    result = run(
+        {"x": {"files": {"f.root": "Events"}}},
+        processor_instance=NanoEventsProcessor(mode="eager"),
+    )
+    assert isinstance(result, Err), f"Expected Err, got {result!r}"
+    assert result.exception is boom
+    assert result.value == (partial_out, metrics)
+
+
+def test_use_result_type_recoverable_non_matching_propagates():
+    """A recoverable exception that doesn't match skipbadfiles' filter must
+    still propagate (it's a real bug, not an expected failure)."""
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+        skipbadfiles=(OSError,),  # filter doesn't include AssertionError
+    )
+
+    boom = AssertionError("real bug")
+
+    def fake_run(**kwargs):
+        return Ok({"out": {"x": 1}, "exception": boom})
+
+    run.run = fake_run
+    with pytest.raises(AssertionError, match="real bug"):
+        run(
+            {"x": {"files": {"f.root": "Events"}}},
+            processor_instance=NanoEventsProcessor(mode="eager"),
+        )
+
+
+def test_use_result_type_run_non_matching_propagates():
+    """A non-matching exception raised inside _run must propagate, not become Err."""
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+        skipbadfiles=(OSError,),
+    )
+    # An empty/invalid fileset triggers ValueError in _run; ValueError is not
+    # OSError, so it must propagate rather than be captured as Err.
+    with pytest.raises(ValueError):
+        run.run({}, processor_instance=NanoEventsProcessor(mode="eager"))
+
+
+def test_use_result_type_matches_through_exception_chain():
+    """A wrapped exception whose __cause__ matches skipbadfiles must become Err,
+    consistent with automatic_retries' chain-based matching."""
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+        use_result_type=True,
+        skipbadfiles=(OSError,),
+    )
+
+    # head=RuntimeError, cause=OSError; head doesn't match the filter but cause does.
+    cause = OSError("disk gone")
+    head = RuntimeError("processor blew up")
+    head.__cause__ = cause
+
+    def fake_run(**kwargs):
+        return Ok({"out": {"x": 1}, "exception": head})
+
+    run.run = fake_run
+    result = run(
+        {"x": {"files": {"f.root": "Events"}}},
+        processor_instance=NanoEventsProcessor(mode="eager"),
+    )
+    assert isinstance(result, Err), f"Expected Err, got {result!r}"
+    assert result.exception is head
+
+
+def test_use_result_type_requires_skipbadfiles():
+    """use_result_type=True must be paired with skipbadfiles."""
+    with pytest.raises(ValueError, match="requires skipbadfiles"):
+        processor.Runner(
+            executor=processor.IterativeExecutor(),
+            use_result_type=True,
+        )
+
+    # accepted shapes
+    processor.Runner(
+        executor=processor.IterativeExecutor(),
+        use_result_type=True,
+        skipbadfiles=True,
+    )
+    processor.Runner(
+        executor=processor.IterativeExecutor(),
+        use_result_type=True,
+        skipbadfiles=(FileNotFoundError,),
+    )
