@@ -418,31 +418,42 @@ class NanoAODSchema(BaseSchema):
 
         return nanoaod.behavior
 
-    @staticmethod
-    def to_flat_columns(events):
-        """Deconstruct ``events`` to the NanoAOD flat-branch layout.
+    @classmethod
+    def uproot_writeable(cls, events):
+        """
+        Converting a NanoAODSchema event into something that is uproot
+        writeable. Based off the discussion thread here [1]. Eager or
+        virtual events only; not supported for dask-awkward events.
+        [1] https://github.com/scikit-hep/coffea/discussions/735#discussioncomment-9646917
 
-        Record-typed collections are expanded into ``{name}_{subfield}``
-        columns for 1-d numeric and 1-d jagged-numeric subfields; jagged
-        collections also emit an ``n{name}`` counter. Scalar fields pass
-        through. Cross-reference and nested-record subfields are skipped.
+        Parameters
+        ----------
+            events : NanoAODSchema events
+                The NanoAODSchema events to be turned into something uproot-writeable
+
+        Returns
+        -------
+            out : dict
+                An uproot-writeable dictionary representing the same information as the input
+                NanoAODSchema events
         """
         out = {}
-        for name in events.fields:
-            column = events[name]
-            if column.fields:
-                wrote_any = False
-                for sub in column.fields:
-                    child = column[sub]
-                    if _is_flat_or_jagged_numeric(child):
-                        out[f"{name}_{sub}"] = awkward.to_packed(
-                            awkward.without_parameters(child)
+        for bname in events.fields:
+            if events[bname].fields:
+                out[bname] = awkward.zip(
+                    {
+                        n: awkward.to_packed(
+                            awkward.without_parameters(events[bname][n])
                         )
-                        wrote_any = True
-                if wrote_any and column.ndim >= 2:
-                    out[f"n{name}"] = awkward.to_packed(awkward.num(column))
-            elif _is_flat_or_jagged_numeric(column):
-                out[name] = awkward.to_packed(awkward.without_parameters(column))
+                        for n in events[bname].fields
+                        if not n.endswith("IdxG")
+                        and _is_flat_or_jagged_numeric(events[bname][n])
+                    }
+                )
+            else:
+                out[bname] = awkward.to_packed(
+                    awkward.without_parameters(events[bname])
+                )
         return out
 
 

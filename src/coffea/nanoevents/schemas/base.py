@@ -5,22 +5,15 @@ from coffea.nanoevents.util import concat, quote
 
 
 def _is_flat_or_jagged_numeric(array):
-    """True if ``array`` is 1-d numeric or a 1-d list of 1-d numeric.
-
-    ``awkward.type`` wraps the content in an ``ArrayType`` with a concrete
-    length for eager arrays and returns the unwrapped content for
-    dask-awkward arrays; strip the wrapper if present so the same check
-    works in both modes.
-    """
+    """True if ``array`` is 1-d numeric or a 1-d list of 1-d numeric."""
     t = awkward.type(array)
     if isinstance(t, awkward.types.ArrayType):
-        t = t.content
-    if isinstance(t, awkward.types.NumpyType):
-        return True
-    if isinstance(t, awkward.types.ListType) and isinstance(
-        t.content, awkward.types.NumpyType
-    ):
-        return True
+        if isinstance(t.content, awkward.types.NumpyType):
+            return True
+        if isinstance(t.content, awkward.types.ListType) and isinstance(
+            t.content.content, awkward.types.NumpyType
+        ):
+            return True
     return False
 
 
@@ -154,14 +147,24 @@ class BaseSchema:
 
         return base.behavior
 
-    @staticmethod
-    def to_flat_columns(events):
-        """Deconstruct ``events`` into a flat ``{branch: array}`` dict.
+    @classmethod
+    def uproot_writeable(cls, events):
+        """
+        Stub for converting schema events into something that is uproot
+        writeable. Must be overridden per schema to invert the schema-specific
+        zipping applied during construction.
 
-        Must be overridden per schema to invert the schema-specific zipping
-        applied during construction. Output is intended for columnar writers
-        (``ak.to_parquet``, ``uproot.TTree``).
+        Parameters
+        ----------
+            events : NanoEvents
+                The events to be turned into something uproot-writeable
+
+        Returns
+        -------
+            out
+                An uproot-writeable representation of the same information as the
+                input events. Concrete shape is schema-defined.
         """
         raise NotImplementedError(
-            "to_flat_columns is not implemented for this schema; override it on the subclass"
+            "uproot_writeable is not implemented for this schema; override it on the subclass"
         )
