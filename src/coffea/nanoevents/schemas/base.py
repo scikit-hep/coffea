@@ -1,20 +1,5 @@
-import awkward
-
 from coffea.nanoevents import transforms
 from coffea.nanoevents.util import concat, quote
-
-
-def _is_flat_or_jagged_numeric(array):
-    """True if ``array`` is 1-d numeric or a 1-d list of 1-d numeric."""
-    t = awkward.type(array)
-    if isinstance(t, awkward.types.ArrayType):
-        if isinstance(t.content, awkward.types.NumpyType):
-            return True
-        if isinstance(t.content, awkward.types.ListType) and isinstance(
-            t.content.content, awkward.types.NumpyType
-        ):
-            return True
-    return False
 
 
 def listarray_form(content, offsets):
@@ -150,21 +135,44 @@ class BaseSchema:
     @classmethod
     def uproot_writeable(cls, events):
         """
-        Stub for converting schema events into something that is uproot
-        writeable. Must be overridden per schema to invert the schema-specific
-        zipping applied during construction.
+        Converting BaseSchema events into something that is uproot writeable.
+        BaseSchema leaves every original branch as a top-level field, so this
+        just packs each uproot-compatible field into a dict ready for
+        ``uproot.WritableDirectory.mktree``.
+
+        Subclasses that apply non-trivial zipping during construction should
+        override this with a schema-specific inverse.
 
         Parameters
         ----------
             events : NanoEvents
-                The events to be turned into something uproot-writeable
+                The BaseSchema events to be turned into something uproot-writeable
 
         Returns
         -------
-            out
-                An uproot-writeable representation of the same information as the
-                input events. Concrete shape is schema-defined.
+            out : dict
+                An uproot-writeable dictionary representing the same information
+                as the input events
         """
-        raise NotImplementedError(
-            "uproot_writeable is not implemented for this schema; override it on the subclass"
-        )
+        import awkward as ak
+
+        def _is_compat(a):
+            """Is it a flat or 1-d jagged array?"""
+            t = ak.type(a)
+            if isinstance(t, ak.types.ArrayType):
+                if isinstance(t._content, ak.types.NumpyType):
+                    return True
+                if isinstance(t._content, ak.types.ListType) and isinstance(
+                    t._content._content, ak.types.NumpyType
+                ):
+                    return True
+            return False
+
+        def _make_packed(arr):
+            return ak.ak_to_packed.to_packed(ak.without_parameters(arr))
+
+        return {
+            bname: _make_packed(events[bname])
+            for bname in events.fields
+            if _is_compat(events[bname])
+        }

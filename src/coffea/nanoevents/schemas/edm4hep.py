@@ -1085,6 +1085,12 @@ class EDM4HEPSchema(BaseSchema):
         behavior.update(edm4hep.behavior)
         return behavior
 
+    @classmethod
+    def uproot_writeable(cls, events):
+        raise NotImplementedError(
+            f"uproot_writeable is not implemented for {cls.__name__}"
+        )
+
 
 class EDM4HEPSchema_v00_99_00(EDM4HEPSchema):
     """Schema-builder for EDM4HEP root file structure.

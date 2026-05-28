@@ -9,7 +9,7 @@ try:
 except ImportError:
     Client = None
 
-from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 
 
 def genroundtrips(genpart):
@@ -300,6 +300,8 @@ def test_file_handle_from_directory(tests_directory, mode):
 
 def test_uproot_write(tmp_path, tests_directory):
     path = f"{tests_directory}/samples/nano_dy.root"
+
+    # NanoAODSchema round-trip: collection.subfield equality after rewrite.
     orig_events = NanoEventsFactory.from_root(
         {path: "Events"}, schemaclass=NanoAODSchema, mode="eager"
     ).events()
@@ -314,12 +316,31 @@ def test_uproot_write(tmp_path, tests_directory):
         mode="eager",
     ).events()
 
-    # Checking event structure
     assert len(orig_events) == len(test_events)
     assert ak.all(orig_events.event == test_events.event)
-    # Checking jagged collection contents and their behavior
     assert ak.all(orig_events.Muon.pt == test_events.Muon.pt)
     assert ak.all(orig_events.Muon.eta == test_events.Muon.eta)
     assert ak.all(orig_events.Jet.pt == test_events.Jet.pt)
-    # Checking a per-event scalar record (MissingET)
     assert ak.all(orig_events.MET.pt == test_events.MET.pt)
+
+    # BaseSchema round-trip: flat branch equality after rewrite.
+    orig_base = NanoEventsFactory.from_root(
+        {path: "Events"}, schemaclass=BaseSchema, mode="eager"
+    ).events()
+
+    base_out_path = str(tmp_path / "baseschema_write_test.root")
+    with uproot.recreate(base_out_path) as f:
+        f.mktree("Events", BaseSchema.uproot_writeable(orig_base))
+
+    test_base = NanoEventsFactory.from_root(
+        {base_out_path: "Events"},
+        schemaclass=BaseSchema,
+        mode="eager",
+    ).events()
+
+    assert len(orig_base) == len(test_base)
+    assert ak.all(orig_base.event == test_base.event)
+    assert ak.all(orig_base.Muon_pt == test_base.Muon_pt)
+    assert ak.all(orig_base.Muon_eta == test_base.Muon_eta)
+    assert ak.all(orig_base.Jet_pt == test_base.Jet_pt)
+    assert ak.all(orig_base.MET_pt == test_base.MET_pt)

@@ -1,13 +1,7 @@
 import warnings
 
-import awkward
-
 from coffea.nanoevents import transforms
-from coffea.nanoevents.schemas.base import (
-    BaseSchema,
-    _is_flat_or_jagged_numeric,
-    zip_forms,
-)
+from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
 
 
 def _key_formatter(prefix, form_key, form, attribute):
@@ -422,8 +416,7 @@ class NanoAODSchema(BaseSchema):
     def uproot_writeable(cls, events):
         """
         Converting a NanoAODSchema event into something that is uproot
-        writeable. Based off the discussion thread here [1]. Eager or
-        virtual events only; not supported for dask-awkward events.
+        writeable. Based off the discussion thread here [1].
         [1] https://github.com/scikit-hep/coffea/discussions/735#discussioncomment-9646917
 
         Parameters
@@ -437,23 +430,35 @@ class NanoAODSchema(BaseSchema):
                 An uproot-writeable dictionary representing the same information as the input
                 NanoAODSchema events
         """
+        import awkward as ak
+
+        def _is_compat(a):
+            """Is it a flat or 1-d jagged array?"""
+            t = ak.type(a)
+            if isinstance(t, ak.types.ArrayType):
+                if isinstance(t._content, ak.types.NumpyType):
+                    return True
+                if isinstance(t._content, ak.types.ListType) and isinstance(
+                    t._content._content, ak.types.NumpyType
+                ):
+                    return True
+            return False
+
+        def _make_packed(arr):
+            return ak.ak_to_packed.to_packed(ak.without_parameters(arr))
+
         out = {}
         for bname in events.fields:
             if events[bname].fields:
-                out[bname] = awkward.zip(
+                out[bname] = ak.zip(
                     {
-                        n: awkward.to_packed(
-                            awkward.without_parameters(events[bname][n])
-                        )
+                        n: _make_packed(events[bname][n])
                         for n in events[bname].fields
-                        if not n.endswith("IdxG")
-                        and _is_flat_or_jagged_numeric(events[bname][n])
+                        if not n.endswith("IdxG") and _is_compat(events[bname][n])
                     }
                 )
             else:
-                out[bname] = awkward.to_packed(
-                    awkward.without_parameters(events[bname])
-                )
+                out[bname] = _make_packed(events[bname])
         return out
 
 
@@ -533,4 +538,18 @@ class ScoutingNanoAODSchema(NanoAODSchema):
             transforms.full_like_from_offsets_form,
             ("oScoutingFatJet", 0.0),
         ),
+        "ScoutingPhoton_m": (
+            transforms.full_like_from_offsets_form,
+            ("oScoutingPhoton", 0.0),
+        ),
+        "ScoutingPhoton_charge": (
+            transforms.full_like_from_offsets_form,
+            ("oScoutingPhoton", 0.0),
+        ),
+    }
+
+    alias_items = {
+        **NanoAODSchema.alias_items,
+        "MET_pt": "MET_fiducialGenPt",
+        "MET_phi": "MET_fiducialGenPhi",
     }

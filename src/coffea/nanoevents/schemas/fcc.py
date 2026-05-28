@@ -629,6 +629,12 @@ class FCCSchema(BaseSchema):
         behavior.update(fcc.behavior)
         return behavior
 
+    @classmethod
+    def uproot_writeable(cls, events):
+        raise NotImplementedError(
+            f"uproot_writeable is not implemented for {cls.__name__}"
+        )
+
 
 class FCCSchema_edm4hep1(EDM4HEPSchema):
     """
