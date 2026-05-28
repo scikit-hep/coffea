@@ -44,8 +44,8 @@ def test_nested_collections(events, field):
     check_fields_recursive(events, field)
 
 
-def test_uproot_write(tmp_path, tests_directory):
-    path = os.path.join(tests_directory, "samples/scouting_nano.root")
+def test_uproot_write(tmp_path):
+    path = os.path.abspath("tests/samples/scouting_nano.root")
     ScoutingNanoAODSchema.warn_missing_crossrefs = False
     orig_events = NanoEventsFactory.from_root(
         {path: "Events"}, schemaclass=ScoutingNanoAODSchema, mode="eager"

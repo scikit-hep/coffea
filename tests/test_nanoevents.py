@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import awkward as ak
@@ -298,8 +299,8 @@ def test_file_handle_from_directory(tests_directory, mode):
         assert factory.file_handle is not None
 
 
-def test_uproot_write(tmp_path, tests_directory):
-    path = f"{tests_directory}/samples/nano_dy.root"
+def test_uproot_write(tmp_path):
+    path = os.path.abspath("tests/samples/nano_dy.root")
 
     # NanoAODSchema round-trip: collection.subfield equality after rewrite.
     orig_events = NanoEventsFactory.from_root(

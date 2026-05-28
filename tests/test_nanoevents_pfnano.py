@@ -52,8 +52,8 @@ def test_nested_collections(events, field):
     check_fields_recursive(events, field)
 
 
-def test_uproot_write(tmp_path, tests_directory):
-    path = os.path.join(tests_directory, "samples/pfnano.root")
+def test_uproot_write(tmp_path):
+    path = os.path.abspath("tests/samples/pfnano.root")
     orig_events = NanoEventsFactory.from_root(
         {path: "Events"}, schemaclass=PFNanoAODSchema, mode="eager"
     ).events()
