@@ -116,3 +116,9 @@ class auto_schema(BaseSchema):
         behavior.update(base.behavior)
         behavior.update(candidate.behavior)
         return behavior
+
+    @classmethod
+    def uproot_writeable(cls, events):
+        raise NotImplementedError(
+            f"uproot_writeable is not implemented for {cls.__name__}"
+        )

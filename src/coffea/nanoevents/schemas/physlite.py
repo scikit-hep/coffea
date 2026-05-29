@@ -205,3 +205,9 @@ class PHYSLITESchema(BaseSchema):
         from coffea.nanoevents.methods import physlite
 
         return physlite.behavior
+
+    @classmethod
+    def uproot_writeable(cls, events):
+        raise NotImplementedError(
+            f"uproot_writeable is not implemented for {cls.__name__}"
+        )
