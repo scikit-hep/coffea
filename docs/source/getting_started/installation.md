@@ -34,9 +34,9 @@ or, in some cases, if both python 2 and 3 are available, you can find the python
 python3 --version
 ```
 
-coffea core functionality is routinely tested on Windows, Linux and MacOS.
-All [](./concepts.md#local-executors) are tested against all three platforms,
-however the [](./concepts.md#distributed-executors) are not routinely tested on Windows.
+coffea core functionality is routinely tested on Windows, Linux and macOS.
+All [local executors](./concepts.md#local-executors) are tested against all three platforms,
+however the [distributed executors](./concepts.md#distributed-executors) are not routinely tested on Windows.
 
 Coffea starts from v0.5.0 in the PyPI repository since before v0.5.0 it was hosted as [fnal-column-analysis-tools](https://pypi.org/project/fnal-column-analysis-tools/). If you are still using fnal-column-analysis-tools, please move to [coffea](https://pypi.org/project/coffea/)!
 
@@ -48,7 +48,7 @@ To install coffea, there are several mostly-equivalent options:
    - if you do not have administrator permissions, install as local user with `pip install --user coffea`;
    - if you prefer to not place coffea in your global environment, you can set up a `Virtual environment`;
    - if you use [Conda](https://docs.conda.io/projects/conda/en/latest/index.html), simply `conda install coffea`;
-   - or, if you like to use containers, see [](#pre-build-images) below.
+   - or, if you like to use containers, see [pre-built images](#pre-built-images) below.
 
 To update a previously installed coffea to a newer version, use: `pip install --upgrade coffea`
 Although not required, it is recommended to also [install Jupyter](https://jupyter.org/install), as it provides a more interactive development environment.
@@ -59,7 +59,7 @@ In rare cases, you may find that the `pip` executable in your path does not corr
 ## Install optional dependencies
 
 Coffea supports several optional components that require additional package installations.
-In particular, all of the [](./concepts.md#distributed-executors) require additional packages.
+In particular, all of the [distributed executors](./concepts.md#distributed-executors) require additional packages.
 The necessary dependencies can be installed easily via ``pip`` using the setuptools [extras](https://setuptools.readthedocs.io/en/latest/setuptools.html#declaring-extras-optional-features-with-their-own-dependencies) facility:
 
    - [parsl](http://parsl-project.org/) distributed executor: ``pip install coffea[parsl]``
@@ -80,7 +80,7 @@ source my_env/bin/activate
 pip install coffea
 ```
 
-(pre-build-images)=
+(pre-built-images)=
 ## Pre-built images
 
 Official Docker images are maintained at the [CoffeaTeam/af-images](https://github.com/CoffeaTeam/af-images) repository and available on DockerHub.
@@ -164,7 +164,7 @@ ls /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/
 ## Install via cvmfs
 
 Although the local installation can work anywhere, if the base environment does not already have most of the coffea dependencies, then the user-local package directory can become quite bloated.
-An option to avoid this bloat is to use a base python environment provided via [CERN LCG](https://ep-dep-sft.web.cern.ch/document/lcg-releases), which is available on any system that has the [cvmfs](https://cernvm.cern.ch/portal/filesystem) directory `/cvmfs/sft.cern.ch/` mounted.
+An option to avoid this bloat is to use a base Python environment provided via [CERN LCG](https://ep-dep-sft.web.cern.ch/document/lcg-releases), which is available on any system that has the [cvmfs](https://cernvm.cern.ch/portal/filesystem) directory `/cvmfs/sft.cern.ch/` mounted.
 Simply source a LCG release (shown here: 98python3) and install:
 
 ```bash
@@ -179,10 +179,10 @@ This method can be fragile, since the LCG-distributed packages may conflict with
 
 In some instances, it may be useful to have a self-contained environment that can be relocated.
 One use case is for users of coffea that do not have access to a distributed compute cluster that is compatible with
-one of the coffea [](./concepts.md#distributed-executors). Here, a fallback solution can be found by creating traditional batch jobs (e.g. condor)
-which then use coffea [](./concepts.md#local-executors), possibly multi-threaded. In this case, often the user-local python package directory
+one of the coffea [distributed executors](./concepts.md#distributed-executors). Here, a fallback solution can be found by creating traditional batch jobs (e.g. HTCondor)
+which then use coffea [local executors](./concepts.md#local-executors), possibly multi-threaded. In this case, often the user-local Python package directory
 is not available from batch workers, so a portable python environment needs to be created.
-Annoyingly, python virtual environments are not portable by default due to several hardcoded paths in specific locations, however
+Annoyingly, Python virtual environments are not portable by default due to several hardcoded paths in specific locations, however
 there are two workarounds presented below. In both cases, we make a virtual environment that starts from a non-system base
 python environment to lower the amount of needed installations in the virtual environment. One can always start a venv from scratch,
 but the number of coffea dependencies makes the installation rather large, up to a few hundred MB.
@@ -190,7 +190,7 @@ but the number of coffea dependencies makes the installation rather large, up to
 
 ### Container-based
 
-If we start from one of the singularity containers from the [](#pre-build-images) section, we don't have to install nearly as much
+If we start from one of the Singularity containers from the [pre-built images](#pre-built-images) section, we don't have to install nearly as much
 software in our virtual environment, letting the container image take care of the majority of the codebase. For example, the following
 code starts from the `coffea-dask-almalinux8` image and adds a special python module that is not included in the base image:
 
@@ -203,7 +203,7 @@ python -m pip install --ignore-installed h5py
 ```
 
 This creates a virtual environment `myenv` and a directory with the same name where the extra python module `h5py` will be
-installed. At this point, the terminal prompt will look like `(myenv) Singularity>`, indicating you are inside a singularity
+installed. At this point, the terminal prompt will look like `(myenv) Singularity>`, indicating you are inside a Singularity
 image and have `myenv` activated. Next time you log in, only lines 1, 2, and 4 need to be re-executed.
 
 If using HTCondor for job submission, you can create a tarball of the virtual environment directory and then submit condor

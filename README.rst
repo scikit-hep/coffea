@@ -39,7 +39,7 @@ Basic tools and wrappers for enabling not-too-alien syntax when running columnar
 
 coffea is a prototype package for pulling together all the typical needs
 of a high-energy collider physics (HEP) experiment analysis using the scientific
-python ecosystem. It makes use of `uproot <https://github.com/scikit-hep/uproot4>`_
+Python ecosystem. It makes use of `uproot <https://github.com/scikit-hep/uproot4>`_
 and `awkward-array <https://github.com/scikit-hep/awkward-1.0>`_ to provide an
 array-based syntax for manipulating HEP event data in an efficient and numpythonic
 way. There are sub-packages that implement histogramming, plotting, and look-up
@@ -58,7 +58,7 @@ the need to alter or otherwise adapt the analysis code itself.
 coffea is a HEP community project collaborating with `iris-hep <http://iris-hep.org/>`_
 and is currently a prototype. We welcome input to improve its quality as we progress towards
 a sensible refactorization into the scientific python ecosystem and a first release. Please
-feel free to contribute at our `github repo <https://github.com/scikit-hep/coffea>`_!
+feel free to contribute at our `GitHub repo <https://github.com/scikit-hep/coffea>`_!
 
 .. inclusion-marker-2-do-not-remove
 

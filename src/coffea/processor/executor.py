@@ -778,7 +778,7 @@ class DaskExecutor(ExecutorBase):
             items in a tuple (item, heavy_input) that is passed to function.
         function_name : str, optional
             Name of the function being passed
-        use_dataframes: bool, optional
+        use_dataframes : bool, optional
             Retrieve output as a distributed Dask DataFrame (default: False).
             The outputs of individual tasks must be Pandas DataFrames.
 

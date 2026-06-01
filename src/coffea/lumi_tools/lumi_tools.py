@@ -61,7 +61,7 @@ class LumiData:
     ----------
         lumi_csv : str
             The path to the luminosity csv file to read from. Generally, this is the output file from brilcalc.
-        is_inst_lumi: bool, default False
+        is_inst_lumi : bool, default False
             If True, treats the values read in from ``lumi_csv`` as average instantaneous luminosities, instead of integrated luminosities.
 
     The values are extracted from the csv output as returned by brilcalc_, e.g. with a command such as::
@@ -349,7 +349,7 @@ class LumiList:
             Vectorized list of run numbers
         lumis : numpy.ndarray, dask_awkward.Array
             Vectorized list of lumiSection values
-        delayed: bool
+        delayed : bool
             Is this LumiList in delayed mode or not.
     """
 

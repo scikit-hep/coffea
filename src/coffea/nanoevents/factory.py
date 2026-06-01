@@ -270,7 +270,7 @@ class NanoEventsFactory:
             file : a string or dict input to ``uproot.open()`` or ``uproot.dask()`` or a ``uproot.reading.ReadOnlyDirectory``
                 The filename or dict of filenames including the treepath (as it would be passed directly to ``uproot.open()``
                 or ``uproot.dask()``) already opened file using e.g. ``uproot.open()``.
-            mode:
+            mode : str
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
             treepath : str, optional
                 Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``
@@ -279,9 +279,9 @@ class NanoEventsFactory:
                 Start at this entry offset in the tree (default 0)
             entry_stop : int, optional (eager and virtual mode only)
                 Stop at this entry offset in the tree (default end of tree)
-            steps_per_file: int, optional
+            steps_per_file : int, optional
                 Partition files into this many steps (previously "chunks")
-            preload (None, Callable, or Iterable[str]):
+            preload : Callable or Iterable[str] or None
                 Specifies which branches/columns to preload in bulk. Only works in eager and virtual mode.
                 Can be a callable passed to ``tree.arrays`` as the ``filter_branch`` argument,
                 or an iterable of branch name strings to preload.
@@ -709,7 +709,7 @@ class NanoEventsFactory:
                 A schema class deriving from `BaseSchema` and implementing the desired view of the file
             metadata : dict
                 Arbitrary metadata to add to the `base.NanoEvents` object
-            mode:
+            mode : str
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
         """
