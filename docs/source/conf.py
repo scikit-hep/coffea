@@ -2,7 +2,7 @@
 #
 # This file only contains a selection of the most common options. For a full
 # list see the documentation:
-# http://www.sphinx-doc.org/en/master/config
+# https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 # -- Path setup --------------------------------------------------------------
 
@@ -89,7 +89,7 @@ def linkcode_resolve(domain, info: dict):
     except TypeError:
         # skip property or other type that inspect doesn't like
         return None
-    url = f"http://github.com/scikit-hep/coffea/blob/{githash}/src/coffea/{relpath}#L{lineno}"
+    url = f"https://github.com/scikit-hep/coffea/blob/{githash}/src/coffea/{relpath}#L{lineno}"
     return url
 
 
@@ -104,6 +104,10 @@ intersphinx_mapping = {
 }
 
 napoleon_preprocess_types = True
+
+autodoc_type_aliases = {
+    "awkward.Array": "ak.Array",
+}
 
 napoleon_type_aliases = {
     "awkward.Array": ":class:`awkward.Array <ak.Array>`",
@@ -238,6 +242,27 @@ texinfo_documents = [
         "Miscellaneous",
     ),
 ]
+
+
+def _fix_awkward_intersphinx_aliases(app):
+    """Point Awkward's legacy inventory aliases at their canonical anchors."""
+    inventories = [app.env.intersphinx_inventory]
+    inventories.extend(app.env.intersphinx_named_inventory.values())
+    for inventory in inventories:
+        for entries in inventory.values():
+            for name, (project, version, uri, display_name) in entries.items():
+                if uri.startswith("https://awkward-array.org/doc/main/"):
+                    entries[name] = (
+                        project,
+                        version,
+                        uri.replace("#awkward.", "#ak."),
+                        display_name,
+                    )
+
+
+def setup(app):
+    app.connect("builder-inited", _fix_awkward_intersphinx_aliases, priority=600)
+
 
 # Documents to append as an appendix to all manuals.
 #

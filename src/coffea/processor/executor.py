@@ -833,7 +833,7 @@ class DaskExecutor(ExecutorBase):
 
         if self.heavy_input is not None:
             # client.scatter is not robust against adaptive clusters
-            # https://github.com/CoffeaTeam/coffea/issues/465
+            # https://github.com/scikit-hep/coffea/issues/465
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", "Large object of size")
                 items = list(

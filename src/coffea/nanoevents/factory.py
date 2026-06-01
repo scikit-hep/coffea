@@ -307,7 +307,7 @@ class NanoEventsFactory:
                 https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html.
             interpretation_executor : Any, optional
                 Executor with a ``submit`` method used for interpretation tasks. See
-                https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L113.
+                https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html.
 
         Returns
         -------

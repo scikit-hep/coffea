@@ -60,9 +60,9 @@ In rare cases, you may find that the `pip` executable in your path does not corr
 
 Coffea supports several optional components that require additional package installations.
 In particular, all of the [distributed executors](./concepts.md#distributed-executors) require additional packages.
-The necessary dependencies can be installed easily via ``pip`` using the setuptools [extras](https://setuptools.readthedocs.io/en/latest/setuptools.html#declaring-extras-optional-features-with-their-own-dependencies) facility:
+The necessary dependencies can be installed easily via ``pip`` using the setuptools [optional dependencies](https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies) facility:
 
-   - [parsl](http://parsl-project.org/) distributed executor: ``pip install coffea[parsl]``
+   - [parsl](https://parsl-project.org/) distributed executor: ``pip install coffea[parsl]``
    - [dask](https://distributed.dask.org/en/latest/) distributed executor: ``pip install coffea[dask]``
    - [dask-awkward](https://dask-awkward.readthedocs.io/en/stable/) and [dask-histogram](https://dask-histogram.readthedocs.io/en/stable/) support: ``pip install coffea[dask-awkward]``
    - [TaskVine](https://ccl.cse.nd.edu/software/taskvine/) distributed executor: see the installation guide in their docs and use the `TaskVineExecutor` in coffea.
@@ -164,7 +164,7 @@ ls /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/
 ## Install via cvmfs
 
 Although the local installation can work anywhere, if the base environment does not already have most of the coffea dependencies, then the user-local package directory can become quite bloated.
-An option to avoid this bloat is to use a base Python environment provided via [CERN LCG](https://ep-dep-sft.web.cern.ch/document/lcg-releases), which is available on any system that has the [cvmfs](https://cernvm.cern.ch/portal/filesystem) directory `/cvmfs/sft.cern.ch/` mounted.
+An option to avoid this bloat is to use a base Python environment provided via [CERN LCG](https://lcginfo.cern.ch/), which is available on any system that has the [CVMFS](https://cvmfs.readthedocs.io/en/stable/) directory `/cvmfs/sft.cern.ch/` mounted.
 Simply source a LCG release (shown here: 98python3) and install:
 
 ```bash
@@ -207,7 +207,7 @@ installed. At this point, the terminal prompt will look like `(myenv) Singularit
 image and have `myenv` activated. Next time you log in, only lines 1, 2, and 4 need to be re-executed.
 
 If using HTCondor for job submission, you can create a tarball of the virtual environment directory and then submit condor
-jobs using the `+SingularityImage` [HTCondor option](https://htcondor.readthedocs.io/en/latest/admin-manual/singularity-support.html).
+jobs using the `+SingularityImage` [HTCondor option](https://htcondor.readthedocs.io/en/latest/admin-manual/ep-policy-configuration.html#container-vm-support-docker-apptainer-singularity-and-xen-vmware).
 Note that this option is not enabled by default in HTCondor installations, so you may need to talk to your site administrator to be
 able to use this option. You will also need to create a small wrapper script to re-source the environment to have the job use the
 same environment as your interactive container.
@@ -226,7 +226,7 @@ NAME=coffeaenv
 LCG=/cvmfs/sft.cern.ch/lcg/views/LCG_98python3/x86_64-centos7-gcc9-opt
 
 source $LCG/setup.sh
-# following https://aarongorka.com/blog/portable-virtualenv/, an alternative is https://github.com/pantsbuild/pex
+# following https://aarongorka.com/blog/portable-virtualenv/, an alternative is https://github.com/pex-tool/pex
 python -m venv --copies $NAME
 source $NAME/bin/activate
 LOCALPATH=$NAME$(python -c 'import sys; print(f"/lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages")')
