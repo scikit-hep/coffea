@@ -126,5 +126,10 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
             )
             for key, arr in kwargs.items()
         }
+
+        if self.device.type == "cuda":
+            args = [arr.cuda() for arr in args]
+            kwargs = {key: arr.cuda() for key, arr in kwargs.items()}
+
         with torch.no_grad():
             return self.model(*args, **kwargs).detach().numpy()
