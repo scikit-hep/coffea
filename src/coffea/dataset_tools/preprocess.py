@@ -600,7 +600,7 @@ def get_parquet_form_uuid_steps(
         form_json = None
         form_hash = None
         if save_form:
-            form = the_file["compressed_form"]
+            form = the_file["form"]
             form_str = form.to_json()
             # the function cache needs to be popped if present to prevent memory growth
             if hasattr(dask.base, "function_cache"):
