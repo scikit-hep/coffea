@@ -1,11 +1,13 @@
 import contextlib
 import copy
 import json
+from functools import partial
 from pathlib import Path
 
 import awkward
 import pytest
 import uproot
+from uproot._util import no_filter
 from uproot.exceptions import KeyInFileError
 
 from coffea.dataset_tools import (
@@ -17,16 +19,19 @@ from coffea.dataset_tools import (
     max_chunks_per_file,
     max_files,
     preprocess,
+    preprocess_rntuple,
+    preprocess_root,
     slice_chunks,
     slice_files,
     split_fileset,
 )
 from coffea.dataset_tools.filespec import (
     DataGroupSpec,
+    PreprocessedFiles,
 )
 from coffea.nanoevents import BaseSchema, NanoAODSchema
 from coffea.processor.test_items import NanoEventsProcessor, NanoTestProcessor
-from coffea.util import decompress_form
+from coffea.util import _is_interpretable, decompress_form
 
 dask_awkward = pytest.importorskip("dask_awkward")
 
@@ -749,6 +754,58 @@ def test_preprocess_calculate_form(dask_client, preprocess_legacy_root):
             )
 
 
+def test_preprocess_rntuple():
+    """RNTuple .root files are preprocessed via preprocess_rntuple, auto-detected by
+    preprocess_root, and preprocess_rntuple rejects TTree files.
+
+    Uses the synchronous scheduler (RNTuple preprocessing does not require a distributed
+    client and this keeps the test fast and deterministic).
+    """
+    rntuple_file = "tests/samples/nano_dy_rntuple.root"
+    rntuple_fileset = DataGroupSpec({"ZJets": {"files": {rntuple_file: "Events"}}})
+
+    available, _updated = preprocess_rntuple(
+        rntuple_fileset, step_size=15, save_form=True, scheduler="synchronous"
+    )
+
+    dataset = available["ZJets"]
+    assert isinstance(dataset.files, PreprocessedFiles)
+    spec = dataset.files[rntuple_file]
+    assert spec.num_entries == 40
+    assert spec.steps == [[0, 14], [14, 28], [28, 40]]
+
+    # the stored union form matches the form uproot produces under the same interpretable-branch
+    # filter that preprocessing applies (which, for RNTuples, drops _collection* subfields)
+    raw_form = uproot.dask(
+        {rntuple_file: "Events"},
+        open_files=False,
+        ak_add_doc={"__doc__": "title", "typename": "typename"},
+        filter_name=no_filter,
+        filter_typename=no_filter,
+        filter_branch=partial(_is_interpretable, emit_warning=False),
+    ).layout.form.to_json()
+    assert decompress_form(dataset.compressed_form) == raw_form
+
+    # preprocess_root auto-detects the RNTuple and yields the same steps
+    available_auto, _ = preprocess_root(
+        DataGroupSpec({"ZJets": {"files": {rntuple_file: "Events"}}}),
+        step_size=15,
+        save_form=False,
+        scheduler="synchronous",
+    )
+    auto_spec = available_auto["ZJets"].files[rntuple_file]
+    assert auto_spec.steps == [[0, 14], [14, 28], [28, 40]]
+
+    # preprocess_rntuple must reject a TTree file
+    ttree_fileset = DataGroupSpec(
+        {"ZJets": {"files": {"tests/samples/nano_dy.root": "Events"}}}
+    )
+    with pytest.raises(ValueError, match="require_rntuple"):
+        preprocess_rntuple(
+            ttree_fileset, step_size=15, save_form=False, scheduler="synchronous"
+        )
+
+
 @pytest.mark.dask_client
 def test_preprocess_failed_file(dask_client):
     with dask_client.as_current() as _, pytest.raises(FileNotFoundError):
@@ -948,6 +1005,22 @@ def test_filter_files(the_fileset):
         assert filtered_files == DataGroupSpec(target)
     else:
         assert filtered_files == target
+
+
+def test_filter_files_returns_preprocessed_files():
+    """Regression (B1/T3): filtering a preprocessed DataGroupSpec keeps each dataset's
+    files as a PreprocessedFiles (all surviving files are concrete), and empty files are
+    removed."""
+    filtered = filter_files(DataGroupSpec(_updated_result))
+    assert isinstance(filtered, DataGroupSpec)
+    for name, dataset in filtered.items():
+        assert isinstance(
+            dataset.files, PreprocessedFiles
+        ), f"{name} files should be PreprocessedFiles, got {type(dataset.files).__name__}"
+        # the empty file present in _updated_result must have been filtered out
+        assert all(
+            spec.num_entries and spec.num_entries > 0 for spec in dataset.files.values()
+        )
 
 
 @pytest.mark.parametrize(
