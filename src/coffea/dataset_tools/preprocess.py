@@ -30,6 +30,108 @@ from coffea.util import (
 )
 
 
+def _even_steps(num_entries: int, target_step_size: int) -> numpy.ndarray:
+    """Split ``num_entries`` into as-even-as-possible ``[start, stop]`` steps of ~target size."""
+    n_steps_target = max(round(num_entries / target_step_size), 1)
+    actual_step_size = math.ceil(num_entries / n_steps_target)
+    return numpy.array(
+        [
+            [i * actual_step_size, min((i + 1) * actual_step_size, num_entries)]
+            for i in range(n_steps_target)
+        ],
+        dtype="int64",
+    )
+
+
+def _aligned_steps(
+    boundaries,
+    target_step_size: int,
+    step_size_safety_factor: float,
+    file_label: str,
+    mode_label: str,
+) -> numpy.ndarray:
+    """Build ``[start, stop]`` steps that snap to natural boundaries (TTree clusters, RNTuple
+    cluster summaries, or parquet row groups).
+
+    ``boundaries`` is the increasing sequence of absolute entry offsets at which a step is
+    allowed to end, with the final element equal to ``num_entries``. Steps accumulate
+    boundaries until at least ``target_step_size`` entries are covered. ``mode_label`` is the
+    name of the user-facing option (``align_clusters`` or ``use_row_groups``) used in the
+    over-size warning.
+    """
+    out = [0]
+    for c in boundaries:
+        if c >= out[-1] + target_step_size:
+            out.append(c)
+    if boundaries[-1] != out[-1]:
+        out.append(boundaries[-1])
+    out = numpy.array(out, dtype="int64")
+    out = numpy.stack((out[:-1], out[1:]), axis=1)
+
+    step_mask = out[:, 1] - out[:, 0] > (1 + step_size_safety_factor) * target_step_size
+    if numpy.any(step_mask):
+        warnings.warn(
+            f"In file {file_label}, steps: {out[step_mask]} with {mode_label}=True are "
+            f"{step_size_safety_factor*100:.0f}% larger than target "
+            f"step size: {target_step_size}!"
+        )
+    return out
+
+
+def _rntuple_cluster_boundaries(rntuple, num_entries: int) -> list[int]:
+    """Absolute entry offsets at RNTuple cluster boundaries, terminating at ``num_entries``."""
+    boundaries = [cluster.num_first_entry for cluster in rntuple.cluster_summaries]
+    boundaries.append(num_entries)
+    return boundaries
+
+
+def _union_form_jsonstr(forms: list) -> str | None:
+    """Compute the union form (as a JSON string) over a list of awkward forms.
+
+    The input list is consumed. Returns None if the list is empty. Mirrors the merging of
+    flat-tuple-like schemas used when building a dataset's union form across files.
+    """
+    union_array = None
+    while len(forms):
+        new_array = awkward.Array(forms.pop().length_zero_array())
+        if union_array is None:
+            union_array = new_array
+        else:
+            union_array = awkward.to_packed(
+                awkward.merge_union_of_records(
+                    awkward.concatenate([union_array, new_array]), axis=0
+                )
+            )
+            union_array.layout.parameters.update(new_array.layout.parameters)
+    if union_array is None:
+        return None
+
+    union_form = union_array.layout.form
+    for icontent, content in enumerate(union_form.contents):
+        if isinstance(content, awkward.forms.IndexedOptionForm):
+            if (
+                not isinstance(content.content, awkward.forms.NumpyForm)
+                or content.content.primitive != "bool"
+            ):
+                raise ValueError(
+                    "IndexedOptionArrays can only contain NumpyArrays of "
+                    "bools in mergers of flat-tuple-like schemas!"
+                )
+            parameters = (
+                content.content.parameters.copy()
+                if content.content.parameters is not None
+                else {}
+            )
+            # re-create IndexOptionForm with parameters of lower level array
+            union_form.contents[icontent] = awkward.forms.IndexedOptionForm(
+                content.index,
+                content.content,
+                parameters=parameters,
+                form_key=content.form_key,
+            )
+    return union_form.to_json()
+
+
 def get_steps(
     normed_files: awkward.Array | dask_awkward.Array,
     step_size: int | None = None,
@@ -41,6 +143,7 @@ def get_steps(
     step_size_safety_factor: float = 0.5,
     uproot_options: dict = {},
     legacy_form_key: bool = True,
+    require_rntuple: bool = False,
 ) -> awkward.Array | dask_awkward.Array:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -69,6 +172,9 @@ def get_steps(
         legacy_form_key : bool, default True
             Use "form" for the compressed form key in the output for backwards compatibility.
             Set to False to use "compressed_form" instead.
+        require_rntuple : bool, default False
+            If True, require every object to be an RNTuple and raise a ValueError otherwise.
+            If False, TTree and RNTuple objects are auto-detected and handled transparently.
 
     Returns
     -------
@@ -91,21 +197,42 @@ def get_steps(
             else:
                 raise e
 
+        is_rntuple = isinstance(tree, uproot.behaviors.RNTuple.HasFields)
+        if require_rntuple and not is_rntuple:
+            raise ValueError(
+                f"require_rntuple=True but {arg.object_path!r} in {arg.file!r} is a "
+                f"{type(tree).__name__}, not an RNTuple."
+            )
+
         num_entries = tree.num_entries
 
         form_json = None
         form_hash = None
         if save_form:
-            form_str = uproot.dask(
-                tree,
-                ak_add_doc={"__doc__": "title", "typename": "typename"},
-                filter_name=no_filter,
-                filter_typename=no_filter,
-                filter_branch=partial(_is_interpretable, emit_warning=False),
-            ).layout.form.to_json()
+            if is_rntuple:
+                # uproot.dask cannot build a form from an already-opened RNTuple object, so
+                # the file/object spec must be passed (it does not re-read event data here).
+                form_dask = uproot.dask(
+                    {arg.file: arg.object_path},
+                    open_files=False,
+                    full_paths=True,
+                    ak_add_doc={"__doc__": "title", "typename": "typename"},
+                    filter_name=no_filter,
+                    filter_typename=no_filter,
+                    filter_branch=partial(_is_interpretable, emit_warning=False),
+                )
+            else:
+                form_dask = uproot.dask(
+                    tree,
+                    ak_add_doc={"__doc__": "title", "typename": "typename"},
+                    filter_name=no_filter,
+                    filter_typename=no_filter,
+                    filter_branch=partial(_is_interpretable, emit_warning=False),
+                )
+            form_str = form_dask.layout.form.to_json()
             # the function cache needs to be popped if present to prevent memory growth
             dask = _import_dask()
-            if hasattr(dask.base, "function_cache"):
+            if getattr(dask.base, "function_cache", None):
                 dask.base.function_cache.popitem()
 
             form_hash = hashlib.md5(form_str.encode("utf-8")).hexdigest()
@@ -134,40 +261,19 @@ def get_steps(
 
         if out_uuid != file_uuid or recalculate_steps:
             if align_clusters:
-                clusters = tree.common_entry_offsets()
-                out = [0]
-                for c in clusters:
-                    if c >= out[-1] + target_step_size:
-                        out.append(c)
-                if clusters[-1] != out[-1]:
-                    out.append(clusters[-1])
-                out = numpy.array(out, dtype="int64")
-                out = numpy.stack((out[:-1], out[1:]), axis=1)
-
-                step_mask = (
-                    out[:, 1] - out[:, 0]
-                    > (1 + step_size_safety_factor) * target_step_size
+                if is_rntuple:
+                    boundaries = _rntuple_cluster_boundaries(tree, num_entries)
+                else:
+                    boundaries = tree.common_entry_offsets()
+                out = _aligned_steps(
+                    boundaries,
+                    target_step_size,
+                    step_size_safety_factor,
+                    arg.file,
+                    "align_clusters",
                 )
-                if numpy.any(step_mask):
-                    warnings.warn(
-                        f"In file {arg.file}, steps: {out[step_mask]} with align_clusters=True are "
-                        f"{step_size_safety_factor*100:.0f}% larger than target "
-                        f"step size: {target_step_size}!"
-                    )
-
             else:
-                n_steps_target = max(round(num_entries / target_step_size), 1)
-                actual_step_size = math.ceil(num_entries / n_steps_target)
-                out = numpy.array(
-                    [
-                        [
-                            i * actual_step_size,
-                            min((i + 1) * actual_step_size, num_entries),
-                        ]
-                        for i in range(n_steps_target)
-                    ],
-                    dtype="int64",
-                )
+                out = _even_steps(num_entries, target_step_size)
 
             out_uuid = file_uuid
             out_steps = out.tolist()
@@ -413,7 +519,7 @@ def preprocess_legacy(
         ):
             # skip trivially filled or empty files
             form = awkward.forms.from_json(decompress_form(formstr))
-            if num_entries >= 0 and set(form.fields) != _trivial_file_fields:
+            if set(form.fields) != _trivial_file_fields:
                 dataset_forms.append(form)
             else:
                 warnings.warn(
@@ -425,46 +531,7 @@ def preprocess_legacy(
                     ", by default, removes empty files each dataset in a fileset."
                 )
 
-        union_array = None
-        union_form_jsonstr = None
-        while len(dataset_forms):
-            new_array = awkward.Array(dataset_forms.pop().length_zero_array())
-            if union_array is None:
-                union_array = new_array
-            else:
-                union_array = awkward.to_packed(
-                    awkward.merge_union_of_records(
-                        awkward.concatenate([union_array, new_array]), axis=0
-                    )
-                )
-                union_array.layout.parameters.update(new_array.layout.parameters)
-        if union_array is not None:
-            union_form = union_array.layout.form
-
-            for icontent, content in enumerate(union_form.contents):
-                if isinstance(content, awkward.forms.IndexedOptionForm):
-                    if (
-                        not isinstance(content.content, awkward.forms.NumpyForm)
-                        or content.content.primitive != "bool"
-                    ):
-                        raise ValueError(
-                            "IndexedOptionArrays can only contain NumpyArrays of "
-                            "bools in mergers of flat-tuple-like schemas!"
-                        )
-                    parameters = (
-                        content.content.parameters.copy()
-                        if content.content.parameters is not None
-                        else {}
-                    )
-                    # re-create IndexOptionForm with parameters of lower level array
-                    union_form.contents[icontent] = awkward.forms.IndexedOptionForm(
-                        content.index,
-                        content.content,
-                        parameters=parameters,
-                        form_key=content.form_key,
-                    )
-
-            union_form_jsonstr = union_form.to_json()
+        union_form_jsonstr = _union_form_jsonstr(dataset_forms)
 
         files_available = {
             item["file"]: {
@@ -567,7 +634,7 @@ def get_parquet_form_uuid_steps(
         file_exceptions : Exception | Warning | tuple[Exception | Warning], default (OSError,)
             What exceptions to catch when skipping bad files.
         save_form : bool, default False
-            Extract the form of the parquet file so we can skip opening files later.
+            Extract the form from the parquet metadata so we can skip opening files later.
         step_size_safety_factor : float, default 0.5
             When using use_row_groups, if a resulting step is larger than step_size by this factor
             warn the user that the resulting steps may be highly irregular.
@@ -596,8 +663,11 @@ def get_parquet_form_uuid_steps(
         form_json = None
         form_hash = None
         if save_form:
+            # parquet metadata already carries the form; reading it builds no dask graph,
+            # so (unlike the TTree/RNTuple path) there is no function cache to pop here.
             form = the_file["form"]
             form_str = form.to_json()
+
             form_hash = hashlib.md5(form_str.encode("utf-8")).hexdigest()
             form_json = compress_form(form_str)
 
@@ -624,41 +694,17 @@ def get_parquet_form_uuid_steps(
 
         if out_uuid != file_uuid or recalculate_steps:
             if use_row_groups:
-                row_group_entries = the_file["col_counts"]
-                out = [0]
-                this_offset = 0
-                for c in row_group_entries:
-                    this_offset += c
-                    if this_offset >= out[-1] + target_step_size:
-                        out.append(this_offset)
-                if this_offset != out[-1]:
-                    out.append(this_offset)
-                out = numpy.array(out, dtype="int64")
-                out = numpy.stack((out[:-1], out[1:]), axis=1)
-
-                step_mask = (
-                    out[:, 1] - out[:, 0]
-                    > (1 + step_size_safety_factor) * target_step_size
+                # cumulative row counts give the absolute offset at each row-group boundary
+                boundaries = numpy.cumsum(the_file["col_counts"]).tolist()
+                out = _aligned_steps(
+                    boundaries,
+                    target_step_size,
+                    step_size_safety_factor,
+                    arg.file,
+                    "use_row_groups",
                 )
-                if numpy.any(step_mask):
-                    warnings.warn(
-                        f"In file {arg.file}, steps: {out[step_mask]} with use_row_groups=True are "
-                        f"{step_size_safety_factor*100:.0f}% larger than target "
-                        f"step size: {target_step_size}!"
-                    )
             else:
-                n_steps_target = max(round(num_entries / target_step_size), 1)
-                actual_step_size = math.ceil(num_entries / n_steps_target)
-                out = numpy.array(
-                    [
-                        [
-                            i * actual_step_size,
-                            min((i + 1) * actual_step_size, num_entries),
-                        ]
-                        for i in range(n_steps_target)
-                    ],
-                    dtype="int64",
-                )
+                out = _even_steps(num_entries, target_step_size)
 
             out_uuid = file_uuid
             out_steps = out.tolist()
@@ -722,6 +768,9 @@ def preprocess_root(
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
 
+    Both TTree and RNTuple objects are auto-detected and handled; use :func:`preprocess_rntuple`
+    if you want to require that every object is an RNTuple.
+
     Parameters
     ----------
         datagroupspec : DataGroupSpec
@@ -773,6 +822,85 @@ def preprocess_root(
         filetype_options=uproot_options,
         step_size_safety_factor=step_size_safety_factor,
         allow_empty_datasets=allow_empty_datasets,
+    )
+
+
+def preprocess_rntuple(
+    datagroupspec: DataGroupSpec,
+    step_size: None | int = None,
+    align_clusters: bool = False,
+    recalculate_steps: bool = False,
+    files_per_batch: int = 1,
+    skip_bad_files: bool = False,
+    file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
+    save_form: bool = True,
+    scheduler: None | Callable | str = None,
+    uproot_options: dict = {},
+    step_size_safety_factor: float = 0.5,
+    allow_empty_datasets: bool = False,
+) -> tuple[DataGroupSpec, DataGroupSpec]:
+    """
+    Preprocess datasets of ROOT files containing RNTuples, determining the steps for each file.
+
+    This is the RNTuple-specific counterpart to :func:`preprocess_root` (which is implicitly
+    TTree-oriented) and :func:`preprocess_parquet`. It requires every object to be an RNTuple
+    and raises a ValueError if a TTree is encountered, making it useful to assert the intended
+    file type. ``preprocess`` and ``preprocess_root`` already auto-detect and handle RNTuples
+    transparently, so this function is primarily for RNTuple-only workflows that want the
+    stricter contract.
+
+    Parameters
+    ----------
+        datagroupspec : DataGroupSpec
+            The set of datasets whose files will be preprocessed.
+        step_size : int or None, default None
+            If specified, the size of the steps to make when analyzing the input files.
+        align_clusters : bool, default False
+            Round to the RNTuple cluster boundaries when chunks are specified. Reduces data
+            transfer in analysis.
+        recalculate_steps : bool, default False
+            If steps are present in the input normed files, force the recalculation of those steps,
+            instead of only recalculating the steps if the uuid has changed.
+        files_per_batch : int, default 1
+            The number of files to preprocess in a single batch.
+            Large values will result in fewer dask tasks but each task will have to do more work.
+        skip_bad_files : bool, default False
+            Instead of failing, catch exceptions specified by file_exceptions and return null data.
+        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (OSError,)
+            What exceptions to catch when skipping bad files.
+        save_form : bool, default True
+            Extract the form of the RNTuple from each file in each dataset, creating the union of the forms over the dataset.
+        scheduler : None or Callable or str, default None
+            Specifies the scheduler that dask should use to execute the preprocessing task graph.
+        uproot_options : dict, default {}
+            Options to pass to get_steps for opening files with uproot.
+        step_size_safety_factor : float, default 0.5
+            When using align_clusters, if a resulting step is larger than step_size by this factor
+            warn the user that the resulting steps may be highly irregular.
+        allow_empty_datasets : bool, default False
+            When a dataset query comes back completely empty, this is normally considered a processing error.
+            Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
+    Returns
+    -------
+        out_available : DataGroupSpec
+            The subset of files in each dataset that were successfully preprocessed, organized by dataset.
+        out_updated : DataGroupSpec
+            The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
+    """
+    return _preprocess_pydantic(
+        datagroupspec=datagroupspec,
+        step_size=step_size,
+        use_alignment_boundaries=align_clusters,
+        recalculate_steps=recalculate_steps,
+        files_per_batch=files_per_batch,
+        skip_bad_files=skip_bad_files,
+        file_exceptions=file_exceptions,
+        save_form=save_form,
+        scheduler=scheduler,
+        filetype_options=uproot_options,
+        step_size_safety_factor=step_size_safety_factor,
+        allow_empty_datasets=allow_empty_datasets,
+        require_rntuple=True,
     )
 
 
@@ -856,6 +984,7 @@ def _preprocess_pydantic(
     filetype_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
+    require_rntuple: bool = False,
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Internal function to preprocess either ROOT or parquet DatasetSpecs in a DataGroupSpec.
@@ -909,6 +1038,8 @@ def _preprocess_pydantic(
         raise ValueError(
             f"_preprocess_pydantic expects a DataGroupSpec, got {type(datagroupspec)}"
         )
+    if len(datagroupspec) == 0:
+        return DataGroupSpec({}), DataGroupSpec({})
 
     dask = _import_dask()
     dask_awkward = _import_dask_awkward()
@@ -956,6 +1087,7 @@ def _preprocess_pydantic(
                 step_size_safety_factor=step_size_safety_factor,
                 legacy_form_key=False,  # in the pydantic preprocess function, the output form key is always "compressed_form", "form" is a method to extract the uncompressed form
                 uproot_options=filetype_options,
+                require_rntuple=require_rntuple,
                 meta=dask_awkward.lib.core.empty_typetracer(),
             )
         elif info.format == "parquet":
@@ -1037,7 +1169,7 @@ def _preprocess_pydantic(
         ):
             # skip trivially filled or empty files
             form = awkward.forms.from_json(decompress_form(formstr))
-            if num_entries >= 0 and set(form.fields) != _trivial_file_fields:
+            if set(form.fields) != _trivial_file_fields:
                 dataset_forms.append(form)
             else:
                 warnings.warn(
@@ -1049,46 +1181,7 @@ def _preprocess_pydantic(
                     ", by default, removes empty files each dataset in a fileset."
                 )
 
-        union_array = None
-        union_form_jsonstr = None
-        while len(dataset_forms):
-            new_array = awkward.Array(dataset_forms.pop().length_zero_array())
-            if union_array is None:
-                union_array = new_array
-            else:
-                union_array = awkward.to_packed(
-                    awkward.merge_union_of_records(
-                        awkward.concatenate([union_array, new_array]), axis=0
-                    )
-                )
-                union_array.layout.parameters.update(new_array.layout.parameters)
-        if union_array is not None:
-            union_form = union_array.layout.form
-
-            for icontent, content in enumerate(union_form.contents):
-                if isinstance(content, awkward.forms.IndexedOptionForm):
-                    if (
-                        not isinstance(content.content, awkward.forms.NumpyForm)
-                        or content.content.primitive != "bool"
-                    ):
-                        raise ValueError(
-                            "IndexedOptionArrays can only contain NumpyArrays of "
-                            "bools in mergers of flat-tuple-like schemas!"
-                        )
-                    parameters = (
-                        content.content.parameters.copy()
-                        if content.content.parameters is not None
-                        else {}
-                    )
-                    # re-create IndexOptionForm with parameters of lower level array
-                    union_form.contents[icontent] = awkward.forms.IndexedOptionForm(
-                        content.index,
-                        content.content,
-                        parameters=parameters,
-                        form_key=content.form_key,
-                    )
-
-            union_form_jsonstr = union_form.to_json()
+        union_form_jsonstr = _union_form_jsonstr(dataset_forms)
 
         files_available = {
             item["file"]: {
