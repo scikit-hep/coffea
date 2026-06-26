@@ -32,7 +32,7 @@ Changes that are cosmetic in nature and do not add anything substantial to the s
 
 * Follow the [setup instructions for developers](https://coffea-hep.readthedocs.io/en/latest/getting_started/installation.html#for-developers) to get a development environment
 
-* Edit the reStructuredText files in `docs/source` or the docstrings in the Python source code as appropriate
+* Edit the Markdown (MyST) files in `docs/source` or the docstrings in the Python source code as appropriate
 
 * Run `pushd docs && make html && popd` to compile, and open `docs/build/html/index.html` in a browser to see your local changes
 
