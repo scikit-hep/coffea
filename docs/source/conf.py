@@ -246,8 +246,8 @@ texinfo_documents = [
 
 def _fix_awkward_intersphinx_aliases(app):
     """Point Awkward's legacy inventory aliases at their canonical anchors."""
-    inventories = [app.env.intersphinx_inventory]
-    inventories.extend(app.env.intersphinx_named_inventory.values())
+    inventories = [getattr(app.env, "intersphinx_inventory", {})]
+    inventories.extend(getattr(app.env, "intersphinx_named_inventory", {}).values())
     for inventory in inventories:
         for entries in inventory.values():
             for name, (project, version, uri, display_name) in entries.items():
