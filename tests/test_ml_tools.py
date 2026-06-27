@@ -4,11 +4,6 @@ import pytest
 
 dak = pytest.importorskip("dask_awkward")
 
-try:
-    from distributed import Client
-except ImportError:
-    Client = None
-
 
 def prepare_jets_array(njets, tmp_path):
     # Creating jagged Jet-with-constituent array, returning both awkward and lazy
@@ -83,12 +78,10 @@ def common_prepare_awkward(jets):
 
 
 @pytest.mark.dask_client
-def test_triton(tmp_path):
+def test_triton(tmp_path, dask_client):
     _ = pytest.importorskip("tritonclient")
 
     from coffea.ml_tools.triton_wrapper import triton_wrapper
-
-    client = Client()  # Spawn local cluster
 
     # Defining custom wrapper function with awkward padding requirements.
     class triton_wrapper_test(triton_wrapper):
@@ -132,16 +125,12 @@ def test_triton(tmp_path):
     for k in ak_res.keys():
         assert len(ak_res[k]) == 0 and len(dak_res[k].compute()) == 0
 
-    client.close()
-
 
 @pytest.mark.dask_client
-def test_torch(tmp_path):
+def test_torch(tmp_path, dask_client):
     _ = pytest.importorskip("torch")
 
     from coffea.ml_tools.torch_wrapper import torch_wrapper
-
-    client = Client()  # Spawn local cluster
 
     class torch_wrapper_test(torch_wrapper):
         def prepare_awkward(self, jets):
@@ -178,16 +167,12 @@ def test_torch(tmp_path):
     ak_res, dak_res = tw(ak_jets), tw(dak_jets)
     assert len(ak_jets) == 0 and len(dak_res.compute()) == 0
 
-    client.close()
-
 
 @pytest.mark.dask_client
-def test_tensorflow(tmp_path):
+def test_tensorflow(tmp_path, dask_client):
     _ = pytest.importorskip("tensorflow")
 
     from coffea.ml_tools.tf_wrapper import tf_wrapper
-
-    client = Client()  # Spawn local cluster
 
     class tf_wrapper_test(tf_wrapper):
         def prepare_awkward(self, jets):
@@ -256,16 +241,12 @@ def test_tensorflow(tmp_path):
     ak_res = tfw_length0_tester(arr)
     dak_res = tfw_length0_tester(darr)
 
-    client.close()
-
 
 @pytest.mark.dask_client
-def test_xgboost(tmp_path):
+def test_xgboost(tmp_path, dask_client):
     _ = pytest.importorskip("xgboost")
 
     from coffea.ml_tools.xgboost_wrapper import xgboost_wrapper
-
-    client = Client()  # Spawn local cluster
 
     feature_list = [f"feat{i}" for i in range(16)]
 
@@ -300,5 +281,3 @@ def test_xgboost(tmp_path):
     ak_res = xgb_wrap(ak_events[ak_events.feat0 < 0])
     dak_res = xgb_wrap(dak_events[dak_events.feat0 < 0])
     assert len(ak_res) == 0 and len(dak_res.compute()) == 0
-
-    client.close()

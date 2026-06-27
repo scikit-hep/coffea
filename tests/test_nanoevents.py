@@ -5,11 +5,6 @@ import awkward as ak
 import pytest
 import uproot
 
-try:
-    from distributed import Client
-except ImportError:
-    Client = None
-
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 
 
@@ -206,11 +201,11 @@ def test_missing_eventIds_warning(tests_directory):
 
 
 @pytest.mark.dask_client
-def test_missing_eventIds_warning_dask(tests_directory):
+def test_missing_eventIds_warning_dask(tests_directory, dask_client):
     pytest.importorskip("dask_awkward")
     path = f"{tests_directory}/samples/missing_luminosityBlock.root:Events"
     NanoAODSchema.error_missing_event_ids = False
-    with Client() as _:
+    with dask_client.as_current() as _:
         events = NanoEventsFactory.from_root(
             path,
             schemaclass=NanoAODSchema,

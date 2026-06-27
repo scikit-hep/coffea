@@ -97,9 +97,9 @@ jobs:
     - name: Test with pytest (without dask Client - run in parallel)
       run: |
         python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "not dask_client" -n 4
-    - name: Test with pytest (with dask Client)
+    - name: Test with pytest (with dask Client - run in parallel)
       run: |
-        python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "dask_client"
+        python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "dask_client" -n 4
     - name: Upload codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       uses: codecov/codecov-action@v6
