@@ -15,9 +15,6 @@ _exceptions = (FileNotFoundError, UprootMissTreeError, pyarrow.ArrowInvalid)
 @pytest.mark.parametrize("filetype", ["ttree", "rntuple", "parquet"])
 @pytest.mark.parametrize("skipbadfiles", [False, True, _exceptions])
 @pytest.mark.parametrize("maxchunks", [None, 1000])
-# compression None vs not-None are the two distinct coffea code paths (executor.py
-# branches on `compression is None`); the integer level is only forwarded to lz4 and
-# does not change which coffea branch runs, so a single non-None level suffices.
 @pytest.mark.parametrize("compression", [None, 0])
 @pytest.mark.parametrize(
     "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
