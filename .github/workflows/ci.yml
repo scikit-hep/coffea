@@ -78,28 +78,21 @@ jobs:
         else
           uv pip install '.[dev,caches,parsl,dask,dask-awkward,triton]'
         fi
-
     - name: Install coffea and dependencies (macOS)
       if: matrix.os == 'macOS-latest'
       run: |
         uv pip install '.[dev,caches,dask,dask-awkward]'
-
     - name: Install coffea and dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
         uv pip install '.[dev,caches,dask,dask-awkward]'
-
     - name: Start triton server with example model
       if: startsWith( matrix.os, 'ubuntu' ) && matrix.python-version != '3.14t'
       run: |
         docker run -d --rm -p 8000:8000 -p 8001:8001 -p 8002:8002 -v ${{ github.workspace }}/tests/samples/triton_models_test:/models nvcr.io/nvidia/tritonserver:25.11-pyt-python-py3 tritonserver --model-repository=/models
-
     - name: Test with pytest (without dask Client)
       run: |
         python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "not dask_client" -n 4
-    - name: Test with pytest (with dask Client)
-      run: |
-        python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "dask_client" -n 4
     - name: Upload codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       uses: codecov/codecov-action@v6
@@ -177,20 +170,6 @@ jobs:
     - name: Test with pytest (with dask Client)
       run: |
         python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "dask_client" -n 4
-    - name: Upload codecov
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
-      uses: codecov/codecov-action@v6
-    - name: Install graphviz
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
-      uses: ts-graphviz/setup-graphviz@v2
-    - name: Install pandoc
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
-      uses: r-lib/actions/setup-pandoc@v2
-    - name: Build documentation
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
-      run: |
-        cd docs && make html
-        touch build/html/.nojekyll
 
   test-no-dask:
     runs-on: ubuntu-latest
@@ -263,27 +242,6 @@ jobs:
       timeout-minutes: 5
       run: |
         python -m pytest tests/test_taskvine_virtual.py
-
-#  testskyhookjob:
-#    runs-on: ubuntu-latest
-#    needs: pre-commit
-#    name: test coffea-skyhook-job
-#
-#    steps:
-#    - uses: actions/checkout@3
-#    - name: Test Coffea Skyhook Bindings
-#      shell: bash -l {0}
-#      run: |
-#        docker build -t coffea-skyhook-test \
-#          --file docker/skyhook/Dockerfile \
-#          .
-#        docker run \
-#        -v $(pwd):/w \
-#        -w /w \
-#        -e IS_CI=true \
-#        --privileged \
-#        coffea-skyhook-test \
-#        ./docker/skyhook/script.sh
 
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
