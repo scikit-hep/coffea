@@ -22,7 +22,7 @@ def get_proxy_path() -> str:
         subprocess.run("voms-proxy-info -exists -hours 1", shell=True, check=True)
     except subprocess.CalledProcessError:
         raise Exception(
-            "VOMS proxy expirend or non-existing: please run `voms-proxy-init -voms cms -rfc --valid 168:0`"
+            "VOMS proxy expired or nonexistent: please run `voms-proxy-init -voms cms -rfc --valid 168:0`"
         )
 
     # Now get the path of the certificate

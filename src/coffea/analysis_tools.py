@@ -441,7 +441,7 @@ class Weights:
                 name of correction
             weight : numpy.ndarray
                 the nominal event weight associated with the correction
-            modifierNames: list of str
+            modifierNames : list of str
                 list of modifiers for each set of weights variation
             weightsUp : list of numpy.ndarray
                 weight with correction uncertainty shifted up (if available)
@@ -1306,7 +1306,7 @@ class NminusOne:
             weighted : bool, optional
                 Whether to fill the histograms with weights. Default is None, which applies the weights
                 if the nminusone was instantiated with weights and unweighted distributions otherwise.
-            scale: float, optional
+            scale : float, optional
                 A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
             categorical : dict, optional
                 A dictionary with the following keys:
@@ -1514,7 +1514,7 @@ class Cutflow:
                 maskscutflow : list of boolean numpy.ndarray or dask_awkward.lib.core.Array objects
                     The boolean mask vectors of which events pass the cumulative cutflow a list of materialized or delayed boolean arrays
 
-            result: ExtendedCutflowResult
+            result : ExtendedCutflowResult
                 A namedtuple with the CutflowResult properties and additionally the following:
 
                 commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array object, or None if no common mask was provided
@@ -1724,7 +1724,7 @@ class Cutflow:
             weighted : bool, optional
                 Whether to fill the histograms with weights. Default is None, which applies the weights
                 if the cutflow was instantiated with weights and unweighted statistics otherwise.
-            scale: float, optional
+            scale : float, optional
                 A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
             categorical : dict, optional
                 A dictionary with the following keys:
@@ -1943,7 +1943,7 @@ class Cutflow:
             weighted : bool, optional
                 Whether to fill the histograms with weights. Default is None, which applies the weights
                 if the cutflow was instantiated with weights and unweighted distributions otherwise.
-            scale: float, optional
+            scale : float, optional
                 A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
             categorical : dict, optional
                 A dictionary with the following keys:

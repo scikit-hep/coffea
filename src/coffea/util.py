@@ -231,7 +231,7 @@ class SpeedColumn(ProgressColumn):
 
 coffea_console = Console()
 coffea_console.__doc__ += """
-\nA `rich.console.Console` for coffea. Used through-out coffea for consistent logging and
+\nA `rich.console.Console` for coffea. Used throughout coffea for consistent logging and
 progress bars. May be used by users for their own logging. Using the same console
 ensures that output is nicely integrated with coffea's progress bars.
 """

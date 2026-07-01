@@ -404,7 +404,7 @@ class LorentzVector(MomentumAwkward4D):
     def absolute(self):
         """Magnitude of this Lorentz vector
 
-        Alias for `mass`
+        Alias for ``mass``
         """
         return self.mass
 
@@ -580,7 +580,7 @@ class LorentzVector(MomentumAwkward4D):
 class PtEtaPhiMLorentzVector(LorentzVector):
     """A Lorentz vector using pseudorapidity and mass
 
-    This mixin class requires the parent class to provide items ``pt``, ``eta``, ``phi``, and `mass`.
+    This mixin class requires the parent class to provide items ``pt``, ``eta``, ``phi``, and ``mass``.
     Some additional properties are overridden for performance
     """
 
@@ -588,7 +588,7 @@ class PtEtaPhiMLorentzVector(LorentzVector):
     def multiply(self, other):
         """Multiply this vector by a scalar elementwise using ``x``, ``y``, ``z``, and ``t`` components
 
-        In reality, this directly adjusts ``pt``, ``eta``, ``phi`` and `mass` for performance
+        In reality, this directly adjusts ``pt``, ``eta``, ``phi`` and ``mass`` for performance
         """
         absother = abs(other)
         return awkward.zip(

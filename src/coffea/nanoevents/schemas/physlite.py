@@ -12,7 +12,7 @@ class PHYSLITESchema(BaseSchema):
 
     This is a schema for the `ATLAS DAOD_PHYSLITE derivation
     <https://gitlab.cern.ch/atlas/athena/-/blob/release/21.2.108.0/PhysicsAnalysis/DerivationFramework/DerivationFrameworkPhys/share/PHYSLITE.py>`_.
-    Closely following `schemas.nanoaod.NanoAODSchema`, it is mainly build from
+    Closely following ``schemas.nanoaod.NanoAODSchema``, it is mainly built from
     naming patterns where the "Analysis" prefix has been removed, so the
     collections will be named Electrons, Muons, instead of AnalysisElectrons,
     AnalysisMunos, etc. The collection fields correspond to the "Aux" and
@@ -21,7 +21,7 @@ class PHYSLITESchema(BaseSchema):
     Collections are assigned mixin types according to the `mixins` mapping.
     All collections are then zipped into one `base.NanoEvents` record and returned.
 
-    Cross references are build from ElementLink columns. Global indices are
+    Cross references are built from ElementLink columns. Global indices are
     created dynamically, using an ``_eventindex`` field that is attached to
     each collection.
     """

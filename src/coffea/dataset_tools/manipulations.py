@@ -255,7 +255,7 @@ def filter_files(
     ----------
         fileset : DataGroupSpec
             The set of datasets to be sliced.
-        thefilter: Callable[[tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | InputFiles | PreprocessedFiles], bool], default filters empty files
+        thefilter : Callable[[tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | InputFiles | PreprocessedFiles], bool], default filters empty files
             How to filter the files in the each dataset.
 
     Returns
@@ -283,7 +283,7 @@ def get_failed_steps_for_dataset(
 
     Parameters
     ----------
-        dataset: DatasetSpec | dict
+        dataset : DatasetSpec | dict
             The dataset to be reduced to only contain files and row-ranges that have previously encountered failed file access.
         report : awkward.Array
             The computed file-access error report from dask-awkward.

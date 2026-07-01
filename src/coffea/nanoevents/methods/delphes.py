@@ -1,6 +1,6 @@
 """Mixins for the Delphes schema
 
-See https://cp3.irmp.ucl.ac.be/projects/delphes/wiki/WorkBook/RootTreeDescription for details.
+See https://delphes.github.io/workbook/root-tree-description/ for details.
 """
 
 import awkward

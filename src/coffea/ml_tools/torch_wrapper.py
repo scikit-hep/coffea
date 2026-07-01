@@ -37,7 +37,7 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
     converted via a to_awkward().to_numpy() call.
 
     [1]
-    https://pytorch.org/tutorials/beginner/saving_loading_models.html#export-load-model-in-torchscript-format
+    https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference
 
     Parameters
     ----------

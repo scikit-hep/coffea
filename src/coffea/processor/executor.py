@@ -778,7 +778,7 @@ class DaskExecutor(ExecutorBase):
             items in a tuple (item, heavy_input) that is passed to function.
         function_name : str, optional
             Name of the function being passed
-        use_dataframes: bool, optional
+        use_dataframes : bool, optional
             Retrieve output as a distributed Dask DataFrame (default: False).
             The outputs of individual tasks must be Pandas DataFrames.
 
@@ -833,7 +833,7 @@ class DaskExecutor(ExecutorBase):
 
         if self.heavy_input is not None:
             # client.scatter is not robust against adaptive clusters
-            # https://github.com/CoffeaTeam/coffea/issues/465
+            # https://github.com/scikit-hep/coffea/issues/465
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", "Large object of size")
                 items = list(

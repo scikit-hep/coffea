@@ -16,7 +16,7 @@ Each executor implements the same interface and is consumed by {class}`coffea.pr
 - `IterativeExecutor`: the simplest option for debugging and unit tests; executes chunks in one thread.
 - `FuturesExecutor`: uses `concurrent.futures` pools to fan out work across local CPU cores.
 - `DaskExecutor`: connects to a [Dask Distributed](https://distributed.dask.org/en/latest/) cluster for interactive or batch workloads.
-- `ParslExecutor`: targets HPC facilities via [Parsl](http://parsl-project.org/).
+- `ParslExecutor`: targets HPC facilities via [Parsl](https://parsl-project.org/).
 - `TaskVineExecutor`: dispatches work to opportunistic and heterogeneous resources managed by [TaskVine](https://cctools.readthedocs.io/en/latest/taskvine/).
 
 All executors accept the same arguments when invoked by {class}`~coffea.processor.Runner`, making it easy to prototype locally and scale out later. The snippets below assume that `fileset` and `my_processor`
