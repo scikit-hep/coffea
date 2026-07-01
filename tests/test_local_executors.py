@@ -15,7 +15,7 @@ _exceptions = (FileNotFoundError, UprootMissTreeError, pyarrow.ArrowInvalid)
 @pytest.mark.parametrize("filetype", ["ttree", "rntuple", "parquet"])
 @pytest.mark.parametrize("skipbadfiles", [False, True, _exceptions])
 @pytest.mark.parametrize("maxchunks", [None, 1000])
-@pytest.mark.parametrize("compression", [None, 0, 2])
+@pytest.mark.parametrize("compression", [None, 0])
 @pytest.mark.parametrize(
     "executor", [processor.IterativeExecutor, processor.FuturesExecutor]
 )

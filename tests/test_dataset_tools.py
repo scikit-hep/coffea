@@ -27,11 +27,6 @@ dask_awkward = pytest.importorskip("dask_awkward")
 
 import dask  # noqa: E402
 
-try:
-    from distributed import Client
-except ImportError:
-    Client = None
-
 _starting_fileset_list = {
     "ZJets": ["tests/samples/nano_dy.root:Events"],
     "Data": [
@@ -450,10 +445,10 @@ def test_tuple_data_manipulation_output(allow_read_errors_with_report):
     "proc_and_schema",
     [(NanoTestProcessor, BaseSchema), (NanoEventsProcessor, NanoAODSchema)],
 )
-def test_apply_to_fileset(proc_and_schema):
+def test_apply_to_fileset(proc_and_schema, dask_client):
     proc, schemaclass = proc_and_schema
 
-    with Client() as _:
+    with dask_client.as_current() as _:
         to_compute = apply_to_fileset(
             proc(),
             _runnable_result,
@@ -484,8 +479,8 @@ def test_apply_to_fileset(proc_and_schema):
     "the_fileset",
     [_starting_fileset, DataGroupSpec(_starting_fileset)],
 )
-def test_apply_to_fileset_hinted_form(the_fileset):
-    with Client() as _:
+def test_apply_to_fileset_hinted_form(the_fileset, dask_client):
+    with dask_client.as_current() as _:
         dataset_runnable, dataset_updated = preprocess(
             the_fileset,
             step_size=7,
@@ -511,8 +506,8 @@ def test_apply_to_fileset_hinted_form(the_fileset):
 @pytest.mark.parametrize(
     "the_fileset", [_starting_fileset_list, _starting_fileset_dict, _starting_fileset]
 )
-def test_preprocess(the_fileset):
-    with Client() as _:
+def test_preprocess(the_fileset, dask_client):
+    with dask_client.as_current() as _:
         dataset_runnable, dataset_updated = preprocess(
             the_fileset,
             step_size=7,
@@ -527,8 +522,8 @@ def test_preprocess(the_fileset):
 
 @pytest.mark.dask_client
 @pytest.mark.parametrize("the_fileset", [{}, DataGroupSpec({})])
-def test_preprocess_empty_fileset(the_fileset):
-    with Client() as _:
+def test_preprocess_empty_fileset(the_fileset, dask_client):
+    with dask_client.as_current() as _:
         dataset_runnable, dataset_updated = preprocess(
             the_fileset,
             step_size=7,
@@ -549,8 +544,8 @@ def test_preprocess_empty_fileset(the_fileset):
     "the_fileset", [_fileset_with_empty_files, DataGroupSpec(_fileset_with_empty_files)]
 )
 @pytest.mark.parametrize("align_clusters", [False, True])
-def test_preprocess_empty_files(the_fileset, align_clusters):
-    with Client() as _:
+def test_preprocess_empty_files(the_fileset, align_clusters, dask_client):
+    with dask_client.as_current() as _:
         dataset_runnable, dataset_updated = preprocess(
             the_fileset,
             step_size=7,
@@ -574,7 +569,7 @@ def test_preprocess_empty_files(the_fileset, align_clusters):
     def data_manipulation(events):
         return len(events)
 
-    with Client() as _:
+    with dask_client.as_current() as _:
         to_compute = apply_to_fileset(
             data_manipulation,
             dataset_runnable,
@@ -591,12 +586,12 @@ def test_preprocess_empty_files(the_fileset, align_clusters):
 
 
 @pytest.mark.dask_client
-def test_preprocess_DataGroupSpec_mixed():
+def test_preprocess_DataGroupSpec_mixed(dask_client):
     fileset = DataGroupSpec(_starting_fileset)
     # Create a mixed DataGroupSpec
     fileset["Data"] = fileset["Data"].model_dump()
 
-    with Client() as _:
+    with dask_client.as_current() as _:
         dataset_runnable, dataset_updated = preprocess(
             fileset,
             step_size=7,
@@ -609,8 +604,8 @@ def test_preprocess_DataGroupSpec_mixed():
 
 
 @pytest.mark.dask_client
-def test_preprocess_calculate_form():
-    with Client() as _:
+def test_preprocess_calculate_form(dask_client):
+    with dask_client.as_current() as _:
         starting_fileset = _starting_fileset
 
         dataset_runnable, dataset_updated = preprocess(
@@ -643,8 +638,8 @@ def test_preprocess_calculate_form():
 
 
 @pytest.mark.dask_client
-def test_preprocess_failed_file():
-    with Client() as _, pytest.raises(FileNotFoundError):
+def test_preprocess_failed_file(dask_client):
+    with dask_client.as_current() as _, pytest.raises(FileNotFoundError):
         starting_fileset = _starting_fileset
 
         dataset_runnable, dataset_updated = preprocess(
@@ -657,7 +652,7 @@ def test_preprocess_failed_file():
 
 
 @pytest.mark.dask_client
-def test_preprocess_with_file_exceptions():
+def test_preprocess_with_file_exceptions(dask_client):
     fileset = {
         "Data": {
             "files": {
@@ -667,7 +662,9 @@ def test_preprocess_with_file_exceptions():
         },
     }
 
-    with Client() as _:  # should not throw uproot.exceptions.KeyInFileError
+    with (
+        dask_client.as_current() as _
+    ):  # should not throw uproot.exceptions.KeyInFileError
         dataset_runnable, dataset_updated = preprocess(
             fileset,
             step_size=10,
@@ -981,8 +978,8 @@ def test_slice_chunks(the_fileset):
     [_starting_fileset_with_steps, DataGroupSpec(_starting_fileset_with_steps)],
 )
 @pytest.mark.dask_client
-def test_recover_failed_chunks(the_fileset):
-    with Client() as _:
+def test_recover_failed_chunks(the_fileset, dask_client):
+    with dask_client.as_current() as _:
         to_compute = apply_to_fileset(
             NanoEventsProcessor(),
             the_fileset,

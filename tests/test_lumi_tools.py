@@ -67,11 +67,10 @@ def test_lumidata():
         "https://raw.githubusercontent.com/scikit-hep/coffea/master/tests/samples/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt",
     ],
 )
-def test_lumimask(jsonfile):
+def test_lumimask(jsonfile, dask_client):
     dak = pytest.importorskip("dask_awkward")
-    from dask.distributed import Client
 
-    client = Client()
+    client = dask_client
 
     lumimask = LumiMask(jsonfile)
 
@@ -107,8 +106,6 @@ def test_lumimask(jsonfile):
         client.compute(lumimask(runs_dak, lumis_dak)).result()
         == lumimask_pickle(runs, lumis)
     )
-
-    client.close()
 
 
 def test_lumilist():
@@ -170,12 +167,11 @@ def test_lumilist_dask():
 
 
 @pytest.mark.dask_client
-def test_lumilist_client_fromfile():
+def test_lumilist_client_fromfile(dask_client):
     dak = pytest.importorskip("dask_awkward")  # noqa: F841
     import dask
-    from dask.distributed import Client
 
-    with Client() as _:
+    with dask_client.as_current() as _:
         events = NanoEventsFactory.from_root(
             {"tests/samples/nano_dy.root": "Events"},
             mode="dask",
@@ -189,10 +185,9 @@ def test_lumilist_client_fromfile():
 
 
 @pytest.mark.dask_client
-def test_1259_avoid_pickle_numba_dict():
+def test_1259_avoid_pickle_numba_dict(dask_client):
     dak = pytest.importorskip("dask_awkward")
     import dask
-    from dask.distributed import Client
 
     runs_eager = ak.Array([368229, 368229, 368229, 368229])
     runs = dak.from_awkward(runs_eager, 2)
@@ -208,7 +203,7 @@ def test_1259_avoid_pickle_numba_dict():
 
     noclient_output = dask.compute(count_lumi(runs, lumis))[0]
 
-    with Client() as _:
+    with dask_client.as_current() as _:
         output = count_lumi(runs, lumis)
         client_output = dask.compute(output)[0]
 
