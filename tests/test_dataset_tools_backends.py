@@ -245,27 +245,47 @@ def test_fallback_hint_mentions_backends(capsys):
     assert "futures" in out
 
 
-def test_ttree_form_json_matches_uproot_dask():
-    """The dask-free TTree form builder must stay byte-identical to uproot.dask's form,
-    otherwise the iterative/futures backends would store forms incompatible with the dask
-    read path used at analysis time."""
+@pytest.mark.parametrize(
+    "sample, is_rntuple",
+    [
+        ("tests/samples/nano_dy.root", False),
+        ("tests/samples/nano_dy_rntuple.root", True),
+    ],
+)
+def test_awkward_form_json_matches_uproot_dask(sample, is_rntuple):
+    """The dask-free form builder must stay byte-identical to uproot.dask's form for both TTree
+    and RNTuple, otherwise the iterative/futures backends would store forms incompatible with the
+    dask read path used at analysis time."""
     from functools import partial
 
     import uproot
     from uproot._util import no_filter
 
-    from coffea.dataset_tools.preprocess import _FORM_AK_ADD_DOC, _ttree_form_json
+    from coffea.dataset_tools.preprocess import _FORM_AK_ADD_DOC, _awkward_form_json
     from coffea.util import _is_interpretable
 
-    tree = uproot.open({"tests/samples/nano_dy.root": None})["Events"]
-    dask_form = uproot.dask(
-        tree,
-        ak_add_doc=_FORM_AK_ADD_DOC,
-        filter_name=no_filter,
-        filter_typename=no_filter,
-        filter_branch=partial(_is_interpretable, emit_warning=False),
-    ).layout.form.to_json()
-    assert _ttree_form_json(tree) == dask_form
+    tree = uproot.open({sample: None})["Events"]
+    filt = partial(_is_interpretable, emit_warning=False)
+    if is_rntuple:
+        # RNTuples cannot build a form from an already-open object via uproot.dask; pass the spec
+        dask_form = uproot.dask(
+            {sample: "Events"},
+            open_files=False,
+            full_paths=True,
+            ak_add_doc=_FORM_AK_ADD_DOC,
+            filter_name=no_filter,
+            filter_typename=no_filter,
+            filter_branch=filt,
+        ).layout.form.to_json()
+    else:
+        dask_form = uproot.dask(
+            tree,
+            ak_add_doc=_FORM_AK_ADD_DOC,
+            filter_name=no_filter,
+            filter_typename=no_filter,
+            filter_branch=filt,
+        ).layout.form.to_json()
+    assert _awkward_form_json(tree, is_rntuple) == dask_form
 
 
 def test_step_size_zero_or_negative_raises(tmp_path):

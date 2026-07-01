@@ -15,11 +15,10 @@ behind a small backend interface so the same worker can run on:
   is IO-bound) with an opt-in process pool (mirrors ``FuturesExecutor``).
 
 The iterative and futures backends do not build a dask *task graph* for orchestration, and they
-are dask-free for parquet input and for TTree ROOT input (TTree form extraction uses uproot's own
-non-dask form builder, byte-identical to the ``uproot.dask`` form). The one remaining dask
-dependency is **RNTuple form extraction** (``save_form=True``): it still goes through
-``uproot.dask``, so a fully dask-free run of an RNTuple dataset currently also requires
-``save_form=False``. Making RNTuple form extraction dask-free is a possible follow-up.
+are dask-free for parquet input and for ROOT input of either flavor. ROOT form extraction
+(``save_form=True``) uses uproot's own non-dask form builder for both TTree and RNTuple, producing
+a form byte-identical to the ``uproot.dask`` form; it only falls back to ``uproot.dask`` (and thus
+dask) if that internal uproot helper is unavailable on an unexpected uproot version.
 
 The interface intentionally echoes the ``coffea.compute`` refactor (PR #1470): a ``Backend``
 turns a "computable" into a future-like ``Task`` whose ``result()`` blocks. Here the computable
@@ -402,8 +401,7 @@ def print_dask_backend_fallback_hint() -> None:
     coffea_console.print(
         "[bold red]The dask preprocessing backend is unavailable because dask / dask-awkward "
         "could not be imported.[/bold red]\n"
-        "Preprocessing can run without dask for parquet and TTree ROOT input: pass "
+        "Preprocessing can run without dask for parquet and ROOT input: pass "
         "[bold]backend='iterative'[/bold] (single process) or [bold]backend='futures'[/bold] "
-        "(thread pool) to preprocess() and the format-specific preprocess_* functions. "
-        "(RNTuple form extraction with save_form=True still needs dask.)"
+        "(thread pool) to preprocess() and the format-specific preprocess_* functions."
     )
