@@ -268,6 +268,27 @@ def test_ttree_form_json_matches_uproot_dask():
     assert _ttree_form_json(tree) == dask_form
 
 
+def test_step_size_zero_or_negative_raises(tmp_path):
+    """step_size < 1 is rejected with a clear ValueError at the entrypoint rather than a bare
+    ZeroDivisionError from deep inside a worker."""
+    dgs = _multi_file_fileset(tmp_path)
+    for bad in (0, -5):
+        with pytest.raises(ValueError, match="step_size must be a positive integer"):
+            preprocess(dgs, step_size=bad, save_form=False, backend="iterative")
+    # None and >= 1 are accepted (smoke: no raise)
+    preprocess(dgs, step_size=1, save_form=False, backend="iterative")
+
+
+def test_step_size_zero_raises_in_legacy_path():
+    """The legacy path validates step_size too, before importing dask or opening files."""
+    from coffea.dataset_tools import preprocess_legacy
+
+    with pytest.raises(ValueError, match="step_size must be a positive integer"):
+        preprocess_legacy(
+            {"ds": {"files": {"nonexistent.root": "Events"}}}, step_size=0
+        )
+
+
 def test_backends_are_preprocessbackend_instances():
     assert isinstance(DaskBackend(), PreprocessBackend)
     assert isinstance(IterativeBackend(), PreprocessBackend)
