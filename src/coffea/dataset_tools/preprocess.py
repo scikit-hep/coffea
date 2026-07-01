@@ -46,6 +46,19 @@ from coffea.util import (
 )
 
 
+def _validate_step_size(step_size: int | None) -> None:
+    """Reject a non-positive ``step_size`` at the public entrypoints.
+
+    ``step_size`` is the number of entries per step; ``None`` means "one step per file". A value
+    < 1 is meaningless and would otherwise surface as a bare ``ZeroDivisionError`` from
+    ``_even_steps`` deep inside a worker (or dask graph).
+    """
+    if step_size is not None and step_size < 1:
+        raise ValueError(
+            f"step_size must be a positive integer (>= 1) or None, got {step_size!r}."
+        )
+
+
 def _even_steps(num_entries: int, target_step_size: int) -> numpy.ndarray:
     """Split ``num_entries`` into as-even-as-possible ``[start, stop]`` steps of ~target size."""
     n_steps_target = max(round(num_entries / target_step_size), 1)
@@ -468,6 +481,7 @@ def preprocess_legacy(
         out_updated : dict
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
+    _validate_step_size(step_size)
     dask = _import_dask()
     dask_awkward = _import_dask_awkward()
 
@@ -1135,6 +1149,7 @@ def _preprocess_pydantic(
         raise ValueError(
             f"_preprocess_pydantic expects a DataGroupSpec, got {type(datagroupspec)}"
         )
+    _validate_step_size(step_size)
     if len(datagroupspec) == 0:
         return DataGroupSpec({}), DataGroupSpec({})
 
