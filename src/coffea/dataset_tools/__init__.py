@@ -1,4 +1,11 @@
 from coffea.dataset_tools.apply_processor import apply_to_dataset, apply_to_fileset
+from coffea.dataset_tools.backends import (
+    DaskBackend,
+    FuturesBackend,
+    IterativeBackend,
+    PreprocessBackend,
+    PreprocessJob,
+)
 from coffea.dataset_tools.filespec import (
     CoffeaParquetFileSpec,
     CoffeaParquetFileSpecOptional,
@@ -60,4 +67,9 @@ __all__ = [
     "DatasetSpec",
     "DataGroupSpec",
     "ModelFactory",
+    "PreprocessBackend",
+    "PreprocessJob",
+    "DaskBackend",
+    "FuturesBackend",
+    "IterativeBackend",
 ]
