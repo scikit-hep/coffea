@@ -22,7 +22,7 @@ jobs:
     name: pre-commit
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - uses: actions/setup-python@v6
       with:
         python-version: "3.14"
@@ -51,7 +51,7 @@ jobs:
     name: Test w/o dask client (${{ matrix.os }}) - py ${{ matrix.python-version }}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
     - name: Set up micromamba
@@ -129,7 +129,7 @@ jobs:
     name: Test w/ dask client (${{ matrix.os }}) - py ${{ matrix.python-version }}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
     - name: Set up micromamba
@@ -179,7 +179,7 @@ jobs:
         shell: bash -el {0}
     name: Test without dask
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up micromamba
       uses: mamba-org/setup-micromamba@v3
       with:
@@ -216,7 +216,7 @@ jobs:
         python-version: ["3.14"]
     name: test coffea-taskvine
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up micromamba
       uses: mamba-org/setup-micromamba@v3
       with:
@@ -257,7 +257,7 @@ jobs:
     name: deploy release
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v6
       with:
