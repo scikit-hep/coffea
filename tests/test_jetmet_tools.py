@@ -958,11 +958,9 @@ def test_corrected_jets_factory():
 
 @pytest.mark.dask_client
 @pytest.mark.parametrize("optimization_enabled", [True, False])
-def test_corrected_jets_factory_dak(optimization_enabled):
+def test_corrected_jets_factory_dak(optimization_enabled, dask_client):
     dak = pytest.importorskip("dask_awkward")
     import os
-
-    from distributed import Client
 
     from coffea.jetmet_tools import CorrectedJetsFactory, CorrectedMETFactory, JECStack
 
@@ -970,7 +968,7 @@ def test_corrected_jets_factory_dak(optimization_enabled):
     from coffea.nanoevents import NanoEventsFactory
 
     with (
-        Client(),
+        dask_client.as_current(),
         _dask_cfg(optimization_enabled),
     ):
         events = NanoEventsFactory.from_root(

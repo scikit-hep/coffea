@@ -130,6 +130,9 @@ class _map_schema_uproot(_map_schema_base):
             },
             "form_key": None,
         }
+        typenames = form.parameters.get("typenames")
+        if typenames is not None:
+            lform["typenames"] = typenames
 
         return (
             awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form),
