@@ -1,0 +1,274 @@
+"""Tests for the switchable preprocessing backends in coffea.dataset_tools.backends."""
+
+import shutil
+
+import awkward
+import pytest
+
+from coffea.dataset_tools import (
+    DaskBackend,
+    DataGroupSpec,
+    FuturesBackend,
+    IterativeBackend,
+    PreprocessBackend,
+    preprocess,
+)
+from coffea.dataset_tools.backends import (
+    _iter_batches,
+    ordered_concat,
+    resolve_backend,
+)
+
+
+def _multi_file_fileset(tmp_path):
+    """A single dataset with two identical-form ROOT files (so form union is trivial)."""
+    src = "tests/samples/nano_dy.root"
+    copy = tmp_path / "nano_dy_copy.root"
+    shutil.copy(src, copy)
+    return DataGroupSpec(
+        {
+            "ZJets": {"files": {src: "Events", str(copy): "Events"}},
+            "ZJets2": {"files": {src: "Events"}},
+        }
+    )
+
+
+# --------------------------------------------------------------------------------------
+# ordered_concat / _iter_batches unit tests
+# --------------------------------------------------------------------------------------
+
+
+def test_ordered_concat_preserves_order():
+    a = awkward.Array([1, 2])
+    b = awkward.Array([3, 4])
+    c = awkward.Array([5])
+    assert ordered_concat([a, b, c]).to_list() == [1, 2, 3, 4, 5]
+
+
+def test_ordered_concat_drops_none_and_handles_empty():
+    a = awkward.Array([1, 2])
+    assert ordered_concat([None, a, None]).to_list() == [1, 2]
+    # single element is returned as-is
+    assert ordered_concat([a]) is a
+    # nothing to concatenate
+    assert ordered_concat([]) is None
+    assert ordered_concat([None, None]) is None
+
+
+def test_iter_batches_slices_in_order():
+    arr = awkward.Array([{"x": i} for i in range(5)])
+    batches = list(_iter_batches(arr, files_per_batch=2))
+    assert [b.x.to_list() for b in batches] == [[0, 1], [2, 3], [4]]
+
+
+def test_iter_batches_empty_yields_once():
+    arr = awkward.Array([{"x": 1}])[0:0]
+    batches = list(_iter_batches(arr, files_per_batch=1))
+    assert len(batches) == 1
+    assert len(batches[0]) == 0
+
+
+# --------------------------------------------------------------------------------------
+# resolve_backend
+# --------------------------------------------------------------------------------------
+
+
+def test_resolve_backend_strings():
+    assert isinstance(resolve_backend("dask"), DaskBackend)
+    assert isinstance(resolve_backend(None), DaskBackend)
+    assert isinstance(resolve_backend("iterative"), IterativeBackend)
+    assert isinstance(resolve_backend("futures"), FuturesBackend)
+
+
+def test_resolve_backend_instance_passthrough():
+    inst = IterativeBackend()
+    assert resolve_backend(inst) is inst
+
+
+def test_resolve_backend_unknown_raises():
+    with pytest.raises(ValueError, match="Unknown preprocessing backend"):
+        resolve_backend("nonsense")
+
+
+def test_resolve_backend_scheduler_warns_for_non_dask_string():
+    with pytest.warns(UserWarning, match="only affects the dask backend"):
+        resolve_backend("iterative", scheduler="synchronous")
+
+
+def test_resolve_backend_scheduler_warns_for_instance():
+    # A pre-built instance can't have `scheduler` injected, so it warns regardless of type.
+    with pytest.warns(UserWarning, match="ignored when a PreprocessBackend instance"):
+        resolve_backend(FuturesBackend(), scheduler="synchronous")
+    with pytest.warns(UserWarning, match="ignored when a PreprocessBackend instance"):
+        resolve_backend(DaskBackend(), scheduler="synchronous")
+
+
+def test_resolve_backend_scheduler_no_warn_for_dask_string(recwarn):
+    resolve_backend("dask", scheduler="synchronous")
+    assert not any("ignored" in str(w.message) for w in recwarn)
+
+
+# --------------------------------------------------------------------------------------
+# Backend equivalence (dask-free backends do not import dask)
+# --------------------------------------------------------------------------------------
+
+
+def test_iterative_and_threads_agree(tmp_path):
+    dgs = _multi_file_fileset(tmp_path)
+    a_iter, u_iter = preprocess(dgs, step_size=7, save_form=True, backend="iterative")
+    a_thr, u_thr = preprocess(
+        dgs, step_size=7, save_form=True, backend=FuturesBackend(workers=2)
+    )
+    # DatasetSpec.__eq__ compares decoded forms (ignoring non-deterministic compressed bytes)
+    assert a_iter == a_thr
+    assert u_iter == u_thr
+    # order of files within a dataset is preserved by the ordered reduce
+    src = "tests/samples/nano_dy.root"
+    assert list(a_iter["ZJets"].files)[0] == src
+
+
+def test_iterative_preserves_steps_and_form(tmp_path):
+    dgs = _multi_file_fileset(tmp_path)
+    available, _ = preprocess(dgs, step_size=7, save_form=True, backend="iterative")
+    ds = available["ZJets"]
+    assert len(ds.files) == 2
+    for fs in ds.files.values():
+        assert fs.num_entries == 40
+        assert fs.uuid is not None
+        assert fs.steps[0][0] == 0
+    assert ds.compressed_form is not None
+
+
+def test_dask_matches_dask_free(tmp_path):
+    pytest.importorskip("dask")
+    pytest.importorskip("dask_awkward")
+    dgs = _multi_file_fileset(tmp_path)
+    a_dask, u_dask = preprocess(
+        dgs, step_size=7, save_form=True, backend="dask", scheduler="synchronous"
+    )
+    a_iter, u_iter = preprocess(dgs, step_size=7, save_form=True, backend="iterative")
+    assert a_dask == a_iter
+    assert u_dask == u_iter
+
+
+# --------------------------------------------------------------------------------------
+# dask-unavailable fallback hint
+# --------------------------------------------------------------------------------------
+
+
+def test_dask_import_failure_prints_hint(tmp_path, monkeypatch):
+    """When the default dask backend can't import dask, a hint about the dask-free
+    backends is emitted before the ModuleNotFoundError propagates."""
+    import importlib
+
+    backends_mod = importlib.import_module("coffea.dataset_tools.backends")
+    # the package re-exports the `preprocess` function, shadowing the submodule attribute,
+    # so fetch the module object explicitly rather than via attribute access
+    preprocess_mod = importlib.import_module("coffea.dataset_tools.preprocess")
+
+    def _boom():
+        raise ModuleNotFoundError("no dask here")
+
+    monkeypatch.setattr(backends_mod, "_import_dask", _boom)
+
+    called = {"hint": False}
+    orig_hint = preprocess_mod.print_dask_backend_fallback_hint
+
+    def _hint():
+        called["hint"] = True
+        orig_hint()
+
+    monkeypatch.setattr(preprocess_mod, "print_dask_backend_fallback_hint", _hint)
+
+    dgs = _multi_file_fileset(tmp_path)
+    with pytest.raises(ModuleNotFoundError):
+        preprocess(dgs, step_size=7, save_form=True, backend="dask")
+    assert called["hint"] is True
+
+
+def test_worker_modulenotfound_does_not_trigger_dask_hint(tmp_path, monkeypatch):
+    """A ModuleNotFoundError raised by a worker during compute (surfaced in Task.result())
+    must NOT print the 'dask could not be imported' hint -- only a failure to import dask in
+    submit() should."""
+    import importlib
+
+    preprocess_mod = importlib.import_module("coffea.dataset_tools.preprocess")
+
+    class _RaisingTask:
+        def result(self):
+            raise ModuleNotFoundError("missing xrootd inside a worker")
+
+    class _FakeDaskBackend(DaskBackend):
+        def submit(self, jobs):  # submit succeeds; the error is deferred to result()
+            return _RaisingTask()
+
+    called = {"hint": False}
+    monkeypatch.setattr(
+        preprocess_mod,
+        "print_dask_backend_fallback_hint",
+        lambda: called.__setitem__("hint", True),
+    )
+    monkeypatch.setattr(
+        preprocess_mod, "resolve_backend", lambda b, s=None: _FakeDaskBackend()
+    )
+
+    dgs = _multi_file_fileset(tmp_path)
+    with pytest.raises(ModuleNotFoundError, match="missing xrootd"):
+        preprocess(dgs, step_size=7, save_form=True, backend="dask")
+    assert called["hint"] is False
+
+
+def test_empty_parquet_file_does_not_crash(tmp_path):
+    """A 0-row parquet file must yield steps=[[0, 0]] instead of a ZeroDivisionError,
+    mirroring the ROOT get_steps num_entries==0 guard."""
+    from coffea.dataset_tools import preprocess_parquet
+
+    path = tmp_path / "empty.parquet"
+    awkward.to_parquet(awkward.Array([{"x": 1.0, "y": 2}])[0:0], str(path))
+    dgs = DataGroupSpec({"E": {"files": {str(path): None}}})
+
+    # recalculate_steps=True forces the step-computation branch that used to divide by zero
+    _available, updated = preprocess_parquet(
+        dgs, recalculate_steps=True, save_form=True, backend="iterative"
+    )
+    fs = next(iter(updated["E"].files.values()))
+    assert fs.num_entries == 0
+    assert fs.steps == [[0, 0]]
+
+
+def test_fallback_hint_mentions_backends(capsys):
+    from coffea.dataset_tools.backends import print_dask_backend_fallback_hint
+
+    print_dask_backend_fallback_hint()
+    out = capsys.readouterr().out
+    assert "iterative" in out
+    assert "futures" in out
+
+
+def test_ttree_form_json_matches_uproot_dask():
+    """The dask-free TTree form builder must stay byte-identical to uproot.dask's form,
+    otherwise the iterative/futures backends would store forms incompatible with the dask
+    read path used at analysis time."""
+    from functools import partial
+
+    import uproot
+    from uproot._util import no_filter
+
+    from coffea.dataset_tools.preprocess import _FORM_AK_ADD_DOC, _ttree_form_json
+    from coffea.util import _is_interpretable
+
+    tree = uproot.open({"tests/samples/nano_dy.root": None})["Events"]
+    dask_form = uproot.dask(
+        tree,
+        ak_add_doc=_FORM_AK_ADD_DOC,
+        filter_name=no_filter,
+        filter_typename=no_filter,
+        filter_branch=partial(_is_interpretable, emit_warning=False),
+    ).layout.form.to_json()
+    assert _ttree_form_json(tree) == dask_form
+
+
+def test_backends_are_preprocessbackend_instances():
+    assert isinstance(DaskBackend(), PreprocessBackend)
+    assert isinstance(IterativeBackend(), PreprocessBackend)
+    assert isinstance(FuturesBackend(), PreprocessBackend)
