@@ -17,6 +17,22 @@ import numpy
 import uproot
 from uproot._util import no_filter
 
+try:
+    # Private uproot helper that builds a TTree's awkward form without dask. It is exactly what
+    # uproot.dask() uses internally, so the result is byte-identical to
+    # uproot.dask(tree).layout.form (verified in the test suite). Guarded so a uproot release
+    # that moves or renames it degrades gracefully to the dask-based path below.
+    from uproot._dask import _get_ttree_form as _uproot_get_ttree_form
+except Exception:  # pragma: no cover - depends on uproot internals
+    _uproot_get_ttree_form = None
+
+from coffea.dataset_tools.backends import (
+    DaskBackend,
+    PreprocessBackend,
+    PreprocessJob,
+    print_dask_backend_fallback_hint,
+    resolve_backend,
+)
 from coffea.dataset_tools.filespec import (
     DataGroupSpec,
     DatasetSpec,
@@ -135,6 +151,63 @@ def _union_form_jsonstr(forms: list) -> str | None:
     return union_form.to_json()
 
 
+_FORM_AK_ADD_DOC = {"__doc__": "title", "typename": "typename"}
+
+
+def _ttree_form_json(tree) -> str:
+    """Build a TTree's awkward form JSON without importing dask.
+
+    Reuses uproot's own form builder (``uproot._dask._get_ttree_form``), so the output is
+    byte-identical to ``uproot.dask(tree).layout.form.to_json()``. This is what lets the
+    ``iterative``/``futures`` backends extract TTree forms in a dask-free environment.
+    """
+    common_keys = tree.keys(
+        recursive=True,
+        filter_name=no_filter,
+        filter_typename=no_filter,
+        filter_branch=partial(_is_interpretable, emit_warning=False),
+        ignore_duplicates=True,
+    )
+    base_form = _uproot_get_ttree_form(awkward, tree, common_keys, _FORM_AK_ADD_DOC)
+    return base_form.to_json()
+
+
+def _dask_form_json(uproot_target, is_rntuple: bool) -> str:
+    """Build a form JSON via ``uproot.dask`` (requires dask).
+
+    Used for RNTuples -- whose form the dask path derives with transforms (dropping
+    ``_collection*`` subfields, nulling form keys, applying ``ak_add_doc``) that are not cheaply
+    reproducible without dask -- and as a fallback for TTrees when the private uproot form
+    builder is unavailable. ``uproot_target`` is an already-open TTree object, or a
+    ``{file: object_path}`` mapping (required for RNTuples, which cannot build a form from an
+    already-open object).
+    """
+    if is_rntuple:
+        form_dask = uproot.dask(
+            uproot_target,
+            open_files=False,
+            full_paths=True,
+            ak_add_doc=_FORM_AK_ADD_DOC,
+            filter_name=no_filter,
+            filter_typename=no_filter,
+            filter_branch=partial(_is_interpretable, emit_warning=False),
+        )
+    else:
+        form_dask = uproot.dask(
+            uproot_target,
+            ak_add_doc=_FORM_AK_ADD_DOC,
+            filter_name=no_filter,
+            filter_typename=no_filter,
+            filter_branch=partial(_is_interpretable, emit_warning=False),
+        )
+    form_str = form_dask.layout.form.to_json()
+    # the function cache needs to be popped if present to prevent memory growth
+    dask = _import_dask()
+    if getattr(dask.base, "function_cache", None):
+        dask.base.function_cache.popitem()
+    return form_str
+
+
 def get_steps(
     normed_files: awkward.Array | dask_awkward.Array,
     step_size: int | None = None,
@@ -222,13 +295,13 @@ def get_steps(
         form_json = None
         form_hash = None
         if save_form:
-            form_options = dict(
-                ak_add_doc={"__doc__": "title", "typename": "typename"},
-                filter_name=no_filter,
-                filter_typename=no_filter,
-                filter_branch=partial(_is_interpretable, emit_warning=False),
-            )
             if mode == "graphed":
+                form_options = dict(
+                    ak_add_doc={"__doc__": "title", "typename": "typename"},
+                    filter_name=no_filter,
+                    filter_typename=no_filter,
+                    filter_branch=partial(_is_interpretable, emit_warning=False),
+                )
                 if form_session:
                     import graphed
                     from graphed.awkward import AwkwardBackend
@@ -236,23 +309,15 @@ def get_steps(
                     # a read for its form only, kept out of the current Session
                     form_options["session"] = graphed.Session(AwkwardBackend())
                 form_str = _meta(reader(tree, **form_options)).layout.form.to_json()
+            elif not is_rntuple and _uproot_get_ttree_form is not None:
+                # dask-free TTree form extraction; byte-identical to the uproot.dask form
+                form_str = _ttree_form_json(tree)
+            elif is_rntuple:
+                # RNTuple form extraction still goes through uproot.dask (requires dask)
+                form_str = _dask_form_json({arg.file: arg.object_path}, is_rntuple=True)
             else:
-                if is_rntuple:
-                    # uproot.dask cannot build a form from an already-opened RNTuple object, so
-                    # the file/object spec must be passed (it does not re-read event data here).
-                    form_dask = uproot.dask(
-                        {arg.file: arg.object_path},
-                        open_files=False,
-                        full_paths=True,
-                        **form_options,
-                    )
-                else:
-                    form_dask = uproot.dask(tree, **form_options)
-                form_str = form_dask.layout.form.to_json()
-                # the function cache needs to be popped if present to prevent memory growth
-                dask = _import_dask()
-                if getattr(dask.base, "function_cache", None):
-                    dask.base.function_cache.popitem()
+                # uproot without the private form builder: fall back to the dask-based path
+                form_str = _dask_form_json(tree, is_rntuple=False)
 
             form_hash = hashlib.md5(form_str.encode("utf-8")).hexdigest()
             form_json = compress_form(form_str)
@@ -730,6 +795,22 @@ def get_parquet_form_uuid_steps(
 
         file_uuid = the_file.get("uuid", None)
 
+        # Mirror the ROOT get_steps num_entries==0 guard: a 0-row file would otherwise reach
+        # _even_steps(0, 0) (division by zero) or _aligned_steps on empty row-group boundaries.
+        if num_entries == 0:
+            array.append(
+                {
+                    "file": arg.file,
+                    "object_path": arg.object_path,
+                    "steps": [[0, 0]],
+                    "num_entries": num_entries,
+                    "uuid": file_uuid,
+                    "compressed_form": form_json,
+                    "form_hash_md5": form_hash,
+                }
+            )
+            continue
+
         out_uuid = arg.uuid
         out_steps = arg.steps
 
@@ -820,6 +901,7 @@ def preprocess_root(
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
     mode: str = "dask",
+    backend: str | PreprocessBackend = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -863,6 +945,10 @@ def preprocess_root(
         mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
             The output is the same; graphed mode needs neither dask nor dask_awkward.
+        backend : str or PreprocessBackend, default "dask"
+            Execution backend for preprocessing: "dask" (default), "iterative" (immediate,
+            synchronous, dask-free), "futures" (dask-free concurrent.futures thread pool), or a
+            PreprocessBackend instance. The ``scheduler`` argument only affects the dask backend.
     Returns
     -------
         out_available : DataGroupSpec
@@ -884,6 +970,7 @@ def preprocess_root(
         step_size_safety_factor=step_size_safety_factor,
         allow_empty_datasets=allow_empty_datasets,
         mode=mode,
+        backend=backend,
     )
 
 
@@ -900,6 +987,7 @@ def preprocess_rntuple(
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
+    backend: str | PreprocessBackend = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Preprocess datasets of ROOT files containing RNTuples, determining the steps for each file.
@@ -942,6 +1030,10 @@ def preprocess_rntuple(
         allow_empty_datasets : bool, default False
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
+        backend : str or PreprocessBackend, default "dask"
+            Execution backend for preprocessing: "dask" (default), "iterative" (immediate,
+            synchronous, dask-free), "futures" (dask-free concurrent.futures thread pool), or a
+            PreprocessBackend instance. The ``scheduler`` argument only affects the dask backend.
     Returns
     -------
         out_available : DataGroupSpec
@@ -963,6 +1055,7 @@ def preprocess_rntuple(
         step_size_safety_factor=step_size_safety_factor,
         allow_empty_datasets=allow_empty_datasets,
         require_rntuple=True,
+        backend=backend,
     )
 
 
@@ -980,6 +1073,7 @@ def preprocess_parquet(
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
     mode: str = "dask",
+    backend: str | PreprocessBackend = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Given a list of normalized files, determine the form, steps, and add the metadata for each file according to the supplied processing options.
@@ -1016,6 +1110,10 @@ def preprocess_parquet(
         mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
             The output is the same; graphed mode needs neither dask nor dask_awkward.
+        backend : str or PreprocessBackend, default "dask"
+            Execution backend for preprocessing: "dask" (default), "iterative" (immediate,
+            synchronous, dask-free), "futures" (dask-free concurrent.futures thread pool), or a
+            PreprocessBackend instance. The ``scheduler`` argument only affects the dask backend.
     Returns
     -------
         out_available : DataGroupSpec
@@ -1037,6 +1135,7 @@ def preprocess_parquet(
         step_size_safety_factor=step_size_safety_factor,
         allow_empty_datasets=allow_empty_datasets,
         mode=mode,
+        backend=backend,
     )
 
 
@@ -1055,6 +1154,7 @@ def _preprocess_pydantic(
     allow_empty_datasets: bool = False,
     mode: str = "dask",
     require_rntuple: bool = False,
+    backend: str | PreprocessBackend = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Internal function to preprocess either ROOT or parquet DatasetSpecs in a DataGroupSpec.
@@ -1092,6 +1192,11 @@ def _preprocess_pydantic(
         mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
             The output is the same; graphed mode needs neither dask nor dask_awkward.
+        backend : str or PreprocessBackend, default "dask"
+            Execution backend for the per-dataset map-reduce. One of "dask" (default),
+            "iterative" (immediate, synchronous, dask-free), "futures" (a dask-free
+            concurrent.futures thread pool), or a PreprocessBackend instance for full control.
+            ``scheduler`` only affects the dask backend.
 
     Returns
     -------
@@ -1117,8 +1222,11 @@ def _preprocess_pydantic(
     out_updated = datagroupspec.model_dump()
     out_available = datagroupspec.model_dump()
 
+    # Build one map-reduce job per dataset. The map worker (get_steps /
+    # get_parquet_form_uuid_steps) and the concatenating reduce are backend-agnostic; only the
+    # execution strategy (dask graph vs. futures vs. synchronous) is selected via `backend`.
     all_ak_norm_files = {}
-    steps_fns = {}
+    jobs = {}
     for name, info in datagroupspec.items():
         norm_files = _normalize_pydantic_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
@@ -1129,7 +1237,7 @@ def _preprocess_pydantic(
         all_ak_norm_files[name] = ak_norm_files
 
         if info.format == "root":
-            steps_fns[name] = partial(
+            map_fn = partial(
                 get_steps,
                 step_size=step_size,
                 align_clusters=use_alignment_boundaries,
@@ -1144,7 +1252,7 @@ def _preprocess_pydantic(
                 require_rntuple=require_rntuple,
             )
         elif info.format == "parquet":
-            steps_fns[name] = partial(
+            map_fn = partial(
                 get_parquet_form_uuid_steps,
                 step_size=step_size,
                 use_row_groups=use_alignment_boundaries,
@@ -1160,9 +1268,22 @@ def _preprocess_pydantic(
                 f"Dataset {name} has unsupported format {info.format}, supported formats are 'root' and 'parquet'."
             )
 
-    all_processed_files = _compute_steps(
-        all_ak_norm_files, steps_fns, files_per_batch, scheduler, mode
-    )
+        jobs[name] = PreprocessJob(
+            array=ak_norm_files, map_fn=map_fn, files_per_batch=files_per_batch
+        )
+
+    backend_obj = resolve_backend(backend, scheduler)
+    # Only submit() imports dask (for the dask backend); a ModuleNotFoundError here means the
+    # dask stack itself is missing, so we can point the user at the dask-free backends. Worker
+    # ImportErrors (e.g. a missing codec) surface later in result() and must NOT trigger the
+    # dask hint, so result() is called outside this guard.
+    try:
+        preprocess_task = backend_obj.submit(jobs)
+    except ModuleNotFoundError:
+        if isinstance(backend_obj, DaskBackend):
+            print_dask_backend_fallback_hint()
+        raise
+    all_processed_files = preprocess_task.result()
 
     for name, processed_files in all_processed_files.items():
 
@@ -1286,6 +1407,7 @@ def preprocess(
     use_row_groups: bool = False,
     parquet_options: dict = {},
     mode: str = "dask",
+    backend: str | PreprocessBackend = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec] | tuple[dict, dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -1338,6 +1460,11 @@ def preprocess(
         mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
             The output is the same; graphed mode needs neither dask nor dask_awkward.
+        backend : str or PreprocessBackend, default "dask"
+            Execution backend for preprocessing: "dask" (default), "iterative" (immediate,
+            synchronous, dask-free), "futures" (dask-free concurrent.futures thread pool), or a
+            PreprocessBackend instance. The ``scheduler`` argument only affects the dask backend.
+            Ignored when ``preprocess_legacy_root=True`` (the legacy path is always dask-based).
     Returns
     -------
         out_available : DataGroupSpec | dict
@@ -1423,6 +1550,7 @@ def preprocess(
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
             mode=mode,
+            backend=backend,
         )
         out_available_parquet, out_updated_parquet = preprocess_parquet(
             datasetspecs.filter_datasets(
@@ -1440,6 +1568,7 @@ def preprocess(
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
             mode=mode,
+            backend=backend,
         )
         # recombine outputs in original order, skipping datasets removed due to allow_empty_datasets.
         # The sub-results are already-validated DatasetSpec instances, so use model_construct to
