@@ -1,4 +1,4 @@
-"""Tests for the switchable preprocessing backends in coffea.dataset_tools.backends."""
+"""Tests for the switchable preprocessing backends in coffea.dataset_tools.preprocess_backends."""
 
 import shutil
 
@@ -11,9 +11,10 @@ from coffea.dataset_tools import (
     FuturesBackend,
     IterativeBackend,
     PreprocessBackend,
+    PreprocessJob,
     preprocess,
 )
-from coffea.dataset_tools.backends import (
+from coffea.dataset_tools.preprocess_backends import (
     _iter_batches,
     ordered_concat,
     resolve_backend,
@@ -161,7 +162,7 @@ def test_dask_import_failure_prints_hint(tmp_path, monkeypatch):
     backends is emitted before the ModuleNotFoundError propagates."""
     import importlib
 
-    backends_mod = importlib.import_module("coffea.dataset_tools.backends")
+    backends_mod = importlib.import_module("coffea.dataset_tools.preprocess_backends")
     # the package re-exports the `preprocess` function, shadowing the submodule attribute,
     # so fetch the module object explicitly rather than via attribute access
     preprocess_mod = importlib.import_module("coffea.dataset_tools.preprocess")
@@ -237,7 +238,9 @@ def test_empty_parquet_file_does_not_crash(tmp_path):
 
 
 def test_fallback_hint_mentions_backends(capsys):
-    from coffea.dataset_tools.backends import print_dask_backend_fallback_hint
+    from coffea.dataset_tools.preprocess_backends import (
+        print_dask_backend_fallback_hint,
+    )
 
     print_dask_backend_fallback_hint()
     out = capsys.readouterr().out
@@ -313,3 +316,35 @@ def test_backends_are_preprocessbackend_instances():
     assert isinstance(DaskBackend(), PreprocessBackend)
     assert isinstance(IterativeBackend(), PreprocessBackend)
     assert isinstance(FuturesBackend(), PreprocessBackend)
+
+
+def test_skipped_bad_file_assembled_by_filename(tmp_path):
+    """A skipped bad file is absent from `available` but retained in `updated` with its original
+    input info, assembled by filename in the original input order (no positional zip).
+    """
+    good = "tests/samples/nano_dy.root"
+    bad = str(tmp_path / "does_not_exist.root")
+    dgs = DataGroupSpec({"ZJets": {"files": {bad: "Events", good: "Events"}}})
+    available, updated = preprocess(
+        dgs, step_size=20, save_form=True, skip_bad_files=True, backend="iterative"
+    )
+    # updated keeps both files, in the original input order; available drops the bad one
+    assert list(updated["ZJets"].files) == [bad, good]
+    assert bad not in available["ZJets"].files
+    assert good in available["ZJets"].files
+
+
+def test_partial_result_equals_result_when_complete():
+    """partial_result() must agree with result() once all work has finished, for the eager and
+    futures backends (mirrors coffea.compute Task.partial_result)."""
+    arr = awkward.Array([{"x": i} for i in range(4)])
+    jobs = {
+        "d": PreprocessJob(array=arr, map_fn=lambda batch: batch, files_per_batch=1)
+    }
+    for backend in (IterativeBackend(), FuturesBackend(workers=2)):
+        task = backend.submit(jobs)
+        task.wait()
+        partial = task.partial_result()
+        result = task.result()
+        assert result["d"].to_list() == arr.to_list()
+        assert partial["d"].to_list() == result["d"].to_list()
