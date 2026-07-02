@@ -1,11 +1,4 @@
 from coffea.dataset_tools.apply_processor import apply_to_dataset, apply_to_fileset
-from coffea.dataset_tools.backends import (
-    DaskBackend,
-    FuturesBackend,
-    IterativeBackend,
-    PreprocessBackend,
-    PreprocessJob,
-)
 from coffea.dataset_tools.filespec import (
     CoffeaParquetFileSpec,
     CoffeaParquetFileSpecOptional,
@@ -35,6 +28,13 @@ from coffea.dataset_tools.preprocess import (
     preprocess_parquet,
     preprocess_rntuple,
     preprocess_root,
+)
+from coffea.dataset_tools.preprocess_backends import (
+    DaskBackend,
+    FuturesBackend,
+    IterativeBackend,
+    PreprocessBackend,
+    PreprocessJob,
 )
 from coffea.dataset_tools.splitting import hash_fileset, split_fileset
 

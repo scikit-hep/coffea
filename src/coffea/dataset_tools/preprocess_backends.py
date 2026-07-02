@@ -21,14 +21,15 @@ a form byte-identical to the ``uproot.dask`` form; it only falls back to ``uproo
 dask) if that internal uproot helper is unavailable on an unexpected uproot version.
 
 The interface intentionally echoes the ``coffea.compute`` refactor (PR #1470): a ``Backend``
-turns a "computable" into a future-like ``Task`` whose ``result()`` blocks. Here the computable
-is a mapping ``{dataset_name: PreprocessJob}`` and the result is ``{dataset_name: awkward.Array}``.
-When ``coffea.compute`` lands, these backends should adapt to its ``RunningBackend``/``Task``
-protocols with little change.
+turns a "computable" into a future-like ``Task`` (``result`` / ``partial_result`` / ``wait``)
+whose ``result()`` blocks. Here the computable is a mapping ``{dataset_name: PreprocessJob}`` and
+the result is ``{dataset_name: awkward.Array}``. When ``coffea.compute`` lands, these backends
+should adapt to its ``RunningBackend``/``Task`` protocols with little change.
 
-**Ordering is load-bearing.** Downstream post-processing zips the concatenated result against the
-original per-file order, so the reduction here is an *ordered* concatenation -- deliberately not
-the order-agnostic ``accumulate``/merging used by the event-processing executors.
+**Ordering is not load-bearing for correctness.** The reduction concatenates per-batch results,
+and the concrete backends happen to preserve submission order, but the downstream post-processing
+assembles its outputs *by filename* (see ``_preprocess_pydantic``), so a backend is free to reduce
+in any order -- which is what allows meshing with an order-agnostic ``compute`` reduce.
 """
 
 from __future__ import annotations
@@ -60,11 +61,12 @@ __all__ = [
 
 
 def ordered_concat(parts: Iterable[awkward.Array | None]) -> awkward.Array | None:
-    """Concatenate mapped outputs while preserving input order.
+    """Concatenate mapped outputs, preserving input order.
 
     ``None`` parts are dropped. Returns ``None`` if nothing remains. This is the reduction step
-    for preprocessing and, unlike the order-agnostic accumulation used for processor outputs,
-    must preserve order because the caller re-zips the result against the original file order.
+    for preprocessing. Order is preserved for tidiness/determinism, but is not required for
+    correctness: the downstream consumer assembles its outputs by filename, so the reduce may run
+    in any order.
     """
     parts = [part for part in parts if part is not None]
     if len(parts) == 0:
@@ -117,6 +119,15 @@ class PreprocessTask(Protocol):
     def result(self) -> dict[str, awkward.Array]:
         """Block until done and return ``{dataset_name: concatenated awkward.Array}``."""
 
+    def partial_result(self) -> dict[str, awkward.Array]:
+        """Return results for the work finished so far, without blocking on the rest.
+
+        Datasets/batches still running are omitted; a dataset appears only once at least one of
+        its batches has completed. Mirrors ``compute.Task.partial_result`` (intended for
+        resumable/progress use). Backends that cannot produce a cheap partial (e.g. a fused dask
+        graph) may return the full :meth:`result`.
+        """
+
     def wait(self) -> None:
         """Block until the computation has finished, without returning the result."""
 
@@ -140,6 +151,10 @@ class _CompletedTask:
     _results: dict[str, awkward.Array]
 
     def result(self) -> dict[str, awkward.Array]:
+        return self._results
+
+    def partial_result(self) -> dict[str, awkward.Array]:
+        # work already finished in submit(), so the partial result is the full result
         return self._results
 
     def wait(self) -> None:
@@ -200,6 +215,21 @@ class _FuturesTask:
         finally:
             if self._owns_pool:
                 self._pool.shutdown()
+
+    def partial_result(self) -> dict[str, awkward.Array]:
+        # Gather only the batches that have completed successfully, per dataset, without blocking.
+        # The owned pool is deliberately NOT shut down (unfinished work may still be running).
+        results: dict[str, awkward.Array] = {}
+        for name, futs in self._name_to_futures.items():
+            done_parts = [
+                fut.result()
+                for fut in futs
+                if fut.done() and not fut.cancelled() and fut.exception() is None
+            ]
+            merged = ordered_concat(done_parts)
+            if merged is not None:
+                results[name] = merged
+        return results
 
     def __del__(self):
         # Safety net: an owned pool is normally shut down in result(); if the caller only
@@ -278,6 +308,10 @@ class _DaskTask:
                 self._collections, scheduler=self._scheduler
             )
         return self._computed
+
+    def partial_result(self) -> dict[str, awkward.Array]:
+        # A fused dask graph has no cheap partial: fall back to the full (blocking) result.
+        return self.result()
 
 
 @dataclass
