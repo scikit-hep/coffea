@@ -25,17 +25,17 @@ try:
 except Exception:  # pragma: no cover - depends on uproot internals
     _uproot_get_ttree_form = None
 
-from coffea.dataset_tools.backends import (
+from coffea.dataset_tools.filespec import (
+    DataGroupSpec,
+    DatasetSpec,
+    ModelFactory,
+)
+from coffea.dataset_tools.preprocess_backends import (
     DaskBackend,
     PreprocessBackend,
     PreprocessJob,
     print_dask_backend_fallback_hint,
     resolve_backend,
-)
-from coffea.dataset_tools.filespec import (
-    DataGroupSpec,
-    DatasetSpec,
-    ModelFactory,
 )
 from coffea.util import (
     _import_dask,
@@ -1297,7 +1297,9 @@ def _preprocess_pydantic(
 
         union_form_jsonstr = _union_form_jsonstr(dataset_forms)
 
-        files_available = {
+        # Index successfully-processed files by filename. Skipped/bad files were dropped as
+        # None by the worker and are simply absent here.
+        available_by_file = {
             item["file"]: {
                 "object_path": item["object_path"],
                 "steps": item["steps"],
@@ -1307,17 +1309,32 @@ def _preprocess_pydantic(
             for item in awkward.drop_none(processed_files_without_forms).to_list()
         }
 
+        # Assemble both outputs by filename in the original input order, rather than zipping the
+        # processed results positionally against the input. Matching by key means correctness no
+        # longer depends on the order in which the backend reduced/concatenated the per-file
+        # results -- only that each processed record carries its filename. This is what lets the
+        # reduce be order-agnostic (relevant for meshing with the coffea.compute refactor).
+        original_files = [item["file"] for item in all_ak_norm_files[name].to_list()]
+
+        files_available = {
+            filename: available_by_file[filename]
+            for filename in original_files
+            if filename in available_by_file
+        }
+
         files_out = {}
-        for proc_item, orig_item in zip(
-            processed_files_without_forms.to_list(), all_ak_norm_files[name].to_list()
-        ):
-            item = orig_item if proc_item is None else proc_item
-            files_out[item["file"]] = {
-                "object_path": item["object_path"],
-                "steps": item["steps"],
-                "num_entries": item["num_entries"],
-                "uuid": item["uuid"],
-            }
+        for orig_item in all_ak_norm_files[name].to_list():
+            filename = orig_item["file"]
+            # processed info when available, else fall back to the original input info
+            files_out[filename] = available_by_file.get(
+                filename,
+                {
+                    "object_path": orig_item["object_path"],
+                    "steps": orig_item["steps"],
+                    "num_entries": orig_item["num_entries"],
+                    "uuid": orig_item["uuid"],
+                },
+            )
 
         out_updated[name]["files"] = files_out
         out_available[name]["files"] = files_available
