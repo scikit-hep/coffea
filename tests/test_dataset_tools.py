@@ -570,7 +570,7 @@ def test_preprocess_empty_fileset(the_fileset, dask_client, preprocess_legacy_ro
 @pytest.mark.parametrize("align_clusters", [False, True])
 @pytest.mark.parametrize("preprocess_legacy_root", [False, True])
 def test_preprocess_empty_files(
-        the_fileset, save_form, align_clusters, dask_client, preprocess_legacy_root
+    the_fileset, save_form, align_clusters, dask_client, preprocess_legacy_root
 ):
     with dask_client.as_current() as _:
         dataset_runnable, dataset_updated = preprocess(
