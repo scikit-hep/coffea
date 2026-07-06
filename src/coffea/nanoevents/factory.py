@@ -53,7 +53,15 @@ class _map_schema_base:  # ImplementsFormMapping, ImplementsFormMappingInfo
                 [
                     name
                     for name, maybe_transform in zip(operands, it_operands)
-                    if maybe_transform == "!load"
+                    # Match both "!load" and "!loadallowmissing": a saved/union form
+                    # marks branches that may be missing in some files with the
+                    # "!loadallowmissing" token (see nanoevents.mapping.base, which
+                    # dispatches on node.startswith("!load")). Both tokens denote a
+                    # real column read, so both branches must be requested from the
+                    # file. Matching only "!load" silently drops the maybe-missing
+                    # branches, causing dask mode to fabricate them as all-None even
+                    # in files that actually contain them.
+                    if maybe_transform.startswith("!load")
                 ]
             )
         return base_columns

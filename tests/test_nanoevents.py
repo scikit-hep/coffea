@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import awkward as ak
+import numpy as np
 import pytest
 import uproot
 
@@ -340,3 +341,94 @@ def test_uproot_write(tmp_path):
     assert ak.all(orig_base.Muon_eta == test_base.Muon_eta)
     assert ak.all(orig_base.Jet_pt == test_base.Jet_pt)
     assert ak.all(orig_base.MET_pt == test_base.MET_pt)
+
+
+def test_keys_for_buffer_keys_loadallowmissing():
+    """Regression test for scikit-hep/coffea#1578 (bug 5).
+
+    When a saved/union form marks a branch as maybe-missing (an
+    ``IndexedOptionArray`` produced by unioning forms across files where some
+    files lack the branch), the lazified form key uses the
+    ``!loadallowmissing`` token rather than ``!load``. ``keys_for_buffer_keys``
+    must still map such buffer keys back to their branch name so that dask mode
+    requests the branch from the file. Matching only ``== "!load"`` silently
+    drops these branches, so dask mode fabricates them as all-None even in files
+    that actually contain the branch.
+    """
+    from coffea.nanoevents.factory import _map_schema_base
+    from coffea.nanoevents.util import quote
+
+    mapper = _map_schema_base()
+
+    # Buffer keys for a maybe-missing branch look like the ones produced by
+    # coffea.nanoevents.mapping.uproot._lazify_form for an IndexedOptionArray.
+    index_key = f"/index/{quote('flag,!loadallowmissing,!index')}"
+    content_key = f"/data/{quote('flag,!loadallowmissing,!content')}"
+    # A normal (always-present) branch uses the plain "!load" token.
+    load_key = f"/data/{quote('x,!load')}"
+
+    assert mapper.keys_for_buffer_keys({index_key}) == {"flag"}
+    assert mapper.keys_for_buffer_keys({content_key}) == {"flag"}
+    assert mapper.keys_for_buffer_keys({load_key}) == {"x"}
+    assert mapper.keys_for_buffer_keys({index_key, load_key}) == {"flag", "x"}
+
+
+@pytest.mark.dask_client
+def test_union_form_maybe_missing_branch_dask(tmp_path, dask_client):
+    """End-to-end regression for scikit-hep/coffea#1578 (bug 5).
+
+    Build two ROOT files where only one contains a boolean ``flag`` branch,
+    preprocess them into a union form (which marks ``flag`` as maybe-missing),
+    then load the file that DOES contain the branch in dask mode using that
+    saved form. Before the fix the branch was never requested, so the column
+    came back as all-None instead of its real values.
+    """
+    pytest.importorskip("dask_awkward")
+    import dask_awkward as dak
+
+    from coffea.dataset_tools import preprocess
+    from coffea.dataset_tools.filespec import DatasetSpec
+
+    n = 20
+    f_has = str(tmp_path / "has_branch.root")
+    f_missing = str(tmp_path / "missing_branch.root")
+
+    with uproot.recreate(f_has) as f:
+        f.mktree("Events", {"x": np.float32, "flag": np.bool_})
+        f["Events"].extend(
+            {"x": np.arange(n, dtype=np.float32), "flag": np.ones(n, dtype=bool)}
+        )
+    with uproot.recreate(f_missing) as f:
+        f.mktree("Events", {"x": np.float32})
+        f["Events"].extend({"x": np.arange(n, dtype=np.float32) + 100})
+
+    fileset = {"ds": {"files": {f_has: "Events", f_missing: "Events"}}}
+    available, _all = preprocess(fileset, save_form=True, skip_bad_files=False)
+
+    # preprocess preserves the input type: dict in -> dict out.
+    ds_entry = available["ds"] if isinstance(available, dict) else available.root["ds"]
+    ds = (
+        ds_entry
+        if isinstance(ds_entry, DatasetSpec)
+        else DatasetSpec.model_validate(ds_entry)
+    )
+    union_form = ds.form
+    # The union form must mark the maybe-missing branch as an IndexedOptionArray.
+    assert "IndexedOption" in str(union_form)
+
+    with dask_client.as_current() as _:
+        events = NanoEventsFactory.from_root(
+            {f_has: "Events"},
+            schemaclass=BaseSchema,
+            known_base_form=union_form,
+            mode="dask",
+        ).events()
+
+        # The maybe-missing branch must be requested from the file...
+        needed = set().union(*dak.necessary_columns(events["flag"]).values())
+        assert "flag" in needed
+
+        # ...and its real values (all True) must be returned, not fabricated None.
+        computed = events["flag"].compute()
+        assert int(ak.sum(ak.is_none(computed))) == 0
+        assert ak.all(computed)
