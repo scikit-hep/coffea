@@ -321,7 +321,9 @@ class MCParticle(MomentumCandidate, edm4hep_nanocollection):
 
 
 _set_repr_name("MCParticle")
-behavior.update(awkward._util.copy_behaviors("MomentumCandidate", "MCParticle", behavior))
+behavior.update(
+    awkward._util.copy_behaviors("MomentumCandidate", "MCParticle", behavior)
+)
 MCParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 MCParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 MCParticleArray.ProjectionClass4D = MCParticleArray  # noqa: F821
