@@ -23,7 +23,7 @@ def test_preloaded_nanoevents():
         "luminosityBlock",
         "event",
     ]
-    p = NanoEventsProcessor(columns=columns)
+    p = NanoEventsProcessor(columns=columns, mode="eager")
 
     rootdir = uproot.open(os.path.abspath("tests/samples/nano_dy.root"))
     tree = rootdir["Events"]
