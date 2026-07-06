@@ -251,6 +251,10 @@ def filter_files(
     """
     Modify the input fileset so that only the files of each dataset that pass the filter remain.
 
+    This is intended for preprocessed filesets: for ``DatasetSpec`` entries the filtered
+    files are rebuilt as ``PreprocessedFiles``, so calling it on a not-yet-preprocessed
+    dataset (whose files are not all concrete specs) raises a ``pydantic.ValidationError``.
+
     Parameters
     ----------
         fileset : DataGroupSpec
