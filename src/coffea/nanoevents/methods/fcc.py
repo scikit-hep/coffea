@@ -74,7 +74,7 @@ class MomentumCandidate(vector.LorentzVector):
 
 
 behavior.update(
-    awkward._util.copy_behaviors(vector.LorentzVector, MomentumCandidate, behavior)
+    awkward._util.copy_behaviors("LorentzVector", "MomentumCandidate", behavior)
 )
 
 MomentumCandidateArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
@@ -179,7 +179,7 @@ class MCParticle(MomentumCandidate, base.NanoCollection):
 
 
 _set_repr_name("MCParticle")
-behavior.update(awkward._util.copy_behaviors(MomentumCandidate, MCParticle, behavior))
+behavior.update(awkward._util.copy_behaviors("MomentumCandidate", "MCParticle", behavior))
 
 MCParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 MCParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
@@ -250,7 +250,7 @@ class ReconstructedParticle(MomentumCandidate, base.NanoCollection):
 
 _set_repr_name("ReconstructedParticle")
 behavior.update(
-    awkward._util.copy_behaviors(MomentumCandidate, ReconstructedParticle, behavior)
+    awkward._util.copy_behaviors("MomentumCandidate", "ReconstructedParticle", behavior)
 )
 
 ReconstructedParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
@@ -446,7 +446,7 @@ class MCParticle(edm4hep.MCParticle):  # noqa: F811
 
 _set_repr_name_edm4hep1("MCParticle")
 behavior_edm4hep1.update(
-    awkward._util.copy_behaviors(MomentumCandidate, MCParticle, behavior)
+    awkward._util.copy_behaviors("MomentumCandidate", "MCParticle", behavior)
 )
 MCParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 MCParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
@@ -502,7 +502,7 @@ class ReconstructedParticle(edm4hep.ReconstructedParticle):  # noqa: F811
 _set_repr_name_edm4hep1("ReconstructedParticle")
 behavior_edm4hep1.update(
     awkward._util.copy_behaviors(
-        MomentumCandidate, ReconstructedParticle, behavior_edm4hep1
+        "MomentumCandidate", "ReconstructedParticle", behavior_edm4hep1
     )
 )
 ReconstructedParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
