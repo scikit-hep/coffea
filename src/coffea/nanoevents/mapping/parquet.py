@@ -3,10 +3,18 @@ import warnings
 
 import awkward
 import numpy
+from cachetools import LRUCache
 from fsspec.core import OpenFile
 
 from coffea.nanoevents.mapping.base import BaseSourceMapping, UUIDOpener
 from coffea.nanoevents.util import quote, tuple_to_key
+
+# Number of distinct parquet columns kept materialized per open file. A single
+# jagged buffer access (offsets + content) reads the same column more than once,
+# and a NanoEvents view typically touches only a handful of columns at a time,
+# so a small cache eliminates redundant full-column reads without holding the
+# whole file in memory.
+_PARQUET_COLUMN_CACHE_SIZE = 16
 
 
 # IMPORTANT -> For now the uuid is just the uuid of the pfn.
@@ -25,6 +33,10 @@ class TrivialParquetOpener(UUIDOpener):
             self.file = file
             self.dataset = dataset
             self.openfile = openfile
+            # Cache materialized single-column tables so that the multiple buffer
+            # accesses for one column (e.g. offsets and content of a jagged array)
+            # do not each re-read the entire column from the parquet file.
+            self._column_cache = LRUCache(_PARQUET_COLUMN_CACHE_SIZE)
 
         def __del__(self):
             """
@@ -36,11 +48,17 @@ class TrivialParquetOpener(UUIDOpener):
                 self.openfile.close()
 
         def read(self, column_name):
+            try:
+                return self._column_cache[column_name]
+            except KeyError:
+                pass
             # make sure uproot is single-core since our calling context might not be
             if self.dataset is not None:
-                return self.dataset.to_table(use_threads=False, columns=[column_name])
+                table = self.dataset.to_table(use_threads=False, columns=[column_name])
             else:
-                return self.file.read([column_name], use_threads=False)
+                table = self.file.read([column_name], use_threads=False)
+            self._column_cache[column_name] = table
+            return table
 
         # for right now spoof the notion of directories in files
         # parquet can do it but we've gotta convince people to

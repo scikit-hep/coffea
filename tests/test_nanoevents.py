@@ -1,4 +1,5 @@
 import os
+from functools import partial
 from pathlib import Path
 
 import awkward as ak
@@ -389,3 +390,71 @@ def test_parquet_entry_range_matches_full_slice(
 
     # A flat (per-event) branch should match as well.
     assert ak.to_list(sub.MET.pt) == ak.to_list(full.MET.pt[entry_start:entry_stop])
+
+
+def test_parquet_column_cache_avoids_repeated_reads(tests_directory, monkeypatch):
+    """Regression test for scikit-hep/coffea#1578 (perf bullet).
+
+    A jagged parquet column is materialized through two separate buffer keys
+    (offsets and content). Each used to trigger a full re-read of the column
+    from the parquet file. The per-source column cache should collapse these
+    into a single read while returning identical data.
+    """
+    import pyarrow.parquet as pq
+
+    from coffea.nanoevents.factory import _key_formatter
+    from coffea.nanoevents.mapping.parquet import (
+        ParquetSourceMapping,
+        TrivialParquetOpener,
+    )
+    from coffea.nanoevents.util import tuple_to_key
+
+    path = f"{tests_directory}/samples/nano_dy.parquet"
+
+    read_counts = {}
+    orig_read = pq.ParquetFile.read
+
+    def counting_read(self, columns=None, use_threads=True, **kwargs):
+        for c in columns or []:
+            read_counts[c] = read_counts.get(c, 0) + 1
+        return orig_read(self, columns=columns, use_threads=use_threads, **kwargs)
+
+    monkeypatch.setattr(pq.ParquetFile, "read", counting_read)
+
+    parfile = pq.ParquetFile(path)
+    n = parfile.metadata.num_rows
+    mapping = ParquetSourceMapping(TrivialParquetOpener({"uu": path}), 0, n)
+    partition_key = ("uu", "obj", f"0-{n}")
+    mapping.preload_column_source(
+        partition_key[0],
+        partition_key[1],
+        TrivialParquetOpener.UprootLikeShim(parfile),
+    )
+
+    subform = mapping._extract_base_form(parfile.schema_arrow)
+    idx = subform["fields"].index("Muon_pt")
+    jagged_form = {
+        "class": "RecordArray",
+        "fields": ["Muon_pt"],
+        "contents": [subform["contents"][idx]],
+        "parameters": {"__doc__": "parquetfile"},
+        "form_key": "",
+    }
+
+    array = ak.from_buffers(
+        form=ak.forms.from_dict(jagged_form),
+        length=n,
+        container=mapping,
+        buffer_key=partial(_key_formatter, tuple_to_key(partition_key)),
+        highlevel=True,
+    )
+
+    # Offsets and content of one jagged column -> a single underlying read.
+    assert read_counts["Muon_pt"] == 1
+
+    # And the cache must not corrupt the returned data: compare against the
+    # value seen through the normal (un-monkeypatched) reader path.
+    reference = NanoEventsFactory.from_parquet(
+        path, schemaclass=NanoAODSchema, mode="eager"
+    ).events()
+    assert ak.to_list(array.Muon_pt) == ak.to_list(reference.Muon.pt)
