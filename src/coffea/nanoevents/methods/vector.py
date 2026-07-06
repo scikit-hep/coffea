@@ -315,8 +315,12 @@ class ThreeVector(MomentumAwkward3D):
 
     @property
     def unit(self):
-        """Unit vector, a vector of length 1 pointing in the same direction"""
-        return self / self.rho
+        """Unit vector, a vector of length 1 pointing in the same direction
+
+        For a 3D vector the length is the full 3D magnitude ``p``
+        (:math:`\\sqrt{x^2+y^2+z^2}`), not the transverse magnitude ``rho``.
+        """
+        return self / self.p
 
     def __awkward_validation__(self):
         fields = set(self.fields)
