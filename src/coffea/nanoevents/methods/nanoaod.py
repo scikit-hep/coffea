@@ -544,7 +544,7 @@ class FsrPhoton(candidate.PtEtaPhiMCandidate, base.NanoCollection):
 
     @matched_muon.dask
     def matched_muon(self, dask_array):
-        return dask_array._events().Jet._apply_global_index(dask_array.muonIdxG)
+        return dask_array._events().Muon._apply_global_index(dask_array.muonIdxG)
 
 
 _set_repr_name("FsrPhoton")
