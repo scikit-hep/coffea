@@ -340,3 +340,52 @@ def test_uproot_write(tmp_path):
     assert ak.all(orig_base.Muon_eta == test_base.Muon_eta)
     assert ak.all(orig_base.Jet_pt == test_base.Jet_pt)
     assert ak.all(orig_base.MET_pt == test_base.MET_pt)
+
+
+parquet_suffixes = [
+    "parquet",
+    "extensionarray.parquet",
+]
+
+
+@pytest.mark.parametrize("suffix", parquet_suffixes)
+@pytest.mark.parametrize(
+    "entry_start,entry_stop", [(5, 15), (1, 40), (0, 10), (37, 40)]
+)
+def test_parquet_entry_range_matches_full_slice(
+    tests_directory, suffix, entry_start, entry_stop
+):
+    """Regression test for scikit-hep/coffea#1578 (bug 4).
+
+    Reading a parquet file with entry_start > 0 must return exactly the same
+    per-event data as reading the whole file and slicing.  The parquet mapping
+    used to read jagged offsets from the start of the buffer while extracting
+    content with the pyarrow slice offset applied, silently reassigning e.g.
+    muon pts to the wrong events (and crashing NanoAOD cross-references).
+    """
+    path = f"{tests_directory}/samples/nano_dy.{suffix}"
+    from_parquet = getattr(
+        NanoEventsFactory, f"from_{suffix.removeprefix('extensionarray.')}"
+    )
+
+    full = from_parquet(path, schemaclass=NanoAODSchema, mode="eager").events()
+    sub = from_parquet(
+        path,
+        schemaclass=NanoAODSchema,
+        mode="eager",
+        entry_start=entry_start,
+        entry_stop=entry_stop,
+    ).events()
+
+    assert len(sub) == entry_stop - entry_start
+
+    # Jagged collections (the buggy path) must match the full-read slice exactly.
+    for field in ("Muon", "Jet", "Electron"):
+        sub_pt = ak.to_list(getattr(sub, field).pt)
+        full_pt = ak.to_list(getattr(full, field).pt[entry_start:entry_stop])
+        assert (
+            sub_pt == full_pt
+        ), f"{field}.pt mismatch for [{entry_start}:{entry_stop}]"
+
+    # A flat (per-event) branch should match as well.
+    assert ak.to_list(sub.MET.pt) == ak.to_list(full.MET.pt[entry_start:entry_stop])
