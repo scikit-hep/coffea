@@ -553,6 +553,10 @@ class NanoEventsFactory:
             warnings.warn(
                 f"{schemaclass} is not dask capable despite allowing dask, generating non-dask nanoevents"
             )
+        # Only str paths are opened through fsspec, which may materialize a local
+        # copy that must be closed later via the shim's ``openfile`` handle. For
+        # all other input types there is no fsspec handle to clean up.
+        fs_file = None
         if isinstance(file, ftypes):
             table_file = pyarrow.parquet.ParquetFile(file, **parquet_options)
         elif isinstance(file, str):
