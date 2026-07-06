@@ -447,16 +447,23 @@ class DatasetSpec(BaseModel):
     did: str | None = None
 
     def __eq__(self, other: Any) -> bool:
+        # NOTE: defining __eq__ sets __hash__ to None, so DatasetSpec is unhashable. That
+        # is fine only because these pydantic models are not frozen (and hence already
+        # unhashable); do not freeze this model later without also restoring a __hash__.
         if not isinstance(other, DatasetSpec):
             return False
-        return (
-            all(
-                getattr(self, k) == getattr(other, k)
-                for k in self.__dict__.keys()
-                if k != "compressed_form"
-            )
-            and self.form == other.form
-        )
+        if not all(
+            getattr(self, k) == getattr(other, k)
+            for k in self.__dict__.keys()
+            if k != "compressed_form"
+        ):
+            return False
+        # Compare the compressed form strings first (cheap); the compressed bytes are
+        # non-deterministic even for identical decoded forms, so only fall back to
+        # decoding and comparing the awkward forms when the compressed strings differ.
+        if self.compressed_form == other.compressed_form:
+            return True
+        return self.form == other.form
 
     def __add__(self, other: DatasetSpec) -> DatasetSpec:
         if not isinstance(other, DatasetSpec):
@@ -752,7 +759,10 @@ class DataGroupSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
 
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
-        data = copy.deepcopy(data)
+        # No deepcopy is needed at this level: the DataGroupSpec branch below produces a
+        # fresh dict via model_dump(), and every DatasetSpec value is deep-copied in
+        # DatasetSpec.preprocess_data. Caller input is therefore never mutated, while we
+        # avoid an extra full-fileset deepcopy pass on the hot preprocessing path.
         if isinstance(data, DataGroupSpec):
             return data.model_dump()
         return data
