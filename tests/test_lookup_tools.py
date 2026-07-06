@@ -271,6 +271,45 @@ def test_histo_json_scalefactors():
     print(sf_err_out)
 
 
+def test_histo_json_scalefactors_multi():
+    # Regression test for scikit-hep/coffea#1578: convert_histo_json_file used a
+    # stale loop variable (histname, left over from the first pass) when looking
+    # up the set of value names for each histogram in the second pass. With more
+    # than one histogram, every histogram was assigned the LAST histogram's value
+    # names, which silently dropped value tables or raised KeyError depending on
+    # key ordering. Here dirA/histA has {value, error} and dirB/histB has
+    # {value, weight}; the fix must round-trip all four value tables correctly.
+    from coffea.lookup_tools.json_converters import convert_histo_json_file
+
+    out = convert_histo_json_file("tests/samples/multihist_WH_out.histo.json")
+    keys = {name for (name, _kind) in out.keys()}
+    assert keys == {
+        "dirA/histA_value",
+        "dirA/histA_error",
+        "dirB/histB_value",
+        "dirB/histB_weight",
+    }
+
+    # Values must match the source JSON, not the last histogram's tables.
+    assert list(out[("dirA/histA_value", "dense_lookup")][0]) == [1.0, 2.0]
+    assert list(out[("dirA/histA_error", "dense_lookup")][0]) == [
+        pytest.approx(0.1),
+        pytest.approx(0.2),
+    ]
+    assert list(out[("dirB/histB_value", "dense_lookup")][0]) == [5.0, 6.0]
+    assert list(out[("dirB/histB_weight", "dense_lookup")][0]) == [9.0, 8.0]
+
+    # End-to-end through the extractor/evaluator as well.
+    extractor = lookup_tools.extractor()
+    extractor.add_weight_sets(["testMulti * tests/samples/multihist_WH_out.histo.json"])
+    extractor.finalize()
+    evaluator = extractor.make_evaluator()
+
+    x = ak.Array([0.5, 1.5])
+    assert list(evaluator["testMultidirA/histA_value"](x)) == [1.0, 2.0]
+    assert list(evaluator["testMultidirB/histB_weight"](x)) == [9.0, 8.0]
+
+
 def test_jec_txt_scalefactors():
     extractor = lookup_tools.extractor()
     extractor.add_weight_sets(
