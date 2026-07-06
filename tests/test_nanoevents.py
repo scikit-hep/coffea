@@ -119,6 +119,46 @@ def test_read_nanomc(tests_directory, suffix):
     ]
 
 
+@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
+def test_fsrphoton_matched_muon_type(tests_directory, mode):
+    """Regression test for scikit-hep/coffea#1578.
+
+    FsrPhoton.matched_muon must resolve against the Muon collection in all
+    execution modes. A copy-paste bug previously made the dask path resolve
+    against Jet, silently returning Jet records instead of Muon records.
+    """
+    if mode == "dask":
+        pytest.importorskip("dask_awkward")
+    path = f"{tests_directory}/samples/nano_dy.root:Events"
+    events = NanoEventsFactory.from_root(
+        path,
+        schemaclass=NanoAODSchema,
+        mode=mode,
+    ).events()
+
+    # Reference: eager result is known-correct (Muon-type records).
+    eager_events = NanoEventsFactory.from_root(
+        path,
+        schemaclass=NanoAODSchema,
+        mode="eager",
+    ).events()
+    eager_matched = eager_events.FsrPhoton.matched_muon
+
+    matched = events.FsrPhoton.matched_muon
+    if mode == "dask":
+        matched = matched.compute()
+    else:
+        matched = ak.materialize(matched)
+
+    # Fields must match the eager (Muon) result, not Jet.
+    assert set(matched.fields) == set(eager_matched.fields)
+    # A Muon-specific field must be present; a Jet-specific one must not.
+    assert "pfRelIso04_all" in matched.fields
+    assert "btagDeepB" not in matched.fields
+    # Values must match the eager result.
+    assert ak.all(ak.fill_none(matched.pt == eager_matched.pt, True))
+
+
 @pytest.mark.parametrize("suffix", suffixes)
 def test_read_from_uri(tests_directory, suffix):
     """Make sure we can properly open the file when a uri is used"""
