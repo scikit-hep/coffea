@@ -383,10 +383,12 @@ class CorrectedJetsFactory:
             down = awkward.flatten(jets)
             # always forward the original (likely corrected) pt/mass
             down = awkward.with_field(
-                up, down[self.name_map["JetPt"]], where=self.name_map["JetPt"] + "_orig"
+                down,
+                down[self.name_map["JetPt"]],
+                where=self.name_map["JetPt"] + "_orig",
             )
             down = awkward.with_field(
-                up,
+                down,
                 down[self.name_map["JetMass"]],
                 where=self.name_map["JetMass"] + "_orig",
             )
