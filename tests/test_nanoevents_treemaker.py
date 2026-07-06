@@ -84,6 +84,26 @@ def test_nested_collection(collection, subcollection, arr_type, element, events)
         )
 
 
+@pytest.mark.parametrize(
+    "collection",
+    ["JetsJECup", "JetsJECdown"],
+)
+def test_subbranch_field_names_not_truncated(events, collection):
+    # Regression test for scikit-hep/coffea#1578: the schema previously used
+    # ``k[len(cname) + 1]`` (single index) instead of a slice, truncating
+    # subbranch field names to a single character. That silently collapsed
+    # distinct subbranches sharing a first letter (e.g. "jerFactor" and
+    # "origIndex" -> "j" and "o"), dropping one of them.
+    fields = events[collection].fields
+    assert "jerFactor" in fields
+    assert "origIndex" in fields
+    assert "j" not in fields
+    assert "o" not in fields
+    # Values must remain readable through the full field names.
+    assert ak.all(ak.num(events[collection].jerFactor.compute(), axis=1) >= 0)
+    assert ak.all(ak.num(events[collection].origIndex.compute(), axis=1) >= 0)
+
+
 def test_uproot_write(tmp_path):
     path = os.path.abspath("tests/samples/treemaker.root")
     orig_events = NanoEventsFactory.from_root(
