@@ -282,9 +282,9 @@ def preprocess_legacy(
         files_per_batch : int, default 1
             The number of files to preprocess in a single batch.
             Large values will result in fewer dask tasks but each task will have to do more work.
-        skip_bad_files : bool, False
+        skip_bad_files : bool, default False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions : Exception | Warning | tuple[Exception | Warning], default (FileNotFoundError, OSError)
+        file_exceptions : Exception | Warning | tuple[Exception | Warning], default (OSError,)
             What exceptions to catch when skipping bad files.
         save_form : bool, default False
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
@@ -515,9 +515,7 @@ def preprocess_legacy(
     return out_available, out_updated
 
 
-def _normalize_pydantic_file_info(
-    datasetspec: DatasetSpec, return_compressedform_or_metadata=False
-):
+def _normalize_pydantic_file_info(datasetspec: DatasetSpec):
     """
     Structure file info akin to _normalize_file_info for uproot files, which returns a list of (filename, object_path, steps, num_entries, uuid) tuples.
     """
@@ -536,8 +534,6 @@ def _normalize_pydantic_file_info(
                 fileinfo.uuid,
             )
         )
-    if return_compressedform_or_metadata:
-        return normed_files, datasetspec.compressed_form, datasetspec.metadata
     return normed_files
 
 
@@ -566,14 +562,14 @@ def get_parquet_form_uuid_steps(
         recalculate_steps : bool, default False
             If steps are present in the input normed files, force the recalculation of those steps, instead
             of only recalculating the steps if the uuid has changed.
-        skip_bad_files : bool, False
+        skip_bad_files : bool, default False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
         file_exceptions : Exception | Warning | tuple[Exception | Warning], default (OSError,)
             What exceptions to catch when skipping bad files.
         save_form : bool, default False
-            Extract the form of the TTree from the file so we can skip opening files later.
+            Extract the form of the parquet file so we can skip opening files later.
         step_size_safety_factor : float, default 0.5
-            When using align_clusters, if a resulting step is larger than step_size by this factor
+            When using use_row_groups, if a resulting step is larger than step_size by this factor
             warn the user that the resulting steps may be highly irregular.
 
     Returns
@@ -600,13 +596,8 @@ def get_parquet_form_uuid_steps(
         form_json = None
         form_hash = None
         if save_form:
-            dask = _import_dask()
             form = the_file["form"]
             form_str = form.to_json()
-            # the function cache needs to be popped if present to prevent memory growth
-            if hasattr(dask.base, "function_cache"):
-                dask.base.function_cache.popitem()
-
             form_hash = hashlib.md5(form_str.encode("utf-8")).hexdigest()
             form_json = compress_form(form_str)
 
@@ -616,6 +607,20 @@ def get_parquet_form_uuid_steps(
 
         out_uuid = arg.uuid
         out_steps = arg.steps
+
+        if num_entries == 0:
+            array.append(
+                {
+                    "file": arg.file,
+                    "object_path": arg.object_path,
+                    "steps": [[0, 0]],
+                    "num_entries": num_entries,
+                    "uuid": file_uuid,
+                    "compressed_form": form_json,
+                    "form_hash_md5": form_hash,
+                }
+            )
+            continue
 
         if out_uuid != file_uuid or recalculate_steps:
             if use_row_groups:
@@ -734,7 +739,7 @@ def preprocess_root(
             Large values will result in fewer dask tasks but each task will have to do more work.
         skip_bad_files : bool, default False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (FileNotFoundError, OSError)
+        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (OSError,)
             What exceptions to catch when skipping bad files.
         save_form : bool, default True
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
@@ -790,7 +795,7 @@ def preprocess_parquet(
 
     Parameters
     ----------
-        fileset : DataGroupSpec
+        datagroupspec : DataGroupSpec
             The set of datasets whose files will be preprocessed.
         step_size : int | None, default None
             If specified, the size of the steps to make when analyzing the input files.
@@ -799,12 +804,12 @@ def preprocess_parquet(
         recalculate_steps : bool, default False
             If steps are present in the input normed files, force the recalculation of those steps,
             instead of only recalculating the steps if the uuid has changed.
-        skip_bad_files : bool, False
+        skip_bad_files : bool, default False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions : Exception | Warning | tuple[Exception | Warning], default (FileNotFoundError, OSError)
+        file_exceptions : Exception | Warning | tuple[Exception | Warning], default (OSError,)
             What exceptions to catch when skipping bad files.
         save_form : bool, default True
-            Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
+            Extract the form of each file in each dataset, creating the union of the forms over the dataset.
         scheduler : None | Callable | str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
         parquet_options : dict, default {}
@@ -1121,6 +1126,25 @@ def _preprocess_pydantic(
     )
 
 
+def _advertise_datagroupspec() -> None:
+    """Print a friendly advertisement for the pydantic DataGroupSpec API to the coffea console."""
+    from coffea.util import coffea_console
+
+    coffea_console.print(
+        "[bold cyan]coffea.dataset_tools.preprocess[/]: you passed a plain dict fileset. "
+        "Dict-in / dict-out is still fully supported, but the pydantic "
+        "[bold]DataGroupSpec[/] API offers input validation, mixed ROOT+parquet handling, "
+        "form management, and richer fileset manipulation. Consider building a "
+        "[bold]coffea.dataset_tools.DataGroupSpec[/] for new code.",
+        style="dim",
+    )
+
+
+def _datagroupspec_to_dict(datagroupspec: DataGroupSpec) -> dict:
+    """Convert a DataGroupSpec back to a plain (JSON-serializable) dict fileset."""
+    return datagroupspec.model_dump()
+
+
 def preprocess(
     fileset: DataGroupSpec | dict,
     step_size: None | int = None,
@@ -1129,7 +1153,7 @@ def preprocess(
     files_per_batch: int = 1,
     skip_bad_files: bool = False,
     file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
-    save_form: bool = True,
+    save_form: None | bool = None,
     scheduler: None | Callable | str = None,
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
@@ -1140,6 +1164,9 @@ def preprocess(
 ) -> tuple[DataGroupSpec, DataGroupSpec] | tuple[dict, dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
+
+    The return type matches the input type: passing a ``DataGroupSpec`` returns a
+    tuple of ``DataGroupSpec``; passing a plain dict returns a tuple of dicts.
 
     Parameters
     ----------
@@ -1158,10 +1185,12 @@ def preprocess(
             Large values will result in fewer dask tasks but each task will have to do more work.
         skip_bad_files : bool, default False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (FileNotFoundError, OSError)
+        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (OSError,)
             What exceptions to catch when skipping bad files.
-        save_form : bool, default True
-            Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
+        save_form : bool or None, default None
+            Extract the form of each file in each dataset, creating the union of the forms over the dataset.
+            When None (the default), the pydantic preprocessing path uses True and the legacy path
+            (preprocess_legacy_root=True) uses False, preserving each path's historical default.
         scheduler : None or Callable or str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
         uproot_options : dict, default {}
@@ -1186,8 +1215,12 @@ def preprocess(
         out_updated : DataGroupSpec | dict
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
+    input_is_dict = not isinstance(fileset, DataGroupSpec)
+
     if preprocess_legacy_root:
-        # use the legacy root TTree preprocessing function if requested
+        # use the legacy root TTree preprocessing function if requested;
+        # the legacy path historically defaulted to save_form=False
+        legacy_save_form = False if save_form is None else save_form
         if isinstance(fileset, DataGroupSpec):
             fileset_input = fileset.model_dump()
             for k in fileset_input.keys():
@@ -1204,25 +1237,38 @@ def preprocess(
             files_per_batch=files_per_batch,
             skip_bad_files=skip_bad_files,
             file_exceptions=file_exceptions,
-            save_form=save_form,
+            save_form=legacy_save_form,
             scheduler=scheduler,
             uproot_options=uproot_options,
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
         )
     else:
+        # the pydantic path historically defaulted to save_form=True
+        pydantic_save_form = True if save_form is None else save_form
         if isinstance(fileset, DataGroupSpec):
             datasetspecs = fileset
         else:
             warnings.warn(
-                "Passing a dict to preprocess is deprecated. Converting to DataGroupSpec and proceeding. "
-                "To avoid this warning, pass a DataGroupSpec object instead of a dict. "
-                "To use the legacy preprocessing function, set preprocess_legacy_root=True or utilize preprocess_legacy directly. "
-                "If automatic conversion is not possible, please submit your fileset to the coffea team.",
+                "Passing a dict to preprocess is deprecated. Dict input still returns "
+                "dict output for backwards compatibility, but the pydantic DataGroupSpec "
+                "API is recommended. To use the legacy preprocessing function, set "
+                "preprocess_legacy_root=True or utilize preprocess_legacy directly.",
                 DeprecationWarning,
                 stacklevel=2,
             )
+            _advertise_datagroupspec()
             datasetspecs = DataGroupSpec.model_validate(fileset)
+        # Entries assigned via DataGroupSpec item assignment are not validated; guard
+        # against raw dicts sneaking in so we raise a clear error instead of an obscure
+        # AttributeError deep in the dispatcher.
+        for name, dss in datasetspecs.items():
+            if not isinstance(dss, DatasetSpec):
+                raise TypeError(
+                    f"Dataset {name!r} in the DataGroupSpec is a {type(dss).__name__}, not a DatasetSpec. "
+                    "Entries assigned via item assignment are not validated; rebuild or re-validate the "
+                    "DataGroupSpec (e.g. DataGroupSpec.model_validate(...)) so every entry is a DatasetSpec."
+                )
         # split datasetspecs into uproot and parquet files, keeping track of original order
         original_order = list(datasetspecs.keys())
         formats = [dss.format for dss in datasetspecs.values()]
@@ -1240,7 +1286,7 @@ def preprocess(
             files_per_batch=files_per_batch,
             skip_bad_files=skip_bad_files,
             file_exceptions=file_exceptions,
-            save_form=save_form,
+            save_form=pydantic_save_form,
             scheduler=scheduler,
             uproot_options=uproot_options,
             step_size_safety_factor=step_size_safety_factor,
@@ -1256,15 +1302,17 @@ def preprocess(
             files_per_batch=files_per_batch,
             skip_bad_files=skip_bad_files,
             file_exceptions=file_exceptions,
-            save_form=save_form,
+            save_form=pydantic_save_form,
             scheduler=scheduler,
             parquet_options=parquet_options,
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
         )
-        # recombine outputs in original order, skipping datasets removed due to allow_empty_datasets
-        out_available = DataGroupSpec(
-            {
+        # recombine outputs in original order, skipping datasets removed due to allow_empty_datasets.
+        # The sub-results are already-validated DatasetSpec instances, so use model_construct to
+        # avoid a redundant full re-validation/deepcopy pass over the fileset.
+        out_available = DataGroupSpec.model_construct(
+            root={
                 k: (
                     out_available_uproot[k]
                     if k in out_available_uproot
@@ -1274,8 +1322,8 @@ def preprocess(
                 if k in out_available_uproot or k in out_available_parquet
             }
         )
-        out_updated = DataGroupSpec(
-            {
+        out_updated = DataGroupSpec.model_construct(
+            root={
                 k: (
                     out_updated_uproot[k]
                     if k in out_updated_uproot
@@ -1285,4 +1333,9 @@ def preprocess(
                 if k in out_updated_uproot or k in out_updated_parquet
             }
         )
+        if input_is_dict:
+            # honor the dict-in / dict-out contract
+            return _datagroupspec_to_dict(out_available), _datagroupspec_to_dict(
+                out_updated
+            )
         return out_available, out_updated
