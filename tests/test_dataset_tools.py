@@ -1,3 +1,4 @@
+import contextlib
 import copy
 import json
 from pathlib import Path
@@ -534,8 +535,10 @@ def test_preprocess(the_fileset, dask_client, preprocess_legacy_root):
             assert dataset_runnable == _runnable_result
             assert dataset_updated == _updated_result
         else:
-            assert dataset_runnable == DataGroupSpec(_runnable_result)
-            assert dataset_updated == DataGroupSpec(_updated_result)
+            # dict input returns dict output (matching-type contract); compare semantically
+            assert not isinstance(dataset_runnable, DataGroupSpec)
+            assert DataGroupSpec(dataset_runnable) == DataGroupSpec(_runnable_result)
+            assert DataGroupSpec(dataset_updated) == DataGroupSpec(_updated_result)
 
 
 @pytest.mark.dask_client
@@ -557,9 +560,15 @@ def test_preprocess_empty_fileset(the_fileset, dask_client, preprocess_legacy_ro
         assert dataset_runnable == {}
         assert dataset_updated == {}
     else:
-        # pydantic preprocessing upconverts to DataGroupSpec and so we'll get an empty DataGroupSpec. DatasetSpec doesn't trivially support an empty initialization, so we don't test directly
-        assert dataset_runnable == DataGroupSpec({})
-        assert dataset_updated == DataGroupSpec({})
+        # pydantic preprocessing preserves the input type: a dict returns a dict, a
+        # DataGroupSpec returns a DataGroupSpec. DatasetSpec doesn't trivially support an
+        # empty initialization, so we compare the empty containers directly.
+        if isinstance(the_fileset, DataGroupSpec):
+            assert dataset_runnable == DataGroupSpec({})
+            assert dataset_updated == DataGroupSpec({})
+        else:
+            assert dataset_runnable == {}
+            assert dataset_updated == {}
 
 
 @pytest.mark.dask_client
@@ -608,7 +617,12 @@ def test_preprocess_empty_files(
         expected_runnable[k] = new_v
     expected_updated = copy.deepcopy(expected_runnable)
 
-    if isinstance(dataset_runnable, DataGroupSpec):
+    if not preprocess_legacy_root:
+        # The pydantic path returns a DataGroupSpec for DataGroupSpec input and a dict for
+        # dict input; wrap both sides so DatasetSpec.__eq__ handles the non-deterministic
+        # compressed_form by comparing decoded forms.
+        dataset_runnable = DataGroupSpec(dataset_runnable)
+        dataset_updated = DataGroupSpec(dataset_updated)
         expected_runnable = DataGroupSpec(expected_runnable)
         expected_updated = DataGroupSpec(expected_updated)
     elif save_form:
@@ -679,9 +693,9 @@ def test_preprocess_DataGroupSpec_mixed(dask_client):
     fileset["Data"] = fileset["Data"].model_dump()
 
     with dask_client.as_current() as _:
-        with pytest.raises(
-            AttributeError, match="'dict' object has no attribute 'format'"
-        ):
+        # A raw dict entry assigned via item assignment is not validated; the dispatcher
+        # should raise a clear TypeError rather than an obscure AttributeError.
+        with pytest.raises(TypeError, match="not a DatasetSpec"):
             dataset_runnable, dataset_updated = preprocess(
                 fileset,
                 step_size=7,
@@ -724,12 +738,13 @@ def test_preprocess_calculate_form(dask_client, preprocess_legacy_root):
             assert decompress_form(dataset_runnable["ZJets"]["form"]) == raw_form_dy
             assert decompress_form(dataset_runnable["Data"]["form"]) == raw_form_data
         else:
+            # dict input returns dict output
             assert (
-                decompress_form(dataset_runnable["ZJets"].compressed_form)
+                decompress_form(dataset_runnable["ZJets"]["compressed_form"])
                 == raw_form_dy
             )
             assert (
-                decompress_form(dataset_runnable["Data"].compressed_form)
+                decompress_form(dataset_runnable["Data"]["compressed_form"])
                 == raw_form_data
             )
 
@@ -800,7 +815,9 @@ def test_preprocess_with_file_exceptions(dask_client, preprocess_legacy_root):
             },
         }
     else:
-        assert dataset_runnable == DataGroupSpec(
+        # dict input returns dict output; compare semantically
+        assert not isinstance(dataset_runnable, DataGroupSpec)
+        assert DataGroupSpec(dataset_runnable) == DataGroupSpec(
             {
                 "Data": {
                     "files": {
@@ -825,6 +842,74 @@ def test_preprocess_with_file_exceptions(dask_client, preprocess_legacy_root):
                 },
             }
         )
+
+
+@pytest.mark.dask_client
+@pytest.mark.parametrize("as_dict", [True, False])
+def test_preprocess_return_type_matches_input(dask_client, as_dict):
+    # dict in -> dict out (with a deprecation warning); DataGroupSpec in -> DataGroupSpec out.
+    fileset = _starting_fileset if as_dict else DataGroupSpec(_starting_fileset)
+    warns = (
+        pytest.warns(
+            DeprecationWarning, match="Passing a dict to preprocess is deprecated"
+        )
+        if as_dict
+        else contextlib.nullcontext()
+    )
+    with dask_client.as_current() as _, warns:
+        runnable, updated = preprocess(
+            fileset,
+            step_size=7,
+            files_per_batch=10,
+            skip_bad_files=True,
+            save_form=False,
+        )
+    if as_dict:
+        assert isinstance(runnable, dict) and not isinstance(runnable, DataGroupSpec)
+        assert isinstance(updated, dict) and not isinstance(updated, DataGroupSpec)
+        # The review regression: dict output must be subscriptable and JSON-serializable
+        assert isinstance(runnable["Data"]["files"], dict)
+        json.dumps(runnable)
+        json.dumps(updated)
+    else:
+        assert isinstance(runnable, DataGroupSpec)
+        assert isinstance(updated, DataGroupSpec)
+
+
+@pytest.mark.dask_client
+@pytest.mark.parametrize("legacy", [False, True])
+def test_preprocess_save_form_default(dask_client, legacy):
+    # The pydantic path defaults to save_form=True (compressed_form populated); the legacy
+    # path defaults to save_form=False (form stays None).
+    fileset = _starting_fileset if legacy else DataGroupSpec(_starting_fileset)
+    with dask_client.as_current() as _:
+        runnable, _updated = preprocess(
+            fileset,
+            step_size=7,
+            files_per_batch=10,
+            skip_bad_files=True,
+            preprocess_legacy_root=legacy,
+        )
+    if legacy:
+        assert runnable["ZJets"]["form"] is None
+        assert runnable["Data"]["form"] is None
+    else:
+        assert runnable["ZJets"].compressed_form is not None
+        assert runnable["Data"].compressed_form is not None
+
+
+def test_preprocess_does_not_mutate_dict_input():
+    # B7 guarantee: dropping the top-level deepcopy in DataGroupSpec.preprocess_data must
+    # not let validation mutate the caller's dict fileset.
+    fileset = {
+        "ZJets": {
+            "files": {"tests/samples/nano_dy.root": "Events"},
+            "metadata": {"note": ["keep", "me"]},
+        }
+    }
+    snapshot = copy.deepcopy(fileset)
+    DataGroupSpec.model_validate(fileset)
+    assert fileset == snapshot
 
 
 @pytest.mark.parametrize(
