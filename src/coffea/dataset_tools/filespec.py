@@ -19,6 +19,32 @@ StepPair = Annotated[
 ]
 
 
+def _file_object_path_split(path: str) -> tuple[str, str | None]:
+    """Split a file path into ``(filename, object_path)``.
+
+    ROOT files may be specified as ``"filename:object_path"`` (e.g. ``"file.root:Events"``),
+    but the filename itself can be an XRootD URL containing colons (for example a port, as in
+    ``"root://host:1094//store/f.root"``). Splitting naively on the last colon would mangle such
+    URLs, so this delegates to uproot's battle-tested splitter, which understands the ``root://``
+    scheme, ``//`` path separators, ports, and Windows drive letters.
+
+    Returns ``(filename, None)`` when no object path is present.
+    """
+    try:
+        from uproot._util import file_object_path_split
+
+        return file_object_path_split(path)
+    except Exception:
+        # Fallback mirroring uproot's semantics if its internal helper is unavailable/moved:
+        # only treat a trailing ":suffix" as an object path when the suffix is not itself part of
+        # a "//"-style path (i.e. not a URL scheme separator or the leading "//" of an absolute
+        # remote path).
+        head, sep, tail = path.rpartition(":")
+        if sep and head and not tail.startswith("/") and not head.endswith(":"):
+            return head, tail
+        return path, None
+
+
 class GenericFileSpec(BaseModel):
     object_path: str | None = None
     steps: Annotated[list[StepPair], Field(min_length=1)] | None = None
@@ -481,22 +507,15 @@ class DatasetSpec(BaseModel):
             files = data.pop("files")
             # promote files list to dict if necessary
             if isinstance(files, list):
-                # If files is a list, convert it to a dict and let it pass through the rest of the promotion logic
-                tmp = [f.rsplit(":", maxsplit=1) for f in files]
+                # If files is a list, convert it to a dict and let it pass through the rest of the promotion logic.
+                # Each entry may embed a ROOT object path as a trailing ":Tree" suffix, but the filename itself may
+                # be an XRootD URL that contains colons (e.g. a port, "root://host:1094//path/f.root"). Delegate to
+                # uproot's battle-tested URL/object-path splitter so we never split on the port colon.
+                files_list = files
                 files = {}
-                for fsplit in tmp:
-                    # Need a valid split into file name and object path
-                    if len(fsplit) > 1:
-                        # but ensure we don't catch 'root://' and split that
-                        if fsplit[1].startswith("//"):
-                            # no object path
-                            files[":".join(fsplit)] = None
-                        else:
-                            # file name and object path
-                            files[fsplit[0]] = fsplit[1]
-                    else:
-                        # no object path
-                        files[fsplit[0]] = None
+                for f in files_list:
+                    filename, object_path = _file_object_path_split(f)
+                    files[filename] = object_path
             data["files"] = files
             if "form" in data.keys():
                 _form = data.pop("form")
