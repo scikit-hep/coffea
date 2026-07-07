@@ -590,13 +590,24 @@ class PtEtaPhiMLorentzVector(LorentzVector):
 
         In reality, this directly adjusts ``pt``, ``eta``, ``phi`` and ``mass`` for performance
         """
-        absother = abs(other)
+        if other < 0:
+            # (pt, eta, phi, mass) cannot represent t < 0, so match cartesian in x, y, z, t
+            return awkward.zip(
+                {
+                    "x": self.x * other,
+                    "y": self.y * other,
+                    "z": self.z * other,
+                    "t": self.t * other,
+                },
+                with_name="LorentzVector",
+                behavior=self.behavior,
+            )
         return awkward.zip(
             {
-                "pt": self.pt * absother,
-                "eta": self.eta * numpy.sign(other),
-                "phi": self.phi % (2 * numpy.pi) - (numpy.pi * (other < 0)),
-                "mass": self.mass * absother,
+                "pt": self.pt * other,
+                "eta": self.eta,
+                "phi": self.phi,
+                "mass": self.mass * other,
             },
             with_name="PtEtaPhiMLorentzVector",
             behavior=self.behavior,
@@ -605,16 +616,7 @@ class PtEtaPhiMLorentzVector(LorentzVector):
     @awkward.mixin_class_method(numpy.negative)
     def negative(self):
         """Returns the negative of the vector"""
-        return awkward.zip(
-            {
-                "pt": self.pt,
-                "eta": -self.eta,
-                "phi": self.phi % (2 * numpy.pi) - numpy.pi,
-                "mass": self.mass,
-            },
-            with_name="PtEtaPhiMLorentzVector",
-            behavior=self.behavior,
-        )
+        return self.multiply(-1)
 
     @awkward.mixin_class_method(numpy.divide, {numbers.Number})
     def divide(self, other):
