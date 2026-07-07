@@ -1,4 +1,5 @@
 import collections
+import functools
 import math
 import os
 import re
@@ -408,8 +409,11 @@ class CoffeaVine(Manager):
         function = _compression_wrapper(self.executor.compression, function)
         accumulate_fn = _compression_wrapper(
             self.executor.compression,
-            accumulate_result_files,
-            self.executor.concurrent_reads,
+            functools.partial(
+                accumulate_result_files,
+                concurrent_reads=self.executor.concurrent_reads,
+            ),
+            name="accumulate_result_files",
         )
 
         sc = self.stats_coffea
