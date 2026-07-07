@@ -396,7 +396,7 @@ class Weights:
         """Add a new weight with multiple variations in delayed mode"""
         dask_awkward = _import_dask_awkward()
 
-        if isinstance(weight, awkward.types.OptionType):
+        if isinstance(dask_awkward.type(weight), awkward.types.OptionType):
             # TODO what to do with option-type? is it representative of unknown weight
             # and we default to one or is it an invalid weight and we should never use this
             # event in the first place (0) ?

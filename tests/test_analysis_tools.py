@@ -2293,3 +2293,19 @@ def test_weight_statistics_add_returns_object():
         acc += b  # must not rebind to None
     assert isinstance(acc, WeightStatistics)
     assert acc.n == 15 and acc.sumw == 6.0
+
+
+def test_weights_multivariation_dak_option_fill():
+    dak = pytest.importorskip("dask_awkward")
+    import awkward as ak
+
+    from coffea.analysis_tools import Weights
+
+    weight = dak.from_awkward(ak.Array([1.0, None, 2.0, 3.0]), npartitions=1)
+    weights = Weights(None)
+    weights.add_multivariation(
+        "test", weight, modifierNames=[], weightsUp=[], weightsDown=[]
+    )
+    result = weights.weight().compute()
+    assert not ak.any(ak.is_none(result))  # option filled with 1.0, like eager path
+    assert ak.to_list(result) == [1.0, 1.0, 2.0, 3.0]
