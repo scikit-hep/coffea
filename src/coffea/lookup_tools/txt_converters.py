@@ -497,7 +497,7 @@ def convert_effective_area_file(eaFilePath):
             binMaxs = numpy.unique(pars[columns[1]])
             bins[layout[i + offset_name]] = numpy.union1d(binMins, binMaxs)
         else:
-            counts = numpy.zeros(0, dtype=numpy.int)
+            counts = numpy.zeros(0, dtype=numpy.int64)
             allBins = numpy.zeros(0, dtype=numpy.double)
             for binMin in bins[bin_order[0]][:-1]:
                 binMins = numpy.unique(

@@ -385,6 +385,13 @@ def test_jec_txt_effareas():
     print(evaluator["photon_id_EA_Pho"])
 
 
+def test_effective_area_2d_binning():
+    from coffea.lookup_tools.txt_converters import convert_effective_area_file
+
+    wrapped = convert_effective_area_file("tests/samples/photon_id_2d.ea.txt")
+    assert any(name.startswith("photon_id_2d") for (name, _t) in wrapped.keys())
+
+
 def test_rochester(tests_directory):
     dak = pytest.importorskip("dask_awkward")
     rochester_data = lookup_tools.txt_converters.convert_rochester_file(
