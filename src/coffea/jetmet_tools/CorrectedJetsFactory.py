@@ -229,7 +229,7 @@ class CorrectedJetsFactory:
         fields = awkward.fields(jets)
         if len(fields) == 0:
             raise Exception(
-                "Empty record, please pass a jet object with at least {self.real_sig} defined!"
+                f"Empty record, please pass a jet object with at least {self.real_sig} defined!"
             )
         out = awkward.flatten(jets)
         wrap = partial(

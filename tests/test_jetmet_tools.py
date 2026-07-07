@@ -1302,3 +1302,13 @@ def test_corrected_jets_factory_does_not_mutate_input():
 
     assert corrected_jets.layout.content.parameters.get("corrected") is True
     assert "corrected" not in jets.layout.content.parameters
+
+
+def test_corrected_jets_factory_empty_record_message():
+    from coffea.jetmet_tools import CorrectedJetsFactory
+
+    _, jec_stack, name_map = _jec_only_setup(with_raw=True)
+    with pytest.warns(UserWarning):
+        jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+    with pytest.raises(Exception, match="'pt'"):
+        jet_factory.build(ak.Array([[{}], []]))
