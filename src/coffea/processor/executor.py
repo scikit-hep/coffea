@@ -1357,6 +1357,8 @@ class Runner:
         uproot_options: dict,
         item: FileMeta,
     ) -> Accumulatable:
+        uproot_options = dict(uproot_options)
+        xrootdtimeout = uproot_options.pop("timeout", xrootdtimeout)
         with uproot.open(
             {item.filename: None}, timeout=xrootdtimeout, **uproot_options
         ) as file:
@@ -1585,8 +1587,8 @@ class Runner:
         checkpointer: CheckpointerABC,
         cache_function: Callable[[], MutableMapping],
     ) -> dict:
-        if "timeout" in uproot_options:
-            xrootdtimeout = uproot_options["timeout"]
+        uproot_options = dict(uproot_options)
+        xrootdtimeout = uproot_options.pop("timeout", xrootdtimeout)
         if processor_instance == "heavy":
             item, processor_instance = item
         if not isinstance(processor_instance, ProcessorABC) and not callable(

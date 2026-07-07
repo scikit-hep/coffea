@@ -484,3 +484,27 @@ def test_processor_compression_none_runs():
     )
     assert out["cutflow"]["ZJets_pt"] == 18
     assert out["cutflow"]["ZJets_mass"] == 6
+
+
+@pytest.mark.parametrize("seam", ["metadata", "run"])
+def test_uproot_options_timeout(seam):
+    # Bug 21: a timeout inside uproot_options must not be passed twice to uproot.open
+    from coffea.processor.executor import FileMeta, Runner
+
+    if seam == "metadata":
+        item = FileMeta("ZJets", osp.abspath("tests/samples/nano_dy.root"), "Events")
+        out = Runner.metadata_fetcher_root(60, False, {"timeout": 30}, item)
+        (fetched,) = out
+        assert fetched.metadata["numentries"] == 40
+    else:
+        run = processor.Runner(
+            executor=processor.IterativeExecutor(),
+            schema=schemas.NanoAODSchema,
+        )
+        out = run(
+            _good_fileset,
+            processor_instance=NanoEventsProcessor(mode="eager"),
+            treename="Events",
+            uproot_options={"timeout": 30},
+        )
+        assert out["cutflow"]["ZJets_pt"] == 18
