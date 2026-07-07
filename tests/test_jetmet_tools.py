@@ -1289,3 +1289,16 @@ def test_rand_gauss_empty():
     out = rand_gauss(ak.Array(np.array([], dtype=np.float32)))
     assert len(out) == 0
     assert out.to_numpy().dtype == np.dtype("float32")
+
+
+def test_corrected_jets_factory_does_not_mutate_input():
+    from coffea.jetmet_tools import CorrectedJetsFactory
+
+    jets, jec_stack, name_map = _jec_only_setup(with_raw=True)
+    with pytest.warns(UserWarning):
+        jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+
+    corrected_jets = jet_factory.build(jets)
+
+    assert corrected_jets.layout.content.parameters.get("corrected") is True
+    assert "corrected" not in jets.layout.content.parameters

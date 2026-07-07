@@ -487,7 +487,7 @@ class CorrectedJetsFactory:
                     label=f"{name}",
                 )
 
-        out_parms = out.layout.parameters
+        out_parms = dict(out.layout.parameters)
         out_parms["corrected"] = True
         out = awkward.zip(
             out_dict, depth_limit=1, parameters=out_parms, behavior=out.behavior
