@@ -2366,3 +2366,18 @@ def test_weights_modifier_suffix_and_multivariation(mode):
     # modifier of an excluded weight is still rejected
     with pytest.raises(ValueError, match="not in the list of included weights"):
         weights.partial_weight(include=["myUpdate"], modifier="test_AUp")
+
+
+def test_packed_selection_require_returns_independent_copy():
+    from coffea.analysis_tools import PackedSelection
+
+    selection = PackedSelection()
+    selection.add("c1", np.array([True, True, False, False]))
+    selection.add("c2", np.array([True, False, True, False]))
+
+    mask = selection.all("c1")
+    original = mask.copy()
+    mask &= np.array([False, False, False, False])  # in-place mutation by caller
+
+    assert np.array_equal(selection.all("c1"), original)  # cache not corrupted
+    assert selection.all("c1") is not selection.all("c1")  # independent copies

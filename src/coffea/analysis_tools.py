@@ -2299,7 +2299,6 @@ class PackedSelection:
         for name, selection in selections.items():
             self.add(name, selection, fill_value)
 
-    @lru_cache
     def require(self, **names):
         """Return a mask vector corresponding to specific requirements
 
@@ -2326,6 +2325,12 @@ class PackedSelection:
         returns a boolean array where an entry is True if the corresponding entries
         ``cut1 == True``, ``cut2 == False``, and ``cut3`` arbitrary.
         """
+        # copy so a caller mutating the returned mask cannot corrupt the shared cache
+        result = self._require(**names)
+        return result.copy() if isinstance(result, numpy.ndarray) else result
+
+    @lru_cache
+    def _require(self, **names):
         for cut, v in names.items():
             if not isinstance(cut, str) or cut not in self._names:
                 raise ValueError(
