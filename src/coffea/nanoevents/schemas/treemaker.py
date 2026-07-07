@@ -139,7 +139,7 @@ class TreeMakerSchema(BaseSchema):
 
             if cname not in branch_forms:
                 collection = zip_forms(
-                    {k[len(cname) + 1]: branch_forms.pop(k) for k in items}, cname
+                    {k[len(cname) + 1 :]: branch_forms.pop(k) for k in items}, cname
                 )
                 branch_forms[cname] = collection
             else:
