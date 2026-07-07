@@ -148,20 +148,20 @@ class CorrectedJetsFactory:
         # from PhysicsTools/PatUtils/interface/SmearedJetProducerT.h#L283
         self.forceStochastic = False
 
-        if "ptRaw" not in name_map or name_map["ptRaw"] is None:
+        self.treat_pt_as_raw = "ptRaw" not in name_map or name_map["ptRaw"] is None
+        if self.treat_pt_as_raw:
             warnings.warn(
                 "There is no name mapping for ptRaw,"
                 " CorrectedJets will assume that <object>.pt is raw pt!"
             )
             name_map["ptRaw"] = name_map["JetPt"] + "_raw"
-        self.treat_pt_as_raw = "ptRaw" not in name_map
 
         if "massRaw" not in name_map or name_map["massRaw"] is None:
             warnings.warn(
                 "There is no name mapping for massRaw,"
-                " CorrectedJets will assume that <object>.mass is raw pt!"
+                " CorrectedJets will assume that <object>.mass is raw mass!"
             )
-            name_map["ptRaw"] = name_map["JetMass"] + "_raw"
+            name_map["massRaw"] = name_map["JetMass"] + "_raw"
 
         total_signature = set()
         for part in _stack_parts:
