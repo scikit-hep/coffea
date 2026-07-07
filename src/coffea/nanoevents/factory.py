@@ -167,8 +167,17 @@ class _map_schema_uproot(_map_schema_base):
             f"{start}-{stop}",
         )
         uuidpfn = {partition_key[0]: tree.file.file_path}
+        # A saved/union form can mark branches as maybe-missing
+        # ("!loadallowmissing"); such branches may be genuinely absent from
+        # this particular file, so only request the branches that are present.
+        # Absent branches are then simply not in the preloaded column source,
+        # and the PreloadedSourceMapping backfills them as all-None through its
+        # allow_missing path (matching eager/virtual semantics), while a
+        # genuinely-required ("!load") branch that is absent still raises
+        # loudly at buffer-access time.
+        present_keys = [key for key in keys if key in tree]
         arrays = tree.arrays(
-            keys,
+            present_keys,
             entry_start=start,
             entry_stop=stop,
             ak_add_doc=interp_options["ak_add_doc"],
