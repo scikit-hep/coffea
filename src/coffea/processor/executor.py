@@ -1275,25 +1275,21 @@ class Runner:
             try:
                 return func(*args, **kwargs)
             except Exception as e:
+                chain = _exception_chain(e)
+                if retries == retry_count:
+                    if skipbadfiles and any(isinstance(c, skipbadfiles) for c in chain):
+                        if use_result_type:
+                            # surface the exception instead of silently skipping
+                            # so the Runner can wrap it as Err
+                            raise e
+                        warnings.warn(
+                            f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}"
+                        )
+                        break
+                    raise e
                 warnings.warn(
                     f"Performed attempt {retry_count + 1} out of {retries + 1}"
                 )
-                chain = _exception_chain(e)
-                if (
-                    skipbadfiles
-                    and (retries == retry_count)
-                    and any(isinstance(c, skipbadfiles) for c in chain)
-                ):
-                    if use_result_type:
-                        # surface the exception instead of silently skipping
-                        # so the Runner can wrap it as Err
-                        raise e
-                    warnings.warn(
-                        f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}"
-                    )
-                    break
-                if not skipbadfiles or (retries == retry_count):
-                    raise e
             retry_count += 1
 
     @staticmethod

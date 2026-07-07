@@ -508,3 +508,19 @@ def test_uproot_options_timeout(seam):
             uproot_options={"timeout": 30},
         )
         assert out["cutflow"]["ZJets_pt"] == 18
+
+
+@pytest.mark.parametrize("skipbadfiles", [False, (ValueError,)])
+def test_automatic_retries_retry_without_skipbadfiles(skipbadfiles):
+    # Bug 22: retries must happen regardless of skipbadfiles
+    calls = {"n": 0}
+
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise ValueError("transient")
+        return "ok"
+
+    out = processor.Runner.automatic_retries(3, skipbadfiles, flaky)
+    assert out == "ok"
+    assert calls["n"] == 3
