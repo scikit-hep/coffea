@@ -631,3 +631,37 @@ def test_watcher_recompresses_only_on_change(monkeypatch):
     out = ex_mod._watcher(StubFH(), StubExec(), lambda b: b, None)
     assert calls["n"] == 1
     assert ex_mod._decompress(out) == {"n": 1}
+
+
+def test_auto_dask_client_single_and_cleanup(monkeypatch):
+    # Bug 24: at most one auto-created dask Client, assigned to both executors and
+    # cleaned up afterwards
+    from coffea.processor import executor as ex_mod
+
+    created = []
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.closed = False
+            created.append(self)
+
+        def close(self):
+            self.closed = True
+
+    class FakeDistributed:
+        class client:
+            Client = FakeClient
+
+    monkeypatch.setattr(ex_mod, "_import_distributed", lambda: FakeDistributed)
+
+    executor = processor.DaskExecutor()
+    runner = processor.Runner(executor=executor)
+    assert executor.client is None
+    with runner._auto_dask_client() as client:
+        assert client is created[0]
+        assert executor.client is client
+        assert runner.pre_executor.client is client
+        assert len(created) == 1
+    assert len(created) == 1
+    assert executor.client is None
+    assert created[0].closed is True

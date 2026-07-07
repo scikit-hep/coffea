@@ -16,7 +16,7 @@ from collections.abc import (
     Mapping,
     MutableMapping,
 )
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from functools import partial
 from io import BytesIO
@@ -2013,7 +2013,51 @@ class Runner:
                 return Err(e)
             raise
 
+    @contextmanager
+    def _auto_dask_client(self):
+        auto = []
+        if isinstance(self.executor, DaskExecutor) and self.executor.client is None:
+            auto.append(self.executor)
+        if (
+            self.pre_executor is not self.executor
+            and isinstance(self.pre_executor, DaskExecutor)
+            and self.pre_executor.client is None
+        ):
+            auto.append(self.pre_executor)
+        if not auto:
+            yield None
+            return
+        client = _import_distributed().client.Client(threads_per_worker=1)
+        for ex in auto:
+            ex.client = client
+        try:
+            yield client
+        finally:
+            for ex in auto:
+                ex.client = None
+            client.close()
+
     def _run(
+        self,
+        fileset: dict | str | list[WorkItem] | Generator,
+        processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
+        *,
+        treename: str | None = None,
+        uproot_options: dict | None = {},
+        iteritems_options: dict | None = {},
+        trace: Callable | None = None,
+    ) -> Accumulatable:
+        with self._auto_dask_client():
+            return self._run_impl(
+                fileset,
+                processor_instance,
+                treename=treename,
+                uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
+                trace=trace,
+            )
+
+    def _run_impl(
         self,
         fileset: dict | str | list[WorkItem] | Generator,
         processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
