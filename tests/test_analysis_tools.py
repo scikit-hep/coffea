@@ -2309,3 +2309,60 @@ def test_weights_multivariation_dak_option_fill():
     result = weights.weight().compute()
     assert not ak.any(ak.is_none(result))  # option filled with 1.0, like eager path
     assert ak.to_list(result) == [1.0, 1.0, 2.0, 3.0]
+
+
+@pytest.mark.parametrize("mode", ["eager", "delayed"])
+def test_weights_modifier_suffix_and_multivariation(mode):
+    from coffea.analysis_tools import Weights
+
+    if mode == "delayed":
+        dak = pytest.importorskip("dask_awkward")
+        import dask.array as da
+
+        def arr(x):
+            return dak.from_dask_array(da.from_array(np.asarray(x, dtype=float)))
+
+        def get(x):
+            return np.asarray(x.compute())
+
+        size = None
+    else:
+
+        def arr(x):
+            return np.asarray(x, dtype=float)
+
+        def get(x):
+            return np.asarray(x)
+
+        size = 4
+
+    central = arr([1.0, 1.0, 1.0, 1.0])
+    up = arr([1.25, 1.25, 1.25, 1.25])
+    down = arr([0.8, 0.8, 0.8, 0.8])
+
+    weights = Weights(size, storeIndividual=True)
+    weights.add_multivariation(
+        "test", central, modifierNames=["A"], weightsUp=[up], weightsDown=[down]
+    )
+    # weight name carrying 'Up'/'Down' mid-string must survive suffix handling
+    weights.add("myUpdate", central, weightUp=up)
+
+    # bug 41: multivariation modifiers must be recognized by partial_weight
+    assert np.allclose(
+        get(weights.partial_weight(include=["test"], modifier="test_AUp")), 1.25
+    )
+    assert np.allclose(
+        get(weights.partial_weight(include=["test"], modifier="test_ADown")), 0.8
+    )
+
+    # bug 46: 'Up' inside a weight name must not be stripped mid-string
+    assert np.allclose(
+        get(weights.partial_weight(include=["myUpdate"], modifier="myUpdateUp")), 1.25
+    )
+
+    # bug 46: auto-derived Down for a name containing 'Down'-like fragments
+    assert np.allclose(get(weights.weight("myUpdateDown")), 0.8)
+
+    # modifier of an excluded weight is still rejected
+    with pytest.raises(ValueError, match="not in the list of included weights"):
+        weights.partial_weight(include=["myUpdate"], modifier="test_AUp")
