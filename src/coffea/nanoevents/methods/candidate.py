@@ -35,6 +35,21 @@ class Candidate(vector.LorentzVector):
             behavior=self.behavior,
         )
 
+    @awkward.mixin_class_method(numpy.subtract, {"Candidate"})
+    def subtract(self, other):
+        """Subtract a candidate from another elementwise using ``x``, ``y``, ``z``, ``t``, and ``charge`` components"""
+        return awkward.zip(
+            {
+                "x": self.x - other.x,
+                "y": self.y - other.y,
+                "z": self.z - other.z,
+                "t": self.t - other.t,
+                "charge": self.charge - other.charge,
+            },
+            with_name="Candidate",
+            behavior=self.behavior,
+        )
+
     def sum(self, axis=-1):
         """Sum an array of vectors elementwise using ``x``, ``y``, ``z``, ``t``, and ``charge`` components"""
         return awkward.zip(
