@@ -973,7 +973,6 @@ class AccumTask(CoffeaVineTask):
 
 def _handle_early_terminate(signum, frame, raise_on_repeat=True):
     global early_terminate
-    raise KeyboardInterrupt
 
     if early_terminate and raise_on_repeat:
         raise KeyboardInterrupt
