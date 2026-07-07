@@ -1220,3 +1220,64 @@ def test_corrected_jets_factory_dak(optimization_enabled, dask_client):
         print("build all met variations =", toc - tic)
 
         print(prof.output_text(unicode=True, color=True, show_all=True))
+
+
+_JEC_ONLY_NAMES = [
+    "Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi",
+    "Summer16_23Sep2016V3_MC_L2Relative_AK4PFPuppi",
+    "Summer16_23Sep2016V3_MC_L2L3Residual_AK4PFPuppi",
+    "Summer16_23Sep2016V3_MC_L3Absolute_AK4PFPuppi",
+]
+
+
+def _jec_only_setup(with_raw):
+    from coffea.jetmet_tools import JECStack
+
+    counts = np.array([2, 0, 1])
+    fields = {
+        "pt": ak.unflatten(np.array([50.0, 100.0, 30.0]), counts),
+        "mass": ak.unflatten(np.array([10.0, 20.0, 5.0]), counts),
+        "eta": ak.unflatten(np.array([0.5, -1.2, 2.0]), counts),
+        "area": ak.unflatten(np.array([0.5, 0.5, 0.5]), counts),
+        "Rho": ak.unflatten(np.array([15.0, 15.0, 15.0]), counts),
+    }
+    if with_raw:
+        fields["pt_raw"] = fields["pt"] * 0.95
+        fields["mass_raw"] = fields["mass"] * 0.95
+    jets = ak.zip(fields)
+
+    jec_stack = JECStack({name: evaluator[name] for name in _JEC_ONLY_NAMES})
+    name_map = jec_stack.blank_name_map
+    name_map["JetPt"] = "pt"
+    name_map["JetMass"] = "mass"
+    name_map["JetEta"] = "eta"
+    name_map["JetA"] = "area"
+    name_map["Rho"] = "Rho"
+    if with_raw:
+        name_map["ptRaw"] = "pt_raw"
+        name_map["massRaw"] = "mass_raw"
+    return jets, jec_stack, name_map
+
+
+def test_corrected_jets_factory_no_raw_name_map():
+    from coffea.jetmet_tools import CorrectedJetsFactory, FactorizedJetCorrector
+
+    jets, jec_stack, name_map = _jec_only_setup(with_raw=False)
+    with pytest.warns(UserWarning):
+        jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+    assert jet_factory.treat_pt_as_raw
+    assert jet_factory.name_map["ptRaw"] == "pt_raw"
+    assert jet_factory.name_map["massRaw"] == "mass_raw"
+
+    corrected_jets = jet_factory.build(jets)
+
+    corrector = FactorizedJetCorrector(
+        **{name: evaluator[name] for name in _JEC_ONLY_NAMES}
+    )
+    check_corrs = corrector.getCorrection(
+        JetEta=jets.eta, Rho=jets.Rho, JetPt=jets.pt, JetA=jets.area
+    )
+    assert ak.all(np.abs(corrected_jets.pt - check_corrs * jets.pt) < 1e-6)
+    assert ak.all(np.abs(corrected_jets.mass - check_corrs * jets.mass) < 1e-6)
+    assert ak.all(corrected_jets.pt_raw == jets.pt)
+    assert ak.all(corrected_jets.mass_raw == jets.mass)
