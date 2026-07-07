@@ -392,6 +392,29 @@ def test_effective_area_2d_binning():
     assert any(name.startswith("photon_id_2d") for (name, _t) in wrapped.keys())
 
 
+def test_pileup_json_wildcard():
+    ext = lookup_tools.extractor()
+    ext.add_weight_sets(["* * tests/samples/testpu.pileup.json"])
+    ext.finalize()
+    ev = ext.make_evaluator()
+    out = ev["pileup"](np.array([2]), np.array([1]))
+    assert list(out) == [12.0]
+
+
+def test_pileup_json_named_no_nametable_corruption():
+    ext = lookup_tools.extractor()
+    ext.add_weight_sets(
+        [
+            "photon_id_EA_Pho photon_id_EA_Pho tests/samples/photon_id.ea.txt",
+            "pu pileup tests/samples/testpu.pileup.json",
+        ]
+    )
+    ext.finalize()
+    ev = ext.make_evaluator()
+    out = ev["pu"](np.array([1, 1, 2]), np.array([1, 2, 1]))
+    assert list(out) == [25.0, 30.0, 12.0]
+
+
 def test_rochester(tests_directory):
     dak = pytest.importorskip("dask_awkward")
     rochester_data = lookup_tools.txt_converters.convert_rochester_file(
