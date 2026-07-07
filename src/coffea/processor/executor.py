@@ -1589,7 +1589,7 @@ class Runner:
             xrootdtimeout = uproot_options["timeout"]
         if processor_instance == "heavy":
             item, processor_instance = item
-        if not isinstance(processor_instance, ProcessorABC) or not callable(
+        if not isinstance(processor_instance, ProcessorABC) and not callable(
             processor_instance
         ):
             processor_instance = cloudpickle.loads(lz4f.decompress(processor_instance))

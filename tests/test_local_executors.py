@@ -464,3 +464,23 @@ def test_use_result_type_requires_skipbadfiles():
         use_result_type=True,
         skipbadfiles=(FileNotFoundError,),
     )
+
+
+def _one(x):
+    return {"n": 1}
+
+
+def test_processor_compression_none_runs():
+    # Bug 11: processor_compression=None must not feed raw processor to lz4f.decompress
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+        processor_compression=None,
+    )
+    out = run(
+        _good_fileset,
+        processor_instance=NanoEventsProcessor(mode="eager"),
+        treename="Events",
+    )
+    assert out["cutflow"]["ZJets_pt"] == 18
+    assert out["cutflow"]["ZJets_mass"] == 6
