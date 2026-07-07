@@ -34,8 +34,11 @@ class _AwkwardRewrapFn:
 
 
 def rand_gauss(item):
+    np_item = awkward.typetracer.length_one_if_typetracer(item).to_numpy()
     seeds = (
-        awkward.typetracer.length_one_if_typetracer(item).to_numpy()[[0, -1]].view("i4")
+        np_item[[0, -1]].view("i4")
+        if len(np_item)
+        else numpy.zeros(2, dtype=numpy.int32)
     )
     randomstate = numpy.random.Generator(numpy.random.PCG64(seeds))
 

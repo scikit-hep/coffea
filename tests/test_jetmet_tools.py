@@ -1281,3 +1281,11 @@ def test_corrected_jets_factory_no_raw_name_map():
     assert ak.all(np.abs(corrected_jets.mass - check_corrs * jets.mass) < 1e-6)
     assert ak.all(corrected_jets.pt_raw == jets.pt)
     assert ak.all(corrected_jets.mass_raw == jets.mass)
+
+
+def test_rand_gauss_empty():
+    from coffea.jetmet_tools.CorrectedJetsFactory import rand_gauss
+
+    out = rand_gauss(ak.Array(np.array([], dtype=np.float32)))
+    assert len(out) == 0
+    assert out.to_numpy().dtype == np.dtype("float32")
