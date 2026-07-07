@@ -496,17 +496,18 @@ def _watcher(
                     )
             else:  # Merge within process
                 batch = FH.fetch(len(FH.completed))
-                merged = _compress(
-                    accumulate(
-                        progress.track(
-                            map(_decompress, (c for c in batch)),
-                            task_id=p_idm,
-                            total=progress._tasks[p_idm].total + len(batch),
+                if batch:
+                    merged = _compress(
+                        accumulate(
+                            progress.track(
+                                map(_decompress, (c for c in batch)),
+                                task_id=p_idm,
+                                total=progress._tasks[p_idm].total + len(batch),
+                            ),
+                            _decompress(merged),
                         ),
-                        _decompress(merged),
-                    ),
-                    executor.compression,
-                )
+                        executor.compression,
+                    )
         # Add checkpointing
 
         if executor.merging:

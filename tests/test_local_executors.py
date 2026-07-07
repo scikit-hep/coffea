@@ -586,3 +586,48 @@ def test_maxchunks_limits_preprocess_file_opening():
     chunks = list(run.preprocess(fileset))
     assert len(chunks) == 1
     assert chunks[0].filename.endswith("nano_dy.root")
+
+
+def test_watcher_recompresses_only_on_change(monkeypatch):
+    # Bug 55: the running accumulator must not be recompressed on idle poll cycles
+    from coffea.processor import executor as ex_mod
+
+    item = ex_mod._compress({"n": 1}, 1)
+    calls = {"n": 0}
+    real_compress = ex_mod._compress
+
+    def counting(value, compression):
+        calls["n"] += 1
+        return real_compress(value, compression)
+
+    monkeypatch.setattr(ex_mod, "_compress", counting)
+
+    class StubExec:
+        desc = "Processing"
+        unit = "items"
+        merging = False
+        compression = 1
+
+    class StubFH:
+        def __init__(self):
+            self.running = 1
+            self.done = {"futures": 0, "merges": 0}
+            self.completed = []
+            self.futures = []
+            self.merges = []
+            self._polls = 0
+
+        def update(self):
+            self._polls += 1
+            if self._polls >= 3:
+                self.completed = [item]
+                self.running = 0
+
+        def fetch(self, n):
+            batch = self.completed[:n]
+            self.completed = self.completed[n:]
+            return batch
+
+    out = ex_mod._watcher(StubFH(), StubExec(), lambda b: b, None)
+    assert calls["n"] == 1
+    assert ex_mod._decompress(out) == {"n": 1}
