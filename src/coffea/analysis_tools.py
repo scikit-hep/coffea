@@ -187,10 +187,12 @@ class WeightStatistics:
 
     def __add__(self, other):
         temp = WeightStatistics(self.sumw, self.sumw2, self.minw, self.maxw, self.n)
-        return temp.add(other)
+        temp.add(other)
+        return temp
 
     def __iadd__(self, other):
-        return self.add(other)
+        self.add(other)
+        return self
 
 
 class Weights:
