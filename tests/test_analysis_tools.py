@@ -2275,3 +2275,21 @@ def test_packed_selection_cutflow_dak_uproot_only(optimization_enabled):
                 counts[-2] += counts[-1]
                 c, e = np.histogram(dak.flatten(array[truth]).compute(), bins=edges)
                 assert np.all(np.isclose(counts[1:-1], c))
+
+
+def test_weight_statistics_add_returns_object():
+    from coffea.analysis_tools import WeightStatistics
+
+    a = WeightStatistics(sumw=1.0, sumw2=1.0, minw=0.5, maxw=2.0, n=3)
+    b = WeightStatistics(sumw=2.0, sumw2=4.0, minw=0.1, maxw=3.0, n=5)
+
+    c = a + b
+    assert isinstance(c, WeightStatistics)
+    assert (c.sumw, c.sumw2, c.n, c.minw, c.maxw) == (3.0, 5.0, 8, 0.1, 3.0)
+    assert a.sumw == 1.0 and a.n == 3  # operand untouched by __add__
+
+    acc = WeightStatistics()
+    for _ in range(3):
+        acc += b  # must not rebind to None
+    assert isinstance(acc, WeightStatistics)
+    assert acc.n == 15 and acc.sumw == 6.0
