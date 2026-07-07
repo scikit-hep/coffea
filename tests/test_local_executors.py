@@ -546,3 +546,22 @@ def test_futures_mergepool_forms(form):
     assert ex.mergepool is mp
     if isinstance(mp, cf.Executor):
         mp.shutdown()
+
+
+def test_recoverable_exception_raised_in_default_path():
+    # Bug 47: use_result_type=False must not silently drop a captured exception
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+    )
+    boom = RuntimeError("recovered failure")
+
+    def fake_run(**kwargs):
+        return {"out": {"cutflow": {"events": 1}}, "exception": boom}
+
+    run.run = fake_run
+    with pytest.raises(RuntimeError, match="recovered failure"):
+        run(
+            {"x": {"files": {"f.root": "Events"}}},
+            processor_instance=NanoEventsProcessor(mode="eager"),
+        )
