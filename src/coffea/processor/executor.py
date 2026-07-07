@@ -1812,6 +1812,9 @@ class Runner:
         )
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
+        exception = wrapped_out.get("exception", 0)
+        if exception != 0:
+            raise exception
         if self.savemetrics:
             return wrapped_out["out"], wrapped_out["metrics"]
         return wrapped_out["out"]
