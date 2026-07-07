@@ -246,7 +246,7 @@ jobs:
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    needs: [test, test-no-dask, test-vine]
+    needs: [test, test-dask-client, test-no-dask, test-vine]
     permissions:
       id-token: write
       attestations: write
@@ -278,7 +278,10 @@ jobs:
         password: ${{ secrets.PYPI_TOKEN }}
 
   pass:
+    if: always()
     needs: [test, test-dask-client, test-no-dask, test-vine]
     runs-on: ubuntu-latest
     steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1
       - run: echo "All jobs passed"
