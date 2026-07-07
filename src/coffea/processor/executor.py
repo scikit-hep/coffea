@@ -1494,6 +1494,20 @@ class Runner:
                 )
         return final_fileset
 
+    def _limit_preprocess_files(self, fileset):
+        if self.maxchunks is None:
+            return fileset
+        # each file yields at least one chunk, so at most maxchunks files per
+        # dataset need opening to satisfy maxchunks chunks
+        seen = defaultdict(int)
+        limited = []
+        for filemeta in fileset:
+            if seen[filemeta.dataset] >= self.maxchunks:
+                continue
+            limited.append(filemeta)
+            seen[filemeta.dataset] += 1
+        return limited
+
     def _trace_preload(
         self,
         fileset: list[FileMeta],
@@ -1883,7 +1897,9 @@ class Runner:
         if uproot_options is None:
             uproot_options = {}
         if self.format == "root":
-            fileset = list(self._normalize_fileset(fileset, treename))
+            fileset = self._limit_preprocess_files(
+                list(self._normalize_fileset(fileset, treename))
+            )
             for filemeta in fileset:
                 filemeta.maybe_populate(self.metadata_cache)
 
@@ -1897,7 +1913,9 @@ class Runner:
                     process_fn = processor_instance
                 self._trace_preload(fileset, trace, process_fn, uproot_options)
         elif self.format == "parquet":
-            fileset = list(self._normalize_fileset(fileset, treename))
+            fileset = self._limit_preprocess_files(
+                list(self._normalize_fileset(fileset, treename))
+            )
             if any(filemeta.preload is not None for filemeta in fileset):
                 raise NotImplementedError(
                     "fileset-level 'preload' is not supported for parquet input"

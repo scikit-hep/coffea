@@ -565,3 +565,24 @@ def test_recoverable_exception_raised_in_default_path():
             {"x": {"files": {"f.root": "Events"}}},
             processor_instance=NanoEventsProcessor(mode="eager"),
         )
+
+
+def test_maxchunks_limits_preprocess_file_opening():
+    # Bug 56: maxchunks=1 must not open every file during preprocessing
+    fileset = {
+        "ZJets": {
+            "treename": "Events",
+            "files": [
+                osp.abspath("tests/samples/nano_dy.root"),
+                osp.abspath("tests/samples/non_existent.root"),
+            ],
+        }
+    }
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(retries=0),
+        schema=schemas.NanoAODSchema,
+        maxchunks=1,
+    )
+    chunks = list(run.preprocess(fileset))
+    assert len(chunks) == 1
+    assert chunks[0].filename.endswith("nano_dy.root")
