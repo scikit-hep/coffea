@@ -569,8 +569,8 @@ class Weights:
         """
         if modifier is None:
             return self._weight
-        elif "Down" in modifier and modifier not in self._modifiers:
-            return self._weight / self._modifiers[modifier.replace("Down", "Up")]
+        elif modifier.endswith("Down") and modifier not in self._modifiers:
+            return self._weight / self._modifiers[modifier[:-4] + "Up"]
         return self._weight * self._modifiers[modifier]
 
     def partial_weight(self, include=[], exclude=[], modifier=None):
@@ -630,12 +630,17 @@ class Weights:
 
         if modifier is None:
             return w
-        elif modifier.replace("Down", "").replace("Up", "") not in names:
+        base = (
+            modifier[:-4]
+            if modifier.endswith("Down")
+            else modifier[:-2] if modifier.endswith("Up") else modifier
+        )
+        if not any(base == n or base.startswith(n + "_") for n in names):
             raise ValueError(
                 f"Modifier {modifier} is not in the list of included weights"
             )
-        elif "Down" in modifier and modifier not in self._modifiers:
-            return w / self._modifiers[modifier.replace("Down", "Up")]
+        if modifier.endswith("Down") and modifier not in self._modifiers:
+            return w / self._modifiers[modifier[:-4] + "Up"]
         return w * self._modifiers[modifier]
 
     @property
@@ -644,7 +649,8 @@ class Weights:
         keys = set(self._modifiers.keys())
         # add any missing 'Down' variation
         for k in self._modifiers.keys():
-            keys.add(k.replace("Up", "Down"))
+            if k.endswith("Up"):
+                keys.add(k[:-2] + "Down")
         return keys
 
 
