@@ -833,7 +833,7 @@ class AssociatedPFCand(base.NanoCollection):
     @jet.dask
     def jet(self, dask_array):
         collection = self.collection_map[self._collection_name()][0]
-        return dask_array.events()[collection]._apply_global_index(dask_array.jetIdxG)
+        return dask_array._events()[collection]._apply_global_index(dask_array.jetIdxG)
 
     @dask_property
     def pf(self):
@@ -865,12 +865,12 @@ class AssociatedSV(base.NanoCollection):
 
     @dask_property
     def jet(self):
-        collection = self._events()[self.collection_map[self._collection_name()][0]]
+        collection = self.collection_map[self._collection_name()][0]
         return self._events()[collection]._apply_global_index(self.jetIdxG)
 
     @jet.dask
     def jet(self, dask_array):
-        collection = self._events()[self.collection_map[self._collection_name()][0]]
+        collection = self.collection_map[self._collection_name()][0]
         return dask_array._events()[collection]._apply_global_index(dask_array.jetIdxG)
 
     @dask_property
