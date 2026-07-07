@@ -732,20 +732,31 @@ class FuturesExecutor(ExecutorBase):
                     raise e from None
 
         if isinstance(self.pool, concurrent.futures.Executor):
-            return _processwith(pool=self.pool, mergepool=self.mergepool)
+            with ExitStack() as stack:
+                mergepoolinstance = self._resolve_mergepool(stack)
+                return _processwith(pool=self.pool, mergepool=mergepoolinstance)
         else:
             # assume its a class then
             with ExitStack() as stack:
                 poolinstance = stack.enter_context(self.pool(max_workers=self.workers))
-                if self.mergepool is not None:
-                    if isinstance(self.mergepool, int):
-                        self.mergepool = concurrent.futures.ProcessPoolExecutor(
-                            max_workers=self.mergepool
-                        )
-                    mergepoolinstance = stack.enter_context(self.mergepool)
-                else:
-                    mergepoolinstance = None
+                mergepoolinstance = self._resolve_mergepool(stack)
                 return _processwith(pool=poolinstance, mergepool=mergepoolinstance)
+
+    def _resolve_mergepool(self, stack):
+        mp = self.mergepool
+        if mp is None or mp is False:
+            return None
+        if mp is True:
+            return stack.enter_context(
+                concurrent.futures.ProcessPoolExecutor(max_workers=self.workers)
+            )
+        if isinstance(mp, int):
+            return stack.enter_context(
+                concurrent.futures.ProcessPoolExecutor(max_workers=mp)
+            )
+        if isinstance(mp, concurrent.futures.Executor):
+            return mp
+        return stack.enter_context(mp(max_workers=self.workers))
 
 
 @dataclass

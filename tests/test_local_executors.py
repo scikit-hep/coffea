@@ -524,3 +524,25 @@ def test_automatic_retries_retry_without_skipbadfiles(skipbadfiles):
     out = processor.Runner.automatic_retries(3, skipbadfiles, flaky)
     assert out == "ok"
     assert calls["n"] == 3
+
+
+@pytest.mark.parametrize("form", ["int", "class", "instance", "bool"])
+def test_futures_mergepool_forms(form):
+    # Bug 25: every documented mergepool form must work and not mutate self.mergepool
+    import concurrent.futures as cf
+
+    mp = {
+        "int": 2,
+        "class": cf.ProcessPoolExecutor,
+        "instance": cf.ProcessPoolExecutor(max_workers=2),
+        "bool": True,
+    }[form]
+    ex = processor.FuturesExecutor(
+        workers=2, merging=True, mergepool=mp, compression=None, status=False
+    )
+    out, code = ex(list(range(6)), _one, None)
+    assert out == {"n": 6}
+    assert code == 0
+    assert ex.mergepool is mp
+    if isinstance(mp, cf.Executor):
+        mp.shutdown()
