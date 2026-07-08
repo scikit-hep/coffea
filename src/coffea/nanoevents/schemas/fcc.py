@@ -404,7 +404,7 @@ class FCCSchema(BaseSchema):
                     output[record_name] = zip_forms(
                         sort_dict(contents),
                         record_name,
-                        self._datatype_mixins.get(record_name, "NanoCollection"),
+                        self.mixins_dictionary.get(record_name, "NanoCollection"),
                     )
             # If a branch is non-empty and is one of its kind (i.e. has no other associated branch)
             # call it a singleton and assign it directly to the output
