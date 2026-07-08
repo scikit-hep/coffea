@@ -327,3 +327,31 @@ def test_Relations(eager_events, delayed_events, field):
             elif d_fin.layout.branch_depth[1] == 3:
                 mixin = d_fin.layout.content.content.content.parameter("__record__")
                 assert target_name.startswith(mixin)
+
+
+def test_edm4hep_yaml_cache_is_readonly():
+    # The parsed edm4hep yaml is loaded once and shared across all schema
+    # builds; a build must therefore treat it as read-only. Guards against
+    # reintroducing per-build mutation of the shared cache.
+    import copy
+
+    from coffea.nanoevents.schemas import edm4hep as edm4hep_module
+
+    version = EDM4HEPSchema.edm4hep_version
+    raw, parsed = edm4hep_module.load_edm4hep(version)
+    raw_snapshot = copy.deepcopy(raw)
+    parsed_snapshot = copy.deepcopy(parsed)
+
+    # A full schema build exercises every path that reads the cached dicts.
+    _events(
+        mode="eager",
+        iteritems_options={"filter_name": "/^(?!.*(PARAMETERS|_.*Map))/"},
+    )
+
+    raw_after, parsed_after = edm4hep_module.load_edm4hep(version)
+    # Caching is active: the same objects are handed to every build ...
+    assert raw_after is raw
+    assert parsed_after is parsed
+    # ... and the build did not mutate them.
+    assert raw_after == raw_snapshot
+    assert parsed_after == parsed_snapshot
