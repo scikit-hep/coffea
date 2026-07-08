@@ -135,6 +135,85 @@ def test_buffer_cache_hierarchical(tests_directory):
     os.rmdir(f"{tests_directory}/mycache")
 
 
+@pytest.mark.parametrize("codec_name", ["none", "numcodecs"])
+@pytest.mark.parametrize("layout", ["contiguous", "sliced", "fortran"])
+def test_buffer_cache_roundtrip_layouts(codec_name, layout):
+    from coffea.nanoevents.mapping.buffer_cache import (
+        CodecAwareCache,
+        NoCompressionCodec,
+    )
+
+    if codec_name == "none":
+        codec = NoCompressionCodec()
+    else:
+        pytest.importorskip("numcodecs")
+        from numcodecs import Blosc
+
+        from coffea.nanoevents.mapping.buffer_cache import NumCodecsWrapper
+
+        codec = NumCodecsWrapper(Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE))
+
+    base = np.arange(64, dtype=np.int64)
+    if layout == "contiguous":
+        arr = base.copy()
+    elif layout == "sliced":
+        arr = base[::2]
+    else:
+        arr = np.asfortranarray(base.reshape(8, 8))
+    assert layout == "contiguous" or not arr.flags["C_CONTIGUOUS"]
+
+    cache = CodecAwareCache(cache={}, codec=codec)
+    cache["key"] = arr
+    np.testing.assert_array_equal(cache["key"], arr)
+
+
+def test_no_compression_codec_without_numcodecs(monkeypatch):
+    import builtins
+
+    from coffea.nanoevents.mapping import buffer_cache as bc_mod
+    from coffea.nanoevents.mapping.buffer_cache import (
+        CodecAwareCache,
+        NoCompressionCodec,
+    )
+
+    real_import = builtins.__import__
+
+    def _no_numcodecs(name, *args, **kwargs):
+        if name == "numcodecs":
+            raise ModuleNotFoundError("numcodecs is not available")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _no_numcodecs)
+
+    cache = bc_mod.BufferCache(cache=None, codec=NoCompressionCodec())
+    assert isinstance(cache, CodecAwareCache)
+
+
+def test_buffer_cache_decodes_once_per_hit():
+    from coffea.nanoevents.mapping.buffer_cache import (
+        CodecAwareCache,
+        NoCompressionCodec,
+    )
+    from coffea.nanoevents.mapping.preloaded import PreloadedSourceMapping
+
+    class CountingCodec(NoCompressionCodec):
+        def __init__(self):
+            self.decodes = 0
+
+        def decode(self, buffer, struct):
+            self.decodes += 1
+            return super().decode(buffer, struct)
+
+    codec = CountingCodec()
+    buffer_cache = CodecAwareCache(cache={}, codec=codec)
+    mapping = PreloadedSourceMapping(object(), 0, 5, buffer_cache=buffer_cache)
+    buffer_cache["mykey"] = np.arange(5, dtype=np.int64)
+
+    out = mapping["mykey"]
+    np.testing.assert_array_equal(out, np.arange(5, dtype=np.int64))
+    assert codec.decodes == 1
+
+
 def test_buffer_cache_small_and_empty_array_compression():
     pytest.importorskip("numcodecs")
     pytest.importorskip("zict")
