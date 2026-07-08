@@ -289,8 +289,8 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
             self.pmod.InferRequestedOutput(output) for output in output_list
         ]
 
-        # Setting up container for storing output.
-        output = None
+        # Collect per-batch outputs, concatenate once at the end.
+        output_batches = {o: [] for o in output_list}
 
         # Padding the outermost dimension to a multiple of of the batch size
         orig_len = list(input_dict.values())[0].shape[0]  # saving original length
@@ -312,25 +312,21 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
 
             # Running the request with fall back
             request = self.run_infer(infer_inputs, infer_outputs)
-            if output is None:
-                output = {
-                    o: request.as_numpy(o)[start_idx:stop_idx] for o in output_list
-                }
-            else:
-                for o in output_list:
-                    output[o] = numpy.concatenate(
-                        (output[o], request.as_numpy(o)), axis=0
-                    )
+            for o in output_list:
+                output_batches[o].append(request.as_numpy(o)[: stop_idx - start_idx])
 
         if (
-            output is None
+            orig_len == 0
         ):  # Input was a length-0, so we should generate the length-0 outputs with correct dimension
             return {
                 o: numpy.zeros(shape=(0, *self.model_outputs[o]["shape"][1:]))
                 for o in output_list
             }
 
-        return {k: v[:orig_len] for k, v in output.items()}
+        return {
+            o: numpy.concatenate(batches, axis=0)[:orig_len]
+            for o, batches in output_batches.items()
+        }
 
     def run_infer(self, inputs, outputs, attempt=0):
         """Thin wrapper around tritonclient.infer to automatic retry with backoff+jitter on inference server failures"""
