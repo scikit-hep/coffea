@@ -464,3 +464,204 @@ def test_use_result_type_requires_skipbadfiles():
         use_result_type=True,
         skipbadfiles=(FileNotFoundError,),
     )
+
+
+def _one(x):
+    return {"n": 1}
+
+
+def test_processor_compression_none_runs():
+    # Bug 11: processor_compression=None must not feed raw processor to lz4f.decompress
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+        processor_compression=None,
+    )
+    out = run(
+        _good_fileset,
+        processor_instance=NanoEventsProcessor(mode="eager"),
+        treename="Events",
+    )
+    assert out["cutflow"]["ZJets_pt"] == 18
+    assert out["cutflow"]["ZJets_mass"] == 6
+
+
+@pytest.mark.parametrize("seam", ["metadata", "run"])
+def test_uproot_options_timeout(seam):
+    # Bug 21: a timeout inside uproot_options must not be passed twice to uproot.open
+    from coffea.processor.executor import FileMeta, Runner
+
+    if seam == "metadata":
+        item = FileMeta("ZJets", osp.abspath("tests/samples/nano_dy.root"), "Events")
+        out = Runner.metadata_fetcher_root(60, False, {"timeout": 30}, item)
+        (fetched,) = out
+        assert fetched.metadata["numentries"] == 40
+    else:
+        run = processor.Runner(
+            executor=processor.IterativeExecutor(),
+            schema=schemas.NanoAODSchema,
+        )
+        out = run(
+            _good_fileset,
+            processor_instance=NanoEventsProcessor(mode="eager"),
+            treename="Events",
+            uproot_options={"timeout": 30},
+        )
+        assert out["cutflow"]["ZJets_pt"] == 18
+
+
+@pytest.mark.parametrize("skipbadfiles", [False, (ValueError,)])
+def test_automatic_retries_retry_without_skipbadfiles(skipbadfiles):
+    # Bug 22: retries must happen regardless of skipbadfiles
+    calls = {"n": 0}
+
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise ValueError("transient")
+        return "ok"
+
+    out = processor.Runner.automatic_retries(3, skipbadfiles, flaky)
+    assert out == "ok"
+    assert calls["n"] == 3
+
+
+@pytest.mark.parametrize("form", ["int", "class", "instance", "bool"])
+def test_futures_mergepool_forms(form):
+    # Bug 25: every documented mergepool form must work and not mutate self.mergepool
+    import concurrent.futures as cf
+
+    mp = {
+        "int": 2,
+        "class": cf.ProcessPoolExecutor,
+        "instance": cf.ProcessPoolExecutor(max_workers=2),
+        "bool": True,
+    }[form]
+    ex = processor.FuturesExecutor(
+        workers=2, merging=True, mergepool=mp, compression=None, status=False
+    )
+    out, code = ex(list(range(6)), _one, None)
+    assert out == {"n": 6}
+    assert code == 0
+    assert ex.mergepool is mp
+    if isinstance(mp, cf.Executor):
+        mp.shutdown()
+
+
+def test_recoverable_exception_raised_in_default_path():
+    # Bug 47: use_result_type=False must not silently drop a captured exception
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+    )
+    boom = RuntimeError("recovered failure")
+
+    def fake_run(**kwargs):
+        return {"out": {"cutflow": {"events": 1}}, "exception": boom}
+
+    run.run = fake_run
+    with pytest.raises(RuntimeError, match="recovered failure"):
+        run(
+            {"x": {"files": {"f.root": "Events"}}},
+            processor_instance=NanoEventsProcessor(mode="eager"),
+        )
+
+
+def test_maxchunks_limits_preprocess_file_opening():
+    # Bug 56: maxchunks=1 must not open every file during preprocessing
+    fileset = {
+        "ZJets": {
+            "treename": "Events",
+            "files": [
+                osp.abspath("tests/samples/nano_dy.root"),
+                osp.abspath("tests/samples/non_existent.root"),
+            ],
+        }
+    }
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(retries=0),
+        schema=schemas.NanoAODSchema,
+        maxchunks=1,
+    )
+    chunks = list(run.preprocess(fileset))
+    assert len(chunks) == 1
+    assert chunks[0].filename.endswith("nano_dy.root")
+
+
+def test_watcher_recompresses_only_on_change(monkeypatch):
+    # Bug 55: the running accumulator must not be recompressed on idle poll cycles
+    from coffea.processor import executor as ex_mod
+
+    item = ex_mod._compress({"n": 1}, 1)
+    calls = {"n": 0}
+    real_compress = ex_mod._compress
+
+    def counting(value, compression):
+        calls["n"] += 1
+        return real_compress(value, compression)
+
+    monkeypatch.setattr(ex_mod, "_compress", counting)
+
+    class StubExec:
+        desc = "Processing"
+        unit = "items"
+        merging = False
+        compression = 1
+
+    class StubFH:
+        def __init__(self):
+            self.running = 1
+            self.done = {"futures": 0, "merges": 0}
+            self.completed = []
+            self.futures = []
+            self.merges = []
+            self._polls = 0
+
+        def update(self):
+            self._polls += 1
+            if self._polls >= 3:
+                self.completed = [item]
+                self.running = 0
+
+        def fetch(self, n):
+            batch = self.completed[:n]
+            self.completed = self.completed[n:]
+            return batch
+
+    out = ex_mod._watcher(StubFH(), StubExec(), lambda b: b, None)
+    assert calls["n"] == 1
+    assert ex_mod._decompress(out) == {"n": 1}
+
+
+def test_auto_dask_client_single_and_cleanup(monkeypatch):
+    # Bug 24: at most one auto-created dask Client, assigned to both executors and
+    # cleaned up afterwards
+    from coffea.processor import executor as ex_mod
+
+    created = []
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.closed = False
+            created.append(self)
+
+        def close(self):
+            self.closed = True
+
+    class FakeDistributed:
+        class client:
+            Client = FakeClient
+
+    monkeypatch.setattr(ex_mod, "_import_distributed", lambda: FakeDistributed)
+
+    executor = processor.DaskExecutor()
+    runner = processor.Runner(executor=executor)
+    assert executor.client is None
+    with runner._auto_dask_client() as client:
+        assert client is created[0]
+        assert executor.client is client
+        assert runner.pre_executor.client is client
+        assert len(created) == 1
+    assert len(created) == 1
+    assert executor.client is None
+    assert created[0].closed is True

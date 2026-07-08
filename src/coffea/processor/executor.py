@@ -16,7 +16,7 @@ from collections.abc import (
     Mapping,
     MutableMapping,
 )
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from functools import partial
 from io import BytesIO
@@ -496,17 +496,18 @@ def _watcher(
                     )
             else:  # Merge within process
                 batch = FH.fetch(len(FH.completed))
-                merged = _compress(
-                    accumulate(
-                        progress.track(
-                            map(_decompress, (c for c in batch)),
-                            task_id=p_idm,
-                            total=progress._tasks[p_idm].total + len(batch),
+                if batch:
+                    merged = _compress(
+                        accumulate(
+                            progress.track(
+                                map(_decompress, (c for c in batch)),
+                                task_id=p_idm,
+                                total=progress._tasks[p_idm].total + len(batch),
+                            ),
+                            _decompress(merged),
                         ),
-                        _decompress(merged),
-                    ),
-                    executor.compression,
-                )
+                        executor.compression,
+                    )
         # Add checkpointing
 
         if executor.merging:
@@ -732,20 +733,31 @@ class FuturesExecutor(ExecutorBase):
                     raise e from None
 
         if isinstance(self.pool, concurrent.futures.Executor):
-            return _processwith(pool=self.pool, mergepool=self.mergepool)
+            with ExitStack() as stack:
+                mergepoolinstance = self._resolve_mergepool(stack)
+                return _processwith(pool=self.pool, mergepool=mergepoolinstance)
         else:
             # assume its a class then
             with ExitStack() as stack:
                 poolinstance = stack.enter_context(self.pool(max_workers=self.workers))
-                if self.mergepool is not None:
-                    if isinstance(self.mergepool, int):
-                        self.mergepool = concurrent.futures.ProcessPoolExecutor(
-                            max_workers=self.mergepool
-                        )
-                    mergepoolinstance = stack.enter_context(self.mergepool)
-                else:
-                    mergepoolinstance = None
+                mergepoolinstance = self._resolve_mergepool(stack)
                 return _processwith(pool=poolinstance, mergepool=mergepoolinstance)
+
+    def _resolve_mergepool(self, stack):
+        mp = self.mergepool
+        if mp is None or mp is False:
+            return None
+        if mp is True:
+            return stack.enter_context(
+                concurrent.futures.ProcessPoolExecutor(max_workers=self.workers)
+            )
+        if isinstance(mp, int):
+            return stack.enter_context(
+                concurrent.futures.ProcessPoolExecutor(max_workers=mp)
+            )
+        if isinstance(mp, concurrent.futures.Executor):
+            return mp
+        return stack.enter_context(mp(max_workers=self.workers))
 
 
 @dataclass
@@ -1275,25 +1287,21 @@ class Runner:
             try:
                 return func(*args, **kwargs)
             except Exception as e:
+                chain = _exception_chain(e)
+                if retries == retry_count:
+                    if skipbadfiles and any(isinstance(c, skipbadfiles) for c in chain):
+                        if use_result_type:
+                            # surface the exception instead of silently skipping
+                            # so the Runner can wrap it as Err
+                            raise e
+                        warnings.warn(
+                            f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}"
+                        )
+                        break
+                    raise e
                 warnings.warn(
                     f"Performed attempt {retry_count + 1} out of {retries + 1}"
                 )
-                chain = _exception_chain(e)
-                if (
-                    skipbadfiles
-                    and (retries == retry_count)
-                    and any(isinstance(c, skipbadfiles) for c in chain)
-                ):
-                    if use_result_type:
-                        # surface the exception instead of silently skipping
-                        # so the Runner can wrap it as Err
-                        raise e
-                    warnings.warn(
-                        f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}"
-                    )
-                    break
-                if not skipbadfiles or (retries == retry_count):
-                    raise e
             retry_count += 1
 
     @staticmethod
@@ -1357,6 +1365,8 @@ class Runner:
         uproot_options: dict,
         item: FileMeta,
     ) -> Accumulatable:
+        uproot_options = dict(uproot_options)
+        xrootdtimeout = uproot_options.pop("timeout", xrootdtimeout)
         with uproot.open(
             {item.filename: None}, timeout=xrootdtimeout, **uproot_options
         ) as file:
@@ -1485,6 +1495,20 @@ class Runner:
                 )
         return final_fileset
 
+    def _limit_preprocess_files(self, fileset):
+        if self.maxchunks is None:
+            return fileset
+        # each file yields at least one chunk, so at most maxchunks files per
+        # dataset need opening to satisfy maxchunks chunks
+        seen = defaultdict(int)
+        limited = []
+        for filemeta in fileset:
+            if seen[filemeta.dataset] >= self.maxchunks:
+                continue
+            limited.append(filemeta)
+            seen[filemeta.dataset] += 1
+        return limited
+
     def _trace_preload(
         self,
         fileset: list[FileMeta],
@@ -1585,11 +1609,11 @@ class Runner:
         checkpointer: CheckpointerABC,
         cache_function: Callable[[], MutableMapping],
     ) -> dict:
-        if "timeout" in uproot_options:
-            xrootdtimeout = uproot_options["timeout"]
+        uproot_options = dict(uproot_options)
+        xrootdtimeout = uproot_options.pop("timeout", xrootdtimeout)
         if processor_instance == "heavy":
             item, processor_instance = item
-        if not isinstance(processor_instance, ProcessorABC) or not callable(
+        if not isinstance(processor_instance, ProcessorABC) and not callable(
             processor_instance
         ):
             processor_instance = cloudpickle.loads(lz4f.decompress(processor_instance))
@@ -1803,6 +1827,9 @@ class Runner:
         )
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
+        exception = wrapped_out.get("exception", 0)
+        if exception != 0:
+            raise exception
         if self.savemetrics:
             return wrapped_out["out"], wrapped_out["metrics"]
         return wrapped_out["out"]
@@ -1871,7 +1898,9 @@ class Runner:
         if uproot_options is None:
             uproot_options = {}
         if self.format == "root":
-            fileset = list(self._normalize_fileset(fileset, treename))
+            fileset = self._limit_preprocess_files(
+                list(self._normalize_fileset(fileset, treename))
+            )
             for filemeta in fileset:
                 filemeta.maybe_populate(self.metadata_cache)
 
@@ -1885,7 +1914,9 @@ class Runner:
                     process_fn = processor_instance
                 self._trace_preload(fileset, trace, process_fn, uproot_options)
         elif self.format == "parquet":
-            fileset = list(self._normalize_fileset(fileset, treename))
+            fileset = self._limit_preprocess_files(
+                list(self._normalize_fileset(fileset, treename))
+            )
             if any(filemeta.preload is not None for filemeta in fileset):
                 raise NotImplementedError(
                     "fileset-level 'preload' is not supported for parquet input"
@@ -1982,7 +2013,51 @@ class Runner:
                 return Err(e)
             raise
 
+    @contextmanager
+    def _auto_dask_client(self):
+        auto = []
+        if isinstance(self.executor, DaskExecutor) and self.executor.client is None:
+            auto.append(self.executor)
+        if (
+            self.pre_executor is not self.executor
+            and isinstance(self.pre_executor, DaskExecutor)
+            and self.pre_executor.client is None
+        ):
+            auto.append(self.pre_executor)
+        if not auto:
+            yield None
+            return
+        client = _import_distributed().client.Client(threads_per_worker=1)
+        for ex in auto:
+            ex.client = client
+        try:
+            yield client
+        finally:
+            for ex in auto:
+                ex.client = None
+            client.close()
+
     def _run(
+        self,
+        fileset: dict | str | list[WorkItem] | Generator,
+        processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
+        *,
+        treename: str | None = None,
+        uproot_options: dict | None = {},
+        iteritems_options: dict | None = {},
+        trace: Callable | None = None,
+    ) -> Accumulatable:
+        with self._auto_dask_client():
+            return self._run_impl(
+                fileset,
+                processor_instance,
+                treename=treename,
+                uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
+                trace=trace,
+            )
+
+    def _run_impl(
         self,
         fileset: dict | str | list[WorkItem] | Generator,
         processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
