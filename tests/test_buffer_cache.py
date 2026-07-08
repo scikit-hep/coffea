@@ -135,6 +135,38 @@ def test_buffer_cache_hierarchical(tests_directory):
     os.rmdir(f"{tests_directory}/mycache")
 
 
+@pytest.mark.parametrize("codec_name", ["none", "numcodecs"])
+@pytest.mark.parametrize("layout", ["contiguous", "sliced", "fortran"])
+def test_buffer_cache_roundtrip_layouts(codec_name, layout):
+    from coffea.nanoevents.mapping.buffer_cache import (
+        CodecAwareCache,
+        NoCompressionCodec,
+    )
+
+    if codec_name == "none":
+        codec = NoCompressionCodec()
+    else:
+        pytest.importorskip("numcodecs")
+        from numcodecs import Blosc
+
+        from coffea.nanoevents.mapping.buffer_cache import NumCodecsWrapper
+
+        codec = NumCodecsWrapper(Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE))
+
+    base = np.arange(64, dtype=np.int64)
+    if layout == "contiguous":
+        arr = base.copy()
+    elif layout == "sliced":
+        arr = base[::2]
+    else:
+        arr = np.asfortranarray(base.reshape(8, 8))
+    assert layout == "contiguous" or not arr.flags["C_CONTIGUOUS"]
+
+    cache = CodecAwareCache(cache={}, codec=codec)
+    cache["key"] = arr
+    np.testing.assert_array_equal(cache["key"], arr)
+
+
 def test_buffer_cache_small_and_empty_array_compression():
     pytest.importorskip("numcodecs")
     pytest.importorskip("zict")
