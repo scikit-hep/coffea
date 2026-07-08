@@ -778,7 +778,7 @@ def get_index_ranges(begin, end):
     )
     ranges = get_index_ranges_kernel(begin_end, awkward.ArrayBuilder()).snapshot()
 
-    if awkward.sum(ranges) == 0:  # empty ranges, return a twice nested empty array
+    if awkward.count(ranges, axis=None) == 0:  # no entries, twice nested empty array
         ranges = begin_end[begin_end < 0]
     return ranges
 
