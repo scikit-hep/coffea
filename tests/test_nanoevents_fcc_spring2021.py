@@ -315,3 +315,8 @@ def test_fcc_unknown_collections_record_array():
     }
     output, _ = schema._unknown_collections({}, branch_forms, set())
     assert output["Foo"]["parameters"]["__record__"] == "NanoCollection"
+
+
+def test_fcc_get_schema_bad_version():
+    with pytest.raises(ValueError):
+        FCC.get_schema("bad-version")
