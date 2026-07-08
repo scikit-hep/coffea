@@ -24,6 +24,7 @@ class Codec(tp.Protocol):
 
 class NoCompressionCodec(Codec):
     def encode(self, arr: np.ndarray) -> tuple[ByteBuffer, ShapeDTypeStruct]:
+        arr = np.ascontiguousarray(arr)
         struct = ShapeDTypeStruct(
             dtype=arr.dtype, shape=arr.shape, strides=arr.strides, compressed=False
         )
@@ -41,6 +42,7 @@ class NumCodecsWrapper:
         self._codec = codec
 
     def encode(self, arr: np.ndarray) -> tuple[ByteBuffer, ShapeDTypeStruct]:
+        arr = np.ascontiguousarray(arr)
         if arr.nbytes > 16:
             encoded = self._codec.encode(arr.tobytes())
             struct = ShapeDTypeStruct(
@@ -208,21 +210,23 @@ def BufferCache(
     if codec is not None:
         try:
             import numcodecs
-        except ModuleNotFoundError as err:
-            raise ModuleNotFoundError("""to use BufferCache, you must install numcodecs:
+        except ModuleNotFoundError:
+            numcodecs = None
+
+        if numcodecs is not None and isinstance(codec, numcodecs.abc.Codec):
+            codec = NumCodecsWrapper(codec=codec)
+
+        if not isinstance(codec, Codec):
+            if numcodecs is None:
+                raise ModuleNotFoundError(
+                    """to use BufferCache, you must install numcodecs:
 
 pip install numcodecs
 
 or
 
-conda install -c conda-forge numcodecs""") from err
-
-        # auto-wrap for numcodecs.abc.Codec
-        if isinstance(codec, numcodecs.abc.Codec):
-            codec = NumCodecsWrapper(codec=codec)
-
-        # at this point we expect a proper Codec instance
-        if not isinstance(codec, Codec):
+conda install -c conda-forge numcodecs"""
+                )
             raise TypeError(f"codec must be an instance of Codec, got {type(codec)}")
 
         return CodecAwareCache(cache=cache, codec=codec)
