@@ -189,6 +189,31 @@ def test_no_compression_codec_without_numcodecs(monkeypatch):
     assert isinstance(cache, CodecAwareCache)
 
 
+def test_buffer_cache_decodes_once_per_hit():
+    from coffea.nanoevents.mapping.buffer_cache import (
+        CodecAwareCache,
+        NoCompressionCodec,
+    )
+    from coffea.nanoevents.mapping.preloaded import PreloadedSourceMapping
+
+    class CountingCodec(NoCompressionCodec):
+        def __init__(self):
+            self.decodes = 0
+
+        def decode(self, buffer, struct):
+            self.decodes += 1
+            return super().decode(buffer, struct)
+
+    codec = CountingCodec()
+    buffer_cache = CodecAwareCache(cache={}, codec=codec)
+    mapping = PreloadedSourceMapping(object(), 0, 5, buffer_cache=buffer_cache)
+    buffer_cache["mykey"] = np.arange(5, dtype=np.int64)
+
+    out = mapping["mykey"]
+    np.testing.assert_array_equal(out, np.arange(5, dtype=np.int64))
+    assert codec.decodes == 1
+
+
 def test_buffer_cache_small_and_empty_array_compression():
     pytest.importorskip("numcodecs")
     pytest.importorskip("zict")
