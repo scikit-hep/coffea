@@ -1,5 +1,4 @@
 from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
-from coffea.lookup_tools.dense_evaluated_lookup import dense_evaluated_lookup
 from coffea.lookup_tools.dense_lookup import dense_lookup
 from coffea.lookup_tools.jec_uncertainty_lookup import jec_uncertainty_lookup
 from coffea.lookup_tools.jersf_lookup import jersf_lookup
@@ -8,7 +7,6 @@ from coffea.lookup_tools.rochester_lookup import rochester_lookup
 
 lookup_types = {
     "dense_lookup": dense_lookup,
-    "dense_evaluated_lookup": dense_evaluated_lookup,
     "jme_standard_function": jme_standard_function,
     "jersf_lookup": jersf_lookup,
     "jec_uncertainty_lookup": jec_uncertainty_lookup,
