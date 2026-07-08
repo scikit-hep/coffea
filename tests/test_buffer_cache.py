@@ -167,6 +167,28 @@ def test_buffer_cache_roundtrip_layouts(codec_name, layout):
     np.testing.assert_array_equal(cache["key"], arr)
 
 
+def test_no_compression_codec_without_numcodecs(monkeypatch):
+    import builtins
+
+    from coffea.nanoevents.mapping import buffer_cache as bc_mod
+    from coffea.nanoevents.mapping.buffer_cache import (
+        CodecAwareCache,
+        NoCompressionCodec,
+    )
+
+    real_import = builtins.__import__
+
+    def _no_numcodecs(name, *args, **kwargs):
+        if name == "numcodecs":
+            raise ModuleNotFoundError("numcodecs is not available")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _no_numcodecs)
+
+    cache = bc_mod.BufferCache(cache=None, codec=NoCompressionCodec())
+    assert isinstance(cache, CodecAwareCache)
+
+
 def test_buffer_cache_small_and_empty_array_compression():
     pytest.importorskip("numcodecs")
     pytest.importorskip("zict")
