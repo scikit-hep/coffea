@@ -253,12 +253,14 @@ class NanoEventsFactory:
             "schema": self._schema,
             "mapping": self._mapping,
             "partition_key": self._partition_key,
+            "mode": self._mode,
         }
 
     def __setstate__(self, state):
         self._schema = state["schema"]
         self._mapping = state["mapping"]
         self._partition_key = state["partition_key"]
+        self._mode = state.get("mode", "eager")
         self._events = lambda: None
 
     @classmethod
