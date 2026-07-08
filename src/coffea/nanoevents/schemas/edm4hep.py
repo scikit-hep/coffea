@@ -1,6 +1,7 @@
 import copy
 import re
 import warnings
+from functools import lru_cache
 
 from coffea.nanoevents import transforms
 from coffea.nanoevents.assets import edm4hep_ver
@@ -98,6 +99,17 @@ def sort_dict(d):
     return {k: d[k] for k in sorted(d)}
 
 
+@lru_cache(maxsize=None)
+def load_edm4hep(version):
+    """Load and parse the edm4hep yaml for a version, caching the result.
+
+    The returned ``(raw, parsed)`` dicts are treated as read-only by the schema,
+    so a single parse is shared across all schema builds for a given version.
+    """
+    raw = edm4hep_ver[version]()
+    return raw, parse_yaml(raw, copy.deepcopy(raw))
+
+
 class EDM4HEPSchema(BaseSchema):
     """Schema-builder for EDM4HEP root file structure.
     EDM4HEPSchema for edm4hep version 00.99.01
@@ -156,8 +168,7 @@ class EDM4HEPSchema(BaseSchema):
         super().__init__(base_form)
 
         # Detect Collection Datatypes and create a datatype mixin
-        self.edm4hep = edm4hep_ver[self.edm4hep_version]()
-        self.parsed_edm4hep = parse_yaml(self.edm4hep, copy.deepcopy(self.edm4hep))
+        self.edm4hep, self.parsed_edm4hep = load_edm4hep(self.edm4hep_version)
         self._create_mixin(base_form)
 
         self._form["fields"], self._form["contents"] = self._build_collections(
@@ -218,6 +229,7 @@ class EDM4HEPSchema(BaseSchema):
             for collection_name in self._form["fields"]
             if _all_collections.match(collection_name)
         }
+        self._all_collections = all_collections
         collections = {
             collection_name
             for collection_name in all_collections
@@ -1045,13 +1057,9 @@ class EDM4HEPSchema(BaseSchema):
         Builds all the collections with the necessary behaviors defined in the mixins dictionary
         """
         branch_forms = {k: v for k, v in zip(field_names, input_contents)}
-        # All collection names
+        # All collection names (computed once in _create_mixin from the same fields)
         # Example: ReconstructedParticles or _ReconstructedParticle_clusters, etc
-        all_collections = {
-            collection_name.split("/")[0]
-            for collection_name in field_names
-            if _all_collections.match(collection_name)
-        }
+        all_collections = self._all_collections
 
         output = {}
         branch_forms = self._doc_strings(branch_forms, all_collections)
