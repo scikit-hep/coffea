@@ -2275,3 +2275,109 @@ def test_packed_selection_cutflow_dak_uproot_only(optimization_enabled):
                 counts[-2] += counts[-1]
                 c, e = np.histogram(dak.flatten(array[truth]).compute(), bins=edges)
                 assert np.all(np.isclose(counts[1:-1], c))
+
+
+def test_weight_statistics_add_returns_object():
+    from coffea.analysis_tools import WeightStatistics
+
+    a = WeightStatistics(sumw=1.0, sumw2=1.0, minw=0.5, maxw=2.0, n=3)
+    b = WeightStatistics(sumw=2.0, sumw2=4.0, minw=0.1, maxw=3.0, n=5)
+
+    c = a + b
+    assert isinstance(c, WeightStatistics)
+    assert (c.sumw, c.sumw2, c.n, c.minw, c.maxw) == (3.0, 5.0, 8, 0.1, 3.0)
+    assert a.sumw == 1.0 and a.n == 3  # operand untouched by __add__
+
+    acc = WeightStatistics()
+    for _ in range(3):
+        acc += b  # must not rebind to None
+    assert isinstance(acc, WeightStatistics)
+    assert acc.n == 15 and acc.sumw == 6.0
+
+
+def test_weights_multivariation_dak_option_fill():
+    dak = pytest.importorskip("dask_awkward")
+    import awkward as ak
+
+    from coffea.analysis_tools import Weights
+
+    weight = dak.from_awkward(ak.Array([1.0, None, 2.0, 3.0]), npartitions=1)
+    weights = Weights(None)
+    weights.add_multivariation(
+        "test", weight, modifierNames=[], weightsUp=[], weightsDown=[]
+    )
+    result = weights.weight().compute()
+    assert not ak.any(ak.is_none(result))  # option filled with 1.0, like eager path
+    assert ak.to_list(result) == [1.0, 1.0, 2.0, 3.0]
+
+
+@pytest.mark.parametrize("mode", ["eager", "delayed"])
+def test_weights_modifier_suffix_and_multivariation(mode):
+    from coffea.analysis_tools import Weights
+
+    if mode == "delayed":
+        dak = pytest.importorskip("dask_awkward")
+        import dask.array as da
+
+        def arr(x):
+            return dak.from_dask_array(da.from_array(np.asarray(x, dtype=float)))
+
+        def get(x):
+            return np.asarray(x.compute())
+
+        size = None
+    else:
+
+        def arr(x):
+            return np.asarray(x, dtype=float)
+
+        def get(x):
+            return np.asarray(x)
+
+        size = 4
+
+    central = arr([1.0, 1.0, 1.0, 1.0])
+    up = arr([1.25, 1.25, 1.25, 1.25])
+    down = arr([0.8, 0.8, 0.8, 0.8])
+
+    weights = Weights(size, storeIndividual=True)
+    weights.add_multivariation(
+        "test", central, modifierNames=["A"], weightsUp=[up], weightsDown=[down]
+    )
+    # weight name carrying 'Up'/'Down' mid-string must survive suffix handling
+    weights.add("myUpdate", central, weightUp=up)
+
+    # bug 41: multivariation modifiers must be recognized by partial_weight
+    assert np.allclose(
+        get(weights.partial_weight(include=["test"], modifier="test_AUp")), 1.25
+    )
+    assert np.allclose(
+        get(weights.partial_weight(include=["test"], modifier="test_ADown")), 0.8
+    )
+
+    # bug 46: 'Up' inside a weight name must not be stripped mid-string
+    assert np.allclose(
+        get(weights.partial_weight(include=["myUpdate"], modifier="myUpdateUp")), 1.25
+    )
+
+    # bug 46: auto-derived Down for a name containing 'Down'-like fragments
+    assert np.allclose(get(weights.weight("myUpdateDown")), 0.8)
+
+    # modifier of an excluded weight is still rejected
+    with pytest.raises(ValueError, match="not in the list of included weights"):
+        weights.partial_weight(include=["myUpdate"], modifier="test_AUp")
+
+
+def test_packed_selection_require_returns_independent_copy():
+    from coffea.analysis_tools import PackedSelection
+
+    selection = PackedSelection()
+    selection.add("c1", np.array([True, True, False, False]))
+    selection.add("c2", np.array([True, False, True, False]))
+
+    mask = selection.all("c1")
+    original = mask.copy()
+    mask &= np.array([False, False, False, False])  # in-place mutation by caller
+
+    assert np.array_equal(selection.all("c1"), original)  # cache not corrupted
+    assert selection.all("c1") is not selection.all("c1")  # independent copies
