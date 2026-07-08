@@ -652,9 +652,6 @@ class FuturesExecutor(ExecutorBase):
         mergepool : concurrent.futures.Executor class or instance | int, optional
             Supply an additional executor to process merge jobs independently.
             An ``int`` will be interpreted as ``ProcessPoolExecutor(max_workers=int)``.
-        tailtimeout : int, optional
-            Timeout requirement on job tails. Cancel all remaining jobs if none have finished
-            in the timeout window.
         retries : int, optional
             Number of retries for failed tasks (default: 3)
 
@@ -675,7 +672,6 @@ class FuturesExecutor(ExecutorBase):
     recoverable: bool = False
     merging: bool | tuple[int, int, int] = False
     workers: int = 1
-    tailtimeout: int | None = None
     retries: int = 3
 
     def __post_init__(self):
@@ -983,9 +979,6 @@ class ParslExecutor(ExecutorBase):
         merges_executors : list | "all" optional
             Labels of the executors (from dfk.config.executors) that will process main jobs.
             Default is 'all'. Recommended is ``['merges']``, while passing ``label='merges'`` to the executor dedicated towards merge jobs.
-        tailtimeout : int, optional
-            Timeout requirement on job tails. Cancel all remaining jobs if none have finished
-            in the timeout window.
         retries : int, optional
             Number of retries for failed tasks (default: 3)
 
@@ -997,7 +990,6 @@ class ParslExecutor(ExecutorBase):
             an exception was captured.
     """
 
-    tailtimeout: int | None = None
     config: Optional["parsl.config.Config"] = None  # noqa
     recoverable: bool = False
     merging: bool | tuple[int, int, int] | None = False
@@ -1424,8 +1416,6 @@ class Runner:
                 "unit": "file",
                 "compression": None,
             }
-            if isinstance(self.pre_executor, (FuturesExecutor, ParslExecutor)):
-                pre_arg_override.update({"tailtimeout": None})
             if isinstance(self.pre_executor, (DaskExecutor)):
                 self.pre_executor.heavy_input = None
                 pre_arg_override.update({"worker_affinity": False})
@@ -1464,8 +1454,6 @@ class Runner:
                 "unit": "file",
                 "compression": None,
             }
-            if isinstance(self.pre_executor, (FuturesExecutor, ParslExecutor)):
-                pre_arg_override.update({"tailtimeout": None})
             if isinstance(self.pre_executor, (DaskExecutor)):
                 self.pre_executor.heavy_input = None
                 pre_arg_override.update({"worker_affinity": False})

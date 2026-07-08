@@ -46,37 +46,6 @@ def masked_bin_eval(dim1_indices, dimN_bins, dimN_vals):
     return dimN_indices, dimN_overflows
 
 
-# idx_in is a tuple of indices in increasing jaggedness
-# idx_out is a list of flat indices
-def flatten_idxs(idx_in, jaggedarray):
-    """
-    This provides a faster way to convert between tuples of
-    jagged indices and flat indices in a jagged array's contents
-    """
-    if len(idx_in) == 0:
-        return numpy.array([], dtype=numpy.int)
-    idx_out = jaggedarray.starts[idx_in[0]]
-    if len(idx_in) == 1:
-        pass
-    elif len(idx_in) == 2:
-        idx_out += idx_in[1]
-    else:
-        raise Exception("jme_standard_function only works for two binning dimensions!")
-
-    flattened = awkward.flatten(jaggedarray)
-    good_idx = idx_out < len(flattened)
-    if (~good_idx).any():
-        input_idxs = tuple(
-            [idx_out[~good_idx]] + [idx_in[i][~good_idx] for i in range(len(idx_in))]
-        )
-        raise Exception(
-            "Calculated invalid index {} for"
-            " array with length {}".format(numpy.vstack(input_idxs), len(flattened))
-        )
-
-    return idx_out
-
-
 class jme_standard_function(lookup_base):
     """
     This class defines a lookup table for jet energy corrections and resolutions.
