@@ -11,7 +11,6 @@ import awkward
 import cloudpickle
 import fsspec
 import hist
-import numba
 import numpy
 import uproot
 from rich.console import Console
@@ -28,7 +27,6 @@ from rich.progress import (
 
 ak = awkward
 np = numpy
-nb = numba
 
 
 __all__ = [
