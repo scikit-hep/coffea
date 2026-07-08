@@ -327,3 +327,19 @@ def test_Relations(eager_events, delayed_events, field):
             elif d_fin.layout.branch_depth[1] == 3:
                 mixin = d_fin.layout.content.content.content.parameter("__record__")
                 assert target_name.startswith(mixin)
+
+
+def test_edm4hep_lookup_one_to_many_relation():
+    import copy
+
+    from coffea.nanoevents.assets import edm4hep_ver
+    from coffea.nanoevents.schemas.edm4hep import parse_yaml
+
+    schema = EDM4HEPSchema.__new__(EDM4HEPSchema)
+    schema.edm4hep = edm4hep_ver["00-99-01"]()
+    schema.parsed_edm4hep = parse_yaml(schema.edm4hep, copy.deepcopy(schema.edm4hep))
+    schema._datatype_mixins = {"MCParticleCollection": "MCParticle"}
+    assert (
+        schema._lookup_branch("MCParticleCollection", "daughters", key="type")
+        == "edm4hep::MCParticle"
+    )

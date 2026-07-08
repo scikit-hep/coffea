@@ -304,7 +304,7 @@ class EDM4HEPSchema(BaseSchema):
         Members = collection_edm4hep.get("Members", {})
         VectorMembers = collection_edm4hep.get("VectorMembers", {})
         OneToOneRelations = collection_edm4hep.get("OneToOneRelations", {})
-        OneToManyRelations = collection_edm4hep.get("OneToOneRelations", {})
+        OneToManyRelations = collection_edm4hep.get("OneToManyRelations", {})
         composite_dict = {
             **Members,
             **VectorMembers,
