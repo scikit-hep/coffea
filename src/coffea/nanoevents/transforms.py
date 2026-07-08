@@ -697,23 +697,6 @@ def grow_local_index_to_target_shape(stack):
     stack.append(useable_index)
 
 
-# nested_local2global
-def nested_local2global(array, target_offsets_raw):
-    counts2 = awkward.flatten(awkward.num(array, axis=2), axis=1)
-    flat_index = awkward.values_astype(awkward.flatten(array, axis=2), "int64")
-
-    target_offsets = awkward.values_astype(target_offsets_raw, "int64")
-
-    flat_index = flat_index.mask[flat_index >= 0] + target_offsets[:-1]
-    flat_index = flat_index.mask[flat_index < target_offsets[1:]]
-    out = ensure_array(awkward.flatten(awkward.fill_none(flat_index, -1), axis=None))
-    if out.dtype != numpy.int64:
-        raise RuntimeError
-
-    nested_global = awkward.unflatten(out, counts2, axis=0)
-    return nested_global
-
-
 def nested_local2global_stack(stack):
     target_offsets_raw = stack.pop()
     array = stack.pop()
@@ -923,48 +906,6 @@ def begin_end_mapping_nested_target_form(begin_form, end_form, target_form):
 
 
 # begin_end_mapping_with_xyzrecord
-@numba.njit
-def get_array_from_indices_xyzrecord_target_kernel(indices, target, builder):
-    for ev in range(len(indices)):
-        builder.begin_list()
-        for j in range(len(indices[ev])):
-            builder.begin_list()
-            for k in indices[ev][j]:
-                builder.begin_record()
-                builder.field("x").real(target[ev][k]["x"])
-                builder.field("y").real(target[ev][k]["y"])
-                builder.field("z").real(target[ev][k]["z"])
-                builder.end_record()
-            builder.end_list()
-        builder.end_list()
-    return builder
-
-
-def get_array_from_indices_xyzrecord_target(indices, target):
-    return get_array_from_indices_xyzrecord_target_kernel(
-        indices, target, awkward.ArrayBuilder()
-    ).snapshot()
-
-
-def begin_end_mapping_with_xyzrecord(stack):
-    target = stack.pop()
-    end = stack.pop()
-    begin = stack.pop()
-    indices, o1, o2 = get_index_ranges(begin, end)
-
-    if len(target.fields) == 0:  # Target is a ListOffset type
-        raise RuntimeError("Target is a ListOffset.")
-    else:  # Target is a Record type
-        if awkward.sum(awkward.num(target, axis=1)) == 0:  # Empty Target
-            out = indices[indices < 0]  # return an empty array
-        else:
-            if awkward.sum(awkward.num(indices, axis=1)) == 0:  # Empty Indices
-                out = indices[indices < 0]  # return an empty array
-            else:  # The usual case when both of the indices and target are non-empty
-                out = get_array_from_indices_xyzrecord_target(indices, target)
-    stack.append(out)
-
-
 def begin_end_mapping_with_xyzrecord_form(begin_form, end_form, target_form):
     if not begin_form["class"].startswith("ListOffset"):
         raise RuntimeError
