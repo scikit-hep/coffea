@@ -687,7 +687,11 @@ class NanoEventsFactory:
         )
         uuidpfn = {uuid: array_source}
         mapping = PreloadedSourceMapping(
-            PreloadedOpener(uuidpfn), entry_start, entry_stop, access_log=access_log
+            PreloadedOpener(uuidpfn),
+            entry_start,
+            entry_stop,
+            access_log=access_log,
+            buffer_cache=buffer_cache,
         )
         mapping.preload_column_source(partition_key[0], partition_key[1], array_source)
 
