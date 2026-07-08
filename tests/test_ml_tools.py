@@ -27,6 +27,46 @@ def test_tf_wrapper_kwargs_writeable_flag(monkeypatch):
     assert np.array_equal(out, expected)
 
 
+def test_triton_run_infer_backoff_seconds(monkeypatch):
+    twmod = importlib.import_module("coffea.ml_tools.triton_wrapper")
+
+    class FakeInferException(Exception):
+        pass
+
+    monkeypatch.setattr(
+        twmod,
+        "tritonclient",
+        types.SimpleNamespace(
+            utils=types.SimpleNamespace(InferenceServerException=FakeInferException)
+        ),
+        raising=False,
+    )
+
+    sleeps = []
+    monkeypatch.setattr(twmod.time, "sleep", lambda s: sleeps.append(s))
+    monkeypatch.setattr(twmod.numpy.random, "rand", lambda: 1.0)
+
+    calls = {"n": 0}
+
+    def infer(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise FakeInferException()
+        return "ok"
+
+    class _tw(twmod.triton_wrapper):
+        def prepare_awkward(self, *a, **k):
+            return [], {}
+
+    obj = _tw.__new__(_tw)
+    obj.client = types.SimpleNamespace(infer=infer)
+    obj.model, obj.version = "m", "1"
+
+    assert obj.run_infer(inputs=None, outputs=None) == "ok"
+    # retry_jitter_base_ms=100 -> attempt 0 with max jitter is 0.1 s, not 100 s
+    assert sleeps == [pytest.approx(0.1)]
+
+
 def prepare_jets_array(njets, tmp_path):
     # Creating jagged Jet-with-constituent array, returning both awkward and lazy
     # dask_awkward arrays

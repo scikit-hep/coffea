@@ -345,6 +345,8 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
                 # Retry backoff + full jitter:
                 # https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
                 time.sleep(
-                    numpy.random.rand() * self.retry_jitter_base_ms * (2**attempt)
+                    numpy.random.rand()
+                    * (self.retry_jitter_base_ms / 1000.0)
+                    * (2**attempt)
                 )
                 return self.run_infer(inputs, outputs, attempt + 1)
