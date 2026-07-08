@@ -9,6 +9,8 @@ from cachetools import LRUCache
 from coffea.nanoevents import transforms
 from coffea.nanoevents.util import key_to_tuple, tuple_to_key
 
+_MISSING = object()
+
 
 class Accessed(NamedTuple):
     branch: str
@@ -95,8 +97,10 @@ class BaseSourceMapping(Mapping):
 
     def __getitem__(self, key):
         def _getitem(key):
-            if self._buffer_cache is not None and key in self._buffer_cache:
-                return self._buffer_cache[key]
+            if self._buffer_cache is not None:
+                cached = self._buffer_cache.get(key, _MISSING)
+                if cached is not _MISSING:
+                    return cached
             uuid, treepath, start, stop, partition, nodes = self.interpret_key(key)
             if self._debug:
                 print(
