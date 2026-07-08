@@ -1,8 +1,30 @@
+import importlib
+import types
+
 import awkward as ak
 import numpy as np
 import pytest
 
 dak = pytest.importorskip("dask_awkward")
+
+
+def test_tf_wrapper_kwargs_writeable_flag(monkeypatch):
+    tfmod = importlib.import_module("coffea.ml_tools.tf_wrapper")
+
+    monkeypatch.setattr(
+        tfmod,
+        "tensorflow",
+        types.SimpleNamespace(convert_to_tensor=lambda a: a),
+        raising=False,
+    )
+    arr = np.ones((3, 2))
+    expected = np.arange(6).reshape(3, 2)
+    fake_self = types.SimpleNamespace(
+        skip_length_zero=False,
+        model=lambda *a, **k: types.SimpleNamespace(numpy=lambda: expected),
+    )
+    out = tfmod.tf_wrapper.numpy_call(fake_self, **{"feat": arr})
+    assert np.array_equal(out, expected)
 
 
 def prepare_jets_array(njets, tmp_path):
