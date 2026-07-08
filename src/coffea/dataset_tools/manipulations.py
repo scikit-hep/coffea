@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import copy
 import sys
 from collections.abc import Callable
@@ -321,7 +322,7 @@ def get_failed_steps_for_dataset(
         )
 
     for failure in failures:
-        args_as_types = tuple(eval(arg) for arg in failure.args)
+        args_as_types = tuple(ast.literal_eval(arg) for arg in failure.args)
 
         fname, object_path, start, stop, is_step = args_as_types
 
