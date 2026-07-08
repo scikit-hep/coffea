@@ -274,8 +274,9 @@ def get_dataset_files_replicas(
                 outfiles.append(outfile)
                 outsites.append(outsite)
             elif mode == "first":
-                outfiles.append(outfile[0])
-                outsites.append(outsite[0])
+                if outfile:
+                    outfiles.append(outfile[0])
+                    outsites.append(outsite[0])
             else:
                 raise NotImplementedError(f"Mode {mode} not yet implemented!")
 
@@ -287,7 +288,7 @@ def get_dataset_files_replicas(
                 sites_counts[site] += 1
     elif mode == "first":
         for site_by_file in outsites:
-            sites_counts[site] += 1
+            sites_counts[site_by_file] += 1
 
     return outfiles, outsites, sites_counts
 
