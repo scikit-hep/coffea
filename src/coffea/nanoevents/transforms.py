@@ -697,6 +697,23 @@ def grow_local_index_to_target_shape(stack):
     stack.append(useable_index)
 
 
+# nested_local2global
+def nested_local2global(array, target_offsets_raw):
+    counts2 = awkward.flatten(awkward.num(array, axis=2), axis=1)
+    flat_index = awkward.values_astype(awkward.flatten(array, axis=2), "int64")
+
+    target_offsets = awkward.values_astype(target_offsets_raw, "int64")
+
+    flat_index = flat_index.mask[flat_index >= 0] + target_offsets[:-1]
+    flat_index = flat_index.mask[flat_index < target_offsets[1:]]
+    out = ensure_array(awkward.flatten(awkward.fill_none(flat_index, -1), axis=None))
+    if out.dtype != numpy.int64:
+        raise RuntimeError
+
+    nested_global = awkward.unflatten(out, counts2, axis=0)
+    return nested_global
+
+
 def nested_local2global_stack(stack):
     target_offsets_raw = stack.pop()
     array = stack.pop()
