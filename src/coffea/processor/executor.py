@@ -652,6 +652,8 @@ class FuturesExecutor(ExecutorBase):
         mergepool : concurrent.futures.Executor class or instance | int, optional
             Supply an additional executor to process merge jobs independently.
             An ``int`` will be interpreted as ``ProcessPoolExecutor(max_workers=int)``.
+        tailtimeout : int, optional
+            Deprecated and ignored; it never had an effect and will be removed in a future release.
         retries : int, optional
             Number of retries for failed tasks (default: 3)
 
@@ -672,9 +674,16 @@ class FuturesExecutor(ExecutorBase):
     recoverable: bool = False
     merging: bool | tuple[int, int, int] = False
     workers: int = 1
+    tailtimeout: int | None = None
     retries: int = 3
 
     def __post_init__(self):
+        if self.tailtimeout is not None:
+            warnings.warn(
+                "tailtimeout has never had an effect and is deprecated; it will be removed in a future release",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if not (
             isinstance(self.merging, bool)
             or (isinstance(self.merging, tuple) and len(self.merging) == 3)
@@ -979,6 +988,8 @@ class ParslExecutor(ExecutorBase):
         merges_executors : list | "all" optional
             Labels of the executors (from dfk.config.executors) that will process main jobs.
             Default is 'all'. Recommended is ``['merges']``, while passing ``label='merges'`` to the executor dedicated towards merge jobs.
+        tailtimeout : int, optional
+            Deprecated and ignored; it never had an effect and will be removed in a future release.
         retries : int, optional
             Number of retries for failed tasks (default: 3)
 
@@ -990,6 +1001,7 @@ class ParslExecutor(ExecutorBase):
             an exception was captured.
     """
 
+    tailtimeout: int | None = None
     config: Optional["parsl.config.Config"] = None  # noqa
     recoverable: bool = False
     merging: bool | tuple[int, int, int] | None = False
@@ -998,6 +1010,12 @@ class ParslExecutor(ExecutorBase):
     retries: int = 3
 
     def __post_init__(self):
+        if self.tailtimeout is not None:
+            warnings.warn(
+                "tailtimeout has never had an effect and is deprecated; it will be removed in a future release",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if not (
             isinstance(self.merging, bool)
             or (isinstance(self.merging, tuple) and len(self.merging) == 3)
