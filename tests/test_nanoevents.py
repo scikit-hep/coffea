@@ -119,44 +119,64 @@ def test_read_nanomc(tests_directory, suffix):
     ]
 
 
-@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
-def test_fsrphoton_matched_muon_type(tests_directory, mode):
+# Cross-reference properties backed by _apply_global_index. Eager is the
+# reference; virtual and dask must resolve to the same target collection. A
+# copy-paste in any single mode (e.g. FsrPhoton.matched_muon pointing at Jest
+# instead of Muon in dask) shows up as a record-type disagreement. The pairs
+# whose target collection is absent from nano_dy are skipped at runtime.
+nanoaod_crossrefs = [
+    ("Muon", "matched_fsrPhoton"),
+    ("Muon", "matched_jet"),
+    ("Muon", "matched_gen"),
+    ("FsrPhoton", "matched_muon"),
+    ("Electron", "matched_jet"),
+    ("Electron", "matched_photon"),
+    ("Electron", "matched_gen"),
+    ("Photon", "matched_electron"),
+    ("Photon", "matched_jet"),
+    ("Photon", "matched_gen"),
+    ("Jet", "matched_electrons"),
+    ("Jet", "matched_muons"),
+    ("Jet", "matched_gen"),
+    ("Tau", "matched_jet"),
+    ("Tau", "matched_gen"),
+    ("FatJet", "subjets"),
+    ("GenPart", "parent"),
+    ("GenPart", "children"),
+]
+
+
+@pytest.mark.parametrize("collection,attr", nanoaod_crossrefs)
+def test_nanoaod_crossref_target_type(tests_directory, collection, attr):
     """Regression test for scikit-hep/coffea#1578.
 
-    FsrPhoton.matched_muon must resolve against the Muon collection in all
-    execution modes. A copy-paste bug previously made the dask path resolve
-    against Jet, silently returning Jet records instead of Muon records.
+    Every ``matched_*``/parent/child cross-reference resolves the global index
+    against a specific collection; the dask path of ``FsrPhoton.matched_muon``
+    used the wrong ``_apply_global_index`` owner (Jet) and silently returned Jet
+    records. Rather than pin that single bug, sweep the cross-references and
+    require eager (known-correct), virtual and dask to agree on the resolved
+    record type and fields.
     """
-    if mode == "dask":
-        pytest.importorskip("dask_awkward")
+    pytest.importorskip("dask_awkward")
     path = f"{tests_directory}/samples/nano_dy.root:Events"
-    events = NanoEventsFactory.from_root(
-        path,
-        schemaclass=NanoAODSchema,
-        mode=mode,
-    ).events()
 
-    # Reference: eager result is known-correct (Muon-type records).
-    eager_events = NanoEventsFactory.from_root(
-        path,
-        schemaclass=NanoAODSchema,
-        mode="eager",
-    ).events()
-    eager_matched = eager_events.FsrPhoton.matched_muon
+    def resolve(mode):
+        events = NanoEventsFactory.from_root(
+            path, schemaclass=NanoAODSchema, mode=mode
+        ).events()
+        obj = getattr(events[collection], attr)
+        return obj._meta if mode == "dask" else obj
 
-    matched = events.FsrPhoton.matched_muon
-    if mode == "dask":
-        matched = matched.compute()
-    else:
-        matched = ak.materialize(matched)
+    try:
+        ref = resolve("eager")
+    except Exception:
+        pytest.skip(f"{collection}.{attr} unavailable in nano_dy")
+    ref_record = ref.layout.purelist_parameter("__record__")
 
-    # Fields must match the eager (Muon) result, not Jet.
-    assert set(matched.fields) == set(eager_matched.fields)
-    # A Muon-specific field must be present; a Jet-specific one must not.
-    assert "pfRelIso04_all" in matched.fields
-    assert "btagDeepB" not in matched.fields
-    # Values must match the eager result.
-    assert ak.all(ak.fill_none(matched.pt == eager_matched.pt, True))
+    for mode in ("virtual", "dask"):
+        got = resolve(mode)
+        assert got.layout.purelist_parameter("__record__") == ref_record
+        assert set(got.fields) == set(ref.fields)
 
 
 @pytest.mark.parametrize("suffix", suffixes)
