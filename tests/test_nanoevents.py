@@ -198,6 +198,105 @@ def test_nanoaod_crossref_target_type(nano_dy_modes, record, attr):
         assert set(got.fields) == set(ref.fields)
 
 
+# Intended target collection of each NanoAOD cross-reference, read by hand from
+# the data model. This is an absolute oracle, independent of the implementation:
+# the mode-consistency test above cannot see a cross-reference that points at
+# the wrong collection in *every* mode (e.g. Muon.matched_jet -> Electron), but
+# a mismatch against this table does. AssociatedPFCand/SV resolve their target
+# dynamically from collection_map, so they carry no static literal to check.
+nanoaod_crossref_targets = {
+    ("Electron", "matched_gen"): "GenPart",
+    ("Electron", "matched_jet"): "Jet",
+    ("Electron", "matched_photon"): "Photon",
+    ("FatJet", "constituents"): "FatJetPFCands",
+    ("FatJet", "matched_gen"): "GenJetAK8",
+    ("FatJet", "subjets"): "SubJet",
+    ("FsrPhoton", "matched_muon"): "Muon",
+    ("GenParticle", "children"): "GenPart",
+    ("GenParticle", "distinctChildren"): "GenPart",
+    ("GenParticle", "distinctChildrenDeep"): "GenPart",
+    ("GenParticle", "distinctParent"): "GenPart",
+    ("GenParticle", "parent"): "GenPart",
+    ("GenVisTau", "parent"): "GenPart",
+    ("Jet", "constituents"): "JetPFCands",
+    ("Jet", "matched_electrons"): "Electron",
+    ("Jet", "matched_gen"): "GenJet",
+    ("Jet", "matched_muons"): "Muon",
+    ("LowPtElectron", "matched_electron"): "Electron",
+    ("LowPtElectron", "matched_gen"): "GenPart",
+    ("LowPtElectron", "matched_photon"): "Photon",
+    ("Muon", "matched_fsrPhoton"): "FsrPhoton",
+    ("Muon", "matched_gen"): "GenPart",
+    ("Muon", "matched_jet"): "Jet",
+    ("Photon", "matched_electron"): "Electron",
+    ("Photon", "matched_gen"): "GenPart",
+    ("Photon", "matched_jet"): "Jet",
+    ("Tau", "matched_gen"): "GenPart",
+    ("Tau", "matched_jet"): "Jet",
+}
+nanoaod_crossref_dynamic = {
+    ("AssociatedPFCand", "jet"),
+    ("AssociatedPFCand", "pf"),
+    ("AssociatedSV", "jet"),
+    ("AssociatedSV", "sv"),
+}
+
+
+def _crossref_source_bodies(prop):
+    import inspect
+
+    bodies = [inspect.getsource(prop.fget)]
+    dask_get = getattr(prop, "_dask_get", None)
+    if dask_get is not None and dask_get.__closure__:
+        for cell in dask_get.__closure__:
+            fn = cell.cell_contents
+            if callable(fn):
+                try:
+                    bodies.append(inspect.getsource(fn))
+                except (OSError, TypeError):
+                    pass
+    return bodies
+
+
+def test_nanoaod_crossref_declared_target():
+    """Absolute-consistency companion to test_nanoaod_crossref_target_type.
+
+    Parse every cross-reference's eager and dask source bodies and require each
+    literal ``_events().X._apply_global_index`` to match the hand-declared
+    target collection. This catches a cross-reference wired to the wrong
+    collection identically in all modes, which mode-consistency cannot. The
+    completeness assertions keep the table in lockstep with the schema.
+    """
+    import inspect
+    import re
+
+    from coffea.nanoevents.methods import nanoaod
+
+    literal = re.compile(r"_events\(\)\.(\w+)\._apply_global_index")
+    discovered = set()
+    for cname, cls in inspect.getmembers(nanoaod, inspect.isclass):
+        if cls.__module__ != nanoaod.__name__ or cname.endswith(("Array", "Record")):
+            continue
+        for pname, prop in vars(cls).items():
+            if not isinstance(prop, property):
+                continue
+            bodies = _crossref_source_bodies(prop)
+            if not any("_apply_global_index" in b for b in bodies):
+                continue
+            discovered.add((cname, pname))
+            if (cname, pname) in nanoaod_crossref_dynamic:
+                continue
+            target = nanoaod_crossref_targets.get((cname, pname))
+            assert target is not None, f"declare a target for {cname}.{pname}"
+            for body in bodies:
+                for owner in literal.findall(body):
+                    assert (
+                        owner == target
+                    ), f"{cname}.{pname} resolves against {owner}, expected {target}"
+
+    assert discovered == set(nanoaod_crossref_targets) | nanoaod_crossref_dynamic
+
+
 @pytest.mark.parametrize("suffix", suffixes)
 def test_read_from_uri(tests_directory, suffix):
     """Make sure we can properly open the file when a uri is used"""
