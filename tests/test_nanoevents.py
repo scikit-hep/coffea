@@ -350,12 +350,14 @@ parquet_suffixes = [
 ]
 
 
+# virtual is the mode the production Runner parquet path uses (executor.py).
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
 @pytest.mark.parametrize("suffix", parquet_suffixes)
 @pytest.mark.parametrize(
     "entry_start,entry_stop", [(5, 15), (1, 40), (0, 10), (37, 40)]
 )
 def test_parquet_entry_range_matches_full_slice(
-    tests_directory, suffix, entry_start, entry_stop
+    tests_directory, mode, suffix, entry_start, entry_stop
 ):
     """Regression test for scikit-hep/coffea#1578 (bug 4).
 
@@ -374,7 +376,7 @@ def test_parquet_entry_range_matches_full_slice(
     sub = from_parquet(
         path,
         schemaclass=NanoAODSchema,
-        mode="eager",
+        mode=mode,
         entry_start=entry_start,
         entry_stop=entry_stop,
     ).events()
@@ -391,6 +393,48 @@ def test_parquet_entry_range_matches_full_slice(
 
     # A flat (per-event) branch should match as well.
     assert ak.to_list(sub.MET.pt) == ak.to_list(full.MET.pt[entry_start:entry_stop])
+
+
+@pytest.mark.parametrize(
+    "entry_start,entry_stop", [(5, 15), (1, 40), (0, 10), (37, 40)]
+)
+def test_parquet_int32_list_offsets_entry_range(tmp_path, entry_start, entry_stop):
+    """Cover the numpy.int32 offsets branch of the #1578 bug-4 fix.
+
+    The nano_dy sample files all decode to LargeListArray (int64 offsets), so a
+    plain pyarrow ``list_`` column (int32 offsets) is needed to exercise the
+    other side of the dtype selection in ParquetSourceMapping.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    n = 40
+    jagged = [[float(i)] * (i % 3) for i in range(n)]
+    table = pa.table(
+        {
+            "jag": pa.array(jagged, type=pa.list_(pa.float32())),
+            "flat": pa.array(np.arange(n, dtype=np.float32)),
+        }
+    )
+    # guard the premise: a non-large list is what yields int32 offsets
+    assert pa.types.is_list(table.schema.field("jag").type)
+    path = str(tmp_path / "int32list.parquet")
+    pq.write_table(table, path)
+
+    full = NanoEventsFactory.from_parquet(
+        path, schemaclass=BaseSchema, mode="eager"
+    ).events()
+    sub = NanoEventsFactory.from_parquet(
+        path,
+        schemaclass=BaseSchema,
+        mode="eager",
+        entry_start=entry_start,
+        entry_stop=entry_stop,
+    ).events()
+
+    assert len(sub) == entry_stop - entry_start
+    assert ak.to_list(sub.jag) == ak.to_list(full.jag[entry_start:entry_stop])
+    assert ak.to_list(sub.flat) == ak.to_list(full.flat[entry_start:entry_stop])
 
 
 def test_parquet_column_cache_avoids_repeated_reads(tests_directory, monkeypatch):

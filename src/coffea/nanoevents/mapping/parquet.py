@@ -131,7 +131,6 @@ class ParquetSourceMapping(BaseSourceMapping):
             out = None
             if isinstance(aspa, (pa.lib.ListArray, pa.lib.LargeListArray)):
                 value_type = aspa.type.value_type
-                offsets = None
                 # A sliced pyarrow (Large)ListArray does not copy its buffers; it
                 # only records a logical ``aspa.offset`` into the original offsets
                 # buffer.  We must therefore read ``len(aspa) + 1`` offsets starting
