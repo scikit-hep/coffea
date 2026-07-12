@@ -375,7 +375,9 @@ class NanoAODSchema(BaseSchema):
                 )
                 output[name]["content"]["parameters"].update(
                     {
-                        "__doc__": offsets["parameters"]["__doc__"],
+                        "__doc__": offsets["parameters"].get(
+                            "__doc__", "no docstring available"
+                        ),
                         "collection_name": name,
                     }
                 )

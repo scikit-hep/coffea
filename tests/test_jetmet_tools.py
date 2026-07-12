@@ -915,6 +915,20 @@ def test_corrected_jets_factory():
     assert name_map["JetPt"] + "_orig" in corrected_jets.JES_AbsoluteStat.up.fields
     assert name_map["JetPt"] + "_orig" in corrected_jets.JER.up.fields
 
+    # Regression test for scikit-hep/coffea#1578: the JER "down" variation must
+    # forward the original (pre-smearing) pt/mass in pt_orig/mass_orig, not the
+    # up-smeared values. Compare against the untouched original arrays.
+    orig_pt = ak.flatten(corrected_jets.pt_orig)
+    orig_mass = ak.flatten(corrected_jets.mass_orig)
+    for var in ("up", "down"):
+        assert ak.all(ak.flatten(corrected_jets.JER[var].pt_orig) == orig_pt)
+        assert ak.all(ak.flatten(corrected_jets.JER[var].mass_orig) == orig_mass)
+    # The down variation's forwarded originals must differ from the up-smeared values.
+    assert ak.any(
+        ak.flatten(corrected_jets.JER.down.mass_orig)
+        != ak.flatten(corrected_jets.JER.up.mass)
+    )
+
     tic = time.time()
     met_factory = CorrectedMETFactory(name_map)
     toc = time.time()

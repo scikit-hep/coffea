@@ -199,10 +199,6 @@ GenParticleRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
 GenParticleRecord.ProjectionClass4D = GenParticleRecord  # noqa: F821
 GenParticleRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
 
-behavior.update(
-    awkward._util.copy_behaviors("PtEtaPhiMLorentzVector", "GenVisTau", behavior)
-)
-
 
 @awkward.mixin_class(behavior)
 class GenVisTau(candidate.PtEtaPhiMCandidate, base.NanoCollection):
@@ -219,6 +215,18 @@ class GenVisTau(candidate.PtEtaPhiMCandidate, base.NanoCollection):
         return dask_array._events().GenPart._apply_global_index(
             dask_array.genPartIdxMotherG
         )
+
+
+# Fill in cross-class LorentzVector behaviors for GenVisTau without overwriting
+# the charge-propagating Candidate.add the decorator just registered. Running
+# ``copy_behaviors`` before the decorator would pre-seed
+# ``(add, GenVisTau, GenVisTau)`` -> LorentzVector.add and silently drop charge
+# on ``GenVisTau + GenVisTau`` (see scikit-hep/coffea#1578).
+for _key, _value in awkward._util.copy_behaviors(
+    "PtEtaPhiMLorentzVector", "GenVisTau", behavior
+).items():
+    behavior.setdefault(_key, _value)
+del _key, _value
 
 
 _set_repr_name("GenVisTau")

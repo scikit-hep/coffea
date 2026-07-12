@@ -9,6 +9,24 @@ behavior = {}
 behavior.update(base.behavior)
 
 
+def _copy_behaviors(from_name, to_name, behavior):
+    """Copy cross-class behaviors from ``from_name`` onto ``to_name`` in place.
+
+    Uses ``setdefault`` rather than ``dict.update``: these copies run *after* the
+    target class is defined, and ``awkward.mixin_class`` registers a class's own
+    record via plain assignment (overwrite). A blanket ``update`` would therefore
+    clobber the subclass's own record/array registration with the parent's,
+    silently downcasting e.g. an ``MCParticle`` to a ``MomentumCandidate`` (which
+    then lacks methods like ``get_daughters``). ``setdefault`` fills in only the
+    genuinely-new cross-class keys and leaves the subclass's own entries intact.
+    See scikit-hep/coffea#1594.
+    """
+    for key, value in awkward._util.copy_behaviors(
+        from_name, to_name, behavior
+    ).items():
+        behavior.setdefault(key, value)
+
+
 class _EDM4HEPEvents(behavior["NanoEvents"]):
     """EDM4HEP Events"""
 
@@ -202,9 +220,7 @@ class edm4hep_nanocollection(base.NanoCollection):
         )
 
 
-behavior.update(
-    awkward._util.copy_behaviors(base.NanoCollection, edm4hep_nanocollection, behavior)
-)
+_copy_behaviors("NanoCollection", "edm4hep_nanocollection", behavior)
 
 
 @awkward.mixin_class(behavior)
@@ -256,9 +272,7 @@ class MomentumCandidate(vector.LorentzVector):
             parent.__awkward_validation__()
 
 
-behavior.update(
-    awkward._util.copy_behaviors(vector.LorentzVector, MomentumCandidate, behavior)
-)
+_copy_behaviors("LorentzVector", "MomentumCandidate", behavior)
 MomentumCandidateArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 MomentumCandidateArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 MomentumCandidateArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
@@ -321,7 +335,7 @@ class MCParticle(MomentumCandidate, edm4hep_nanocollection):
 
 
 _set_repr_name("MCParticle")
-behavior.update(awkward._util.copy_behaviors(MomentumCandidate, MCParticle, behavior))
+_copy_behaviors("MomentumCandidate", "MCParticle", behavior)
 MCParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 MCParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 MCParticleArray.ProjectionClass4D = MCParticleArray  # noqa: F821
@@ -434,9 +448,7 @@ class ReconstructedParticle(MomentumCandidate, edm4hep_nanocollection):
 
 
 _set_repr_name("ReconstructedParticle")
-behavior.update(
-    awkward._util.copy_behaviors(MomentumCandidate, ReconstructedParticle, behavior)
-)
+_copy_behaviors("MomentumCandidate", "ReconstructedParticle", behavior)
 ReconstructedParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 ReconstructedParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 ReconstructedParticleArray.ProjectionClass4D = ReconstructedParticleArray  # noqa: F821
