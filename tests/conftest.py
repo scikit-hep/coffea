@@ -35,6 +35,8 @@ def dask_client(_dask_session_client):
     """Route dask computations through the shared cluster for this test only."""
     import dask
 
+    # dask.config.set routes a bare .compute() (via dask.base.get_scheduler);
+    # as_current() covers code that resolves the client via get_client()/default_client.
     with dask.config.set(scheduler=_dask_session_client.get):
         with _dask_session_client.as_current():
             yield _dask_session_client

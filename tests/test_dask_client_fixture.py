@@ -30,6 +30,8 @@ def test_default_scheduler_not_leaked():
     # must be untouched by the session cluster.
     scheduler = dask.base.get_scheduler()
     client_gets = {
-        client.get for client in distributed.Client._instances if client.status
+        client.get
+        for client in distributed.Client._instances
+        if client.status == "running"
     }
     assert scheduler not in client_gets
