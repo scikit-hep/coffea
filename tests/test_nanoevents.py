@@ -120,58 +120,76 @@ def test_read_nanomc(tests_directory, suffix):
     ]
 
 
-# Cross-reference properties backed by _apply_global_index. Eager is the
-# reference; virtual and dask must resolve to the same target collection. A
-# copy-paste in any single mode (e.g. FsrPhoton.matched_muon pointing at Jet
-# instead of Muon in dask) shows up as a record-type disagreement. The pairs
-# whose target collection is absent from nano_dy are skipped at runtime.
-nanoaod_crossrefs = [
-    ("Muon", "matched_fsrPhoton"),
-    ("Muon", "matched_jet"),
-    ("Muon", "matched_gen"),
-    ("FsrPhoton", "matched_muon"),
-    ("Electron", "matched_jet"),
-    ("Electron", "matched_photon"),
-    ("Electron", "matched_gen"),
-    ("Photon", "matched_electron"),
-    ("Photon", "matched_jet"),
-    ("Photon", "matched_gen"),
-    ("Jet", "matched_electrons"),
-    ("Jet", "matched_muons"),
-    ("Jet", "matched_gen"),
-    ("Tau", "matched_jet"),
-    ("Tau", "matched_gen"),
-    ("FatJet", "subjets"),
-    ("GenPart", "parent"),
-    ("GenPart", "children"),
-]
+def _discover_crossrefs(module):
+    # Cross-references are the mixin properties resolved through
+    # _apply_global_index; discover them from the schema itself so new ones are
+    # covered automatically. Skip the auto-generated Array/Record twins.
+    import inspect
+
+    pairs = []
+    for cname, cls in inspect.getmembers(module, inspect.isclass):
+        if cls.__module__ != module.__name__ or cname.endswith(("Array", "Record")):
+            continue
+        for pname, prop in inspect.getmembers(cls, lambda m: isinstance(m, property)):
+            try:
+                source = inspect.getsource(prop.fget)
+            except (OSError, TypeError):
+                continue
+            if "_apply_global_index" in source:
+                pairs.append((cname, pname))
+    return sorted(set(pairs))
 
 
-@pytest.mark.parametrize("collection,attr", nanoaod_crossrefs)
-def test_nanoaod_crossref_target_type(tests_directory, collection, attr):
+def _nanoaod_crossrefs():
+    from coffea.nanoevents.methods import nanoaod
+
+    return _discover_crossrefs(nanoaod)
+
+
+@pytest.fixture(scope="module")
+def nano_dy_modes(tests_directory):
+    pytest.importorskip("dask_awkward")
+    path = f"{tests_directory}/samples/nano_dy.root:Events"
+    NanoAODSchema.warn_missing_crossrefs = False
+    return {
+        mode: NanoEventsFactory.from_root(
+            path, schemaclass=NanoAODSchema, mode=mode
+        ).events()
+        for mode in ("eager", "virtual", "dask")
+    }
+
+
+@pytest.mark.parametrize("record,attr", _nanoaod_crossrefs())
+def test_nanoaod_crossref_target_type(nano_dy_modes, record, attr):
     """Regression test for scikit-hep/coffea#1578.
 
     Every ``matched_*``/parent/child cross-reference resolves the global index
     against a specific collection; the dask path of ``FsrPhoton.matched_muon``
     used the wrong ``_apply_global_index`` owner (Jet) and silently returned Jet
-    records. Rather than pin that single bug, sweep the cross-references and
-    require eager (known-correct), virtual and dask to agree on the resolved
-    record type and fields.
+    records. Rather than pin that single bug, sweep every cross-reference the
+    schema defines and require eager (known-correct), virtual and dask to agree
+    on the resolved record type and fields.
     """
-    pytest.importorskip("dask_awkward")
-    path = f"{tests_directory}/samples/nano_dy.root:Events"
+    eager = nano_dy_modes["eager"]
+    field = next(
+        (
+            f
+            for f in eager.fields
+            if eager[f].layout.purelist_parameter("__record__") == record
+        ),
+        None,
+    )
+    if field is None:
+        pytest.skip(f"{record} collection absent from nano_dy")
 
     def resolve(mode):
-        events = NanoEventsFactory.from_root(
-            path, schemaclass=NanoAODSchema, mode=mode
-        ).events()
-        obj = getattr(events[collection], attr)
+        obj = getattr(nano_dy_modes[mode][field], attr)
         return obj._meta if mode == "dask" else obj
 
     try:
         ref = resolve("eager")
     except Exception:
-        pytest.skip(f"{collection}.{attr} unavailable in nano_dy")
+        pytest.skip(f"{record}.{attr} unavailable in nano_dy")
     ref_record = ref.layout.purelist_parameter("__record__")
 
     for mode in ("virtual", "dask"):
