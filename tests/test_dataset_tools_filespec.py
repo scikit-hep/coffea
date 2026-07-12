@@ -1231,6 +1231,27 @@ class TestDatasetSpec:
 
         assert _file_object_path_split(path) == expected
 
+    def test_uproot_file_object_path_split_contract(self):
+        """Pin the uproot dependency ``_file_object_path_split`` delegates to.
+
+        coffea reuses uproot's splitter rather than reimplementing XRootD/object-path
+        parsing; there is no in-house fallback. If uproot moves or changes the helper,
+        this fails loudly in CI so we adapt here, instead of silently mis-parsing URLs.
+        """
+        from uproot._util import file_object_path_split
+
+        contract = {
+            "file.root:Events": ("file.root", "Events"),
+            "file.root": ("file.root", None),
+            "root://host:1094//path/f.root": ("root://host:1094//path/f.root", None),
+            "root://host:1094//path/f.root:Events": (
+                "root://host:1094//path/f.root",
+                "Events",
+            ),
+        }
+        for path, expected in contract.items():
+            assert tuple(file_object_path_split(path)) == expected
+
     def test_list_input_xrootd_url_with_port_and_object_path(self):
         """End-to-end: a files-list entry that is an XRootD URL with a port and a
         trailing object path is parsed into the correct filename/object_path."""
