@@ -20,29 +20,19 @@ StepPair = Annotated[
 
 
 def _file_object_path_split(path: str) -> tuple[str, str | None]:
-    """Split a file path into ``(filename, object_path)``.
+    """Split a file path into ``(filename, object_path)``, delegating to uproot.
 
-    ROOT files may be specified as ``"filename:object_path"`` (e.g. ``"file.root:Events"``),
-    but the filename itself can be an XRootD URL containing colons (for example a port, as in
-    ``"root://host:1094//store/f.root"``). Splitting naively on the last colon would mangle such
-    URLs, so this delegates to uproot's battle-tested splitter, which understands the ``root://``
-    scheme, ``//`` path separators, ports, and Windows drive letters.
-
-    Returns ``(filename, None)`` when no object path is present.
+    ROOT files may be specified as ``"filename:object_path"`` (e.g. ``"file.root:Events"``), but the
+    filename itself can be an XRootD URL containing colons (a port, as in
+    ``"root://host:1094//store/f.root"``). Reimplementing that parse is error-prone, so we reuse
+    uproot's splitter, which understands the ``root://`` scheme, ``//`` separators, ports, and
+    Windows drive letters. coffea intentionally tracks uproot closely; the import and the behaviour
+    we depend on are pinned by ``test_uproot_file_object_path_split_contract`` so an upstream move is
+    flagged in CI rather than silently mis-parsing URLs.
     """
-    try:
-        from uproot._util import file_object_path_split
+    from uproot._util import file_object_path_split
 
-        return file_object_path_split(path)
-    except Exception:
-        # Fallback mirroring uproot's semantics if its internal helper is unavailable/moved:
-        # only treat a trailing ":suffix" as an object path when the suffix is not itself part of
-        # a "//"-style path (i.e. not a URL scheme separator or the leading "//" of an absolute
-        # remote path).
-        head, sep, tail = path.rpartition(":")
-        if sep and head and not tail.startswith("/") and not head.endswith(":"):
-            return head, tail
-        return path, None
+    return file_object_path_split(path)
 
 
 class GenericFileSpec(BaseModel):
