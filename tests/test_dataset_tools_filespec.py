@@ -1204,8 +1204,7 @@ class TestDatasetSpec:
             ("file.root:Dir/Tree", ("file.root", "Dir/Tree")),
             # XRootD URL without a port and no object path (the "//" guard case)
             ("root://host//path/f.root", ("root://host//path/f.root", None)),
-            # XRootD URL WITH a port and no object path (issue #1578: must not
-            # split at the ':1094' port colon)
+            # XRootD URL WITH a port and no object path (must not split at the ':1094' port colon)
             (
                 "root://host:1094//path/f.root",
                 ("root://host:1094//path/f.root", None),
@@ -1225,18 +1224,15 @@ class TestDatasetSpec:
         ],
     )
     def test_file_object_path_split(self, path, expected):
-        """Regression for issue #1578: XRootD URLs with a port must not be split
-        at the port colon when separating filename from ROOT object path."""
+        """XRootD URLs with a port are not split at the port colon when separating
+        the filename from a ROOT object path."""
         from coffea.dataset_tools.filespec import _file_object_path_split
 
         assert _file_object_path_split(path) == expected
 
     def test_uproot_file_object_path_split_contract(self):
-        """Pin the uproot dependency ``_file_object_path_split`` delegates to.
-
-        coffea reuses uproot's splitter rather than reimplementing XRootD/object-path
-        parsing; there is no in-house fallback. If uproot moves or changes the helper,
-        this fails loudly in CI so we adapt here, instead of silently mis-parsing URLs.
+        """Pin the ``uproot._util.file_object_path_split`` behaviour that
+        ``_file_object_path_split`` delegates to, so a change in uproot surfaces here.
         """
         from uproot._util import file_object_path_split
 
@@ -1264,14 +1260,8 @@ class TestDatasetSpec:
         assert spec.object_path == "Events"
 
     def test_list_input_xrootd_url_with_port_no_object_path(self):
-        """Regression for issue #1578: an XRootD URL with a port and NO object
-        path (here a remote parquet directory, which forbids an object_path) must
-        not be split at the port colon.
-
-        Before the fix, "root://host:1094//store/data/dir.parquet" was split into
-        filename "root://host" with object_path "1094//store/data/dir.parquet",
-        which then failed validation because parquet files forbid an object_path.
-        """
+        """An XRootD URL with a port and no object path (here a remote parquet
+        directory, which forbids an object_path) is not split at the port colon."""
         ds = DatasetSpec(
             files=["root://host.cern.ch:1094//store/data/dir.parquet"],
             metadata={},
