@@ -1195,6 +1195,96 @@ class TestDatasetSpec:
         with pytest.raises(RuntimeError):
             DatasetSpec(**raises_runtimeerror)
 
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            # plain filename : object path
+            ("file.root:Events", ("file.root", "Events")),
+            # object paths may themselves contain slashes
+            ("file.root:Dir/Tree", ("file.root", "Dir/Tree")),
+            # XRootD URL without a port and no object path (the "//" guard case)
+            ("root://host//path/f.root", ("root://host//path/f.root", None)),
+            # XRootD URL WITH a port and no object path (must not split at the ':1094' port colon)
+            (
+                "root://host:1094//path/f.root",
+                ("root://host:1094//path/f.root", None),
+            ),
+            (
+                "root://host.cern.ch:1094//store/data/f.root",
+                ("root://host.cern.ch:1094//store/data/f.root", None),
+            ),
+            # XRootD URL WITH a port AND an object path
+            (
+                "root://host:1094//path/f.root:Events",
+                ("root://host:1094//path/f.root", "Events"),
+            ),
+            # local absolute / relative paths, no object path
+            ("/local/path/f.root", ("/local/path/f.root", None)),
+            ("f.root", ("f.root", None)),
+        ],
+    )
+    def test_file_object_path_split(self, path, expected):
+        """XRootD URLs with a port are not split at the port colon when separating
+        the filename from a ROOT object path."""
+        from coffea.dataset_tools.filespec import _file_object_path_split
+
+        assert _file_object_path_split(path) == expected
+
+    def test_uproot_file_object_path_split_contract(self):
+        """Pin the ``uproot._util.file_object_path_split`` behaviour that
+        ``_file_object_path_split`` delegates to, so a change in uproot surfaces here.
+        """
+        from uproot._util import file_object_path_split
+
+        contract = {
+            "file.root:Events": ("file.root", "Events"),
+            "file.root": ("file.root", None),
+            "root://host:1094//path/f.root": ("root://host:1094//path/f.root", None),
+            "root://host:1094//path/f.root:Events": (
+                "root://host:1094//path/f.root",
+                "Events",
+            ),
+        }
+        for path, expected in contract.items():
+            assert tuple(file_object_path_split(path)) == expected
+
+    def test_list_input_xrootd_url_with_port_and_object_path(self):
+        """End-to-end: a files-list entry that is an XRootD URL with a port and a
+        trailing object path is parsed into the correct filename/object_path."""
+        ds = DatasetSpec(
+            files=["root://host.cern.ch:1094//store/data/f.root:Events"],
+            metadata={},
+        )
+        ((name, spec),) = ds.files.root.items()
+        assert name == "root://host.cern.ch:1094//store/data/f.root"
+        assert spec.object_path == "Events"
+
+    def test_list_input_xrootd_url_with_port_no_object_path(self):
+        """An XRootD URL with a port and no object path (here a remote parquet
+        directory, which forbids an object_path) is not split at the port colon."""
+        ds = DatasetSpec(
+            files=["root://host.cern.ch:1094//store/data/dir.parquet"],
+            metadata={},
+        )
+        ((name, spec),) = ds.files.root.items()
+        assert name == "root://host.cern.ch:1094//store/data/dir.parquet"
+        assert spec.object_path is None
+
+    def test_list_input_object_path_with_slashes(self):
+        """A ROOT object path containing '/' survives files-list parsing."""
+        ds = DatasetSpec(files=["file.root:Dir/Tree"], metadata={})
+        ((name, spec),) = ds.files.root.items()
+        assert name == "file.root"
+        assert spec.object_path == "Dir/Tree"
+
+    def test_list_input_local_path_with_object_path(self):
+        """A local absolute path with an object path is parsed correctly and the
+        leading '/' is not mistaken for the start of an object path."""
+        ds = DatasetSpec(files=["/local/path/f.root:Events"], metadata={})
+        ((name, spec),) = ds.files.root.items()
+        assert name == "/local/path/f.root"
+        assert spec.object_path == "Events"
+
 
 class TestDatasetJoinableSpec:
     """Test DatasetJoinableSpec class"""
