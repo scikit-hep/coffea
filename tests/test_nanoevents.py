@@ -161,14 +161,10 @@ def nano_dy_modes(tests_directory):
 
 @pytest.mark.parametrize("record,attr", _nanoaod_crossrefs())
 def test_nanoaod_crossref_target_type(nano_dy_modes, record, attr):
-    """Regression test for scikit-hep/coffea#1578.
-
-    Every ``matched_*``/parent/child cross-reference resolves the global index
-    against a specific collection; the dask path of ``FsrPhoton.matched_muon``
-    used the wrong ``_apply_global_index`` owner (Jet) and silently returned Jet
-    records. Rather than pin that single bug, sweep every cross-reference the
-    schema defines and require eager (known-correct), virtual and dask to agree
-    on the resolved record type and fields.
+    """Every ``matched_*``/parent/child cross-reference resolves the global index
+    against a specific collection. Sweep every cross-reference the schema defines
+    and require eager (known-correct), virtual, and dask to agree on the resolved
+    record type and fields.
     """
     eager = nano_dy_modes["eager"]
     field = next(
