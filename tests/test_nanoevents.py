@@ -359,13 +359,9 @@ parquet_suffixes = [
 def test_parquet_entry_range_matches_full_slice(
     tests_directory, mode, suffix, entry_start, entry_stop
 ):
-    """Regression test for scikit-hep/coffea#1578 (bug 4).
-
-    Reading a parquet file with entry_start > 0 must return exactly the same
-    per-event data as reading the whole file and slicing.  The parquet mapping
-    used to read jagged offsets from the start of the buffer while extracting
-    content with the pyarrow slice offset applied, silently reassigning e.g.
-    muon pts to the wrong events (and crashing NanoAOD cross-references).
+    """Reading a parquet file with entry_start > 0 returns the same per-event
+    data as reading the whole file and slicing, for both jagged and flat
+    branches.
     """
     path = f"{tests_directory}/samples/nano_dy.{suffix}"
     from_parquet = getattr(
@@ -399,7 +395,7 @@ def test_parquet_entry_range_matches_full_slice(
     "entry_start,entry_stop", [(5, 15), (1, 40), (0, 10), (37, 40)]
 )
 def test_parquet_int32_list_offsets_entry_range(tmp_path, entry_start, entry_stop):
-    """Cover the numpy.int32 offsets branch of the #1578 bug-4 fix.
+    """Cover the numpy.int32 offsets branch of the parquet entry-range slice.
 
     The nano_dy sample files all decode to LargeListArray (int64 offsets), so a
     plain pyarrow ``list_`` column (int32 offsets) is needed to exercise the
@@ -438,12 +434,9 @@ def test_parquet_int32_list_offsets_entry_range(tmp_path, entry_start, entry_sto
 
 
 def test_parquet_column_cache_avoids_repeated_reads(tests_directory, monkeypatch):
-    """Regression test for scikit-hep/coffea#1578 (perf bullet).
-
-    A jagged parquet column is materialized through two separate buffer keys
-    (offsets and content). Each used to trigger a full re-read of the column
-    from the parquet file. The per-source column cache should collapse these
-    into a single read while returning identical data.
+    """A jagged parquet column is materialized through two separate buffer keys
+    (offsets and content). The per-source column cache collapses these into a
+    single read of the column while returning identical data.
     """
     import pyarrow.parquet as pq
 
