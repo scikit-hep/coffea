@@ -213,8 +213,7 @@ def test_three_vector():
     assert ak.all(abs(a.unit.theta - a.theta) < ATOL)
     assert ak.all(abs(a.unit.phi - a.phi) < ATOL)
 
-    # Regression for scikit-hep/coffea#1578: (3, 4, 12) has rho=5 and p=13, so
-    # dividing by rho (the bug) gave a vector of magnitude 13/5 = 2.6.
+    # (3, 4, 12) has rho=5 and p=13; normalizing by p yields a unit vector.
     c = ak.zip(
         {"x": [3.0], "y": [4.0], "z": [12.0]},
         with_name="ThreeVector",
@@ -242,8 +241,8 @@ def test_spherical_three_vector():
     assert ak.all(abs((-a).z + a.z) < ATOL)
     assert_record_arrays_equal(a * (-1), -a, check_type=True)
 
-    # SphericalThreeVector inherits ThreeVector.unit; it must normalize by the
-    # full 3D magnitude (p), preserving direction (theta, phi). See #1578.
+    # SphericalThreeVector inherits ThreeVector.unit; it normalizes by the
+    # full 3D magnitude (p), preserving direction (theta, phi).
     assert ak.all(abs(a.unit.p - 1) < ATOL)
     assert ak.all(abs(a.unit.theta - a.theta) < ATOL)
     assert ak.all(abs(a.unit.phi - a.phi) < ATOL)
