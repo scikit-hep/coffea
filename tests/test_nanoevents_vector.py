@@ -1249,7 +1249,7 @@ def test_genvistau_addition_propagates_charge():
     ],
 )
 def test_candidate_subtraction_differences_charge(name, kin1, kin2):
-    """Regression test for scikit-hep/coffea#1578 (bug 9): candidate subtraction."""
+    """Candidate subtraction keeps and negates the ``charge`` field."""
     from coffea.nanoevents.methods import candidate
 
     if name == "Muon":
@@ -1291,7 +1291,8 @@ def test_candidate_subtraction_differences_charge(name, kin1, kin2):
     [("PtEtaPhiMLorentzVector", "mass"), ("PtEtaPhiELorentzVector", "energy")],
 )
 def test_polar_lorentz_negative_scalar_matches_cartesian(name, temporal):
-    """Regression test for scikit-hep/coffea#1578 (bug 49): time component under negative scaling."""
+    """The time component transforms consistently with the Cartesian components
+    under negative scaling."""
     a = ak.zip(
         {"pt": [1.0, 2.0], "eta": [1.2, -0.8], "phi": [0.3, 2.5], temporal: [3.0, 4.0]},
         with_name=name,
