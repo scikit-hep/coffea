@@ -132,13 +132,11 @@ class ParquetSourceMapping(BaseSourceMapping):
             if isinstance(aspa, (pa.lib.ListArray, pa.lib.LargeListArray)):
                 value_type = aspa.type.value_type
                 # A sliced pyarrow (Large)ListArray does not copy its buffers; it
-                # only records a logical ``aspa.offset`` into the original offsets
-                # buffer.  We must therefore read ``len(aspa) + 1`` offsets starting
-                # at that logical offset (not at 0), otherwise entry_start > 0 would
-                # silently return the offsets of the first events while ``flatten()``
-                # returns the correctly-sliced content -> shifted/corrupted jagged
-                # data.  Rebase the offsets so the returned ListOffsetArray indexes
-                # into the flattened (already sliced) content starting at 0.
+                # only records a logical ``aspa.offset`` into the shared offsets
+                # buffer. Read ``len(aspa) + 1`` offsets starting at that logical
+                # offset and rebase them to start at 0, so the returned
+                # ListOffsetArray indexes into the (already sliced) flattened
+                # content that ``flatten()`` returns.
                 dtype = (
                     numpy.int64
                     if isinstance(aspa, pa.lib.LargeListArray)
