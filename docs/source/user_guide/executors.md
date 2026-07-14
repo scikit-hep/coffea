@@ -177,3 +177,7 @@ cluster_result = cluster_runner(fileset, processor_instance=my_processor)
 - Use `processor.SimpleCheckpointer` with the `checkpointer` argument when running long jobs so partially completed chunks persist across restarts.
 - When using `DaskExecutor`, call `client.upload_file` or package your environment so workers have the same code version as the driver.
 - Disable compression (`compression=None`) only if the accumulator payloads are small; otherwise LZ4 saves network transfer time on distributed backends.
+- For Rich logging or printing alongside coffea progress bars, import
+  `coffea_console` with `from coffea.util import coffea_console` and call
+  `coffea_console.print(...)` instead of creating another `rich.console.Console`.
+  This keeps output on the same console used by coffea's progress display.
