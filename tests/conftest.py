@@ -13,10 +13,8 @@ def _dask_session_client():
     """A single, resource-bounded ``distributed.Client`` shared across the session.
 
     ``set_as_default=False`` keeps the client from becoming the process-wide
-    default scheduler: otherwise every ``.compute()`` in tests that run after
-    the first ``dask_client`` test would silently route through the cluster
-    (e.g. the FCC nanoevents tests, whose behaviors are not picklable, fail
-    with serialization errors in serial runs).
+    default scheduler, so ``.compute()`` in tests that run after a ``dask_client``
+    test still uses the default scheduler rather than this cluster.
     """
     distributed = pytest.importorskip("distributed")
 
