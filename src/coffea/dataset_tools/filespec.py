@@ -20,15 +20,10 @@ StepPair = Annotated[
 
 
 def _file_object_path_split(path: str) -> tuple[str, str | None]:
-    """Split a file path into ``(filename, object_path)``, delegating to uproot.
+    """Split ``"filename:object_path"`` into ``(filename, object_path)``.
 
-    ROOT files may be specified as ``"filename:object_path"`` (e.g. ``"file.root:Events"``), but the
-    filename itself can be an XRootD URL containing colons (a port, as in
-    ``"root://host:1094//store/f.root"``). Reimplementing that parse is error-prone, so we reuse
-    uproot's splitter, which understands the ``root://`` scheme, ``//`` separators, ports, and
-    Windows drive letters. coffea intentionally tracks uproot closely; the import and the behaviour
-    we depend on are pinned by ``test_uproot_file_object_path_split_contract`` so an upstream move is
-    flagged in CI rather than silently mis-parsing URLs.
+    Delegates to uproot's splitter, which handles XRootD URLs whose host carries a
+    port colon (e.g. ``"root://host:1094//store/f.root"``).
     """
     from uproot._util import file_object_path_split
 
@@ -497,10 +492,10 @@ class DatasetSpec(BaseModel):
             files = data.pop("files")
             # promote files list to dict if necessary
             if isinstance(files, list):
-                # If files is a list, convert it to a dict and let it pass through the rest of the promotion logic.
-                # Each entry may embed a ROOT object path as a trailing ":Tree" suffix, but the filename itself may
-                # be an XRootD URL that contains colons (e.g. a port, "root://host:1094//path/f.root"). Delegate to
-                # uproot's battle-tested URL/object-path splitter so we never split on the port colon.
+                # Convert the files list to a dict and let it pass through the rest of the promotion logic.
+                # Each entry may embed a ROOT object path as a trailing ":Tree" suffix; the filename itself may
+                # be an XRootD URL that contains a port colon (e.g. "root://host:1094//path/f.root"), so use
+                # uproot's splitter to separate filename from object path rather than splitting on the port colon.
                 files_list = files
                 files = {}
                 for f in files_list:
