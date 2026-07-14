@@ -1,9 +1,8 @@
-"""Regression tests for the shared ``dask_client`` fixture.
+"""Tests for the shared ``dask_client`` fixture's scheduler scoping.
 
-The session-scoped cluster must not become the process-wide default
-scheduler: if it did, every ``.compute()`` in tests running after the first
-``dask_client`` test would silently route through ``distributed`` (breaking
-e.g. the FCC nanoevents tests, whose behaviors contain unpicklable lambdas).
+The session-scoped cluster does not become the process-wide default scheduler:
+inside a ``dask_client`` test ``.compute()`` uses the cluster, and outside one
+the process default scheduler is left untouched.
 
 Tests within a file run in definition order, so the pair below
 deterministically exercises "a dask_client test ran earlier in this process".
