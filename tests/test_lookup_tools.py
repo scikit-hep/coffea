@@ -272,13 +272,10 @@ def test_histo_json_scalefactors():
 
 
 def test_histo_json_scalefactors_multi():
-    # Regression test for scikit-hep/coffea#1578: convert_histo_json_file used a
-    # stale loop variable (histname, left over from the first pass) when looking
-    # up the set of value names for each histogram in the second pass. With more
-    # than one histogram, every histogram was assigned the LAST histogram's value
-    # names, which silently dropped value tables or raised KeyError depending on
-    # key ordering. Here dirA/histA has {value, error} and dirB/histB has
-    # {value, weight}; the fix must round-trip all four value tables correctly.
+    # convert_histo_json_file looks up each histogram's own value names, so a file
+    # with more than one histogram round-trips every value table. Here dirA/histA
+    # has {value, error} and dirB/histB has {value, weight}; all four value tables
+    # must survive the conversion.
     from coffea.lookup_tools.json_converters import convert_histo_json_file
 
     out = convert_histo_json_file("tests/samples/multihist_WH_out.histo.json")
