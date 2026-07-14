@@ -164,12 +164,10 @@ def test_read_from_uri(tests_directory, suffix):
 @pytest.mark.parametrize("mode", ["eager", "virtual"])
 @pytest.mark.parametrize("input_kind", ["str", "path", "parquetfile", "fileobj"])
 def test_from_parquet_input_types(tests_directory, input_kind, mode):
-    """Regression test for scikit-hep/coffea#1578.
+    """``from_parquet`` accepts each documented input type.
 
-    ``from_parquet`` documents str, pathlib.Path, pyarrow.parquet.ParquetFile,
-    and file-like objects as accepted inputs. Before the fix, only the ``str``
-    branch assigned ``fs_file``, so every other documented input type raised
-    ``UnboundLocalError``. All input types must produce identical events.
+    str, pathlib.Path, pyarrow.parquet.ParquetFile, and file-like objects all
+    produce identical events.
     """
     import pyarrow.parquet
 
