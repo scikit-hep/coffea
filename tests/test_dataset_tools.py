@@ -6,12 +6,14 @@ from coffea.dataset_tools import (
     apply_to_fileset,
     filter_files,
     get_failed_steps_for_fileset,
+    hash_fileset,
     max_chunks,
     max_chunks_per_file,
     max_files,
     preprocess,
     slice_chunks,
     slice_files,
+    split_fileset,
 )
 from coffea.dataset_tools.filespec import (
     DataGroupSpec,
@@ -24,11 +26,6 @@ from coffea.util import decompress_form
 dask_awkward = pytest.importorskip("dask_awkward")
 
 import dask  # noqa: E402
-
-try:
-    from distributed import Client
-except ImportError:
-    Client = None
 
 _starting_fileset_list = {
     "ZJets": ["tests/samples/nano_dy.root:Events"],
@@ -448,10 +445,10 @@ def test_tuple_data_manipulation_output(allow_read_errors_with_report):
     "proc_and_schema",
     [(NanoTestProcessor, BaseSchema), (NanoEventsProcessor, NanoAODSchema)],
 )
-def test_apply_to_fileset(proc_and_schema):
+def test_apply_to_fileset(proc_and_schema, dask_client):
     proc, schemaclass = proc_and_schema
 
-    with Client() as _:
+    with dask_client.as_current() as _:
         to_compute = apply_to_fileset(
             proc(),
             _runnable_result,
@@ -482,8 +479,8 @@ def test_apply_to_fileset(proc_and_schema):
     "the_fileset",
     [_starting_fileset, DataGroupSpec(_starting_fileset)],
 )
-def test_apply_to_fileset_hinted_form(the_fileset):
-    with Client() as _:
+def test_apply_to_fileset_hinted_form(the_fileset, dask_client):
+    with dask_client.as_current() as _:
         dataset_runnable, dataset_updated = preprocess(
             the_fileset,
             step_size=7,
@@ -509,8 +506,8 @@ def test_apply_to_fileset_hinted_form(the_fileset):
 @pytest.mark.parametrize(
     "the_fileset", [_starting_fileset_list, _starting_fileset_dict, _starting_fileset]
 )
-def test_preprocess(the_fileset):
-    with Client() as _:
+def test_preprocess(the_fileset, dask_client):
+    with dask_client.as_current() as _:
         dataset_runnable, dataset_updated = preprocess(
             the_fileset,
             step_size=7,
@@ -525,8 +522,8 @@ def test_preprocess(the_fileset):
 
 @pytest.mark.dask_client
 @pytest.mark.parametrize("the_fileset", [{}, DataGroupSpec({})])
-def test_preprocess_empty_fileset(the_fileset):
-    with Client() as _:
+def test_preprocess_empty_fileset(the_fileset, dask_client):
+    with dask_client.as_current() as _:
         dataset_runnable, dataset_updated = preprocess(
             the_fileset,
             step_size=7,
@@ -547,8 +544,8 @@ def test_preprocess_empty_fileset(the_fileset):
     "the_fileset", [_fileset_with_empty_files, DataGroupSpec(_fileset_with_empty_files)]
 )
 @pytest.mark.parametrize("align_clusters", [False, True])
-def test_preprocess_empty_files(the_fileset, align_clusters):
-    with Client() as _:
+def test_preprocess_empty_files(the_fileset, align_clusters, dask_client):
+    with dask_client.as_current() as _:
         dataset_runnable, dataset_updated = preprocess(
             the_fileset,
             step_size=7,
@@ -572,7 +569,7 @@ def test_preprocess_empty_files(the_fileset, align_clusters):
     def data_manipulation(events):
         return len(events)
 
-    with Client() as _:
+    with dask_client.as_current() as _:
         to_compute = apply_to_fileset(
             data_manipulation,
             dataset_runnable,
@@ -589,12 +586,12 @@ def test_preprocess_empty_files(the_fileset, align_clusters):
 
 
 @pytest.mark.dask_client
-def test_preprocess_DataGroupSpec_mixed():
+def test_preprocess_DataGroupSpec_mixed(dask_client):
     fileset = DataGroupSpec(_starting_fileset)
     # Create a mixed DataGroupSpec
     fileset["Data"] = fileset["Data"].model_dump()
 
-    with Client() as _:
+    with dask_client.as_current() as _:
         dataset_runnable, dataset_updated = preprocess(
             fileset,
             step_size=7,
@@ -607,8 +604,8 @@ def test_preprocess_DataGroupSpec_mixed():
 
 
 @pytest.mark.dask_client
-def test_preprocess_calculate_form():
-    with Client() as _:
+def test_preprocess_calculate_form(dask_client):
+    with dask_client.as_current() as _:
         starting_fileset = _starting_fileset
 
         dataset_runnable, dataset_updated = preprocess(
@@ -641,8 +638,8 @@ def test_preprocess_calculate_form():
 
 
 @pytest.mark.dask_client
-def test_preprocess_failed_file():
-    with Client() as _, pytest.raises(FileNotFoundError):
+def test_preprocess_failed_file(dask_client):
+    with dask_client.as_current() as _, pytest.raises(FileNotFoundError):
         starting_fileset = _starting_fileset
 
         dataset_runnable, dataset_updated = preprocess(
@@ -655,7 +652,7 @@ def test_preprocess_failed_file():
 
 
 @pytest.mark.dask_client
-def test_preprocess_with_file_exceptions():
+def test_preprocess_with_file_exceptions(dask_client):
     fileset = {
         "Data": {
             "files": {
@@ -665,7 +662,9 @@ def test_preprocess_with_file_exceptions():
         },
     }
 
-    with Client() as _:  # should not throw uproot.exceptions.KeyInFileError
+    with (
+        dask_client.as_current() as _
+    ):  # should not throw uproot.exceptions.KeyInFileError
         dataset_runnable, dataset_updated = preprocess(
             fileset,
             step_size=10,
@@ -979,8 +978,8 @@ def test_slice_chunks(the_fileset):
     [_starting_fileset_with_steps, DataGroupSpec(_starting_fileset_with_steps)],
 )
 @pytest.mark.dask_client
-def test_recover_failed_chunks(the_fileset):
-    with Client() as _:
+def test_recover_failed_chunks(the_fileset, dask_client):
+    with dask_client.as_current() as _:
         to_compute = apply_to_fileset(
             NanoEventsProcessor(),
             the_fileset,
@@ -1013,3 +1012,286 @@ def test_recover_failed_chunks(the_fileset):
         assert failed_fset == DataGroupSpec(target)
     else:
         assert failed_fset == target
+
+
+_splitting_fs_dict = {
+    "ZJets": {
+        "files": {
+            "/data/zjets/a.root": "Events",
+            "/data/zjets/b.root": "Events",
+            "/data/zjets/c.root": "Events",
+            "/data/zjets/d.root": "Events",
+        }
+    },
+    "Data": {
+        "files": {
+            "/data/data/a.root": "Events",
+            "/data/data/b.root": "Events",
+        }
+    },
+}
+
+_splitting_fs_list_in_dict = {
+    "ZJets": {
+        "treename": "Events",
+        "files": [
+            "/data/zjets/a.root",
+            "/data/zjets/b.root",
+            "/data/zjets/c.root",
+            "/data/zjets/d.root",
+        ],
+    },
+    "Data": {
+        "treename": "Events",
+        "files": [
+            "/data/data/a.root",
+            "/data/data/b.root",
+        ],
+    },
+}
+
+_splitting_fs_bare_list = {
+    "ZJets": [
+        "/data/zjets/a.root",
+        "/data/zjets/b.root",
+        "/data/zjets/c.root",
+        "/data/zjets/d.root",
+    ],
+    "Data": [
+        "/data/data/a.root",
+        "/data/data/b.root",
+    ],
+}
+
+
+def test_split_fileset_strategy_by_dataset():
+    chunks = split_fileset(_splitting_fs_dict, strategy="by_dataset")
+    assert len(chunks) == 2
+    assert {next(iter(c)) for c in chunks} == {"ZJets", "Data"}
+
+
+def test_split_fileset_no_args_returns_single_group():
+    chunks = split_fileset(_splitting_fs_dict)
+    assert len(chunks) == 1
+    assert set(chunks[0].keys()) == {"ZJets", "Data"}
+
+
+def test_split_fileset_percentage_mixed():
+    chunks = split_fileset(_splitting_fs_dict, percentage=50)
+    assert len(chunks) == 2
+    for chunk in chunks:
+        assert set(chunk.keys()) == {"ZJets", "Data"}
+    total_zjets = sum(len(c["ZJets"]["files"]) for c in chunks)
+    total_data = sum(len(c["Data"]["files"]) for c in chunks)
+    assert total_zjets == 4
+    assert total_data == 2
+
+
+def test_split_fileset_strategy_and_percentage():
+    chunks = split_fileset(_splitting_fs_dict, strategy="by_dataset", percentage=50)
+    assert len(chunks) == 4
+    for chunk in chunks:
+        assert len(chunk) == 1
+
+
+def test_split_fileset_datasets_filter_list():
+    chunks = split_fileset(
+        _splitting_fs_dict, strategy="by_dataset", datasets=["ZJets"]
+    )
+    assert len(chunks) == 1
+    assert "ZJets" in chunks[0]
+
+
+def test_split_fileset_datasets_filter_callable():
+    chunks = split_fileset(
+        _splitting_fs_dict,
+        strategy="by_dataset",
+        datasets=lambda name: name.startswith("Z"),
+    )
+    assert len(chunks) == 1
+    assert "ZJets" in chunks[0]
+
+
+def test_split_fileset_invalid_strategy():
+    with pytest.raises(ValueError, match="Unknown strategy"):
+        split_fileset(_splitting_fs_dict, strategy="nope")
+
+
+@pytest.mark.parametrize("bad", [0, 3, 7, 101, 1.5, "50"])
+def test_split_fileset_invalid_percentage(bad):
+    with pytest.raises(ValueError, match="percentage"):
+        split_fileset(_splitting_fs_dict, percentage=bad)
+
+
+def test_split_fileset_deterministic_under_dict_reorder():
+    """Splitting must not depend on input dict insertion order."""
+    fs1 = {
+        "Data": {
+            "files": {
+                "/p/b.root": "Events",
+                "/p/a.root": "Events",
+                "/p/d.root": "Events",
+                "/p/c.root": "Events",
+            }
+        }
+    }
+    fs2 = {
+        "Data": {
+            "files": {
+                "/p/a.root": "Events",
+                "/p/b.root": "Events",
+                "/p/c.root": "Events",
+                "/p/d.root": "Events",
+            }
+        }
+    }
+    c1 = split_fileset(fs1, percentage=50)
+    c2 = split_fileset(fs2, percentage=50)
+    for chunk_a, chunk_b in zip(c1, c2):
+        assert list(chunk_a["Data"]["files"].keys()) == list(
+            chunk_b["Data"]["files"].keys()
+        )
+
+
+def test_split_fileset_supports_list_files_inside_dict():
+    chunks = split_fileset(
+        _splitting_fs_list_in_dict, strategy="by_dataset", percentage=50
+    )
+    assert len(chunks) == 4
+    for chunk in chunks:
+        (data,) = chunk.values()
+        assert isinstance(data["files"], list)
+        assert data["treename"] == "Events"
+
+
+def test_split_fileset_promotes_bare_list_with_treename():
+    chunks = split_fileset(
+        _splitting_fs_bare_list,
+        strategy="by_dataset",
+        percentage=50,
+        treename="Events",
+    )
+    assert len(chunks) == 4
+    for chunk in chunks:
+        (data,) = chunk.values()
+        assert isinstance(data, dict)
+        assert isinstance(data["files"], list)
+        assert data["treename"] == "Events"
+
+
+def test_split_fileset_bare_list_requires_treename():
+    with pytest.raises(ValueError, match="treename"):
+        split_fileset(_splitting_fs_bare_list, strategy="by_dataset")
+
+
+def test_split_fileset_list_files_in_dict_requires_treename():
+    fs = {"A": {"files": ["/p/a.root", "/p/b.root"]}}
+    with pytest.raises(ValueError, match="treename"):
+        split_fileset(fs, percentage=50)
+
+
+def test_split_fileset_list_files_in_dict_promoted_with_treename():
+    fs = {"A": {"files": ["/p/a.root", "/p/b.root"]}}
+    chunks = split_fileset(fs, percentage=50, treename="Events")
+    for chunk in chunks:
+        assert chunk["A"]["treename"] == "Events"
+
+
+def test_split_fileset_preserves_extra_dataset_fields():
+    fs = {
+        "ZJets": {
+            "treename": "Events",
+            "preload": ["nMuon", "Muon_pt"],
+            "metadata": {"xsec": 1.0},
+            "files": {"/p/a.root": "Events", "/p/b.root": "Events"},
+        }
+    }
+    chunks = split_fileset(fs, percentage=50)
+    for chunk in chunks:
+        assert chunk["ZJets"]["treename"] == "Events"
+        assert chunk["ZJets"]["preload"] == ["nMuon", "Muon_pt"]
+        assert chunk["ZJets"]["metadata"] == {"xsec": 1.0}
+
+
+def test_hash_fileset_stable_across_dict_order():
+    fs1 = {
+        "B": {"files": {"/p/y.root": "Events", "/p/x.root": "Events"}},
+        "A": {"files": {"/p/b.root": "Events", "/p/a.root": "Events"}},
+    }
+    fs2 = {
+        "A": {"files": {"/p/a.root": "Events", "/p/b.root": "Events"}},
+        "B": {"files": {"/p/x.root": "Events", "/p/y.root": "Events"}},
+    }
+    assert hash_fileset(fs1) == hash_fileset(fs2)
+
+
+def test_hash_fileset_changes_with_treename():
+    fs1 = {"A": {"files": {"/p/a.root": "Events"}}}
+    fs2 = {"A": {"files": {"/p/a.root": "Other"}}}
+    assert hash_fileset(fs1) != hash_fileset(fs2)
+
+
+def test_hash_fileset_changes_with_dataset_level_treename():
+    fs1 = {"A": {"treename": "Events", "files": ["/p/a.root"]}}
+    fs2 = {"A": {"treename": "Other", "files": ["/p/a.root"]}}
+    assert hash_fileset(fs1) != hash_fileset(fs2)
+
+
+def test_hash_fileset_changes_with_preload():
+    fs1 = {"A": {"preload": ["a"], "files": {"/p/a.root": "Events"}}}
+    fs2 = {"A": {"preload": ["b"], "files": {"/p/a.root": "Events"}}}
+    assert hash_fileset(fs1) != hash_fileset(fs2)
+
+
+def test_hash_fileset_preload_order_insensitive():
+    fs1 = {"A": {"preload": ["a", "b"], "files": {"/p/a.root": "Events"}}}
+    fs2 = {"A": {"preload": ["b", "a"], "files": {"/p/a.root": "Events"}}}
+    assert hash_fileset(fs1) == hash_fileset(fs2)
+
+
+def test_hash_fileset_chunks_from_split_are_unique():
+    chunks = split_fileset(_splitting_fs_dict, strategy="by_dataset", percentage=50)
+    hashes = {hash_fileset(c) for c in chunks}
+    assert len(hashes) == len(chunks)
+
+
+def test_hash_fileset_rejects_bare_list():
+    with pytest.raises(TypeError, match="split_fileset"):
+        hash_fileset(_splitting_fs_bare_list)
+
+
+def test_hash_fileset_rejects_list_files_without_treename():
+    fs = {"A": {"files": ["/p/a.root"]}}
+    with pytest.raises(ValueError, match="treename"):
+        hash_fileset(fs)
+
+
+def test_hash_fileset_distinguishes_treenames_for_promoted_chunks():
+    chunks_a = split_fileset(
+        _splitting_fs_bare_list, strategy="by_dataset", treename="Events"
+    )
+    chunks_b = split_fileset(
+        _splitting_fs_bare_list, strategy="by_dataset", treename="OtherTree"
+    )
+    for a, b in zip(chunks_a, chunks_b):
+        assert hash_fileset(a) != hash_fileset(b)
+
+
+def test_hash_fileset_ignores_undocumented_fields():
+    """Undocumented dataset-level keys must not affect the hash, and must not
+    blow up on non-JSON-serializable values."""
+    base = {"A": {"files": {"/p/a.root": "Events"}}}
+    extra_unserializable = {
+        "A": {
+            "files": {"/p/a.root": "Events"},
+            "compressed_form": object(),  # not JSON-serializable
+            "internal_flag": True,
+        }
+    }
+    assert hash_fileset(base) == hash_fileset(extra_unserializable)
+
+
+def test_hash_fileset_accepts_frozenset_preload():
+    fs1 = {"A": {"preload": frozenset({"a", "b"}), "files": {"/p/a.root": "Events"}}}
+    fs2 = {"A": {"preload": ["a", "b"], "files": {"/p/a.root": "Events"}}}
+    assert hash_fileset(fs1) == hash_fileset(fs2)

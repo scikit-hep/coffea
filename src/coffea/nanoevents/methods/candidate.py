@@ -12,8 +12,6 @@ from coffea.nanoevents.methods import vector
 
 behavior = dict(vector.behavior)
 
-behavior.update(awkward._util.copy_behaviors("LorentzVector", "Candidate", behavior))
-
 
 @awkward.mixin_class(behavior)
 class Candidate(vector.LorentzVector):
@@ -59,11 +57,24 @@ class Candidate(vector.LorentzVector):
             parent.__awkward_validation__()
 
 
+# Copy the cross-class LorentzVector behaviors (e.g. Candidate + TwoVector) onto
+# Candidate, but only for keys the ``@mixin_class`` decorator has not already
+# registered. This MUST run after the decorator: ``copy_behaviors`` would
+# otherwise pre-register ``(add, Candidate, Candidate)`` -> LorentzVector.add via
+# the ``setdefault`` used by ``mixin_class``, shadowing Candidate's own
+# charge-propagating ``add`` (see scikit-hep/coffea#1578).
+for _key, _value in awkward._util.copy_behaviors(
+    "LorentzVector", "Candidate", behavior
+).items():
+    behavior.setdefault(_key, _value)
+del _key, _value
+
+
 @awkward.mixin_class(behavior)
 class PtEtaPhiMCandidate(Candidate, vector.PtEtaPhiMLorentzVector):
     """A Lorentz vector in eta, mass coordinates with charge
 
-    This mixin class requires the parent class to provide items ``pt``, ``eta``, ``phi``, `mass`, and ``charge``.
+    This mixin class requires the parent class to provide items ``pt``, ``eta``, ``phi``, ``mass``, and ``charge``.
     """
 
     pass

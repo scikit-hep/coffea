@@ -375,7 +375,9 @@ class NanoAODSchema(BaseSchema):
                 )
                 output[name]["content"]["parameters"].update(
                     {
-                        "__doc__": offsets["parameters"]["__doc__"],
+                        "__doc__": offsets["parameters"].get(
+                            "__doc__", "no docstring available"
+                        ),
                         "collection_name": name,
                     }
                 )
@@ -411,6 +413,55 @@ class NanoAODSchema(BaseSchema):
         from coffea.nanoevents.methods import nanoaod
 
         return nanoaod.behavior
+
+    @classmethod
+    def uproot_writeable(cls, events):
+        """
+        Converting a NanoAODSchema event into something that is uproot
+        writeable. Based off the discussion thread here [1].
+        [1] https://github.com/scikit-hep/coffea/discussions/735#discussioncomment-9646917
+
+        Parameters
+        ----------
+            events : NanoAODSchema events
+                The NanoAODSchema events to be turned into something uproot-writeable
+
+        Returns
+        -------
+            out : dict
+                An uproot-writeable dictionary representing the same information as the input
+                NanoAODSchema events
+        """
+        import awkward as ak
+
+        def _is_compat(a):
+            """Is it a flat or 1-d jagged array?"""
+            t = ak.type(a)
+            if isinstance(t, ak.types.ArrayType):
+                if isinstance(t._content, ak.types.NumpyType):
+                    return True
+                if isinstance(t._content, ak.types.ListType) and isinstance(
+                    t._content._content, ak.types.NumpyType
+                ):
+                    return True
+            return False
+
+        def _make_packed(arr):
+            return ak.ak_to_packed.to_packed(ak.without_parameters(arr))
+
+        out = {}
+        for bname in events.fields:
+            if events[bname].fields:
+                out[bname] = ak.zip(
+                    {
+                        n: _make_packed(events[bname][n])
+                        for n in events[bname].fields
+                        if not n.endswith("IdxG") and _is_compat(events[bname][n])
+                    }
+                )
+            else:
+                out[bname] = _make_packed(events[bname])
+        return out
 
 
 class PFNanoAODSchema(NanoAODSchema):
@@ -489,4 +540,18 @@ class ScoutingNanoAODSchema(NanoAODSchema):
             transforms.full_like_from_offsets_form,
             ("oScoutingFatJet", 0.0),
         ),
+        "ScoutingPhoton_m": (
+            transforms.full_like_from_offsets_form,
+            ("oScoutingPhoton", 0.0),
+        ),
+        "ScoutingPhoton_charge": (
+            transforms.full_like_from_offsets_form,
+            ("oScoutingPhoton", 0.0),
+        ),
+    }
+
+    alias_items = {
+        **NanoAODSchema.alias_items,
+        "MET_pt": "MET_fiducialGenPt",
+        "MET_phi": "MET_fiducialGenPhi",
     }

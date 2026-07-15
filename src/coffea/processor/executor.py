@@ -23,8 +23,10 @@ from io import BytesIO
 from itertools import repeat
 from typing import (
     Any,
+    Generic,
     Literal,
     Optional,
+    TypeVar,
 )
 
 import awkward
@@ -192,6 +194,83 @@ class WorkItem:
 
     def __len__(self) -> int:
         return self.entrystop - self.entrystart
+
+
+T = TypeVar("T")
+
+
+class Result(Generic[T]):
+    """A Rust-style result type wrapping either a success value or an exception.
+
+    Use ``is_ok()`` to check the variant, ``unwrap()`` to retrieve the value,
+    and ``exception`` (on ``Err``) to inspect the error.
+
+    See Also
+    --------
+    Ok: Successful result.
+    Err: Failed result.
+    """
+
+    def is_ok(self) -> bool:
+        raise NotImplementedError
+
+    def is_err(self) -> bool:
+        return not self.is_ok()
+
+    def unwrap(self) -> T:
+        """Return the contained value on ``Ok``; on ``Err`` re-raise the captured exception."""
+        raise NotImplementedError
+
+
+class Ok(Result[T]):
+    """A successful result containing a value."""
+
+    def __init__(self, value: T) -> None:
+        self._value = value
+
+    @property
+    def value(self) -> T:
+        return self._value
+
+    def is_ok(self) -> bool:
+        return True
+
+    def unwrap(self) -> T:
+        return self._value
+
+    def __repr__(self) -> str:
+        return f"Ok({self._value!r})"
+
+
+class Err(Result):
+    """A failed result containing an exception, optionally with a partial value.
+
+    When the executor was run with ``recoverable=True`` and produced a
+    partial accumulator before the failure, the partial output is preserved
+    on ``value`` so callers can still salvage progress.
+    """
+
+    def __init__(self, exception, value=None):
+        self._exception = exception
+        self._value = value
+
+    @property
+    def exception(self) -> BaseException:
+        return self._exception
+
+    @property
+    def value(self):
+        """Partial output captured before the failure, if any."""
+        return self._value
+
+    def is_ok(self) -> bool:
+        return False
+
+    def unwrap(self):
+        raise self._exception
+
+    def __repr__(self) -> str:
+        return f"Err({self._exception!r})"
 
 
 def _compress(item, compression):
@@ -492,6 +571,11 @@ class IterativeExecutor(ExecutorBase):
             Ignored for iterative executor
         retries : int, optional
             Number of retries for failed tasks (default: 3)
+
+    Returns
+    -------
+        out : tuple(Accumulatable, int | BaseException)
+            ``(accumulator, 0)`` after all items have been merged.
     """
 
     workers: int = 1
@@ -572,6 +656,13 @@ class FuturesExecutor(ExecutorBase):
             in the timeout window.
         retries : int, optional
             Number of retries for failed tasks (default: 3)
+
+    Returns
+    -------
+        out : tuple(Accumulatable, int | BaseException)
+            ``(accumulator, 0)`` after all items have been merged, or
+            ``(partial_accumulator, exception)`` when ``recoverable=True`` and
+            an exception was captured.
     """
 
     pool: Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor = (
@@ -687,11 +778,17 @@ class DaskExecutor(ExecutorBase):
             items in a tuple (item, heavy_input) that is passed to function.
         function_name : str, optional
             Name of the function being passed
-        use_dataframes: bool, optional
+        use_dataframes : bool, optional
             Retrieve output as a distributed Dask DataFrame (default: False).
             The outputs of individual tasks must be Pandas DataFrames.
 
             .. note:: If ``heavy_input`` is set, ``function`` is assumed to be pure.
+
+    Returns
+    -------
+        out : tuple(Accumulatable, int | BaseException)
+            ``(accumulator, 0)`` after the tree reduction completes. When
+            ``use_dataframes=True``, the accumulator is ``{"out": dd.DataFrame}``.
     """
 
     client: Optional["dask.distributed.Client"] = None  # noqa
@@ -736,7 +833,7 @@ class DaskExecutor(ExecutorBase):
 
         if self.heavy_input is not None:
             # client.scatter is not robust against adaptive clusters
-            # https://github.com/CoffeaTeam/coffea/issues/465
+            # https://github.com/scikit-hep/coffea/issues/465
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", "Large object of size")
                 items = list(
@@ -879,6 +976,13 @@ class ParslExecutor(ExecutorBase):
             in the timeout window.
         retries : int, optional
             Number of retries for failed tasks (default: 3)
+
+    Returns
+    -------
+        out : tuple(Accumulatable, int | BaseException)
+            ``(accumulator, 0)`` after all items have been merged, or
+            ``(partial_accumulator, exception)`` when ``recoverable=True`` and
+            an exception was captured.
     """
 
     tailtimeout: int | None = None
@@ -1068,6 +1172,13 @@ class Runner:
             (please don't) during a session, the session can be restarted to clear the cache.
         checkpointer : CheckpointerABC, optional
             A CheckpointerABC instance to manage checkpointing of each chunk output
+        use_result_type : bool, optional
+            If True, ``__call__`` returns ``Ok(output)`` or ``Err(exception)``
+            instead of raising. Requires ``skipbadfiles`` to be set (``True``
+            or a tuple of exception types); the same set of exception types
+            controls which errors get captured as ``Err`` — anything outside
+            that set still propagates. If False (default), returns the output
+            directly and raises on error.
     """
 
     executor: ExecutorBase
@@ -1079,6 +1190,7 @@ class Runner:
     xrootdtimeout: int | None = 60
     align_clusters: bool = False
     savemetrics: bool = False
+    use_result_type: bool = False
     schema: schemas.BaseSchema | None = schemas.NanoAODSchema
     processor_compression: int = 1
     format: str = "root"
@@ -1105,6 +1217,14 @@ class Runner:
             raise ValueError(f"format must be 'root' or 'parquet', got {self.format!r}")
         if self.format == "parquet" and self.align_clusters:
             raise ValueError("align_clusters is only supported for ROOT input")
+
+        if self.use_result_type and self.skipbadfiles is False:
+            raise ValueError(
+                "use_result_type=True requires skipbadfiles to be set "
+                "(True or a tuple of exception types). The skipbadfiles "
+                "value defines which exception types are captured as Err; "
+                "other exceptions propagate unchanged."
+            )
 
     @property
     def retries(self):
@@ -1142,13 +1262,13 @@ class Runner:
         skipbadfiles: bool | tuple[type[BaseException], ...],
         func,
         *args,
+        use_result_type: bool = False,
         **kwargs,
     ):
         """This should probably defined on Executor-level."""
         import warnings
 
-        if not isinstance(skipbadfiles, tuple) and skipbadfiles is True:
-            skipbadfiles = (OSError,)
+        skipbadfiles = (OSError,) if skipbadfiles is True else skipbadfiles
 
         retry_count = 0
         while retry_count <= retries:
@@ -1164,6 +1284,10 @@ class Runner:
                     and (retries == retry_count)
                     and any(isinstance(c, skipbadfiles) for c in chain)
                 ):
+                    if use_result_type:
+                        # surface the exception instead of silently skipping
+                        # so the Runner can wrap it as Err
+                        raise e
                     warnings.warn(
                         f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}"
                     )
@@ -1306,6 +1430,7 @@ class Runner:
                     self.align_clusters,
                     uproot_options,
                 ),
+                use_result_type=self.use_result_type,
             )
             out, _ = pre_executor(to_get, closure, out)
             while out:
@@ -1340,6 +1465,7 @@ class Runner:
                 0 if isinstance(pre_executor, DaskExecutor) else self.retries,
                 self.skipbadfiles,
                 self.metadata_fetcher_parquet,
+                use_result_type=self.use_result_type,
             )
             out, _ = pre_executor(to_get, closure, out)
             while out:
@@ -1598,7 +1724,7 @@ class Runner:
         uproot_options: dict | None = {},
         iteritems_options: dict | None = {},
         trace: Callable | None = None,
-    ) -> Accumulatable:
+    ) -> Result | Accumulatable:
         """Run the processor_instance on a given fileset
 
         Parameters
@@ -1625,11 +1751,48 @@ class Runner:
                 See ``coffea.nanoevents.trace.trace`` for the default implementation.
                 When provided and preprocessing is needed, tracing is performed and takes
                 precedence over fileset-level ``preload``.
+
+        Returns
+        -------
+            Result or Accumulatable
+                When ``use_result_type=True``, returns ``Ok(output)`` or ``Err(exception)``.
+                When ``use_result_type=False`` (default), returns the output directly and raises on error.
+                When ``savemetrics=True``, the output value is ``(output, metrics)``.
         """
         if uproot_options is None:
             uproot_options = {}
         if iteritems_options is None:
             iteritems_options = {}
+        if self.use_result_type:
+            result = self.run(
+                fileset=fileset,
+                processor_instance=processor_instance,
+                treename=treename,
+                uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
+                trace=trace,
+            )
+            if isinstance(result, Err):
+                return result
+            wrapped_out = result.unwrap()
+            if self.use_dataframes:
+                return Ok(wrapped_out)  # already the raw out from run()
+            exception = wrapped_out.get("exception", 0)
+            if self.savemetrics:
+                out = (wrapped_out["out"], wrapped_out["metrics"])
+            else:
+                out = wrapped_out["out"]
+            if exception != 0:
+                # From a recoverable executor: preserve the partial accumulator
+                # alongside the captured exception, but only if it matches the
+                # user's allowed set (walking the chain to stay consistent with
+                # ``automatic_retries``); otherwise re-raise so unexpected
+                # failures surface as actual bugs.
+                allowed = (OSError,) if self.skipbadfiles is True else self.skipbadfiles
+                if any(isinstance(c, allowed) for c in _exception_chain(exception)):
+                    return Err(exception, value=out)
+                raise exception
+            return Ok(out)
         wrapped_out = self.run(
             fileset=fileset,
             processor_instance=processor_instance,
@@ -1682,6 +1845,14 @@ class Runner:
             processor_instance : ProcessorABC or Callable, optional
                 The processor whose column access will be traced. Required when ``trace``
                 is provided.
+
+        Returns
+        -------
+            chunks : Generator[WorkItem, int, int]
+                A generator yielding :class:`WorkItem` chunks ready to be passed to
+                :meth:`run`. The caller may ``.send(new_chunksize)`` to adjust the
+                target chunksize on the fly; the generator's return value is the
+                final chunksize used.
         """
         if trace is not None and processor_instance is None:
             raise ValueError(
@@ -1736,7 +1907,7 @@ class Runner:
         uproot_options: dict | None = {},
         iteritems_options: dict | None = {},
         trace: Callable | None = None,
-    ) -> Accumulatable:
+    ) -> Result | Accumulatable:
         """Run the processor_instance on a given fileset
 
         Parameters
@@ -1771,7 +1942,56 @@ class Runner:
                 See ``coffea.nanoevents.trace.trace`` for the default implementation.
                 When provided and preprocessing is needed, tracing is performed and takes
                 precedence over fileset-level ``preload``.
+
+        Returns
+        -------
+            Result or Accumulatable
+                When ``use_result_type=True``, returns ``Ok(output)`` on success
+                and ``Err(exception)`` on failure (exceptions are captured, not
+                raised). When ``use_result_type=False`` (default), returns the
+                raw output dict and exceptions propagate. See ``__call__`` for
+                the user-facing output with ``savemetrics`` / ``use_dataframes``
+                extraction applied.
         """
+        if not self.use_result_type:
+            return self._run(
+                fileset,
+                processor_instance,
+                treename=treename,
+                uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
+                trace=trace,
+            )
+        try:
+            return Ok(
+                self._run(
+                    fileset,
+                    processor_instance,
+                    treename=treename,
+                    uproot_options=uproot_options,
+                    iteritems_options=iteritems_options,
+                    trace=trace,
+                )
+            )
+        except Exception as e:
+            # Match against the full exception chain to stay consistent with
+            # ``automatic_retries`` — a wrapped exception whose ``__cause__``
+            # matches ``skipbadfiles`` should still surface as ``Err``.
+            allowed = (OSError,) if self.skipbadfiles is True else self.skipbadfiles
+            if any(isinstance(c, allowed) for c in _exception_chain(e)):
+                return Err(e)
+            raise
+
+    def _run(
+        self,
+        fileset: dict | str | list[WorkItem] | Generator,
+        processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
+        *,
+        treename: str | None = None,
+        uproot_options: dict | None = {},
+        iteritems_options: dict | None = {},
+        trace: Callable | None = None,
+    ) -> Accumulatable:
         if uproot_options is None:
             uproot_options = {}
         if iteritems_options is None:
@@ -1863,6 +2083,7 @@ class Runner:
             0 if isinstance(executor, DaskExecutor) else self.retries,
             self.skipbadfiles,
             closure,
+            use_result_type=self.use_result_type,
         )
 
         wrapped_out, e = executor(chunks, closure, None)

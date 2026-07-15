@@ -20,7 +20,7 @@ experience level.
    you created in the previous step.
 
 If you are new to contributing on GitHub, the
-[GitHub quickstart guide](https://docs.github.com/get-started/quickstart/set-up-git)
+[GitHub quickstart guide](https://docs.github.com/en/get-started/git-basics/set-up-git)
 walks through the basics of configuring git, forking, and cloning a project.
 
 ## Reporting issues and asking questions

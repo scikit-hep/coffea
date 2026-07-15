@@ -124,20 +124,20 @@ def BufferCache(
     Buffer caches give you more fine-grained control over internal
     memory management of an awkward Array (here: NanoEvents). One powerful
     feature is for example to compress the buffers in-memory to reduce
-    the total memory footprint. Buffers are decompressed upon use (`__getitem__`)
-    and compressed upon `__setitem__`. In a scenario where you have many buffers in
+    the total memory footprint. Buffers are decompressed upon use (``__getitem__``)
+    and compressed upon ``__setitem__``. In a scenario where you have many buffers in
     an awkward Array this can be highly beneficial because most arrays are then
     compressed in RAM, while only a few at a time will be decompressed for a specific
     operation.
 
     Example (in-memory no compression)
-    -------
+    ----------------------------------
     >>> buffer_cache=BufferCache(cache=None, codec=None) # or `NoCompressionCodec()`
     >>> NanoEventsFactory.from_root(..., buffer_cache=buffer_cache)
 
 
     Example (in-memory compressed)
-    -------
+    ------------------------------
     >>> from numcodecs import Blosc
     >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
     >>> buffer_cache=BufferCache(cache=None, codec=codec)
@@ -145,7 +145,7 @@ def BufferCache(
 
 
     Example (LRU-backed compressed in-memory)
-    -------
+    -----------------------------------------
     >>> from numcodecs import Blosc
     >>> import zict
     >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
@@ -162,7 +162,7 @@ def BufferCache(
     A simple on-disk buffer cache example is as follows:
 
     Example (on-disk compressed)
-    -------
+    ----------------------------
     >>> from numcodecs import Blosc
     >>> import zict
     >>> codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
@@ -171,14 +171,14 @@ def BufferCache(
 
     .. caution::
 
-        The comes with some caveats though:
+        This comes with some caveats though:
 
         1. The directory for the on-disk cache should be chosen to be as close as possible
-        to the CPU. That means that NFS backed paths (e.g. `/afs/` or `/eos/` at CERN) are
-        highly disouraged for this cache. A better choice would be `/tmp/...` on the worker.
+        to the CPU. That means that NFS-backed paths (e.g. ``/afs/`` or ``/eos/`` at CERN) are
+        highly discouraged for this cache. A better choice would be ``/tmp/...`` on the worker.
 
-        2. It's probably good to cleanup this cache once it isn't needed anymore. For dask usage
-        with the coffea Executors one can use the `cachestrategy` argument of the Executor class
+        2. It's probably good to clean up this cache once it isn't needed anymore. For dask usage
+        with the coffea Executors one can use the ``cachestrategy`` argument of the Executor class
         to make sure the on-disk cache is created in the local temp directory of the dask worker itself.
         (see: https://distributed.dask.org/en/stable/worker.html#api-documentation)
 
@@ -186,7 +186,7 @@ def BufferCache(
     ## Other examples
 
     Example (hierarchical)
-    -------
+    ----------------------
     >>> import zict
     >>> cache = zict.Buffer(
     >>>     fast={},

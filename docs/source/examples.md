@@ -15,4 +15,5 @@ notebooks/advanced_numba
 notebooks/mltools
 notebooks/dataset_discovery
 notebooks/filespec
+notebooks/splitting
 ```

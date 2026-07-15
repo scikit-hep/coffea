@@ -138,6 +138,10 @@ addopts = [
   "-v",
 ]
 log_level = "INFO"
+markers = [
+  "dask_client: test requires a live distributed.Client (uses the shared session cluster)",
+  "network: test reaches out to the network",
+]
 filterwarnings = [
   "ignore:There is no current event loop",
 ]
