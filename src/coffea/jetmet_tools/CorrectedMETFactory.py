@@ -47,11 +47,12 @@ def corrected_type1_met(
     )
 
 
-# Required name_map keys for Type-1 mode (Jet collection)
+# Required name_map keys for Type-1 mode (Jet collection). The raw jet pT is
+# read from ``ptRaw`` (an always-required key); ``JetRawFactor`` is optional and
+# only consulted to derive it when the ``ptRaw`` field is missing from the jets.
 _TYPE1_JET_KEYS = [
     "RawMETpt",
     "RawMETphi",
-    "JetRawFactor",
     "JetMuonSubtrFactor",
     "JetMuonSubtrDeltaPhi",
     "JetChEmEF",
@@ -70,42 +71,59 @@ _TYPE1_CORRT1_KEYS = [
 ]
 
 
+def _ensure_jet_raw_pt_field(jets, name_map):
+    """Return ``jets`` with the ``ptRaw`` field present.
+
+    Unlike CorrT1METJet, the Jet collection has no native raw pT; it is normally
+    added before jet correction (the ``pt_raw = (1 - rawFactor) * pt`` idiom) and
+    preserved by ``CorrectedJetsFactory``. If the field is absent it is derived
+    from ``JetRawFactor`` and the uncorrected pT (``<JetPt>_orig`` when the jets
+    came from ``CorrectedJetsFactory``, else ``JetPt``). An existing field is
+    never overwritten.
+
+    Returns
+    -------
+    awkward.Array
+        ``jets`` with a ``name_map["ptRaw"]`` field.
+    """
+    raw_field = name_map["ptRaw"]
+    if raw_field in jets.fields:
+        return jets
+
+    raw_factor_key = name_map.get("JetRawFactor")
+    if raw_factor_key is None or raw_factor_key not in jets.fields:
+        raise ValueError(
+            f"Type-1 MET needs a raw jet pT: add a {raw_field!r} field "
+            "(e.g. 'pt_raw = (1 - rawFactor) * pt' before jet correction) or "
+            "provide a 'JetRawFactor' name mapping so it can be derived."
+        )
+
+    orig_key = name_map["JetPt"] + "_orig"
+    base_pt = jets[orig_key] if orig_key in jets.fields else jets[name_map["JetPt"]]
+    return awkward.with_field(jets, base_pt * (1.0 - jets[raw_factor_key]), raw_field)
+
+
 def _compute_jec_factors(jets, name_map, jec_L1, jec_L1L2L3):
     """Compute L1 and L1L2L3 JEC factors for the Jet collection.
 
-    Flattens jagged arrays before calling JEC correctors (required for
-    CorrectionLibJEC compatibility), then unflattens back.
+    The correctors accept jagged arrays directly, so inputs keep their event
+    structure. The raw pT is read from the ``ptRaw`` field.
 
     Returns
     -------
     factor_L1, factor_L1L2L3 : awkward.Array
-        Jagged arrays of JEC factors matching jets shape.
+        Jagged arrays of JEC factors matching ``jets``.
     """
-    jet_pt = jets[name_map["JetPt"]]
-    raw_factor = jets[name_map["JetRawFactor"]]
-    jet_pt_raw = jet_pt * (1.0 - raw_factor)
+    jet_pt_raw = jets[name_map["ptRaw"]]
 
-    counts = awkward.num(jets)
+    def jec_inputs(corrector):
+        return {
+            k: (jet_pt_raw if k == "JetPt" else jets[name_map[k]])
+            for k in corrector.signature
+        }
 
-    # Build and flatten JEC inputs for L1
-    jec_inputs_L1 = {}
-    for k in jec_L1.signature:
-        if k == "JetPt":
-            jec_inputs_L1[k] = awkward.flatten(jet_pt_raw)
-        else:
-            jec_inputs_L1[k] = awkward.flatten(jets[name_map[k]])
-    flat_factor_L1 = jec_L1.getCorrection(**jec_inputs_L1)
-    factor_L1 = awkward.unflatten(flat_factor_L1, counts)
-
-    # Build and flatten JEC inputs for L1L2L3
-    jec_inputs_L1L2L3 = {}
-    for k in jec_L1L2L3.signature:
-        if k == "JetPt":
-            jec_inputs_L1L2L3[k] = awkward.flatten(jet_pt_raw)
-        else:
-            jec_inputs_L1L2L3[k] = awkward.flatten(jets[name_map[k]])
-    flat_factor_L1L2L3 = jec_L1L2L3.getCorrection(**jec_inputs_L1L2L3)
-    factor_L1L2L3 = awkward.unflatten(flat_factor_L1L2L3, counts)
+    factor_L1 = jec_L1.getCorrection(**jec_inputs(jec_L1))
+    factor_L1L2L3 = jec_L1L2L3.getCorrection(**jec_inputs(jec_L1L2L3))
 
     return factor_L1, factor_L1L2L3
 
@@ -113,50 +131,27 @@ def _compute_jec_factors(jets, name_map, jec_L1, jec_L1L2L3):
 def _compute_corrt1_jec_factors(corrt1jets, name_map, jec_L1, jec_L1L2L3):
     """Compute L1 and L1L2L3 JEC factors for the CorrT1METJet collection.
 
-    Flattens jagged arrays before calling JEC correctors (required for
-    CorrectionLibJEC compatibility), then unflattens back.
+    CorrT1METJet stores raw pT directly (``rawPt``); the generic JEC input names
+    are remapped onto its fields.
 
     Returns
     -------
     factor_L1, factor_L1L2L3 : awkward.Array
-        Jagged arrays of JEC factors matching corrt1jets shape.
+        Jagged arrays of JEC factors matching ``corrt1jets``.
     """
-    raw_pt = corrt1jets[name_map["CorrT1JetPt"]]
-    counts = awkward.num(corrt1jets)
+    key_remap = {
+        "JetPt": "CorrT1JetPt",
+        "JetEta": "CorrT1JetEta",
+        "JetA": "CorrT1JetArea",
+    }
 
-    # Build and flatten JEC inputs for L1
-    jec_inputs_L1 = {}
-    for k in jec_L1.signature:
-        if k == "JetPt":
-            jec_inputs_L1[k] = awkward.flatten(raw_pt)
-        elif k == "JetEta":
-            jec_inputs_L1[k] = awkward.flatten(corrt1jets[name_map["CorrT1JetEta"]])
-        elif k == "JetA":
-            jec_inputs_L1[k] = awkward.flatten(corrt1jets[name_map["CorrT1JetArea"]])
-        elif k == "Rho":
-            jec_inputs_L1[k] = awkward.flatten(corrt1jets[name_map["Rho"]])
-        else:
-            jec_inputs_L1[k] = awkward.flatten(corrt1jets[name_map[k]])
-    flat_factor_L1 = jec_L1.getCorrection(**jec_inputs_L1)
-    factor_L1 = awkward.unflatten(flat_factor_L1, counts)
+    def jec_inputs(corrector):
+        return {
+            k: corrt1jets[name_map[key_remap.get(k, k)]] for k in corrector.signature
+        }
 
-    # Build and flatten JEC inputs for L1L2L3
-    jec_inputs_L1L2L3 = {}
-    for k in jec_L1L2L3.signature:
-        if k == "JetPt":
-            jec_inputs_L1L2L3[k] = awkward.flatten(raw_pt)
-        elif k == "JetEta":
-            jec_inputs_L1L2L3[k] = awkward.flatten(corrt1jets[name_map["CorrT1JetEta"]])
-        elif k == "JetA":
-            jec_inputs_L1L2L3[k] = awkward.flatten(
-                corrt1jets[name_map["CorrT1JetArea"]]
-            )
-        elif k == "Rho":
-            jec_inputs_L1L2L3[k] = awkward.flatten(corrt1jets[name_map["Rho"]])
-        else:
-            jec_inputs_L1L2L3[k] = awkward.flatten(corrt1jets[name_map[k]])
-    flat_factor_L1L2L3 = jec_L1L2L3.getCorrection(**jec_inputs_L1L2L3)
-    factor_L1L2L3 = awkward.unflatten(flat_factor_L1L2L3, counts)
+    factor_L1 = jec_L1.getCorrection(**jec_inputs(jec_L1))
+    factor_L1L2L3 = jec_L1L2L3.getCorrection(**jec_inputs(jec_L1L2L3))
 
     return factor_L1, factor_L1L2L3
 
@@ -181,13 +176,11 @@ def _compute_jet_type1_deltas_with_factors(
         If provided, multiply pt_noMuL1L2L3 by this factor (for JES/JER variations).
     """
     # Step 1: muon-subtracted raw pT and phi
-    jet_pt = jets[name_map["JetPt"]]
-    raw_factor = jets[name_map["JetRawFactor"]]
+    jet_pt_raw = jets[name_map["ptRaw"]]
     muon_substr_factor = jets[name_map["JetMuonSubtrFactor"]]
     muon_substr_dphi = jets[name_map["JetMuonSubtrDeltaPhi"]]
     jet_phi = jets[name_map["JetPhi"]]
 
-    jet_pt_raw = jet_pt * (1.0 - raw_factor)
     pt_noMuRaw = jet_pt_raw * (1.0 - muon_substr_factor)
     phi_noMuRaw = muon_substr_dphi + jet_phi
 
@@ -497,6 +490,16 @@ class CorrectedMETFactory:
         corrected_jets = in_corrected_jets
         raw_met = in_RawMET
         corrt1jets = in_CorrT1METJets
+
+        # Ensure the jets carry a raw pT field (derive it if the user did not).
+        if self.name_map["ptRaw"] not in corrected_jets.fields:
+
+            def ensure_raw_pt(jets):
+                return _ensure_jet_raw_pt_field(jets, self.name_map)
+
+            corrected_jets = maybe_map_partitions(
+                ensure_raw_pt, corrected_jets, label="type1_ensure_raw_pt"
+            )
 
         # --- Compute JEC factors once (reused for all variations) ---
         def compute_jet_jec_factors(jets):

@@ -1510,3 +1510,313 @@ def test_corrected_met_type1_v12():
     print("Type-1 corrected MET v12 (nominal):", corrected_met.pt)
     print("Raw MET v12 (orig):", corrected_met.pt_orig)
     print("\nType-1 MET v12 test passed.")
+
+
+# Type-1 MET closure tests. The nano_tt_v15 sample is Run3, so Summer22 JECs
+# (here as both .txt and correctionlib JSON) are the correct era and track the
+# stored production MET; the Summer16 smoke tests above cannot.
+_SUMMER22_TAG = "Summer22_22Sep2023_V3_MC"
+_SUMMER22_JT = "AK4PFPuppi"
+_SUMMER22_LEVELS = [
+    f"{_SUMMER22_TAG}_L1FastJet_{_SUMMER22_JT}",
+    f"{_SUMMER22_TAG}_L2Relative_{_SUMMER22_JT}",
+    f"{_SUMMER22_TAG}_L2L3Residual_{_SUMMER22_JT}",
+    f"{_SUMMER22_TAG}_L3Absolute_{_SUMMER22_JT}",
+]
+
+
+def _summer22_evaluator():
+    from coffea.lookup_tools import extractor
+
+    extract = extractor()
+    extract.add_weight_sets(
+        [f"* * tests/samples/{name}.jec.txt.gz" for name in _SUMMER22_LEVELS]
+        + [
+            "* * tests/samples/Spring16_25nsV10_MC_PtResolution_AK4PFPuppi.jr.txt.gz",
+            "* * tests/samples/Spring16_25nsV10_MC_SF_AK4PFPuppi.jersf.txt.gz",
+        ]
+    )
+    extract.finalize()
+    return extract.make_evaluator()
+
+
+def _build_type1_summer22_inputs():
+    """Shared Summer22 setup: name_map, corrected jets, and MET collections."""
+    import os
+
+    from coffea.jetmet_tools import CorrectedJetsFactory, JECStack
+    from coffea.nanoevents import NanoEventsFactory
+
+    ev = _summer22_evaluator()
+    events = NanoEventsFactory.from_root(
+        {os.path.abspath("tests/samples/nano_tt_v15.root"): "Events"},
+        metadata={},
+        mode="eager",
+    ).events()
+
+    jec_stack = JECStack(
+        {name: ev[name] for name in _SUMMER22_LEVELS}
+        | {
+            "Spring16_25nsV10_MC_PtResolution_AK4PFPuppi": ev[
+                "Spring16_25nsV10_MC_PtResolution_AK4PFPuppi"
+            ],
+            "Spring16_25nsV10_MC_SF_AK4PFPuppi": ev[
+                "Spring16_25nsV10_MC_SF_AK4PFPuppi"
+            ],
+        }
+    )
+    name_map = jec_stack.blank_name_map
+    name_map.update(
+        {
+            "JetPt": "pt",
+            "JetMass": "mass",
+            "JetEta": "eta",
+            "JetA": "area",
+            "ptRaw": "pt_raw",
+            "massRaw": "mass_raw",
+            "Rho": "Rho",
+            "ptGenJet": "pt_gen",
+        }
+    )
+
+    jets = events.Jet
+    jets["pt_raw"] = (1 - jets["rawFactor"]) * jets.pt
+    jets["mass_raw"] = (1 - jets["rawFactor"]) * jets.mass
+    jets["pt_gen"] = ak.fill_none(jets.matched_gen.pt, 0)
+    jets["Rho"] = events.Rho.fixedGridRhoFastjetAll
+    corrected_jets = CorrectedJetsFactory(name_map, jec_stack).build(jets)
+
+    pfmet = events.PFMET
+    uncl_delta = pfmet.sumPtUnclustered / np.sqrt(2.0)
+    pfmet["MetUnclustEnUpDeltaX"] = uncl_delta
+    pfmet["MetUnclustEnUpDeltaY"] = uncl_delta
+
+    name_map.update(
+        {
+            "METpt": "pt",
+            "METphi": "phi",
+            "JetPhi": "phi",
+            "UnClusteredEnergyDeltaX": "MetUnclustEnUpDeltaX",
+            "UnClusteredEnergyDeltaY": "MetUnclustEnUpDeltaY",
+            "RawMETpt": "pt",
+            "RawMETphi": "phi",
+            "JetMuonSubtrFactor": "muonSubtrFactor",
+            "JetMuonSubtrDeltaPhi": "muonSubtrDeltaPhi",
+            "JetChEmEF": "chEmEF",
+            "JetNeEmEF": "neEmEF",
+            "CorrT1JetPt": "rawPt",
+            "CorrT1JetPhi": "phi",
+            "CorrT1JetEta": "eta",
+            "CorrT1JetArea": "area",
+            "CorrT1JetMuonSubtrFactor": "muonSubtrFactor",
+            "CorrT1JetMuonSubtrDeltaPhi": "muonSubtrDeltaPhi",
+            "CorrT1JetEmEF": "EmEF",
+        }
+    )
+
+    raw_met = events.RawPFMET
+    corrt1jets = events.CorrT1METJet
+    corrt1jets["Rho"] = events.Rho.fixedGridRhoFastjetAll
+
+    return {
+        "events": events,
+        "evaluator": ev,
+        "name_map": name_map,
+        "corrected_jets": corrected_jets,
+        "pfmet": pfmet,
+        "raw_met": raw_met,
+        "corrt1jets": corrt1jets,
+    }
+
+
+def _independent_type1_delta(
+    raw_pt,
+    muon_subtr_factor,
+    muon_subtr_dphi,
+    phi,
+    eta,
+    area,
+    rho,
+    em_pass,
+    jec_L1,
+    jec_L1L2L3,
+):
+    """Independent Type-1 (delta_px, delta_py), using raw pT and jagged inputs."""
+
+    def inputs(corr):
+        avail = {"JetPt": raw_pt, "JetEta": eta, "JetA": area, "Rho": rho}
+        return {k: avail[k] for k in corr.signature}
+
+    f_L1 = jec_L1.getCorrection(**inputs(jec_L1))
+    f_L1L2L3 = jec_L1L2L3.getCorrection(**inputs(jec_L1L2L3))
+    pt_noMuRaw = raw_pt * (1 - muon_subtr_factor)
+    phi_noMuRaw = muon_subtr_dphi + phi
+    pt_L1 = pt_noMuRaw * f_L1
+    pt_L1L2L3 = pt_noMuRaw * f_L1L2L3
+    mask = (pt_L1L2L3 > 15.0) & em_pass
+    diff = ak.where(mask, pt_L1L2L3 - pt_L1, 0.0)
+    return (
+        ak.sum(diff * np.cos(phi_noMuRaw), axis=1),
+        ak.sum(diff * np.sin(phi_noMuRaw), axis=1),
+    )
+
+
+def test_corrected_met_type1_closure():
+    """Type-1 MET closure: (1) matches an independent recomputation from the
+    preserved raw pT (fails for ``corrected_pt * (1-rawFactor)``); (2) lands
+    closer to the stored production PFMET than the raw MET does."""
+    from coffea.jetmet_tools import CorrectedMETFactory, FactorizedJetCorrector
+
+    s = _build_type1_summer22_inputs()
+    ev, name_map = s["evaluator"], s["name_map"]
+    corrected_jets, pfmet, raw_met, corrt1jets = (
+        s["corrected_jets"],
+        s["pfmet"],
+        s["raw_met"],
+        s["corrt1jets"],
+    )
+
+    jec_L1 = FactorizedJetCorrector(**{_SUMMER22_LEVELS[0]: ev[_SUMMER22_LEVELS[0]]})
+    jec_L1L2L3 = FactorizedJetCorrector(**{name: ev[name] for name in _SUMMER22_LEVELS})
+
+    met_factory = CorrectedMETFactory(name_map, jec_L1L2L3=jec_L1L2L3, jec_L1=jec_L1)
+    corrected_met = met_factory.build(
+        pfmet, corrected_jets, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets
+    )
+
+    # --- 1. Independent-formula closure using pt_raw ---
+    cj = corrected_jets
+    rho_jet = ak.broadcast_arrays(cj["Rho"], cj.pt)[0]
+    jet_dpx, jet_dpy = _independent_type1_delta(
+        cj["pt_raw"],
+        cj["muonSubtrFactor"],
+        cj["muonSubtrDeltaPhi"],
+        cj["phi"],
+        cj["eta"],
+        cj["area"],
+        rho_jet,
+        (cj["chEmEF"] + cj["neEmEF"]) < 0.9,
+        jec_L1,
+        jec_L1L2L3,
+    )
+    rho_corrt1 = ak.broadcast_arrays(corrt1jets["Rho"], corrt1jets.rawPt)[0]
+    c1_dpx, c1_dpy = _independent_type1_delta(
+        corrt1jets["rawPt"],
+        corrt1jets["muonSubtrFactor"],
+        corrt1jets["muonSubtrDeltaPhi"],
+        corrt1jets["phi"],
+        corrt1jets["eta"],
+        corrt1jets["area"],
+        rho_corrt1,
+        corrt1jets["EmEF"] < 0.9,
+        jec_L1,
+        jec_L1L2L3,
+    )
+    exp_x = raw_met.pt * np.cos(raw_met.phi) - (jet_dpx + c1_dpx)
+    exp_y = raw_met.pt * np.sin(raw_met.phi) - (jet_dpy + c1_dpy)
+    exp_pt = np.hypot(exp_x, exp_y)
+
+    assert ak.all(np.isclose(exp_pt, corrected_met.pt, rtol=1e-5, atol=1e-3)), (
+        "Type-1 MET does not match independent recomputation from raw pT — "
+        "check the raw-pT reconstruction."
+    )
+
+    # --- 2. Physics closure against the stored (production) Type-1 MET ---
+    stored = pfmet.pt  # NanoAOD-stored, already Type-1 corrected
+    dist_type1 = ak.mean(abs(corrected_met.pt - stored))
+    dist_raw = ak.mean(abs(raw_met.pt - stored))
+    assert dist_type1 < dist_raw, (
+        f"Type-1 correction did not move MET toward the stored PFMET "
+        f"(|type1-stored|={dist_type1:.3f} vs |raw-stored|={dist_raw:.3f})"
+    )
+
+
+def test_corrected_met_type1_correctionlib():
+    """correctionlib JECs match the .txt correctors for Type-1 MET. Note the
+    lookup: L1L2L3Res is a compound correction, L1FastJet a regular one."""
+    correctionlib = pytest.importorskip("correctionlib")
+    from coffea.jetmet_tools import (
+        CorrectedMETFactory,
+        CorrectionLibJEC,
+        FactorizedJetCorrector,
+    )
+
+    s = _build_type1_summer22_inputs()
+    ev, name_map = s["evaluator"], s["name_map"]
+    corrected_jets, pfmet, raw_met, corrt1jets = (
+        s["corrected_jets"],
+        s["pfmet"],
+        s["raw_met"],
+        s["corrt1jets"],
+    )
+
+    def build(jec_L1, jec_L1L2L3):
+        factory = CorrectedMETFactory(name_map, jec_L1L2L3=jec_L1L2L3, jec_L1=jec_L1)
+        return factory.build(
+            pfmet, corrected_jets, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets
+        )
+
+    # .txt-based correctors
+    met_txt = build(
+        FactorizedJetCorrector(**{_SUMMER22_LEVELS[0]: ev[_SUMMER22_LEVELS[0]]}),
+        FactorizedJetCorrector(**{name: ev[name] for name in _SUMMER22_LEVELS}),
+    )
+
+    cset = correctionlib.CorrectionSet.from_file(
+        "tests/samples/jet_jerc_Summer22_V3.json.gz"
+    )
+    met_cl = build(
+        CorrectionLibJEC(cset[f"{_SUMMER22_TAG}_L1FastJet_{_SUMMER22_JT}"]),
+        CorrectionLibJEC(cset.compound[f"{_SUMMER22_TAG}_L1L2L3Res_{_SUMMER22_JT}"]),
+    )
+
+    # Nominal agreement
+    assert ak.all(np.isclose(met_txt.pt, met_cl.pt, rtol=1e-4, atol=1e-3))
+    assert ak.all(np.isclose(met_txt.phi, met_cl.phi, rtol=1e-4, atol=1e-3))
+
+    # Systematic variations agree too
+    jes_jer_fields = [f for f in ak.fields(met_txt) if f.startswith(("JER", "JES"))]
+    assert len(jes_jer_fields) > 0
+    for unc in jes_jer_fields:
+        assert ak.all(
+            np.isclose(met_txt[unc].up.pt, met_cl[unc].up.pt, rtol=1e-4, atol=1e-3)
+        ), f"{unc}.up mismatch between txt and correctionlib"
+        assert ak.all(
+            np.isclose(met_txt[unc].down.pt, met_cl[unc].down.pt, rtol=1e-4, atol=1e-3)
+        ), f"{unc}.down mismatch between txt and correctionlib"
+
+
+def test_corrected_met_type1_autoderive_raw_pt():
+    """If the jets lack a ptRaw field, Type-1 mode derives it from rawFactor."""
+    from coffea.jetmet_tools import CorrectedMETFactory, FactorizedJetCorrector
+
+    s = _build_type1_summer22_inputs()
+    ev, name_map = s["evaluator"], s["name_map"]
+    corrected_jets, pfmet, raw_met, corrt1jets = (
+        s["corrected_jets"],
+        s["pfmet"],
+        s["raw_met"],
+        s["corrt1jets"],
+    )
+    jec_L1 = FactorizedJetCorrector(**{_SUMMER22_LEVELS[0]: ev[_SUMMER22_LEVELS[0]]})
+    jec_L1L2L3 = FactorizedJetCorrector(**{name: ev[name] for name in _SUMMER22_LEVELS})
+
+    met_ref = CorrectedMETFactory(name_map, jec_L1L2L3=jec_L1L2L3, jec_L1=jec_L1).build(
+        pfmet, corrected_jets, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets
+    )
+
+    # Drop the ptRaw field; the factory must re-derive it from rawFactor.
+    jets_no_raw = corrected_jets[
+        [f for f in corrected_jets.fields if f != name_map["ptRaw"]]
+    ]
+    name_map_derive = dict(name_map, JetRawFactor="rawFactor")
+    met_auto = CorrectedMETFactory(
+        name_map_derive, jec_L1L2L3=jec_L1L2L3, jec_L1=jec_L1
+    ).build(pfmet, jets_no_raw, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets)
+    assert ak.all(met_auto.pt == met_ref.pt)
+
+    # Without a ptRaw field or a JetRawFactor mapping it cannot be derived.
+    with pytest.raises(ValueError, match="raw jet pT"):
+        CorrectedMETFactory(name_map, jec_L1L2L3=jec_L1L2L3, jec_L1=jec_L1).build(
+            pfmet, jets_no_raw, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets
+        )
