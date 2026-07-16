@@ -19,6 +19,7 @@ from coffea.dataset_tools.filespec import (
     InputFiles,
     ModelFactory,
     ParquetFileSpec,
+    PreprocessedFiles,
     ROOTFileSpec,
     identify_file_format,
 )
@@ -739,6 +740,33 @@ class TestInputFiles:
             ]
         )
 
+    def test_complete_optional_is_promoted_on_construction(self):
+        """Regression (B1): a complete-but-Optional-typed spec is promoted to its concrete
+        type when an InputFiles is constructed, instead of being silently kept as Optional.
+
+        Previously promotion used positional ``CoffeaROOTFileSpec(v)`` construction, which
+        always raised ``TypeError`` (swallowed by a bare except), so promotion never happened.
+        """
+        files = {
+            "file1.root": CoffeaROOTFileSpecOptional(
+                object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
+            ),
+            "file1.parquet": CoffeaParquetFileSpecOptional(
+                steps=[[0, 100]], num_entries=100, uuid="uuid2"
+            ),
+        }
+        spec = InputFiles(files)
+        assert isinstance(spec["file1.root"], CoffeaROOTFileSpec)
+        assert isinstance(spec["file1.parquet"], CoffeaParquetFileSpec)
+
+    def test_incomplete_optional_is_not_promoted(self):
+        """Regression (B1): an Optional spec missing required fields must NOT be promoted."""
+        incomplete = InputFiles(
+            {"file2.root": CoffeaROOTFileSpecOptional(object_path="Events")}
+        )
+        assert type(incomplete["file2.root"]) is CoffeaROOTFileSpecOptional
+        assert not isinstance(incomplete["file2.root"], CoffeaROOTFileSpec)
+
     def test_json_file_serialization(self):
         """Test JSON serialization with file path"""
         spec = InputFiles(self.get_files())
@@ -752,9 +780,23 @@ class TestInputFiles:
                 assert restored == spec
 
     def test_num_entries_computation(self):
-        """Test computation of num_entries property"""
+        """num_entries is None when any file's count is unknown (B2), and sums when all known."""
+        # get_files() includes file2.root with num_entries=None -> total is unknown
         spec = InputFiles(self.get_files())
-        assert spec.num_entries == 110
+        assert spec.num_entries is None
+
+        # when every file has a known count, the total is their sum
+        complete = InputFiles(
+            {
+                "file1.root": CoffeaROOTFileSpec(
+                    object_path="Events", steps=[[0, 10]], num_entries=10, uuid="u1"
+                ),
+                "file1.parquet": CoffeaParquetFileSpec(
+                    steps=[[0, 50], [50, 100]], num_entries=100, uuid="u2"
+                ),
+            }
+        )
+        assert complete.num_entries == 110
 
     def test_num_selected_entries_computation(self):
         """Test computation of num_selected_entries property"""
@@ -963,6 +1005,29 @@ class TestDatasetSpec:
         spec = DatasetSpec(files=files, format="root", metadata={"sample": "test"})
         assert spec.format == "root"
         assert spec.metadata == {"sample": "test"}
+
+    def test_complete_optional_inputfiles_promotes_to_preprocessed(self):
+        """Regression (B1): a DatasetSpec built from an InputFiles whose files are all
+        complete (even if Optional-typed) is recognized as PreprocessedFiles."""
+        inp = InputFiles(
+            {
+                "file1.root": CoffeaROOTFileSpecOptional(
+                    object_path="Events", steps=[[0, 10]], num_entries=10, uuid="uuid1"
+                )
+            }
+        )
+        spec = DatasetSpec(files=inp)
+        assert isinstance(spec.files, PreprocessedFiles)
+        assert isinstance(spec.files["file1.root"], CoffeaROOTFileSpec)
+
+    def test_incomplete_inputfiles_stays_inputfiles(self):
+        """Regression (B1): a DatasetSpec with incomplete files must remain InputFiles."""
+        inp = InputFiles(
+            {"file1.root": CoffeaROOTFileSpecOptional(object_path="Events")}
+        )
+        spec = DatasetSpec(files=inp)
+        assert isinstance(spec.files, InputFiles)
+        assert not isinstance(spec.files, PreprocessedFiles)
 
     def test_starting_fileset_conversion(self):
         """Test conversion of _starting_fileset"""
