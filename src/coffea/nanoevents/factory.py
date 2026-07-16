@@ -255,12 +255,14 @@ class NanoEventsFactory:
             "schema": self._schema,
             "mapping": self._mapping,
             "partition_key": self._partition_key,
+            "mode": self._mode,
         }
 
     def __setstate__(self, state):
         self._schema = state["schema"]
         self._mapping = state["mapping"]
         self._partition_key = state["partition_key"]
+        self._mode = state.get("mode", "eager")
         self._events = lambda: None
         self._mapping_accepts_form_mapping = None
 
@@ -688,7 +690,11 @@ class NanoEventsFactory:
         )
         uuidpfn = {uuid: array_source}
         mapping = PreloadedSourceMapping(
-            PreloadedOpener(uuidpfn), entry_start, entry_stop, access_log=access_log
+            PreloadedOpener(uuidpfn),
+            entry_start,
+            entry_stop,
+            access_log=access_log,
+            buffer_cache=buffer_cache,
         )
         mapping.preload_column_source(partition_key[0], partition_key[1], array_source)
 

@@ -114,7 +114,7 @@ class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):
         kwargs = {
             key: (
                 tensorflow.convert_to_tensor(arr)
-                if arr.flags["WRITABLE"]
+                if arr.flags["WRITEABLE"]
                 else tensorflow.convert_to_tensor(numpy.copy(arr))
             )
             for key, arr in kwargs.items()

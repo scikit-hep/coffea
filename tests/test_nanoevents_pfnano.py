@@ -52,6 +52,28 @@ def test_nested_collections(events, field):
     check_fields_recursive(events, field)
 
 
+@pytest.mark.parametrize("mode", ["eager", "dask"])
+def test_jet_associations(tests_directory, mode):
+    if mode == "dask":
+        pytest.importorskip("dask_awkward")
+    path = os.path.join(tests_directory, "samples/pfnano.root")
+    events = NanoEventsFactory.from_root(
+        {path: "Events"}, schemaclass=PFNanoAODSchema, mode=mode
+    ).events()
+
+    svs, pfc = events.JetSVs, events.JetPFCands
+    checks = [
+        (svs.jet.pt, events.Jet[svs.jetIdx].pt),
+        (svs.sv.pt, events.SV[svs.sVIdx].pt),
+        (pfc.jet.pt, events.Jet[pfc.jetIdx].pt),
+        (pfc.pf.pt, events.PFCands[pfc.pFCandsIdx].pt),
+    ]
+    for linked, expected in checks:
+        if mode == "dask":
+            linked, expected = linked.compute(), expected.compute()
+        assert ak.all(linked == expected)
+
+
 def test_uproot_write(tmp_path):
     path = os.path.abspath("tests/samples/pfnano.root")
     orig_events = NanoEventsFactory.from_root(

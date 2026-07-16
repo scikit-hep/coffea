@@ -1225,3 +1225,86 @@ def test_genvistau_addition_propagates_charge():
     common = (ak.num(gvt) >= 1) & (ak.num(mu) >= 1)
     gm = gvt[common][:, 0] + mu[common][:, 0]
     assert "charge" in gm.fields
+
+
+@pytest.mark.parametrize(
+    "name,kin1,kin2",
+    [
+        (
+            "Candidate",
+            {"x": 1.0, "y": 2.0, "z": 3.0, "t": 10.0},
+            {"x": 0.5, "y": 1.0, "z": 1.5, "t": 4.0},
+        ),
+        (
+            "PtEtaPhiMCandidate",
+            {"pt": 10.0, "eta": 0.5, "phi": 0.1, "mass": 1.0},
+            {"pt": 5.0, "eta": -0.2, "phi": 1.0, "mass": 0.5},
+        ),
+        (
+            "PtEtaPhiECandidate",
+            {"pt": 10.0, "eta": 0.5, "phi": 0.1, "energy": 20.0},
+            {"pt": 5.0, "eta": -0.2, "phi": 1.0, "energy": 8.0},
+        ),
+        ("Muon", None, None),
+    ],
+)
+def test_candidate_subtraction_differences_charge(name, kin1, kin2):
+    """Candidate subtraction keeps and negates the ``charge`` field."""
+    from coffea.nanoevents.methods import candidate
+
+    if name == "Muon":
+        from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+
+        NanoAODSchema.warn_missing_crossrefs = False
+        events = NanoEventsFactory.from_root(
+            {"tests/samples/nano_dy.root": "Events"},
+            schemaclass=NanoAODSchema,
+            mode="eager",
+        ).events()
+        mu = events.Muon[ak.num(events.Muon) >= 2]
+        assert len(mu) > 0
+        a, b = mu[:, 0], mu[:, 1]
+    else:
+        a = ak.zip(
+            {**{k: [v] for k, v in kin1.items()}, "charge": [1]},
+            with_name=name,
+            behavior=candidate.behavior,
+        )
+        b = ak.zip(
+            {**{k: [v] for k, v in kin2.items()}, "charge": [-1]},
+            with_name=name,
+            behavior=candidate.behavior,
+        )
+    diff = a - b
+    assert "charge" in diff.fields
+    assert ak.all(diff.charge == a.charge - b.charge)
+    for c in ("x", "y", "z", "t"):
+        assert_allclose(
+            ak.to_list(getattr(diff, c)),
+            ak.to_list(getattr(a, c) - getattr(b, c)),
+            atol=ATOL,
+        )
+
+
+@pytest.mark.parametrize(
+    "name,temporal",
+    [("PtEtaPhiMLorentzVector", "mass"), ("PtEtaPhiELorentzVector", "energy")],
+)
+def test_polar_lorentz_negative_scalar_matches_cartesian(name, temporal):
+    """The time component transforms consistently with the Cartesian components
+    under negative scaling."""
+    a = ak.zip(
+        {"pt": [1.0, 2.0], "eta": [1.2, -0.8], "phi": [0.3, 2.5], temporal: [3.0, 4.0]},
+        with_name=name,
+        behavior=vector.behavior,
+    )
+    cart = ak.zip(
+        {"x": a.x, "y": a.y, "z": a.z, "t": a.t},
+        with_name="LorentzVector",
+        behavior=vector.behavior,
+    )
+    for scaled, ref in ((a * (-2), cart * (-2)), (-a, -cart), (a / (-2), cart / (-2))):
+        for c in ("x", "y", "z", "t"):
+            assert_allclose(
+                ak.to_list(getattr(scaled, c)), ak.to_list(getattr(ref, c)), atol=ATOL
+            )

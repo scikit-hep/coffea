@@ -1,8 +1,121 @@
+import importlib
+import types
+
 import awkward as ak
 import numpy as np
 import pytest
 
 dak = pytest.importorskip("dask_awkward")
+
+
+def test_tf_wrapper_kwargs_writeable_flag(monkeypatch):
+    tfmod = importlib.import_module("coffea.ml_tools.tf_wrapper")
+
+    monkeypatch.setattr(
+        tfmod,
+        "tensorflow",
+        types.SimpleNamespace(convert_to_tensor=lambda a: a),
+        raising=False,
+    )
+    arr = np.ones((3, 2))
+    expected = np.arange(6).reshape(3, 2)
+    fake_self = types.SimpleNamespace(
+        skip_length_zero=False,
+        model=lambda *a, **k: types.SimpleNamespace(numpy=lambda: expected),
+    )
+    out = tfmod.tf_wrapper.numpy_call(fake_self, **{"feat": arr})
+    assert np.array_equal(out, expected)
+
+
+def test_triton_run_infer_backoff_seconds(monkeypatch):
+    twmod = importlib.import_module("coffea.ml_tools.triton_wrapper")
+
+    class FakeInferException(Exception):
+        pass
+
+    monkeypatch.setattr(
+        twmod,
+        "tritonclient",
+        types.SimpleNamespace(
+            utils=types.SimpleNamespace(InferenceServerException=FakeInferException)
+        ),
+        raising=False,
+    )
+
+    sleeps = []
+    monkeypatch.setattr(twmod.time, "sleep", lambda s: sleeps.append(s))
+    monkeypatch.setattr(twmod.numpy.random, "rand", lambda: 1.0)
+
+    calls = {"n": 0}
+
+    def infer(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise FakeInferException()
+        return "ok"
+
+    class _tw(twmod.triton_wrapper):
+        def prepare_awkward(self, *a, **k):
+            return [], {}
+
+    obj = _tw.__new__(_tw)
+    obj.client = types.SimpleNamespace(infer=infer)
+    obj.model, obj.version = "m", "1"
+
+    assert obj.run_infer(inputs=None, outputs=None) == "ok"
+    # retry_jitter_base_ms=100 -> attempt 0 with max jitter is 0.1 s, not 100 s
+    assert sleeps == [pytest.approx(0.1)]
+
+
+def test_triton_numpy_call_single_concatenate(monkeypatch):
+    twmod = importlib.import_module("coffea.ml_tools.triton_wrapper")
+
+    monkeypatch.setattr(
+        twmod,
+        "tritonclient",
+        types.SimpleNamespace(
+            utils=types.SimpleNamespace(triton_to_np_dtype=lambda dt: np.float32)
+        ),
+        raising=False,
+    )
+
+    real_concat = twmod.numpy.concatenate
+    concat_calls = {"n": 0}
+
+    def counting_concat(seq, *a, **k):
+        if len(tuple(seq)) >= 2:
+            concat_calls["n"] += 1
+        return real_concat(seq, *a, **k)
+
+    monkeypatch.setattr(twmod.numpy, "concatenate", counting_concat)
+
+    class FakeInferInput:
+        def __init__(self, name, shape, dtype):
+            self.name = name
+
+        def set_data_from_numpy(self, arr):
+            self.arr = arr
+
+    class _tw(twmod.triton_wrapper):
+        def prepare_awkward(self, *a, **k):
+            return [], {}
+
+    _tw.pmod = types.SimpleNamespace(
+        InferInput=FakeInferInput, InferRequestedOutput=lambda o: o
+    )
+    obj = _tw.__new__(_tw)
+    obj._batch_size = 2
+    obj.model_inputs = {"x": {"shape": (-1, 3), "datatype": "FP32"}}
+    obj.model_outputs = {"y": {"shape": (-1, 3)}}
+    obj.run_infer = lambda inputs, outputs: types.SimpleNamespace(
+        as_numpy=lambda o: inputs[0].arr.copy()
+    )
+
+    x = np.arange(6 * 3).reshape(6, 3).astype(float)  # 3 full batches of size 2
+    out = obj.numpy_call(["y"], {"x": x})
+
+    assert np.array_equal(out["y"], x)
+    assert concat_calls["n"] == 1
 
 
 def prepare_jets_array(njets, tmp_path):

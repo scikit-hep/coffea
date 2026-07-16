@@ -119,19 +119,23 @@ class LumiData:
             self.index = _make_lumi_data_dict()
             runs = self._lumidata[:, 0].astype("u4")
             lumis = self._lumidata[:, 1].astype("u4")
-            # fill self.index
             LumiData._build_lumi_table_kernel(
                 runs, lumis, self._lumidata[:, 2], self.index
             )
-            # delayed object cache
-            if _isinstance(runlumis, "dask_awkward.lib.core.Array"):
-                dask = _import_dask()
-                self.index_delayed = dask.delayed(
-                    tuple([runs, lumis, self._lumidata[:, 2]])
-                )
 
         tot_lumi = numpy.zeros((1,), dtype=numpy.dtype("float64"))
         if _isinstance(runlumis, "dask_awkward.lib.core.Array"):
+            if self.index_delayed is None:
+                dask = _import_dask()
+                self.index_delayed = dask.delayed(
+                    tuple(
+                        [
+                            self._lumidata[:, 0].astype("u4"),
+                            self._lumidata[:, 1].astype("u4"),
+                            self._lumidata[:, 2],
+                        ]
+                    )
+                )
             dask_awkward = _import_dask_awkward()
             lumi_meta = wrap_get_lumi(runlumis._meta, self.index)
             lumi_per_partition = dask_awkward.map_partitions(
@@ -144,7 +148,10 @@ class LumiData:
             tot_lumi = awkward.sum(lumi_per_partition, keepdims=True)
         else:
             LumiData._get_lumi_kernel(
-                runlumis[:, 0], runlumis[:, 1], self.index, tot_lumi
+                runlumis[:, 0].astype(numpy.uint32),
+                runlumis[:, 1].astype(numpy.uint32),
+                self.index,
+                tot_lumi,
             )
         return (
             tot_lumi[0] * self.seconds_per_lumi_LHC

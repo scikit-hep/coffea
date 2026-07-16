@@ -296,3 +296,27 @@ def test_KaonParent_to_PionDaughters_Loop(eager_events):
     nested_bool_parent = p.PDG == PDG_IDs["K(S)0"]
     daughters_have_K_S0_parent = awkward.all(awkward.ravel(nested_bool_parent))
     assert daughters_have_K_S0_parent
+
+
+def test_fcc_unknown_collections_record_array():
+    from coffea.nanoevents.schemas.fcc import FCCSchema
+
+    schema = FCCSchema.__new__(FCCSchema)
+    schema.mixins_dictionary = {}
+    branch_forms = {
+        "Foo/Foo.bar": {
+            "class": "RecordArray",
+            "fields": ["x"],
+            "contents": [
+                {"class": "NumpyArray", "primitive": "float64", "form_key": "k"}
+            ],
+            "form_key": "fk",
+        }
+    }
+    output, _ = schema._unknown_collections({}, branch_forms, set())
+    assert output["Foo"]["parameters"]["__record__"] == "NanoCollection"
+
+
+def test_fcc_get_schema_bad_version():
+    with pytest.raises(ValueError):
+        FCC.get_schema("bad-version")
