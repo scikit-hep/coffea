@@ -1,5 +1,6 @@
 """NanoEvents and helpers"""
 
+from coffea.nanoevents.buffer_manager import BufferManager
 from coffea.nanoevents.factory import NanoEventsFactory
 from coffea.nanoevents.mapping import BufferCache, NoCompressionCodec
 from coffea.nanoevents.schemas import (
@@ -21,6 +22,7 @@ __all__ = [
     "NanoEventsFactory",
     "BaseSchema",
     "BufferCache",
+    "BufferManager",
     "NanoAODSchema",
     "NoCompressionCodec",
     "PFNanoAODSchema",
