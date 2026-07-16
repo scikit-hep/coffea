@@ -271,6 +271,42 @@ def test_histo_json_scalefactors():
     print(sf_err_out)
 
 
+def test_histo_json_scalefactors_multi():
+    # convert_histo_json_file looks up each histogram's own value names, so a file
+    # with more than one histogram round-trips every value table. Here dirA/histA
+    # has {value, error} and dirB/histB has {value, weight}; all four value tables
+    # must survive the conversion.
+    from coffea.lookup_tools.json_converters import convert_histo_json_file
+
+    out = convert_histo_json_file("tests/samples/multihist_WH_out.histo.json")
+    keys = {name for (name, _kind) in out.keys()}
+    assert keys == {
+        "dirA/histA_value",
+        "dirA/histA_error",
+        "dirB/histB_value",
+        "dirB/histB_weight",
+    }
+
+    # Values must match the source JSON, not the last histogram's tables.
+    assert list(out[("dirA/histA_value", "dense_lookup")][0]) == [1.0, 2.0]
+    assert list(out[("dirA/histA_error", "dense_lookup")][0]) == [
+        pytest.approx(0.1),
+        pytest.approx(0.2),
+    ]
+    assert list(out[("dirB/histB_value", "dense_lookup")][0]) == [5.0, 6.0]
+    assert list(out[("dirB/histB_weight", "dense_lookup")][0]) == [9.0, 8.0]
+
+    # End-to-end through the extractor/evaluator as well.
+    extractor = lookup_tools.extractor()
+    extractor.add_weight_sets(["testMulti * tests/samples/multihist_WH_out.histo.json"])
+    extractor.finalize()
+    evaluator = extractor.make_evaluator()
+
+    x = ak.Array([0.5, 1.5])
+    assert list(evaluator["testMultidirA/histA_value"](x)) == [1.0, 2.0]
+    assert list(evaluator["testMultidirB/histB_weight"](x)) == [9.0, 8.0]
+
+
 def test_jec_txt_scalefactors():
     extractor = lookup_tools.extractor()
     extractor.add_weight_sets(
