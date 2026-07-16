@@ -207,8 +207,22 @@ def test_three_vector():
         ),
     )
 
-    assert ak.all(abs(a.unit.rho - 1) < ATOL)
+    # ThreeVector.unit must normalize by the full 3D magnitude (p), so the
+    # resulting vector has p == 1 (not merely a unit transverse magnitude rho).
+    assert ak.all(abs(a.unit.p - 1) < ATOL)
+    assert ak.all(abs(a.unit.theta - a.theta) < ATOL)
     assert ak.all(abs(a.unit.phi - a.phi) < ATOL)
+
+    # (3, 4, 12) has rho=5 and p=13; normalizing by p yields a unit vector.
+    c = ak.zip(
+        {"x": [3.0], "y": [4.0], "z": [12.0]},
+        with_name="ThreeVector",
+        behavior=vector.behavior,
+    )
+    assert ak.all(abs(c.unit.p - 1) < ATOL)
+    assert ak.all(abs(c.unit.x - 3.0 / 13.0) < ATOL)
+    assert ak.all(abs(c.unit.y - 4.0 / 13.0) < ATOL)
+    assert ak.all(abs(c.unit.z - 12.0 / 13.0) < ATOL)
 
 
 def test_spherical_three_vector():
@@ -226,6 +240,12 @@ def test_spherical_three_vector():
     assert ak.all(abs((-a).y + a.y) < ATOL)
     assert ak.all(abs((-a).z + a.z) < ATOL)
     assert_record_arrays_equal(a * (-1), -a, check_type=True)
+
+    # SphericalThreeVector inherits ThreeVector.unit; it normalizes by the
+    # full 3D magnitude (p), preserving direction (theta, phi).
+    assert ak.all(abs(a.unit.p - 1) < ATOL)
+    assert ak.all(abs(a.unit.theta - a.theta) < ATOL)
+    assert ak.all(abs(a.unit.phi - a.phi) < ATOL)
 
 
 def test_lorentz_vector():

@@ -316,7 +316,7 @@ class ThreeVector(MomentumAwkward3D):
     @property
     def unit(self):
         """Unit vector, a vector of length 1 pointing in the same direction"""
-        return self / self.rho
+        return self / self.p
 
     def __awkward_validation__(self):
         fields = set(self.fields)
