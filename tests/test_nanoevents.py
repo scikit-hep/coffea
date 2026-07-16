@@ -120,6 +120,179 @@ def test_read_nanomc(tests_directory, suffix):
     ]
 
 
+def _discover_crossrefs(module):
+    # Cross-references are the mixin properties resolved through
+    # _apply_global_index; discover them from the schema itself so new ones are
+    # covered automatically. Skip the auto-generated Array/Record twins.
+    import inspect
+
+    pairs = []
+    for cname, cls in inspect.getmembers(module, inspect.isclass):
+        if cls.__module__ != module.__name__ or cname.endswith(("Array", "Record")):
+            continue
+        for pname, prop in inspect.getmembers(cls, lambda m: isinstance(m, property)):
+            try:
+                source = inspect.getsource(prop.fget)
+            except (OSError, TypeError):
+                continue
+            if "_apply_global_index" in source:
+                pairs.append((cname, pname))
+    return sorted(set(pairs))
+
+
+def _nanoaod_crossrefs():
+    from coffea.nanoevents.methods import nanoaod
+
+    return _discover_crossrefs(nanoaod)
+
+
+@pytest.fixture(scope="module")
+def nano_dy_modes(tests_directory):
+    pytest.importorskip("dask_awkward")
+    path = f"{tests_directory}/samples/nano_dy.root:Events"
+    NanoAODSchema.warn_missing_crossrefs = False
+    return {
+        mode: NanoEventsFactory.from_root(
+            path, schemaclass=NanoAODSchema, mode=mode
+        ).events()
+        for mode in ("eager", "virtual", "dask")
+    }
+
+
+@pytest.mark.parametrize("record,attr", _nanoaod_crossrefs())
+def test_nanoaod_crossref_target_type(nano_dy_modes, record, attr):
+    """Every ``matched_*``/parent/child cross-reference resolves the global index
+    against a specific collection. Sweep every cross-reference the schema defines
+    and require eager (known-correct), virtual, and dask to agree on the resolved
+    record type and fields.
+    """
+    eager = nano_dy_modes["eager"]
+    field = next(
+        (
+            f
+            for f in eager.fields
+            if eager[f].layout.purelist_parameter("__record__") == record
+        ),
+        None,
+    )
+    if field is None:
+        pytest.skip(f"{record} collection absent from nano_dy")
+
+    def resolve(mode):
+        obj = getattr(nano_dy_modes[mode][field], attr)
+        return obj._meta if mode == "dask" else obj
+
+    try:
+        ref = resolve("eager")
+    except Exception:
+        pytest.skip(f"{record}.{attr} unavailable in nano_dy")
+    ref_record = ref.layout.purelist_parameter("__record__")
+
+    for mode in ("virtual", "dask"):
+        got = resolve(mode)
+        assert got.layout.purelist_parameter("__record__") == ref_record
+        assert set(got.fields) == set(ref.fields)
+
+
+# Intended target collection of each NanoAOD cross-reference, read by hand from
+# the data model. This is an absolute oracle, independent of the implementation:
+# the mode-consistency test above cannot see a cross-reference that points at
+# the wrong collection in *every* mode (e.g. Muon.matched_jet -> Electron), but
+# a mismatch against this table does. AssociatedPFCand/SV resolve their target
+# dynamically from collection_map, so they carry no static literal to check.
+nanoaod_crossref_targets = {
+    ("Electron", "matched_gen"): "GenPart",
+    ("Electron", "matched_jet"): "Jet",
+    ("Electron", "matched_photon"): "Photon",
+    ("FatJet", "constituents"): "FatJetPFCands",
+    ("FatJet", "matched_gen"): "GenJetAK8",
+    ("FatJet", "subjets"): "SubJet",
+    ("FsrPhoton", "matched_muon"): "Muon",
+    ("GenParticle", "children"): "GenPart",
+    ("GenParticle", "distinctChildren"): "GenPart",
+    ("GenParticle", "distinctChildrenDeep"): "GenPart",
+    ("GenParticle", "distinctParent"): "GenPart",
+    ("GenParticle", "parent"): "GenPart",
+    ("GenVisTau", "parent"): "GenPart",
+    ("Jet", "constituents"): "JetPFCands",
+    ("Jet", "matched_electrons"): "Electron",
+    ("Jet", "matched_gen"): "GenJet",
+    ("Jet", "matched_muons"): "Muon",
+    ("LowPtElectron", "matched_electron"): "Electron",
+    ("LowPtElectron", "matched_gen"): "GenPart",
+    ("LowPtElectron", "matched_photon"): "Photon",
+    ("Muon", "matched_fsrPhoton"): "FsrPhoton",
+    ("Muon", "matched_gen"): "GenPart",
+    ("Muon", "matched_jet"): "Jet",
+    ("Photon", "matched_electron"): "Electron",
+    ("Photon", "matched_gen"): "GenPart",
+    ("Photon", "matched_jet"): "Jet",
+    ("Tau", "matched_gen"): "GenPart",
+    ("Tau", "matched_jet"): "Jet",
+}
+nanoaod_crossref_dynamic = {
+    ("AssociatedPFCand", "jet"),
+    ("AssociatedPFCand", "pf"),
+    ("AssociatedSV", "jet"),
+    ("AssociatedSV", "sv"),
+}
+
+
+def _crossref_source_bodies(prop):
+    import inspect
+
+    bodies = [inspect.getsource(prop.fget)]
+    dask_get = getattr(prop, "_dask_get", None)
+    if dask_get is not None and dask_get.__closure__:
+        for cell in dask_get.__closure__:
+            fn = cell.cell_contents
+            if callable(fn):
+                try:
+                    bodies.append(inspect.getsource(fn))
+                except (OSError, TypeError):
+                    pass
+    return bodies
+
+
+def test_nanoaod_crossref_declared_target():
+    """Absolute-consistency companion to test_nanoaod_crossref_target_type.
+
+    Parse every cross-reference's eager and dask source bodies and require each
+    literal ``_events().X._apply_global_index`` to match the hand-declared
+    target collection. This catches a cross-reference wired to the wrong
+    collection identically in all modes, which mode-consistency cannot. The
+    completeness assertions keep the table in lockstep with the schema.
+    """
+    import inspect
+    import re
+
+    from coffea.nanoevents.methods import nanoaod
+
+    literal = re.compile(r"_events\(\)\.(\w+)\._apply_global_index")
+    discovered = set()
+    for cname, cls in inspect.getmembers(nanoaod, inspect.isclass):
+        if cls.__module__ != nanoaod.__name__ or cname.endswith(("Array", "Record")):
+            continue
+        for pname, prop in vars(cls).items():
+            if not isinstance(prop, property):
+                continue
+            bodies = _crossref_source_bodies(prop)
+            if not any("_apply_global_index" in b for b in bodies):
+                continue
+            discovered.add((cname, pname))
+            if (cname, pname) in nanoaod_crossref_dynamic:
+                continue
+            target = nanoaod_crossref_targets.get((cname, pname))
+            assert target is not None, f"declare a target for {cname}.{pname}"
+            for body in bodies:
+                for owner in literal.findall(body):
+                    assert (
+                        owner == target
+                    ), f"{cname}.{pname} resolves against {owner}, expected {target}"
+
+    assert discovered == set(nanoaod_crossref_targets) | nanoaod_crossref_dynamic
+
+
 @pytest.mark.parametrize("suffix", suffixes)
 def test_read_from_uri(tests_directory, suffix):
     """Make sure we can properly open the file when a uri is used"""
