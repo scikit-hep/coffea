@@ -259,6 +259,8 @@ def test_awkward_form_json_matches_uproot_dask(sample, is_rntuple):
     """The dask-free form builder must stay byte-identical to uproot.dask's form for both TTree
     and RNTuple, otherwise the iterative/futures backends would store forms incompatible with the
     dask read path used at analysis time."""
+    pytest.importorskip("dask")
+    pytest.importorskip("dask_awkward")
     from functools import partial
 
     import uproot
