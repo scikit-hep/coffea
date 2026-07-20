@@ -119,6 +119,23 @@ def _rntuple_cluster_boundaries(rntuple, num_entries: int) -> list[int]:
     return boundaries
 
 
+def _serialize_user_metadata(user_meta, filename) -> str | None:
+    """Validate and JSON-encode a metadata_extractor result for transport in the worker record."""
+    if user_meta is None:
+        return None
+    if not isinstance(user_meta, dict):
+        raise ValueError(
+            f"metadata_extractor must return a dict, got {type(user_meta).__name__} "
+            f"for file {filename!r}."
+        )
+    try:
+        return json.dumps(user_meta)
+    except TypeError as err:
+        raise ValueError(
+            f"metadata_extractor result for file {filename!r} is not JSON-serializable: {err}"
+        ) from err
+
+
 _FORM_AK_ADD_DOC = {"__doc__": "title", "typename": "typename"}
 
 
@@ -219,6 +236,7 @@ def get_steps(
     uproot_options: dict = {},
     legacy_form_key: bool = True,
     require_rntuple: bool = False,
+    metadata_extractor: Callable | None = None,
 ) -> awkward.Array | dask_awkward.Array:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -250,6 +268,12 @@ def get_steps(
         require_rntuple : bool, default False
             If True, require every object to be an RNTuple and raise a ValueError otherwise.
             If False, TTree and RNTuple objects are auto-detected and handled transparently.
+        metadata_extractor : Callable or None, default None
+            User function called once per file with the open uproot file handle (the
+            ReadOnlyDirectory, not the tree); must return a JSON-serializable dict, which is
+            stored as that file's metadata. Runs inside the per-file error handling, so an
+            extraction failure participates in skip_bad_files/file_exceptions. Must be
+            picklable to run under process pools or distributed schedulers.
 
     Returns
     -------
@@ -273,12 +297,19 @@ def get_steps(
                     f"require_rntuple=True but {arg.object_path!r} in {arg.file!r} is a "
                     f"{type(tree).__name__}, not an RNTuple."
                 )
+            # run the user extractor on the open file handle, inside this block so a file
+            # whose extraction fails participates in skip_bad_files/file_exceptions
+            user_meta = (
+                metadata_extractor(the_file) if metadata_extractor is not None else None
+            )
         except file_exceptions as e:
             if skip_bad_files:
                 array.append(None)
                 continue
             else:
                 raise e
+
+        user_meta_json = _serialize_user_metadata(user_meta, arg.file)
 
         num_entries = tree.num_entries
 
@@ -318,6 +349,7 @@ def get_steps(
                     "uuid": file_uuid,
                     output_form_key: form_json,
                     "form_hash_md5": form_hash,
+                    "user_metadata_json": user_meta_json,
                 }
             )
             continue
@@ -353,6 +385,7 @@ def get_steps(
                 "uuid": out_uuid,
                 output_form_key: form_json,
                 "form_hash_md5": form_hash,
+                "user_metadata_json": user_meta_json,
             }
         )
 
@@ -367,6 +400,7 @@ def get_steps(
                     "uuid": "junk",
                     output_form_key: "junk",
                     "form_hash_md5": "junk",
+                    "user_metadata_json": "junk",
                 },
                 None,
             ]
@@ -678,6 +712,7 @@ def get_parquet_form_uuid_steps(
     save_form: bool = False,
     step_size_safety_factor: float = 0.5,
     parquet_options: dict = {},
+    metadata_extractor: Callable | None = None,
 ) -> awkward.Array | dask_awkward.Array:
     """
     Given a list of normalized file and object paths, determine the form, steps, uuid for each file according to the supplied processing options.
@@ -702,6 +737,12 @@ def get_parquet_form_uuid_steps(
         step_size_safety_factor : float, default 0.5
             When using use_row_groups, if a resulting step is larger than step_size by this factor
             warn the user that the resulting steps may be highly irregular.
+        metadata_extractor : Callable or None, default None
+            User function called once per file with the parquet metadata mapping returned by
+            ``awkward.metadata_from_parquet``; must return a JSON-serializable dict, which is
+            stored as that file's metadata. Runs inside the per-file error handling, so an
+            extraction failure participates in skip_bad_files/file_exceptions. Must be
+            picklable to run under process pools or distributed schedulers.
 
     Returns
     -------
@@ -716,12 +757,19 @@ def get_parquet_form_uuid_steps(
     for arg in lz_or_nf:
         try:
             the_file = awkward.metadata_from_parquet(arg.file, **parquet_options)
+            # run the user extractor on the parquet metadata, inside this block so a file
+            # whose extraction fails participates in skip_bad_files/file_exceptions
+            user_meta = (
+                metadata_extractor(the_file) if metadata_extractor is not None else None
+            )
         except file_exceptions as e:
             if skip_bad_files:
                 array.append(None)
                 continue
             else:
                 raise e
+
+        user_meta_json = _serialize_user_metadata(user_meta, arg.file)
 
         num_entries = the_file["num_rows"]
 
@@ -752,6 +800,7 @@ def get_parquet_form_uuid_steps(
                     "uuid": file_uuid,
                     "compressed_form": form_json,
                     "form_hash_md5": form_hash,
+                    "user_metadata_json": user_meta_json,
                 }
             )
             continue
@@ -788,6 +837,7 @@ def get_parquet_form_uuid_steps(
                 "uuid": out_uuid,
                 "compressed_form": form_json,
                 "form_hash_md5": form_hash,
+                "user_metadata_json": user_meta_json,
             }
         )
 
@@ -802,6 +852,7 @@ def get_parquet_form_uuid_steps(
                     "uuid": "junk",
                     "compressed_form": "junk",
                     "form_hash_md5": "junk",
+                    "user_metadata_json": "junk",
                 },
                 None,
             ]
@@ -833,6 +884,8 @@ def preprocess_root(
     allow_empty_datasets: bool = False,
     backend: str | PreprocessBackend = "dask",
     require_rntuple: bool = False,
+    metadata_extractor: Callable | None = None,
+    metadata_reducer: Callable | None = None,
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -880,6 +933,15 @@ def preprocess_root(
             A parquet dataset raises a ValueError; a TTree object raises a ValueError inside the
             worker, subject to ``skip_bad_files``/``file_exceptions`` like any other per-file
             error.
+        metadata_extractor : Callable or None, default None
+            User function called once per file with the open uproot file handle; must return a
+            JSON-serializable dict, stored as that file's ``metadata`` on its file spec. Runs
+            inside the per-file error handling (participates in skip_bad_files/file_exceptions)
+            and must be picklable.
+        metadata_reducer : Callable or None, default None
+            User function called once per dataset with ``{filename: extracted_dict}`` for the
+            available files; must return a dict, merged into the dataset's ``metadata`` (reducer
+            output takes precedence over existing keys) on both returned filesets.
     Returns
     -------
         out_available : DataGroupSpec
@@ -902,6 +964,8 @@ def preprocess_root(
         allow_empty_datasets=allow_empty_datasets,
         backend=backend,
         require_rntuple=require_rntuple,
+        metadata_extractor=metadata_extractor,
+        metadata_reducer=metadata_reducer,
     )
 
 
@@ -937,6 +1001,8 @@ def preprocess_parquet(
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
     backend: str | PreprocessBackend = "dask",
+    metadata_extractor: Callable | None = None,
+    metadata_reducer: Callable | None = None,
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Given a list of normalized files, determine the form, steps, and add the metadata for each file according to the supplied processing options.
@@ -972,6 +1038,15 @@ def preprocess_parquet(
             Execution backend for preprocessing: "dask" (default), "iterative" (immediate,
             synchronous, dask-free), "futures" (dask-free concurrent.futures thread pool), or a
             PreprocessBackend instance. The ``scheduler`` argument only affects the dask backend.
+        metadata_extractor : Callable or None, default None
+            User function called once per file with the parquet metadata mapping from
+            ``awkward.metadata_from_parquet``; must return a JSON-serializable dict, stored as
+            that file's ``metadata`` on its file spec. Runs inside the per-file error handling
+            (participates in skip_bad_files/file_exceptions) and must be picklable.
+        metadata_reducer : Callable or None, default None
+            User function called once per dataset with ``{filename: extracted_dict}`` for the
+            available files; must return a dict, merged into the dataset's ``metadata`` (reducer
+            output takes precedence over existing keys) on both returned filesets.
     Returns
     -------
         out_available : DataGroupSpec
@@ -993,6 +1068,8 @@ def preprocess_parquet(
         step_size_safety_factor=step_size_safety_factor,
         allow_empty_datasets=allow_empty_datasets,
         backend=backend,
+        metadata_extractor=metadata_extractor,
+        metadata_reducer=metadata_reducer,
     )
 
 
@@ -1011,6 +1088,8 @@ def _preprocess_pydantic(
     allow_empty_datasets: bool = False,
     require_rntuple: bool = False,
     backend: str | PreprocessBackend = "dask",
+    metadata_extractor: Callable | None = None,
+    metadata_reducer: Callable | None = None,
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Internal function to preprocess either ROOT or parquet DatasetSpecs in a DataGroupSpec.
@@ -1103,6 +1182,7 @@ def _preprocess_pydantic(
                 legacy_form_key=False,  # in the pydantic preprocess function, the output form key is always "compressed_form", "form" is a method to extract the uncompressed form
                 uproot_options=filetype_options,
                 require_rntuple=require_rntuple,
+                metadata_extractor=metadata_extractor,
             )
         elif info.format == "parquet":
             if require_rntuple:
@@ -1120,6 +1200,7 @@ def _preprocess_pydantic(
                 save_form=save_form,
                 step_size_safety_factor=step_size_safety_factor,
                 parquet_options=filetype_options,
+                metadata_extractor=metadata_extractor,
             )
         else:
             raise ValueError(
@@ -1161,7 +1242,14 @@ def _preprocess_pydantic(
             continue
 
         processed_files_without_forms = processed_files[
-            ["file", "object_path", "steps", "num_entries", "uuid"]
+            [
+                "file",
+                "object_path",
+                "steps",
+                "num_entries",
+                "uuid",
+                "user_metadata_json",
+            ]
         ]
 
         compressed_forms = processed_files[
@@ -1216,6 +1304,11 @@ def _preprocess_pydantic(
                 "num_entries": item["num_entries"],
                 "uuid": item["uuid"],
                 "experimental_field_bitset": bitset_by_file.get(item["file"]),
+                "metadata": (
+                    json.loads(item["user_metadata_json"])
+                    if item["user_metadata_json"] is not None
+                    else None
+                ),
             }
             for item in awkward.drop_none(processed_files_without_forms).to_list()
         }
@@ -1248,6 +1341,26 @@ def _preprocess_pydantic(
         out_updated[name]["files"] = files_out
         out_available[name]["files"] = files_available
 
+        # Reduce per-file extracted metadata into the dataset-level metadata (e.g. summing
+        # per-file sums-of-weights); the reducer output takes precedence over existing keys.
+        if metadata_reducer is not None:
+            per_file_meta = {
+                fname: info["metadata"]
+                for fname, info in files_available.items()
+                if info.get("metadata") is not None
+            }
+            if per_file_meta:
+                reduced = metadata_reducer(per_file_meta)
+                if not isinstance(reduced, dict):
+                    raise ValueError(
+                        f"metadata_reducer must return a dict, got {type(reduced).__name__} "
+                        f"for dataset {name!r}."
+                    )
+                for out in (out_updated, out_available):
+                    merged = dict(out[name].get("metadata") or {})
+                    merged.update(reduced)
+                    out[name]["metadata"] = merged
+
         compressed_union_form = (
             compress_form(union_form_jsonstr) if union_form_jsonstr else None
         )
@@ -1276,10 +1389,13 @@ def _advertise_datagroupspec() -> None:
 def _datagroupspec_to_dict(datagroupspec: DataGroupSpec) -> dict:
     """Convert a DataGroupSpec back to a plain (JSON-serializable) dict fileset.
 
-    The legacy dict format does not carry experimental fields.
+    The legacy dict format does not carry per-file metadata or experimental fields
+    (dataset-level metadata is kept).
     """
     return datagroupspec.model_dump(
-        exclude={"__all__": {"files": {"__all__": {"experimental_field_bitset"}}}}
+        exclude={
+            "__all__": {"files": {"__all__": {"metadata", "experimental_field_bitset"}}}
+        }
     )
 
 
@@ -1300,6 +1416,8 @@ def preprocess(
     use_row_groups: bool = False,
     parquet_options: dict = {},
     backend: str | PreprocessBackend = "dask",
+    metadata_extractor: Callable | None = None,
+    metadata_reducer: Callable | None = None,
 ) -> tuple[DataGroupSpec, DataGroupSpec] | tuple[dict, dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -1352,6 +1470,19 @@ def preprocess(
             synchronous, dask-free), "futures" (dask-free concurrent.futures thread pool), or a
             PreprocessBackend instance. The ``scheduler`` argument only affects the dask backend.
             Ignored when ``preprocess_legacy_root=True`` (the legacy path is always dask-based).
+        metadata_extractor : Callable or None, default None
+            User function called once per file with the open file handle (uproot
+            ReadOnlyDirectory for ROOT files, ``awkward.metadata_from_parquet`` mapping for
+            parquet); must return a JSON-serializable dict, stored as that file's ``metadata``
+            on its file spec (pydantic output only; the legacy dict output does not carry
+            per-file metadata). Runs inside the per-file error handling and must be picklable.
+            Not supported with ``preprocess_legacy_root=True``.
+        metadata_reducer : Callable or None, default None
+            User function called once per dataset with ``{filename: extracted_dict}`` for the
+            available files; must return a dict, merged into the dataset's ``metadata``
+            (reducer output takes precedence over existing keys) on both returned filesets.
+            The reduced dataset-level metadata survives dict output as well. Not supported
+            with ``preprocess_legacy_root=True``.
     Returns
     -------
         out_available : DataGroupSpec | dict
@@ -1360,6 +1491,14 @@ def preprocess(
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
     input_is_dict = not isinstance(fileset, DataGroupSpec)
+
+    if preprocess_legacy_root and (
+        metadata_extractor is not None or metadata_reducer is not None
+    ):
+        raise ValueError(
+            "metadata_extractor/metadata_reducer are not supported with "
+            "preprocess_legacy_root=True; use the pydantic preprocessing path."
+        )
 
     if preprocess_legacy_root:
         # use the legacy root TTree preprocessing function if requested;
@@ -1440,6 +1579,8 @@ def preprocess(
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
             backend=backend,
+            metadata_extractor=metadata_extractor,
+            metadata_reducer=metadata_reducer,
         )
         out_available_parquet, out_updated_parquet = preprocess_parquet(
             datasetspecs.filter_datasets(
@@ -1457,6 +1598,8 @@ def preprocess(
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
             backend=backend,
+            metadata_extractor=metadata_extractor,
+            metadata_reducer=metadata_reducer,
         )
         # recombine outputs in original order, skipping datasets removed due to allow_empty_datasets.
         # The sub-results are already-validated DatasetSpec instances, so use model_construct to

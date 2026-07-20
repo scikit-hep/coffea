@@ -33,6 +33,9 @@ class GenericFileSpec(BaseModel):
     format: str | None = None
     lfn: str | None = None
     pfn: str | None = None
+    # Per-file user metadata, e.g. filled by preprocess(metadata_extractor=...). Must be
+    # JSON-serializable. Carried by the pydantic models only; legacy dict conversions drop it.
+    metadata: dict[str, Any] | None = None
     # Experimental: hex bitset over the owning dataset's union-form top-level fields
     # (bit i set = field i is present in this file); meaningful only relative to that
     # dataset's saved form field order. Subject to change; do not rely on the encoding.
@@ -72,6 +75,13 @@ class GenericFileSpec(BaseModel):
             new_spec["num_entries"] = self.num_entries
         else:
             new_spec["num_entries"] = max(self.num_entries, other.num_entries)
+        if self.metadata is None:
+            new_spec["metadata"] = other.metadata
+        elif other.metadata is not None:
+            # merge per-file metadata dictionaries, with other taking precedence
+            merged_meta = dict(self.metadata)
+            merged_meta.update(other.metadata)
+            new_spec["metadata"] = merged_meta
         if self.experimental_field_bitset is None:
             new_spec["experimental_field_bitset"] = other.experimental_field_bitset
         elif other.experimental_field_bitset not in (
@@ -1119,8 +1129,8 @@ class ModelFactory:
             raise TypeError(
                 f"{cls.__name__}.filespec_to_dict expects a Coffea(Parquet)FileSpec(Optional), got {type(input)} instead: {input}"
             )
-        # the legacy dict format does not carry experimental fields
-        return input.model_dump(exclude={"experimental_field_bitset"})
+        # the legacy dict format does not carry per-file metadata or experimental fields
+        return input.model_dump(exclude={"metadata", "experimental_field_bitset"})
 
     @classmethod
     def dict_to_datasetspec(cls, input: dict[str, Any], verbose=False) -> DatasetSpec:
@@ -1136,9 +1146,11 @@ class ModelFactory:
             input, DatasetSpec
         ), f"{cls.__name__}.datasetspec_to_dict expects a DatasetSpec, got {type(input)} instead: {input}"
         if coerce_filespec_to_dict:
-            # the legacy dict format does not carry experimental fields
+            # the legacy dict format does not carry per-file metadata or experimental fields
             return input.model_dump(
-                exclude={"files": {"__all__": {"experimental_field_bitset"}}}
+                exclude={
+                    "files": {"__all__": {"metadata", "experimental_field_bitset"}}
+                }
             )
         else:
             return dict(input)
