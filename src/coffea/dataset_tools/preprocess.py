@@ -31,6 +31,10 @@ from coffea.dataset_tools.filespec import (
     DatasetSpec,
     ModelFactory,
 )
+from coffea.dataset_tools.forms import (
+    encode_field_bitset,
+)
+from coffea.dataset_tools.forms import union_form_jsonstr as _union_form_jsonstr
 from coffea.dataset_tools.preprocess_backends import (
     DaskBackend,
     PreprocessBackend,
@@ -113,53 +117,6 @@ def _rntuple_cluster_boundaries(rntuple, num_entries: int) -> list[int]:
     boundaries = [cluster.num_first_entry for cluster in rntuple.cluster_summaries]
     boundaries.append(num_entries)
     return boundaries
-
-
-def _union_form_jsonstr(forms: list) -> str | None:
-    """Compute the union form (as a JSON string) over a list of awkward forms.
-
-    The input list is consumed. Returns None if the list is empty. Mirrors the merging of
-    flat-tuple-like schemas used when building a dataset's union form across files.
-    """
-    union_array = None
-    while len(forms):
-        new_array = awkward.Array(forms.pop().length_zero_array())
-        if union_array is None:
-            union_array = new_array
-        else:
-            union_array = awkward.to_packed(
-                awkward.merge_union_of_records(
-                    awkward.concatenate([union_array, new_array]), axis=0
-                )
-            )
-            union_array.layout.parameters.update(new_array.layout.parameters)
-    if union_array is None:
-        return None
-
-    union_form = union_array.layout.form
-    for icontent, content in enumerate(union_form.contents):
-        if isinstance(content, awkward.forms.IndexedOptionForm):
-            if (
-                not isinstance(content.content, awkward.forms.NumpyForm)
-                or content.content.primitive != "bool"
-            ):
-                raise ValueError(
-                    "IndexedOptionArrays can only contain NumpyArrays of "
-                    "bools in mergers of flat-tuple-like schemas!"
-                )
-            parameters = (
-                content.content.parameters.copy()
-                if content.content.parameters is not None
-                else {}
-            )
-            # re-create IndexOptionForm with parameters of lower level array
-            union_form.contents[icontent] = awkward.forms.IndexedOptionForm(
-                content.index,
-                content.content,
-                parameters=parameters,
-                form_key=content.form_key,
-            )
-    return union_form.to_json()
 
 
 _FORM_AK_ADD_DOC = {"__doc__": "title", "typename": "typename"}
@@ -1216,17 +1173,18 @@ def _preprocess_pydantic(
         )
 
         dataset_forms = []
+        fields_by_hash = {}
         unique_forms = compressed_forms[unique_forms_idx]
-        for thefile, formstr, num_entries in zip(
-            unique_forms.file, unique_forms.compressed_form, unique_forms.num_entries
-        ):
+        for item in unique_forms.to_list():
+            form = awkward.forms.from_json(decompress_form(item["compressed_form"]))
+            fields_by_hash[item["form_hash_md5"]] = set(form.fields)
             # skip trivially filled or empty files
-            form = awkward.forms.from_json(decompress_form(formstr))
             if set(form.fields) != _trivial_file_fields:
                 dataset_forms.append(form)
             else:
                 warnings.warn(
-                    f"{thefile} has fields {form.fields} and num_entries={num_entries} "
+                    f"{item['file']} has fields {form.fields} and "
+                    f"num_entries={item['num_entries']} "
                     "and has been skipped during form-union determination. You will need "
                     "to skip this file when processing. You can either manually remove it "
                     "or, if it is an empty file, dynamically remove it with the function "
@@ -1236,6 +1194,19 @@ def _preprocess_pydantic(
 
         union_form_jsonstr = _union_form_jsonstr(dataset_forms)
 
+        # Per-file experimental field bitsets: which top-level union-form fields each file
+        # carries, encoded against the union field order. These enable offline pruning of the
+        # union form when files are filtered out and per-file branch-set comparisons.
+        bitset_by_file = {}
+        if union_form_jsonstr is not None:
+            union_fields = awkward.forms.from_json(union_form_jsonstr).fields
+            for item in compressed_forms[["file", "form_hash_md5"]].to_list():
+                file_fields = fields_by_hash.get(item["form_hash_md5"])
+                if file_fields is not None:
+                    bitset_by_file[item["file"]] = encode_field_bitset(
+                        file_fields, union_fields
+                    )
+
         # Index successfully-processed files by filename. Skipped/bad files were dropped as
         # None by the worker and are simply absent here.
         available_by_file = {
@@ -1244,6 +1215,7 @@ def _preprocess_pydantic(
                 "steps": item["steps"],
                 "num_entries": item["num_entries"],
                 "uuid": item["uuid"],
+                "experimental_field_bitset": bitset_by_file.get(item["file"]),
             }
             for item in awkward.drop_none(processed_files_without_forms).to_list()
         }
@@ -1302,8 +1274,13 @@ def _advertise_datagroupspec() -> None:
 
 
 def _datagroupspec_to_dict(datagroupspec: DataGroupSpec) -> dict:
-    """Convert a DataGroupSpec back to a plain (JSON-serializable) dict fileset."""
-    return datagroupspec.model_dump()
+    """Convert a DataGroupSpec back to a plain (JSON-serializable) dict fileset.
+
+    The legacy dict format does not carry experimental fields.
+    """
+    return datagroupspec.model_dump(
+        exclude={"__all__": {"files": {"__all__": {"experimental_field_bitset"}}}}
+    )
 
 
 def preprocess(
