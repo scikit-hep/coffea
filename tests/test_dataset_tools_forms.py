@@ -16,6 +16,11 @@ from coffea.dataset_tools.forms import (
 
 _DY = "tests/samples/nano_dy.root"
 
+# Two CMS NanoAOD files carrying disjoint subsets of GenModel_TChiZH_* model-point flags
+# (the GenModel case #1478 targets): file A has GenModel_TChiZH_700_1, file B does not.
+_GENMODEL_A = "tests/samples/nano_genmodel_with20_700_1_with0_1100_200_with0_950_400"
+_GENMODEL_B = "tests/samples/nano_genmodel_without_700_1_with0_1100_200_with20_950_400"
+
 
 def _record_form(**fields):
     return awkward.Array([fields]).layout.form
@@ -266,3 +271,114 @@ def test_bitset_roundtrips_through_json(hlt_files):
             restored.files[fname].experimental_field_bitset
             == ds.files[fname].experimental_field_bitset
         )
+
+
+# --------------------------------------------------------------------------------------
+# GenModel: real CMS NanoAOD files with disjoint model-point (GenModel) branch subsets
+# --------------------------------------------------------------------------------------
+
+_GM_700 = "GenModel_TChiZH_700_1"
+
+
+@pytest.mark.parametrize(
+    "ext, object_path",
+    [(".root", "Events"), (".parquet", None)],
+)
+def test_genmodel_union_makes_absent_fields_optional(ext, object_path):
+    """Adding two DatasetSpecs whose files carry disjoint GenModel model-point flags unions
+    their forms: the result is a superset of both, and a flag present in only one file becomes
+    an option type so it stays readable (as None) for the file that lacks it -- the GenModel
+    behavior #1478 targets, for both ROOT and parquet inputs."""
+    files_a = {_GENMODEL_A + ext: object_path}
+    files_b = {_GENMODEL_B + ext: object_path}
+    da, _ = preprocess(
+        DataGroupSpec({"genmodel": {"files": files_a}}),
+        save_form=True,
+        backend="iterative",
+    )
+    db, _ = preprocess(
+        DataGroupSpec({"genmodel": {"files": files_b}}),
+        save_form=True,
+        backend="iterative",
+    )
+    fields_a = set(da["genmodel"].form.fields)
+    fields_b = set(db["genmodel"].form.fields)
+    # the fixtures differ in their GenModel subset, and only file A has GenModel_TChiZH_700_1
+    assert fields_a != fields_b
+    assert _GM_700 in fields_a and _GM_700 not in fields_b
+
+    combined = da["genmodel"] + db["genmodel"]
+    union = combined.form
+    assert set(union.fields) == fields_a | fields_b
+
+    # a flag present in only one file is an IndexedOptionArray(bool) in the union
+    only_in_a = sorted(fields_a - fields_b)
+    content = union.contents[union.fields.index(only_in_a[0])]
+    assert isinstance(content, awkward.forms.IndexedOptionForm)
+    assert isinstance(content.content, awkward.forms.NumpyForm)
+    assert content.content.primitive == "bool"
+    # GenModel_TChiZH_700_1 (present only in A) is optional in the union
+    assert isinstance(
+        union.contents[union.fields.index(_GM_700)], awkward.forms.IndexedOptionForm
+    )
+
+
+def test_genmodel_matches_joint_preprocess():
+    """The union built by adding two separately-preprocessed GenModel DatasetSpecs equals the
+    form built by preprocessing both files together in one dataset."""
+    da, _ = preprocess(
+        DataGroupSpec({"genmodel": {"files": {_GENMODEL_A + ".root": "Events"}}}),
+        save_form=True,
+        backend="iterative",
+    )
+    db, _ = preprocess(
+        DataGroupSpec({"genmodel": {"files": {_GENMODEL_B + ".root": "Events"}}}),
+        save_form=True,
+        backend="iterative",
+    )
+    joint, _ = preprocess(
+        DataGroupSpec(
+            {
+                "genmodel": {
+                    "files": {
+                        _GENMODEL_A + ".root": "Events",
+                        _GENMODEL_B + ".root": "Events",
+                    }
+                }
+            }
+        ),
+        save_form=True,
+        backend="iterative",
+    )
+    assert (da["genmodel"] + db["genmodel"]).form == joint["genmodel"].form
+
+
+def test_genmodel_bitsets_and_filter_prune():
+    """Each GenModel file's experimental bitset decodes to its own branch set, and filtering the
+    combined dataset back to one file prunes the union form to that file's branches."""
+    combined, _ = preprocess(
+        DataGroupSpec(
+            {
+                "genmodel": {
+                    "files": {
+                        _GENMODEL_A + ".root": "Events",
+                        _GENMODEL_B + ".root": "Events",
+                    }
+                }
+            }
+        ),
+        save_form=True,
+        backend="iterative",
+    )
+    ds = combined["genmodel"]
+    union_fields = list(ds.form.fields)
+    present_a = decode_field_bitset(
+        ds.files[_GENMODEL_A + ".root"].experimental_field_bitset, union_fields
+    )
+    assert _GM_700 in present_a
+
+    only_a = ds.filter_files(filter_name=".*with20_700_1.*")
+    assert list(only_a.files) == [_GENMODEL_A + ".root"]
+    # the pruned form is exactly file A's fields, and still carries GenModel_TChiZH_700_1
+    assert set(only_a.form.fields) == present_a
+    assert _GM_700 in only_a.form.fields
