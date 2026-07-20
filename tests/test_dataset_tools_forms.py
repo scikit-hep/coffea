@@ -382,3 +382,73 @@ def test_genmodel_bitsets_and_filter_prune():
     # the pruned form is exactly file A's fields, and still carries GenModel_TChiZH_700_1
     assert set(only_a.form.fields) == present_a
     assert _GM_700 in only_a.form.fields
+
+
+def _genmodel_events(files, form, mode="dask"):
+    from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+
+    NanoAODSchema.warn_missing_crossrefs = False
+    return NanoEventsFactory.from_root(
+        files, schemaclass=NanoAODSchema, known_base_form=form, mode=mode
+    ).events()
+
+
+def _genmodel_form(files):
+    out, _ = preprocess(
+        DataGroupSpec({"g": {"files": files}}), save_form=True, backend="iterative"
+    )
+    return out["g"].form
+
+
+def test_genmodel_union_form_preserves_masked_events():
+    """Events passing a GenModel model-point mask survive the union form unchanged. File A's
+    GenModel_TChiZH_700_1 selection is the same read with A's own saved form or the dataset union
+    form, and for each model point the combined (A+B) count equals the per-file sum and the known
+    per-file truth (700_1: 20 from A only; 950_400: 20 from B only; 1100_200: 0). Uses the dask
+    read path, where the union form injects the option-typed flag physically absent from a file.
+    """
+    pytest.importorskip("dask")
+    pytest.importorskip("dask_awkward")
+
+    a_root = _GENMODEL_A + ".root"
+    b_root = _GENMODEL_B + ".root"
+    form_a = _genmodel_form({a_root: "Events"})
+    union = _genmodel_form({a_root: "Events", b_root: "Events"})
+
+    def selected(files, form, point):
+        events = _genmodel_events(files, form)
+        mask = awkward.fill_none(events.GenModel[point], False)
+        return int(awkward.count_nonzero(mask).compute())
+
+    # the precise regression: applying the union form does not falsify A's True flags
+    assert selected({a_root: "Events"}, form_a, "TChiZH_700_1") == 20
+    assert selected({a_root: "Events"}, union, "TChiZH_700_1") == 20
+
+    for point, truth in [
+        ("TChiZH_700_1", 20),
+        ("TChiZH_1100_200", 0),
+        ("TChiZH_950_400", 20),
+    ]:
+        a = selected({a_root: "Events"}, union, point)
+        b = selected({b_root: "Events"}, union, point)
+        together = selected({a_root: "Events", b_root: "Events"}, union, point)
+        assert a + b == together == truth, point
+
+
+def test_genmodel_union_flag_requires_fill_none_for_masking():
+    """A model-point flag absent from a file is injected as None by the union form, so selecting
+    events with fill_none(flag, False) keeps only the True rows (20, all from file A), while the
+    raw option-type mask keeps the None rows too and over-selects every event (40)."""
+    pytest.importorskip("dask")
+    pytest.importorskip("dask_awkward")
+
+    a_root = _GENMODEL_A + ".root"
+    b_root = _GENMODEL_B + ".root"
+    union = _genmodel_form({a_root: "Events", b_root: "Events"})
+    events = _genmodel_events({a_root: "Events", b_root: "Events"}, union)
+    flag = events.GenModel.TChiZH_700_1
+
+    n_fill = int(awkward.num(events[awkward.fill_none(flag, False)], axis=0).compute())
+    n_raw = int(awkward.num(events[flag], axis=0).compute())
+    assert n_fill == 20
+    assert n_raw == 40
