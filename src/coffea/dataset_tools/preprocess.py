@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import json
 import math
 import warnings
 from collections.abc import Callable
@@ -19,8 +20,8 @@ from uproot._util import no_filter
 try:
     # Private uproot helper that builds a TTree's awkward form without dask. It is exactly what
     # uproot.dask() uses internally, so the result is byte-identical to
-    # uproot.dask(tree).layout.form (verified in the test suite). Guarded so a uproot release
-    # that moves or renames it degrades gracefully to the dask-based path below.
+    # uproot.dask(tree).layout.form. Guarded so a uproot release that moves or renames it
+    # degrades gracefully to the dask-based path below.
     from uproot._dask import _get_ttree_form as _uproot_get_ttree_form
 except Exception:  # pragma: no cover - depends on uproot internals
     _uproot_get_ttree_form = None
@@ -164,15 +165,17 @@ def _union_form_jsonstr(forms: list) -> str | None:
 _FORM_AK_ADD_DOC = {"__doc__": "title", "typename": "typename"}
 
 
-def _null_form_keys(form):
-    """Return a copy of ``form`` with every ``form_key`` set to ``None``.
+def _form_json_with_null_keys(form) -> str:
+    """Serialize ``form`` to JSON with every ``form_key`` set to ``None``.
 
     ``uproot.dask`` exposes its *meta* (typetracer) form, whose form keys are null, whereas
     ``_get_ttree_form`` carries RNTuple column keys (``"column-N"``). Nulling the keys makes the
-    extracted form byte-identical to ``uproot.dask(...).layout.form`` and is a no-op for TTree
-    forms (already keyless). Implemented via the stable ``to_dict``/``from_dict`` round-trip.
+    serialized form byte-identical to ``uproot.dask(...).layout.form.to_json()`` and is a no-op
+    for TTree forms (already keyless). The keys are stripped on the ``to_dict`` representation
+    and serialized directly, matching ``Form.to_json`` (``json.dumps`` of the verbose dict)
+    without rebuilding a ``Form`` tree in between.
     """
-    form_dict = form.to_dict()
+    form_dict = form.to_dict(verbose=True)
 
     def _strip(node):
         if isinstance(node, dict):
@@ -185,7 +188,7 @@ def _null_form_keys(form):
                 _strip(value)
 
     _strip(form_dict)
-    return awkward.forms.from_dict(form_dict)
+    return json.dumps(form_dict)
 
 
 def _awkward_form_json(tree, is_rntuple: bool) -> str:
@@ -195,9 +198,6 @@ def _awkward_form_json(tree, is_rntuple: bool) -> str:
     branches and RNTuple fields) and nulls the resulting form keys, producing output
     byte-identical to ``uproot.dask(...).layout.form.to_json()``. This is what lets the
     ``iterative``/``futures`` backends extract forms in a dask-free environment for both formats.
-
-    See the ``uproot-awkward-form-accessor`` dev note (a follow-up to expose a public uproot form
-    accessor) for how this should eventually collapse to a single public uproot call.
     """
     # RNTuples filter on fields and use full field paths; TTrees filter on branches.
     filter_kwarg = "filter_field" if is_rntuple else "filter_branch"
@@ -210,17 +210,18 @@ def _awkward_form_json(tree, is_rntuple: bool) -> str:
         **{filter_kwarg: partial(_is_interpretable, emit_warning=False)},
     )
     base_form = _uproot_get_ttree_form(awkward, tree, common_keys, _FORM_AK_ADD_DOC)
-    return _null_form_keys(base_form).to_json()
+    return _form_json_with_null_keys(base_form)
 
 
-def _dask_form_json(uproot_target, is_rntuple: bool) -> str:
+def _dask_form_json(uproot_target, is_rntuple: bool, uproot_options: dict = {}) -> str:
     """Build a form JSON via ``uproot.dask`` (requires dask).
 
     Fallback used only when uproot's internal form builder (``_get_ttree_form``) is unavailable
     (an unexpected uproot version); the dask-free :func:`_awkward_form_json` is preferred for both
     TTree and RNTuple. ``uproot_target`` is an already-open TTree object, or a
     ``{file: object_path}`` mapping (required for RNTuples, which cannot build a form from an
-    already-open object via ``uproot.dask``).
+    already-open object via ``uproot.dask``). ``uproot_options`` is forwarded to the file open
+    when ``uproot_target`` is a mapping.
     """
     if is_rntuple:
         form_dask = uproot.dask(
@@ -231,6 +232,7 @@ def _dask_form_json(uproot_target, is_rntuple: bool) -> str:
             filter_name=no_filter,
             filter_typename=no_filter,
             filter_branch=partial(_is_interpretable, emit_warning=False),
+            **uproot_options,
         )
     else:
         form_dask = uproot.dask(
@@ -297,6 +299,7 @@ def get_steps(
         array : awkward.Array or dask_awkward.Array
             The normalized file descriptions, appended with the calculated steps for those files.
     """
+    _validate_step_size(step_size)
     nf_backend = awkward.backend(normed_files)
     lz_or_nf = awkward.typetracer.length_zero_if_typetracer(normed_files)
     output_form_key = "form" if legacy_form_key else "compressed_form"
@@ -306,19 +309,19 @@ def get_steps(
         try:
             the_file = uproot.open({arg.file: None}, **uproot_options)
             tree = the_file[arg.object_path]
+            is_rntuple = isinstance(tree, uproot.behaviors.RNTuple.HasFields)
+            if require_rntuple and not is_rntuple:
+                # raised inside this block so skip_bad_files/file_exceptions can skip the file
+                raise ValueError(
+                    f"require_rntuple=True but {arg.object_path!r} in {arg.file!r} is a "
+                    f"{type(tree).__name__}, not an RNTuple."
+                )
         except file_exceptions as e:
             if skip_bad_files:
                 array.append(None)
                 continue
             else:
                 raise e
-
-        is_rntuple = isinstance(tree, uproot.behaviors.RNTuple.HasFields)
-        if require_rntuple and not is_rntuple:
-            raise ValueError(
-                f"require_rntuple=True but {arg.object_path!r} in {arg.file!r} is a "
-                f"{type(tree).__name__}, not an RNTuple."
-            )
 
         num_entries = tree.num_entries
 
@@ -330,7 +333,11 @@ def get_steps(
                 form_str = _awkward_form_json(tree, is_rntuple)
             elif is_rntuple:
                 # uproot without the private form builder: fall back to the dask-based path
-                form_str = _dask_form_json({arg.file: arg.object_path}, is_rntuple=True)
+                form_str = _dask_form_json(
+                    {arg.file: arg.object_path},
+                    is_rntuple=True,
+                    uproot_options=uproot_options,
+                )
             else:
                 form_str = _dask_form_json(tree, is_rntuple=False)
 
@@ -744,6 +751,7 @@ def get_parquet_form_uuid_steps(
         array : awkward.Array | dask_awkward.Array
             The normalized file descriptions, appended with the calculated steps for those files.
     """
+    _validate_step_size(step_size)
     nf_backend = awkward.backend(normed_files)
     lz_or_nf = awkward.typetracer.length_zero_if_typetracer(normed_files)
 
@@ -775,8 +783,8 @@ def get_parquet_form_uuid_steps(
 
         file_uuid = the_file.get("uuid", None)
 
-        # Mirror the ROOT get_steps num_entries==0 guard: a 0-row file would otherwise reach
-        # _even_steps(0, 0) (division by zero) or _aligned_steps on empty row-group boundaries.
+        # A 0-row file gets a single trivial step: it has no row groups to align to and no
+        # entries to split into steps.
         if num_entries == 0:
             array.append(
                 {
@@ -793,20 +801,6 @@ def get_parquet_form_uuid_steps(
 
         out_uuid = arg.uuid
         out_steps = arg.steps
-
-        if num_entries == 0:
-            array.append(
-                {
-                    "file": arg.file,
-                    "object_path": arg.object_path,
-                    "steps": [[0, 0]],
-                    "num_entries": num_entries,
-                    "uuid": file_uuid,
-                    "compressed_form": form_json,
-                    "form_hash_md5": form_hash,
-                }
-            )
-            continue
 
         if out_uuid != file_uuid or recalculate_steps:
             if use_row_groups:
@@ -881,12 +875,13 @@ def preprocess_root(
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
     backend: str | PreprocessBackend = "dask",
+    require_rntuple: bool = False,
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
 
-    Both TTree and RNTuple objects are auto-detected and handled; use :func:`preprocess_rntuple`
-    if you want to require that every object is an RNTuple.
+    Both TTree and RNTuple objects are auto-detected and handled; pass ``require_rntuple=True``
+    (or use the :func:`preprocess_rntuple` alias) to require that every object is an RNTuple.
 
     Parameters
     ----------
@@ -923,6 +918,11 @@ def preprocess_root(
             Execution backend for preprocessing: "dask" (default), "iterative" (immediate,
             synchronous, dask-free), "futures" (dask-free concurrent.futures thread pool), or a
             PreprocessBackend instance. The ``scheduler`` argument only affects the dask backend.
+        require_rntuple : bool, default False
+            If True, require every dataset to be ROOT-format and every object to be an RNTuple.
+            A parquet dataset raises a ValueError; a TTree object raises a ValueError inside the
+            worker, subject to ``skip_bad_files``/``file_exceptions`` like any other per-file
+            error.
     Returns
     -------
         out_available : DataGroupSpec
@@ -944,92 +944,26 @@ def preprocess_root(
         step_size_safety_factor=step_size_safety_factor,
         allow_empty_datasets=allow_empty_datasets,
         backend=backend,
+        require_rntuple=require_rntuple,
     )
 
 
 def preprocess_rntuple(
     datagroupspec: DataGroupSpec,
-    step_size: None | int = None,
-    align_clusters: bool = False,
-    recalculate_steps: bool = False,
-    files_per_batch: int = 1,
-    skip_bad_files: bool = False,
-    file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
-    save_form: bool = True,
-    scheduler: None | Callable | str = None,
-    uproot_options: dict = {},
-    step_size_safety_factor: float = 0.5,
-    allow_empty_datasets: bool = False,
-    backend: str | PreprocessBackend = "dask",
+    **kwargs,
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Preprocess datasets of ROOT files containing RNTuples, determining the steps for each file.
 
-    This is the RNTuple-specific counterpart to :func:`preprocess_root` (which is implicitly
-    TTree-oriented) and :func:`preprocess_parquet`. It requires every object to be an RNTuple
-    and raises a ValueError if a TTree is encountered, making it useful to assert the intended
-    file type. ``preprocess`` and ``preprocess_root`` already auto-detect and handle RNTuples
-    transparently, so this function is primarily for RNTuple-only workflows that want the
-    stricter contract.
-
-    Parameters
-    ----------
-        datagroupspec : DataGroupSpec
-            The set of datasets whose files will be preprocessed.
-        step_size : int or None, default None
-            If specified, the size of the steps to make when analyzing the input files.
-        align_clusters : bool, default False
-            Round to the RNTuple cluster boundaries when chunks are specified. Reduces data
-            transfer in analysis.
-        recalculate_steps : bool, default False
-            If steps are present in the input normed files, force the recalculation of those steps,
-            instead of only recalculating the steps if the uuid has changed.
-        files_per_batch : int, default 1
-            The number of files to preprocess in a single batch.
-            Large values will result in fewer dask tasks but each task will have to do more work.
-        skip_bad_files : bool, default False
-            Instead of failing, catch exceptions specified by file_exceptions and return null data.
-        file_exceptions : Exception or Warning or tuple[Exception or Warning], default (OSError,)
-            What exceptions to catch when skipping bad files.
-        save_form : bool, default True
-            Extract the form of the RNTuple from each file in each dataset, creating the union of the forms over the dataset.
-        scheduler : None or Callable or str, default None
-            Specifies the scheduler that dask should use to execute the preprocessing task graph.
-        uproot_options : dict, default {}
-            Options to pass to get_steps for opening files with uproot.
-        step_size_safety_factor : float, default 0.5
-            When using align_clusters, if a resulting step is larger than step_size by this factor
-            warn the user that the resulting steps may be highly irregular.
-        allow_empty_datasets : bool, default False
-            When a dataset query comes back completely empty, this is normally considered a processing error.
-            Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
-        backend : str or PreprocessBackend, default "dask"
-            Execution backend for preprocessing: "dask" (default), "iterative" (immediate,
-            synchronous, dask-free), "futures" (dask-free concurrent.futures thread pool), or a
-            PreprocessBackend instance. The ``scheduler`` argument only affects the dask backend.
-    Returns
-    -------
-        out_available : DataGroupSpec
-            The subset of files in each dataset that were successfully preprocessed, organized by dataset.
-        out_updated : DataGroupSpec
-            The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
+    Alias for :func:`preprocess_root` with ``require_rntuple=True``: every dataset must be
+    ROOT-format (parquet datasets raise a ValueError) and every object must be an RNTuple
+    (a TTree raises a ValueError inside the worker, subject to ``skip_bad_files``/
+    ``file_exceptions``). ``preprocess`` and ``preprocess_root`` already auto-detect and handle
+    RNTuples transparently, so this function is for RNTuple-only workflows that want the
+    stricter contract. All other arguments are forwarded to :func:`preprocess_root`.
     """
-    return _preprocess_pydantic(
-        datagroupspec=datagroupspec,
-        step_size=step_size,
-        use_alignment_boundaries=align_clusters,
-        recalculate_steps=recalculate_steps,
-        files_per_batch=files_per_batch,
-        skip_bad_files=skip_bad_files,
-        file_exceptions=file_exceptions,
-        save_form=save_form,
-        scheduler=scheduler,
-        filetype_options=uproot_options,
-        step_size_safety_factor=step_size_safety_factor,
-        allow_empty_datasets=allow_empty_datasets,
-        require_rntuple=True,
-        backend=backend,
-    )
+    kwargs["require_rntuple"] = True
+    return preprocess_root(datagroupspec, **kwargs)
 
 
 def preprocess_parquet(
@@ -1214,6 +1148,11 @@ def _preprocess_pydantic(
                 require_rntuple=require_rntuple,
             )
         elif info.format == "parquet":
+            if require_rntuple:
+                raise ValueError(
+                    f"require_rntuple=True but dataset {name!r} is parquet-format; "
+                    "only ROOT files can contain RNTuples."
+                )
             map_fn = partial(
                 get_parquet_form_uuid_steps,
                 step_size=step_size,
@@ -1309,21 +1248,19 @@ def _preprocess_pydantic(
             for item in awkward.drop_none(processed_files_without_forms).to_list()
         }
 
-        # Assemble both outputs by filename in the original input order, rather than zipping the
-        # processed results positionally against the input. Matching by key means correctness no
-        # longer depends on the order in which the backend reduced/concatenated the per-file
-        # results -- only that each processed record carries its filename. This is what lets the
-        # reduce be order-agnostic (relevant for meshing with the coffea.compute refactor).
-        original_files = [item["file"] for item in all_ak_norm_files[name].to_list()]
+        # Assemble both outputs by filename in the original input order. Matching by key keeps
+        # correctness independent of the order in which the backend reduced/concatenated the
+        # per-file results -- each processed record carries its filename.
+        orig_items = all_ak_norm_files[name].to_list()
 
         files_available = {
-            filename: available_by_file[filename]
-            for filename in original_files
-            if filename in available_by_file
+            item["file"]: available_by_file[item["file"]]
+            for item in orig_items
+            if item["file"] in available_by_file
         }
 
         files_out = {}
-        for orig_item in all_ak_norm_files[name].to_list():
+        for orig_item in orig_items:
             filename = orig_item["file"]
             # processed info when available, else fall back to the original input info
             files_out[filename] = available_by_file.get(
@@ -1499,6 +1436,10 @@ def preprocess(
                     "Entries assigned via item assignment are not validated; rebuild or re-validate the "
                     "DataGroupSpec (e.g. DataGroupSpec.model_validate(...)) so every entry is a DatasetSpec."
                 )
+        # Resolve the backend once so warnings (e.g. an ignored scheduler) are emitted a single
+        # time even for mixed root+parquet filesets, which dispatch to two sub-calls below.
+        backend = resolve_backend(backend, scheduler)
+        scheduler = None
         # split datasetspecs into uproot and parquet files, keeping track of original order
         original_order = list(datasetspecs.keys())
         formats = [dss.format for dss in datasetspecs.values()]

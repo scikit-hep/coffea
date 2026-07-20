@@ -96,12 +96,25 @@ def test_resolve_backend_scheduler_warns_for_non_dask_string():
         resolve_backend("iterative", scheduler="synchronous")
 
 
+def test_resolve_backend_scheduler_injected_into_dask_instance(recwarn):
+    """A DaskBackend instance with no scheduler of its own receives the scheduler argument
+    (as a copy; the original instance is not mutated), without warning."""
+    inst = DaskBackend(split_every=4)
+    resolved = resolve_backend(inst, scheduler="synchronous")
+    assert resolved.scheduler == "synchronous"
+    assert resolved.split_every == 4
+    assert inst.scheduler is None
+    assert not any("ignored" in str(w.message) for w in recwarn)
+
+
 def test_resolve_backend_scheduler_warns_for_instance():
-    # A pre-built instance can't have `scheduler` injected, so it warns regardless of type.
+    # scheduler cannot be injected into a non-dask instance or a DaskBackend that already
+    # carries its own scheduler, so it warns instead of silently dropping the argument
     with pytest.warns(UserWarning, match="ignored when a PreprocessBackend instance"):
         resolve_backend(FuturesBackend(), scheduler="synchronous")
     with pytest.warns(UserWarning, match="ignored when a PreprocessBackend instance"):
-        resolve_backend(DaskBackend(), scheduler="synchronous")
+        inst = DaskBackend(scheduler="threads")
+        assert resolve_backend(inst, scheduler="synchronous") is inst
 
 
 def test_resolve_backend_scheduler_no_warn_for_dask_string(recwarn):
@@ -228,7 +241,7 @@ def test_empty_parquet_file_does_not_crash(tmp_path):
     awkward.to_parquet(awkward.Array([{"x": 1.0, "y": 2}])[0:0], str(path))
     dgs = DataGroupSpec({"E": {"files": {str(path): None}}})
 
-    # recalculate_steps=True forces the step-computation branch that used to divide by zero
+    # recalculate_steps=True forces the step-computation branch
     _available, updated = preprocess_parquet(
         dgs, recalculate_steps=True, save_form=True, backend="iterative"
     )
@@ -337,8 +350,8 @@ def test_skipped_bad_file_assembled_by_filename(tmp_path):
 
 
 def test_partial_result_equals_result_when_complete():
-    """partial_result() must agree with result() once all work has finished, for the eager and
-    futures backends (mirrors coffea.compute Task.partial_result)."""
+    """partial_result() agrees with result() once all work has finished, for the eager and
+    futures backends."""
     arr = awkward.Array([{"x": i} for i in range(4)])
     jobs = {
         "d": PreprocessJob(array=arr, map_fn=lambda batch: batch, files_per_batch=1)
@@ -350,3 +363,102 @@ def test_partial_result_equals_result_when_complete():
         result = task.result()
         assert result["d"].to_list() == arr.to_list()
         assert partial["d"].to_list() == result["d"].to_list()
+
+
+def test_futures_default_workers_uses_executor_default():
+    """FuturesBackend defaults workers to None, deferring pool sizing to the executor
+    (parallel by default), including via the string selector."""
+    assert FuturesBackend().workers is None
+    assert resolve_backend("futures").workers is None
+
+
+def test_futures_string_backend_matches_iterative(tmp_path):
+    dgs = _multi_file_fileset(tmp_path)
+    a_fut, u_fut = preprocess(dgs, step_size=7, save_form=True, backend="futures")
+    a_iter, u_iter = preprocess(dgs, step_size=7, save_form=True, backend="iterative")
+    assert a_fut == a_iter
+    assert u_fut == u_iter
+
+
+def test_futures_result_failure_cancels_pending():
+    """When a batch fails, result() re-raises after cancelling batches that have not started,
+    so a fatal error does not wait for the rest of the fileset to be processed."""
+    import threading
+    from concurrent.futures import Future, ThreadPoolExecutor
+
+    from coffea.dataset_tools.preprocess_backends import _FuturesTask
+
+    release = threading.Event()
+    ran = threading.Event()
+    pool = ThreadPoolExecutor(max_workers=1)
+    try:
+        pool.submit(release.wait)  # occupies the only worker
+        pending = pool.submit(ran.set)  # queued behind the blocker
+
+        failed = Future()
+        failed.set_exception(ValueError("boom"))
+
+        task = _FuturesTask({"d": [failed, pending]}, pool, owns_pool=True)
+        with pytest.raises(ValueError, match="boom"):
+            task.result()
+        assert pending.cancelled()
+        assert not ran.is_set()
+    finally:
+        release.set()
+
+
+def test_preprocess_rntuple_skips_ttree_file_when_requested():
+    """With require_rntuple, a TTree object raises a ValueError that participates in
+    skip_bad_files/file_exceptions like any other per-file error."""
+    from coffea.dataset_tools import preprocess_rntuple
+
+    rnt = "tests/samples/nano_dy_rntuple.root"
+    ttree = "tests/samples/nano_dy.root"
+    dgs = DataGroupSpec({"D": {"files": {rnt: "Events", ttree: "Events"}}})
+
+    with pytest.raises(ValueError, match="not an RNTuple"):
+        preprocess_rntuple(dgs, save_form=False, backend="iterative")
+
+    available, updated = preprocess_rntuple(
+        dgs,
+        save_form=False,
+        backend="iterative",
+        skip_bad_files=True,
+        file_exceptions=(OSError, ValueError),
+    )
+    assert list(available["D"].files) == [rnt]
+    assert list(updated["D"].files) == [rnt, ttree]
+
+
+def test_preprocess_rntuple_rejects_parquet(tmp_path):
+    """require_rntuple rejects parquet-format datasets with a clear error."""
+    from coffea.dataset_tools import preprocess_rntuple
+
+    path = tmp_path / "d.parquet"
+    awkward.to_parquet(awkward.Array([{"x": 1.0}]), str(path))
+    dgs = DataGroupSpec({"P": {"files": {str(path): None}}})
+    with pytest.raises(ValueError, match="parquet-format"):
+        preprocess_rntuple(dgs, save_form=False, backend="iterative")
+
+
+def test_workers_validate_step_size():
+    """get_steps and get_parquet_form_uuid_steps reject step_size < 1 directly, including
+    negative values (which would otherwise silently produce a single step per file)."""
+    from coffea.dataset_tools.preprocess import get_parquet_form_uuid_steps, get_steps
+
+    normed = awkward.Array(
+        [
+            {
+                "file": "tests/samples/nano_dy.root",
+                "object_path": "Events",
+                "steps": None,
+                "num_entries": None,
+                "uuid": None,
+            }
+        ]
+    )
+    for bad in (0, -5):
+        with pytest.raises(ValueError, match="step_size must be a positive integer"):
+            get_steps(normed, step_size=bad)
+        with pytest.raises(ValueError, match="step_size must be a positive integer"):
+            get_parquet_form_uuid_steps(normed, step_size=bad)
