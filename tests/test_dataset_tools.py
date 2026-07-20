@@ -1008,9 +1008,9 @@ def test_filter_files(the_fileset):
 
 
 def test_filter_files_returns_preprocessed_files():
-    """Regression (B1/T3): filtering a preprocessed DataGroupSpec keeps each dataset's
-    files as a PreprocessedFiles (all surviving files are concrete), and empty files are
-    removed."""
+    """Filtering a preprocessed DataGroupSpec keeps each dataset's files as a
+    PreprocessedFiles (all surviving files are concrete), and empty files are removed.
+    """
     filtered = filter_files(DataGroupSpec(_updated_result))
     assert isinstance(filtered, DataGroupSpec)
     for name, dataset in filtered.items():
