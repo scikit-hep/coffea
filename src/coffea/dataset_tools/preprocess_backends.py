@@ -6,8 +6,8 @@ batches of normalized file records and the resulting awkward arrays are concaten
 module factors that map-reduce out from :func:`coffea.dataset_tools.preprocess._preprocess_pydantic`
 behind a small backend interface so the same worker can run on:
 
-- :class:`DaskBackend` -- the historical path (``dask_awkward.map_partitions`` + an
-  ``AwkwardTreeReductionLayer`` + ``dask.compute``). This backend builds and executes a dask
+- :class:`DaskBackend` -- the default: ``dask_awkward.map_partitions`` + an
+  ``AwkwardTreeReductionLayer`` + ``dask.compute``. This backend builds and executes a dask
   task graph to orchestrate the map-reduce.
 - :class:`IterativeBackend` -- immediate (synchronous, single process) execution, mirroring
   coffea's ``IterativeExecutor``.
@@ -20,16 +20,14 @@ are dask-free for parquet input and for ROOT input of either flavor. ROOT form e
 a form byte-identical to the ``uproot.dask`` form; it only falls back to ``uproot.dask`` (and thus
 dask) if that internal uproot helper is unavailable on an unexpected uproot version.
 
-The interface intentionally echoes the ``coffea.compute`` refactor (PR #1470): a ``Backend``
-turns a "computable" into a future-like ``Task`` (``result`` / ``partial_result`` / ``wait``)
-whose ``result()`` blocks. Here the computable is a mapping ``{dataset_name: PreprocessJob}`` and
-the result is ``{dataset_name: awkward.Array}``. When ``coffea.compute`` lands, these backends
-should adapt to its ``RunningBackend``/``Task`` protocols with little change.
+A ``Backend`` turns a "computable" into a future-like ``Task`` (``result`` / ``partial_result``
+/ ``wait``) whose ``result()`` blocks. Here the computable is a mapping
+``{dataset_name: PreprocessJob}`` and the result is ``{dataset_name: awkward.Array}``.
 
-**Ordering is not load-bearing for correctness.** The reduction concatenates per-batch results,
-and the concrete backends happen to preserve submission order, but the downstream post-processing
-assembles its outputs *by filename* (see ``_preprocess_pydantic``), so a backend is free to reduce
-in any order -- which is what allows meshing with an order-agnostic ``compute`` reduce.
+Ordering is not load-bearing for correctness: the reduction concatenates per-batch results, and
+the concrete backends happen to preserve submission order, but the downstream post-processing
+assembles its outputs *by filename* (see ``_preprocess_pydantic``), so a backend is free to
+reduce in any order.
 """
 
 from __future__ import annotations
@@ -40,7 +38,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import Executor, Future, ProcessPoolExecutor, ThreadPoolExecutor
 from concurrent.futures import wait as futures_wait
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 from typing import Protocol, runtime_checkable
 
@@ -114,7 +112,7 @@ class PreprocessJob:
 
 @runtime_checkable
 class PreprocessTask(Protocol):
-    """Future-like handle to a submitted preprocessing computable (mirrors ``compute.Task``)."""
+    """Future-like handle to a submitted preprocessing computable."""
 
     def result(self) -> dict[str, awkward.Array]:
         """Block until done and return ``{dataset_name: concatenated awkward.Array}``."""
@@ -123,9 +121,8 @@ class PreprocessTask(Protocol):
         """Return results for the work finished so far, without blocking on the rest.
 
         Datasets/batches still running are omitted; a dataset appears only once at least one of
-        its batches has completed. Mirrors ``compute.Task.partial_result`` (intended for
-        resumable/progress use). Backends that cannot produce a cheap partial (e.g. a fused dask
-        graph) may return the full :meth:`result`.
+        its batches has completed. Intended for resumable/progress use. Backends that cannot
+        produce a cheap partial (e.g. a fused dask graph) may return the full :meth:`result`.
         """
 
     def wait(self) -> None:
@@ -133,7 +130,7 @@ class PreprocessTask(Protocol):
 
 
 class PreprocessBackend(ABC):
-    """Base class for preprocessing execution backends (mirrors ``compute.RunningBackend``)."""
+    """Base class for preprocessing execution backends."""
 
     @abstractmethod
     def submit(self, jobs: Mapping[str, PreprocessJob]) -> PreprocessTask:
@@ -211,14 +208,21 @@ class _FuturesTask:
                 # .result() re-raises worker exceptions here; ordering follows submission
                 parts = [fut.result() for fut in futs]
                 results[name] = ordered_concat(parts)
-            return results
-        finally:
+        except BaseException:
+            # fail fast: cancel batches that have not started so a fatal error does not wait
+            # for the rest of the fileset to be processed
+            for fut in self._all_futures():
+                fut.cancel()
             if self._owns_pool:
-                self._pool.shutdown()
+                self._pool.shutdown(wait=False, cancel_futures=True)
+            raise
+        if self._owns_pool:
+            self._pool.shutdown()
+        return results
 
     def partial_result(self) -> dict[str, awkward.Array]:
         # Gather only the batches that have completed successfully, per dataset, without blocking.
-        # The owned pool is deliberately NOT shut down (unfinished work may still be running).
+        # The owned pool is not shut down here; unfinished work may still be running.
         results: dict[str, awkward.Array] = {}
         for name, futs in self._name_to_futures.items():
             done_parts = [
@@ -248,8 +252,11 @@ class FuturesBackend(PreprocessBackend):
 
     Parameters
     ----------
-        workers : int, default 1
-            Number of workers when this backend creates the pool.
+        workers : int or None, default None
+            Number of workers when this backend creates the pool. ``None`` uses the executor's
+            default sizing (for :class:`~concurrent.futures.ThreadPoolExecutor`,
+            ``min(32, os.cpu_count() + 4)``; for
+            :class:`~concurrent.futures.ProcessPoolExecutor`, ``os.cpu_count()``).
         use_processes : bool, default False
             Create a :class:`~concurrent.futures.ProcessPoolExecutor` instead of the default
             :class:`~concurrent.futures.ThreadPoolExecutor`. Threads are preferred because
@@ -261,7 +268,7 @@ class FuturesBackend(PreprocessBackend):
             ``use_processes`` when given.
     """
 
-    workers: int = 1
+    workers: int | None = None
     use_processes: bool = False
     pool: Executor | Callable[..., Executor] | None = None
 
@@ -316,7 +323,7 @@ class _DaskTask:
 
 @dataclass
 class DaskBackend(PreprocessBackend):
-    """Execute preprocessing as a dask-awkward task graph (the historical behaviour).
+    """Execute preprocessing as a dask-awkward task graph (the default).
 
     Per dataset this builds ``from_awkward`` -> ``map_partitions`` -> ``AwkwardTreeReductionLayer``
     and lets a single ``dask.compute`` materialize all datasets together.
@@ -393,18 +400,22 @@ def resolve_backend(
 ) -> PreprocessBackend:
     """Turn a ``backend`` selector into a :class:`PreprocessBackend` instance.
 
-    ``backend`` may be an existing :class:`PreprocessBackend` (returned as-is), or one of the
-    strings ``"dask"`` (default), ``"iterative"``, or ``"futures"``. ``scheduler`` is forwarded
-    to a default-constructed :class:`DaskBackend`; if it is set while a non-dask backend is
-    selected, a warning is issued because it has no effect there.
+    ``backend`` may be an existing :class:`PreprocessBackend`, or one of the strings ``"dask"``
+    (default), ``"iterative"``, or ``"futures"``. ``scheduler`` is forwarded to a
+    default-constructed :class:`DaskBackend`, and is injected into a passed :class:`DaskBackend`
+    instance whose own ``scheduler`` is unset (a copy is returned; the instance is not mutated).
+    If ``scheduler`` is set while a non-dask backend is selected, or the :class:`DaskBackend`
+    instance already carries its own scheduler, a warning is issued because the argument has no
+    effect there.
     """
     if isinstance(backend, PreprocessBackend):
-        # A pre-built instance is used as-is; we cannot inject `scheduler` into it (even a
-        # DaskBackend instance keeps its own scheduler), so warn rather than silently drop it.
         if scheduler is not None:
+            if isinstance(backend, DaskBackend) and backend.scheduler is None:
+                return replace(backend, scheduler=scheduler)
             warnings.warn(
-                "The 'scheduler' argument is ignored when a PreprocessBackend instance is "
-                "passed; set it on the instance, e.g. DaskBackend(scheduler=...).",
+                "The 'scheduler' argument is ignored when a PreprocessBackend instance "
+                "carries its own execution configuration; set it on the instance, e.g. "
+                "DaskBackend(scheduler=...).",
                 stacklevel=2,
             )
         return backend
