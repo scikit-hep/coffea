@@ -76,26 +76,33 @@ def test_parsl_htex_executor(tmp_path):
     )
     parsl.load(parsl_config)
 
-    filelist = {
-        "ZJets": [osp.join(os.getcwd(), "tests/samples/nano_dy.root")],
-        "Data": [osp.join(os.getcwd(), "tests/samples/nano_dimuon.root")],
-    }
+    # the DFK must be cleaned up explicitly: parsl's atexit hook only warns, and
+    # the HTEX interchange is a detached subprocess that outlives the test session
+    # unless HighThroughputExecutor.shutdown() runs via dfk.cleanup()
+    try:
+        filelist = {
+            "ZJets": [osp.join(os.getcwd(), "tests/samples/nano_dy.root")],
+            "Data": [osp.join(os.getcwd(), "tests/samples/nano_dimuon.root")],
+        }
 
-    do_parsl_job(filelist)
-    do_parsl_job(filelist, compression=1)
+        do_parsl_job(filelist)
+        do_parsl_job(filelist, compression=1)
 
-    filelist = {
-        "ZJets": {
-            "treename": "Events",
-            "files": [osp.join(os.getcwd(), "tests/samples/nano_dy.root")],
-        },
-        "Data": {
-            "treename": "Events",
-            "files": [osp.join(os.getcwd(), "tests/samples/nano_dimuon.root")],
-        },
-    }
+        filelist = {
+            "ZJets": {
+                "treename": "Events",
+                "files": [osp.join(os.getcwd(), "tests/samples/nano_dy.root")],
+            },
+            "Data": {
+                "treename": "Events",
+                "files": [osp.join(os.getcwd(), "tests/samples/nano_dimuon.root")],
+            },
+        }
 
-    do_parsl_job(filelist)
+        do_parsl_job(filelist)
+    finally:
+        parsl.dfk().cleanup()
+        parsl.clear()
 
 
 @pytest.mark.skipif(
