@@ -502,3 +502,36 @@ def test_union_form_genuinely_missing_branch_dask(tmp_path, dask_client):
         ).events()
         with pytest.raises(KeyError):
             events["flag"].compute()
+
+
+def _all_schemas():
+    from coffea.nanoevents import schemas
+
+    return [
+        getattr(schemas, name)
+        for name in schemas.__all__
+        if hasattr(getattr(schemas, name), "behavior")
+    ]
+
+
+@pytest.mark.parametrize("schemaclass", _all_schemas(), ids=lambda c: c.__name__)
+def test_schema_behavior_survives_pickling(schemaclass):
+    """Dask ships the schema's behavior dict to distributed workers, so every
+    entry has to be picklable, and every class in it has to be reachable under
+    its own qualified name -- otherwise cloudpickle falls back to copying the
+    class by value, which both bloats the graph and can fail outright.
+    """
+    import sys
+
+    cloudpickle = pytest.importorskip("cloudpickle")
+
+    behavior = dict(schemaclass.behavior())
+    cloudpickle.loads(cloudpickle.dumps(behavior))
+
+    for key, value in behavior.items():
+        if isinstance(value, type):
+            module = sys.modules[value.__module__]
+            assert getattr(module, value.__qualname__, None) is value, (
+                f"{schemaclass.__name__} behavior[{key!r}] is shadowed: "
+                f"{value.__module__}.{value.__qualname__} is a different class"
+            )
