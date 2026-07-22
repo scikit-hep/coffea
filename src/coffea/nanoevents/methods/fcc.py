@@ -418,8 +418,8 @@ def _set_repr_name_edm4hep1(classname):
     behavior_edm4hep1[classname].__repr__ = namefcn
 
 
-@awkward.mixin_class(behavior_edm4hep1)
-class MCParticle(edm4hep.MCParticle):  # noqa: F811
+@awkward.mixin_class(behavior_edm4hep1, name="MCParticle")
+class MCParticle_edm4hep1(edm4hep.MCParticle):
     """EDM4HEP Datatype: MCParticle; Modified for FCC"""
 
     # Get MC Daughters
@@ -447,18 +447,18 @@ for _key, _value in awkward._util.copy_behaviors(
 ).items():
     behavior_edm4hep1.setdefault(_key, _value)
 del _key, _value
-MCParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
-MCParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
-MCParticleArray.ProjectionClass4D = MCParticleArray  # noqa: F821
-MCParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
-MCParticleRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
-MCParticleRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
-MCParticleRecord.ProjectionClass4D = vector.LorentzVectorRecord  # noqa: F821
-MCParticleRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
+MCParticle_edm4hep1Array.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+MCParticle_edm4hep1Array.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+MCParticle_edm4hep1Array.ProjectionClass4D = MCParticle_edm4hep1Array  # noqa: F821
+MCParticle_edm4hep1Array.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+MCParticle_edm4hep1Record.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
+MCParticle_edm4hep1Record.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
+MCParticle_edm4hep1Record.ProjectionClass4D = vector.LorentzVectorRecord  # noqa: F821
+MCParticle_edm4hep1Record.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
 
 
-@awkward.mixin_class(behavior_edm4hep1)
-class ReconstructedParticle(edm4hep.ReconstructedParticle):  # noqa: F811
+@awkward.mixin_class(behavior_edm4hep1, name="ReconstructedParticle")
+class ReconstructedParticle_edm4hep1(edm4hep.ReconstructedParticle):
     """EDM4HEP Datatype: Reconstructed particle; Modified for FCC"""
 
     # Get MC counterpart
@@ -500,18 +500,21 @@ class ReconstructedParticle(edm4hep.ReconstructedParticle):  # noqa: F811
 
 _set_repr_name_edm4hep1("ReconstructedParticle")
 _copy_behaviors("MomentumCandidate", "ReconstructedParticle", behavior_edm4hep1)
-ReconstructedParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
-ReconstructedParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
-ReconstructedParticleArray.ProjectionClass4D = ReconstructedParticleArray  # noqa: F821
-ReconstructedParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
-ReconstructedParticleRecord.ProjectionClass2D = vector.TwoVectorRecord  # noqa: F821
-ReconstructedParticleRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
-ReconstructedParticleRecord.ProjectionClass4D = vector.LorentzVectorRecord  # noqa: F821
-ReconstructedParticleRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
+_recop_array = ReconstructedParticle_edm4hep1Array  # noqa: F821
+_recop_record = ReconstructedParticle_edm4hep1Record  # noqa: F821
+_recop_array.ProjectionClass2D = vector.TwoVectorArray
+_recop_array.ProjectionClass3D = vector.ThreeVectorArray
+_recop_array.ProjectionClass4D = _recop_array
+_recop_array.MomentumClass = vector.LorentzVectorArray
+_recop_record.ProjectionClass2D = vector.TwoVectorRecord
+_recop_record.ProjectionClass3D = vector.ThreeVectorRecord
+_recop_record.ProjectionClass4D = vector.LorentzVectorRecord
+_recop_record.MomentumClass = vector.LorentzVectorRecord
+del _recop_array, _recop_record
 
 
-@awkward.mixin_class(behavior_edm4hep1)
-class ParticleID(edm4hep.ParticleID):  # noqa: F811
+@awkward.mixin_class(behavior_edm4hep1, name="ParticleID")
+class ParticleID_edm4hep1(edm4hep.ParticleID):
     """EDM4HEP Datatype: ParticleID; Modified for FCC"""
 
     # Get ReconstructedParticle
@@ -527,8 +530,8 @@ class ParticleID(edm4hep.ParticleID):  # noqa: F811
 _set_repr_name_edm4hep1("ParticleID")
 
 
-@awkward.mixin_class(behavior_edm4hep1)
-class Cluster(edm4hep.Cluster):  # noqa: F811
+@awkward.mixin_class(behavior_edm4hep1, name="Cluster")
+class Cluster_edm4hep1(edm4hep.Cluster):
     """EDM4HEP Datatype: Cluster; Modified for FCC"""
 
     # Get cluster EFlowPhoton
@@ -553,8 +556,8 @@ class Cluster(edm4hep.Cluster):  # noqa: F811
 _set_repr_name_edm4hep1("Cluster")
 
 
-@awkward.mixin_class(behavior_edm4hep1)
-class Track(edm4hep.Track):  # noqa: F811
+@awkward.mixin_class(behavior_edm4hep1, name="Track")
+class Track_edm4hep1(edm4hep.Track):
     """EDM4HEP Datatype: Track; Modified for FCC"""
 
     # Get Tracks

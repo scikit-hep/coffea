@@ -71,3 +71,41 @@ def test_loadsave(compression):
     finally:
         if os.path.exists(filename):
             os.remove(filename)
+
+
+def test_dask_property_is_picklable():
+    """Behavior classes defined outside an importable module get pickled by
+    value (e.g. by cloudpickle, when a dask graph goes to a distributed worker),
+    which walks the class dict -- and plain property objects cannot be pickled.
+    """
+    cloudpickle = pytest.importorskip("cloudpickle")
+
+    from coffea.util import dask_property
+
+    class Thing:
+        def __init__(self, x):
+            self.x = x
+
+        @dask_property
+        def doubled(self):
+            """twice x"""
+            return 2 * self.x
+
+        @doubled.dask
+        def doubled(self, dask_array):
+            return 20 * dask_array.x
+
+        @dask_property(no_dispatch=True)
+        def tripled(self):
+            return 3 * self.x
+
+    # defined in a function body, so this has to go by value
+    unpickled = cloudpickle.loads(cloudpickle.dumps(Thing))
+
+    assert unpickled(1).doubled == 2
+    assert unpickled(1).tripled == 3
+
+    doubled = unpickled.__dict__["doubled"]
+    assert doubled.__doc__ == "twice x"
+    assert doubled._dask_get(unpickled(1), unpickled, Thing(3)) == 60
+    assert unpickled.__dict__["tripled"]._dask_get(unpickled(2), unpickled, None) == 6

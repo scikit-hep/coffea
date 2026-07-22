@@ -369,6 +369,15 @@ def _make_dask_method(func):
     return descriptor
 
 
+def _rebuild_dask_property(fget, fset, fdel, doc, dask_get):
+    prop = _DaskProperty(fget, fset, fdel)
+    # a doc passed to property() lands in a C slot which, before 3.13, the
+    # subclass' own docstring shadows -- so assign it to the instance instead
+    prop.__doc__ = doc
+    prop._dask_get = dask_get
+    return prop
+
+
 class _DaskProperty(property):
     _dask_get = None
 
@@ -376,6 +385,16 @@ class _DaskProperty(property):
         assert self._dask_get is None
         self._dask_get = _make_dask_descriptor(func)
         return self
+
+    def __reduce__(self):
+        # property keeps fget/fset/fdel in C slots and offers no reduction, so
+        # a behavior class carrying a dask_property cannot be pickled by value
+        # (which is what cloudpickle does for classes defined in __main__ or a
+        # notebook) unless we provide one.
+        return (
+            _rebuild_dask_property,
+            (self.fget, self.fset, self.fdel, self.__doc__, self._dask_get),
+        )
 
 
 def _adapt_naive_dask_get(func):
