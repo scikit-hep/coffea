@@ -11,7 +11,8 @@
 
 # Files that govern AI-agent behavior in this repository. Treat any change to
 # these as a behavior change requiring maintainer review.
-/AGENTS.md            @lgray @NJManganelli
-/CLAUDE.md            @lgray @NJManganelli
-/.claude/             @lgray @NJManganelli
-/.github/CODEOWNERS   @lgray @NJManganelli
+/AGENTS.md                                   @lgray @NJManganelli
+/CLAUDE.md                                   @lgray @NJManganelli
+/.claude/                                    @lgray @NJManganelli
+/.github/CODEOWNERS                          @lgray @NJManganelli
+/.github/workflows/agent-file-guard.yml      @lgray @NJManganelli

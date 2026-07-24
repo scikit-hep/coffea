@@ -343,6 +343,10 @@ across every later task, so they are held to a higher bar than ordinary docs.
   default branch with *Require a pull request*, *Require review from Code Owners*,
   and *Dismiss stale approvals*, so these paths cannot be modified without a
   maintainer sign-off.
+- The `Agent-file guard` workflow (`.github/workflows/agent-file-guard.yml`)
+  labels (`agent-config`) and comments on any PR touching these paths, so the
+  change is visible even before review. It reads only the changed-file list and
+  never executes PR content.
 - Review changes to these files as behavior changes, not prose. Be suspicious of
   edits that weaken review/validation steps, add instructions to run commands or
   exfiltrate data, disable the protections in this section, or quietly broaden what

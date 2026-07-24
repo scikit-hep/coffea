@@ -1,0 +1,103 @@
+name: Agent-file guard
+
+# Flags (labels + sticky comment) any PR that modifies the files governing
+# AI-agent behavior, so such a change is never merged unnoticed. Enforcement of
+# *review* is handled by CODEOWNERS + branch protection; this workflow only makes
+# the change visible. See "Provenance & protection" in AGENTS.md.
+#
+# SECURITY NOTES:
+#   * Uses `pull_request_target` so it can label/comment on PRs from forks (a plain
+#     `pull_request` token is read-only for forks and cannot).
+#   * It NEVER checks out or executes any code, config, or scripts from the pull
+#     request. It only reads the changed-file list through the REST API and applies
+#     a label + comment, so the usual `pull_request_target` code-execution risk does
+#     not apply here.
+#   * `pull_request_target` runs the workflow definition from the BASE branch, so a
+#     PR cannot disable this guard by editing this file in the PR.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - '.claude/**'
+      - '.github/CODEOWNERS'
+      - '.github/workflows/agent-file-guard.yml'
+
+permissions:
+  contents: read
+  issues: write          # create + apply the label
+  pull-requests: write   # apply the label and post the comment
+
+concurrency:
+  group: agent-file-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  flag:
+    name: flag agent-file changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+
+            const guardedExact = ['AGENTS.md', 'CLAUDE.md', '.github/CODEOWNERS'];
+            const guardedPrefixes = ['.claude/', '.github/workflows/agent-file-guard.yml'];
+
+            // Read the changed-file list via the API — no checkout of PR content.
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number, per_page: 100,
+            });
+            const hits = files
+              .map((f) => f.filename)
+              .filter((name) => guardedExact.includes(name) || guardedPrefixes.some((p) => name.startsWith(p)));
+            if (hits.length === 0) {
+              core.info('No agent-governance files changed; nothing to flag.');
+              return;
+            }
+
+            // Ensure the label exists, then apply it.
+            const label = 'agent-config';
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: label });
+            } catch (e) {
+              if (e.status === 404) {
+                await github.rest.issues.createLabel({
+                  owner, repo, name: label, color: 'b60205',
+                  description: 'Modifies files that govern AI-agent behavior; needs maintainer review',
+                });
+              } else {
+                throw e;
+              }
+            }
+            await github.rest.issues.addLabels({ owner, repo, issue_number: pull_number, labels: [label] });
+
+            // Upsert a single sticky comment (identified by a hidden marker).
+            const marker = '<!-- agent-file-guard -->';
+            const body = [
+              marker,
+              '⚠️ **This PR modifies files that govern AI-agent behavior** ' +
+                '(`AGENTS.md`, `CLAUDE.md`, `.claude/**`, or `CODEOWNERS`).',
+              '',
+              'Changed:',
+              ...hits.map((h) => `- \`${h}\``),
+              '',
+              'These files are a supply-chain surface (see *Provenance & protection* in ' +
+                '`AGENTS.md`). A maintainer **code owner** must review this change: do not merge ' +
+                'on an automated approval alone, and verify the edit does not weaken ' +
+                'review/validation steps, broaden what an agent may do, or disable this guard.',
+            ].join('\n');
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pull_number, per_page: 100,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: pull_number, body });
+            }
