@@ -21,6 +21,8 @@ on:
     paths:
       - 'AGENTS.md'
       - 'CLAUDE.md'
+      - 'ARCHITECTURE.md'
+      - 'docs/agents/**'
       - '.claude/**'
       - '.github/CODEOWNERS'
       - '.github/workflows/agent-file-guard.yml'
@@ -45,8 +47,8 @@ jobs:
             const { owner, repo } = context.repo;
             const pull_number = context.payload.pull_request.number;
 
-            const guardedExact = ['AGENTS.md', 'CLAUDE.md', '.github/CODEOWNERS'];
-            const guardedPrefixes = ['.claude/', '.github/workflows/agent-file-guard.yml'];
+            const guardedExact = ['AGENTS.md', 'CLAUDE.md', 'ARCHITECTURE.md', '.github/CODEOWNERS'];
+            const guardedPrefixes = ['docs/agents/', '.claude/', '.github/workflows/agent-file-guard.yml'];
 
             // Read the changed-file list via the API — no checkout of PR content.
             const files = await github.paginate(github.rest.pulls.listFiles, {
@@ -81,7 +83,7 @@ jobs:
             const body = [
               marker,
               '⚠️ **This PR modifies files that govern AI-agent behavior** ' +
-                '(`AGENTS.md`, `CLAUDE.md`, `.claude/**`, or `CODEOWNERS`).',
+                '(`AGENTS.md`, `CLAUDE.md`, `ARCHITECTURE.md`, `docs/agents/**`, `.claude/**`, or `CODEOWNERS`).',
               '',
               'Changed:',
               ...hits.map((h) => `- \`${h}\``),

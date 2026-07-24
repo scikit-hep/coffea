@@ -13,6 +13,8 @@
 # these as a behavior change requiring maintainer review.
 /AGENTS.md                                   @lgray @NJManganelli
 /CLAUDE.md                                   @lgray @NJManganelli
+/ARCHITECTURE.md                             @lgray @NJManganelli
+/docs/agents/                                @lgray @NJManganelli
 /.claude/                                    @lgray @NJManganelli
 /.github/CODEOWNERS                          @lgray @NJManganelli
 /.github/workflows/agent-file-guard.yml      @lgray @NJManganelli
