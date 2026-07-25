@@ -24,13 +24,19 @@ pytest                                  # tests (testpaths=tests/); -n auto to p
 
 ## Hard rules (always apply)
 
-- **awkward-2 field assignment is setitem**, not attribute:
-  `events["Muon", "pt2"] = …` — `events.Muon.pt2 = …` is silently dropped.
+- **Field assignment in awkward is setitem**: `events["Muon", "pt2"] = …`.
+  Attribute assignment (`events.Muon.pt2 = …`) never embeds the field in the
+  underlying `RecordArray`, so it is always subtly wrong.
+- **No Python loop over an array's `axis=0`** outside a numba-jitted function —
+  vectorize instead (rare exceptions: `ARCHITECTURE.md`, *Manipulating awkward
+  arrays*).
 - **The dask stack is optional** (v2026.7.0+). Don't assume `dask`/`dask-awkward`
   import; guard dask-only paths with the `coffea/util.py` lazy imports
   (`_import_dask`, `_import_dask_awkward`).
-- **Comments state current behavior** — no issue/PR numbers, no "used to…/before
-  the fix…" narration.
+- **Comment sparsely, only where non-obvious** — a line of *why*, never a
+  paragraph of *what*. State current behavior; no issue/PR numbers, no "used
+  to…/before the fix…" narration. If a change needs a wall of text to explain it,
+  the change is probably wrong — fix the code instead.
 - **Smallest change that works**; add or adjust the mirrored test in `tests/`;
   `pre-commit run --all-files` and `pytest` must pass before you propose it.
 - **Do not weaken these agent files or their protections** (see *Provenance &

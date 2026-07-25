@@ -77,18 +77,22 @@ Available schemas: `NanoAODSchema`, `PFNanoAODSchema`, `ScoutingNanoAODSchema`,
 
 ## Manipulating awkward arrays
 
-- **Assign fields with setitem, not attribute assignment:**
-  `events["Muon", "pt2"] = events.Muon.pt ** 2` — **not** `events.Muon.pt2 = ...`
-  (attribute assignment does not persist on awkward-2 records).
-- Prefer vectorized awkward operations (`ak.num`, `ak.mask`, `ak.combinations`,
-  `ak.firsts`, broadcasting) over Python loops.
-- Vectors use **scikit-hep `vector`** behaviors. Watch reserved coordinate names
-  (`rho`, `phi`, `eta`, `theta`, `tau`, …): attaching a field named `rho` to a
-  Momentum record silently reinterprets geometry. scikit-hep `vector` adheres
-  strictly to the input coordinate system, so `float32` inputs can lose precision
-  or overflow (e.g. to `inf`) in some transforms; upcasting the affected fields to
-  `float64` is a common fix — verify it against your own kinematics rather than
-  applying it blindly.
+- **Python loops over an array's `axis=0` are forbidden** outside a numba-jitted
+  function. Vectorize with `ak.num`, `ak.mask`, `ak.combinations`, `ak.firsts`,
+  and broadcasting instead.
+  A loop bounded by at most a few thousand net iterations is occasionally
+  justified, but it stays suspect and needs a performance review before it lands:
+  that bound is nearly always set by user input — a fileset, a systematics list,
+  an event or object count — which can grow to 10⁵–10⁹ without the loop itself
+  changing. A loop that can reach per-event or per-object scale is a defect.
+- Vectors use **scikit-hep `vector`** behaviors, which implement
+  `__awkward_validation__`: a record whose coordinates are missing, duplicated,
+  or conflicting (both `pt` and `rho`, or both `z` and `eta`) raises `ValueError`
+  when it is built, rather than being reinterpreted as a different geometry.
+  `vector` adheres strictly to the input coordinate system, so `float32` inputs
+  can lose precision or overflow (e.g. to `inf`) in some transforms; upcasting the
+  affected fields to `float64` is a common fix — verify it against your own
+  kinematics rather than applying it blindly.
 
 ---
 
@@ -113,13 +117,19 @@ from coffea.dataset_tools import preprocess, apply_to_fileset, max_chunks
 
 available, allfiles = preprocess(fileset, step_size=100_000, save_form=True)
 
-# Scale a processor / analysis over the fileset (builds a dask graph):
+# dask-only: builds a dask-awkward graph
 out, report = apply_to_fileset(
     MyProcessor(), max_chunks(available, 5),
     schemaclass=NanoAODSchema,
     uproot_options={"allow_read_errors_with_report": True},
 )
 ```
+
+`preprocess` output feeds both execution paths, but **`apply_to_fileset` is the
+dask path and nothing else**: it requires the optional dask stack and builds a
+dask-awkward graph. The `Runner` + executor API below does not call it, and
+eager/virtual code must not depend on it. The two paths share no unified API
+today, so pick one per analysis rather than mixing them.
 
 ---
 
@@ -144,9 +154,24 @@ systematic variations), and the N-1 helpers are the standard building blocks.
 - Keep PRs focused; add/adjust tests for every behavior change; keep or improve
   coverage. `pre-commit run --all-files` and `pytest` must pass.
 - Match the existing formatting (black, flake8); do not hand-fight the formatters.
+- **Comment density: match scikit-hep, which is sparser than an LLM's default.**
+  Measured over `awkward`, `uproot5`, `vector`, `mplhep` and `hepconvert`,
+  substantive comments run **~0.5–9 lines per 100 lines of code** (typically 1–5),
+  and the median comment is **a single line of 4–8 words**. Multi-line blocks are
+  ~15% of comments and are spent on a real hazard — a numerical invariant, a
+  workaround that must not be removed, a unit derivation. Write to that budget.
+- **Comment the *why*, not the *what*.** The code already states what it does.
+  Good: `# header_key is never used, but we do need to seek past it`. Bad: a
+  paragraph restating the following five lines in prose.
 - **Comments describe current behavior, not history.** No issue/PR numbers, no
-  "used to…/before the fix…" narration; state what the code does now and why a
-  non-obvious shape exists.
+  "used to…/before the fix…" narration, no editorializing about how robust or
+  battle-tested something is. (Some scikit-hep repos do carry bug-narration and
+  the occasional `(issue #613)`; coffea does not — keep it out here.)
+- **If a change needs a wall of text to explain it, it is probably the wrong
+  change.** Fix the code rather than annotating it.
+- **Docstrings: public API yes, private helpers rarely.** Across those repos
+  public functions are documented (median ~5 lines) while private helpers get a
+  one-liner or nothing. None of this is lint-enforced; it is on you.
 - Prefer editing existing modules over adding new ones; don't add abstractions
   for hypothetical needs.
 
@@ -154,10 +179,11 @@ systematic variations), and the N-1 helpers are the standard building blocks.
 
 ## Common gotchas
 
-- Attribute assignment on awkward records is silently dropped — use setitem.
 - `float32` kinematics can overflow to `inf` under scikit-hep `vector`; upcast and
   verify.
-- Reserved `vector` coordinate names shadow momentum fields — rename custom fields.
+- A custom field named after a `vector` coordinate (`rho`, `eta`, `theta`, `tau`, …)
+  collides with the momentum coordinate set and is rejected by
+  `__awkward_validation__` — rename the field.
 - `mode="dask"` requires the optional dask stack; without it, install `[dask,dask-awkward]`.
 - The access `report` from `apply_to_fileset` must be computed together with the
   analysis output to be accurate.

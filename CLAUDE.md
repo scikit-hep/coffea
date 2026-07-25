@@ -1,14 +1,8 @@
 # CLAUDE.md
 
-Guidance for Claude Code (claude.ai/code) working in this repository.
-
-`AGENTS.md` is the always-loaded index — environment, the hard rules, version
-targets, agent-file protection, and a routing table to the on-demand spokes
-(`ARCHITECTURE.md` for subsystem depth and idioms, `docs/agents/migration.md` for
-cross-era migration, `.claude/skills/` for the review loops). It is the single
-source of truth and is imported here:
+Claude Code loads this file automatically. `AGENTS.md` is the single source of
+truth for every agent and is imported below — put repository guidance there, not
+here. This file takes only mechanics that are specific to Claude Code and cannot
+be written tool-agnostically (model/effort hints, `.claude/` skills and settings).
 
 @AGENTS.md
-
-Do not add guidance to this file, and keep the index lean — put depth in the
-spokes and read them on demand, so a session's always-loaded context stays small.
