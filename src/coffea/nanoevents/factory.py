@@ -54,15 +54,7 @@ class _map_schema_base:  # ImplementsFormMapping, ImplementsFormMappingInfo
                 [
                     name
                     for name, maybe_transform in zip(operands, it_operands)
-                    # Match both "!load" and "!loadallowmissing": a saved/union form
-                    # marks branches that may be missing in some files with the
-                    # "!loadallowmissing" token (see nanoevents.mapping.base, which
-                    # dispatches on node.startswith("!load")). Both tokens denote a
-                    # real column read, so both branches must be requested from the
-                    # file. Matching only "!load" silently drops the maybe-missing
-                    # branches, causing dask mode to fabricate them as all-None even
-                    # in files that actually contain them.
-                    if maybe_transform.startswith("!load")
+                    if maybe_transform == "!load"
                 ]
             )
         return base_columns
@@ -168,17 +160,8 @@ class _map_schema_uproot(_map_schema_base):
             f"{start}-{stop}",
         )
         uuidpfn = {partition_key[0]: tree.file.file_path}
-        # A saved/union form can mark branches as maybe-missing
-        # ("!loadallowmissing"); such branches may be genuinely absent from
-        # this particular file, so only request the branches that are present.
-        # Absent branches are then simply not in the preloaded column source,
-        # and the PreloadedSourceMapping backfills them as all-None through its
-        # allow_missing path (matching eager/virtual semantics), while a
-        # genuinely-required ("!load") branch that is absent still raises
-        # loudly at buffer-access time.
-        present_keys = [key for key in keys if key in tree]
         arrays = tree.arrays(
-            present_keys,
+            keys,
             entry_start=start,
             entry_stop=stop,
             ak_add_doc=interp_options["ak_add_doc"],

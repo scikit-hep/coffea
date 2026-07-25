@@ -97,16 +97,11 @@ def _make_length_zero_one_tracer(
 def _form_keys_to_columns(touched: list) -> frozenset[str]:
     # translate the touched buffer keys to branch names
     keys = set()
-    # each buffer key encodes the necessary branches through a "!load" instruction in the coffea DSL.
-    # Branches that may be missing in some files carry a "!loadallowmissing" token instead of a
-    # plain "!load" (generated in nanoevents/mapping/uproot.py), so match with startswith("!load")
-    # to stay consistent with nanoevents/mapping/base.py.
+    # each buffer key encodes the necessary branches through a "!load" instruction in the coffea DSL
     for _buffer_key in touched:
         elements = unquote(_buffer_key.split("/")[-1]).split(",")
         keys |= {
-            elements[idx - 1]
-            for idx, instr in enumerate(elements)
-            if instr.startswith("!load")
+            elements[idx - 1] for idx, instr in enumerate(elements) if instr == "!load"
         }
     return frozenset(keys)
 
