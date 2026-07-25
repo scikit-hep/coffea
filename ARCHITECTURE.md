@@ -266,10 +266,24 @@ later task, so these files are held to a higher bar than ordinary docs.
 **Policy for changes to these files**
 
 - They are owned in `.github/CODEOWNERS`; a change requires an approving review
-  from a maintainer code owner. Maintainers should enable branch protection on the
-  default branch with *Require a pull request*, *Require review from Code Owners*,
-  and *Dismiss stale approvals*, so these paths cannot be modified without a
-  maintainer sign-off.
+  from a maintainer code owner. GitHub reads `CODEOWNERS` from the **base** branch,
+  so a PR cannot grant itself ownership by editing that file — which is why
+  `/.github/CODEOWNERS` is itself in the owned set.
+- Recommended branch protection on the default branch, in rough order of value
+  against a compromised-maintainer account: *Require a pull request*; *Require
+  review from Code Owners*; *Dismiss stale approvals when new commits are pushed*
+  together with *Require approval of the most recent reviewable push* (the pair
+  blocks approve-a-benign-diff-then-push-the-payload); *Do not allow bypassing the
+  above settings*, without which a compromised admin skips every rule above;
+  restrict who may dismiss reviews; and keep force-push and branch deletion
+  blocked.
+- Raising *Require approvals* to 2 raises the bar, with two caveats. It is **not**
+  "two code owners": the approval count and the code-owner condition are separate,
+  so one owner plus any write-access collaborator satisfies both. And the count
+  applies per **branch**, not per path, so it taxes every PR to the default
+  branch. Path-scoped enforcement belongs in the `Agent-file guard` workflow, which
+  already identifies these paths and can require two code-owner approvals on them
+  alone.
 - The `Agent-file guard` workflow (`.github/workflows/agent-file-guard.yml`)
   labels (`agent-config`) and comments on any PR touching these paths, so the
   change is visible even before review. It reads only the changed-file list and
