@@ -48,7 +48,7 @@ or `"dask"` — that selects the backend:
   Simplest mental model; closest to old in-memory workflows.
 - **`"virtual"`** — *the default* for `from_root`/`from_parquet`. Arrays are
   virtual: columns are read from disk on first access and cached, with no task
-  graph. Memory-efficient and dask-free, closest to lazy awkward from coffea 0.7
+  graph. Memory-efficient and dask-free, closest to lazy awkward from coffea 0.7.
 - **`"dask"`** — builds a `dask-awkward` task graph; nothing runs until
   `.compute()` (or `dask.compute(...)`). Use for distributed scale-out.
 
@@ -133,9 +133,9 @@ where it is actually needed, instead of once per variation.
 
 When proposing `MultiCell` to an analyst, spell that trade out rather than
 assuming it is understood: they gain one fast fill and roughly half the memory,
-and they can remove statistical uncertainties on variations not requiring them
-Since `nelem` is fixed
-at construction, the choice cannot be revisited without refilling.
+and they can remove statistical uncertainties on variations not requiring them.
+Since `nelem` is fixed at construction, the choice cannot be revisited without
+refilling.
 
 ---
 
