@@ -9,8 +9,7 @@ Contents:
 - Reading data — `NanoEventsFactory` and execution modes
 - Manipulating awkward arrays
 - Histogramming
-- Preprocessing and scaling
-- Processors and executors
+- Scaling out — preprocessing, application, execution, per mode
 - Conventions
 - Common gotchas
 - Provenance & protection of agent files
@@ -84,7 +83,18 @@ Available schemas: `NanoAODSchema`, `PFNanoAODSchema`, `ScoutingNanoAODSchema`,
   justified, but it stays suspect and needs a performance review before it lands:
   that bound is nearly always set by user input — a fileset, a systematics list,
   an event or object count — which can grow to 10⁵–10⁹ without the loop itself
-  changing. A loop that can reach per-event or per-object scale is a defect.
+  changing.
+  What decides it is the trip count and what each iteration costs, not the word
+  "loop":
+  - **Loop over the object slot, broadcasting each iteration across all events** —
+    fine when object multiplicity is small and bounded: a few to a few dozen
+    muons or jets. Python overhead is a few dozen iterations; the work stays
+    vectorized. This is sometimes the clearest way to write a combinatoric.
+  - **The same pattern over hundreds or thousands of objects** — PF candidates,
+    tracks, calorimeter hits — is not fine. The trip count now tracks detector
+    occupancy, and the Python overhead scales with it.
+  - **A per-object loop nested inside a per-event loop** is the worst case: the
+    two multiplicities multiply. Never write this.
 - Vectors use **scikit-hep `vector`** behaviors, which implement
   `__awkward_validation__`: a record whose coordinates are missing, duplicated,
   or conflicting (both `pt` and `rho`, or both `z` and `eta`) raises `ValueError`
@@ -103,21 +113,92 @@ Use scikit-hep **`hist`** (+ `mplhep` for CMS/ATLAS styling); coffea's old
 binned axes are `hist.axis.Regular(...)` / `Variable(...)`; opt into variances with
 `storage=hist.storage.Weight()`. `weight` and `sample` are reserved axis names.
 
+For many weight-based systematic variations sharing one binning,
+`hist.storage.MultiCell(nelem)` (boost-histogram ≥ 1.7) keeps `nelem` independent
+values per bin and fills them in a single pass — `weight=` takes an
+`(n_events, nelem)` array — rather than looping a `Weight` histogram per
+variation. Treat it as an expert tool: `nelem` is fixed at construction,
+`h.view()` indexes the entries as its *first* axis (they are not an extra
+histogram axis, so slicing and projection are unchanged), and it **tracks no
+variances** — there is no sum of w² as in `Weight`, so budget an extra entry and
+pass `weights[:, i] ** 2` yourself if you need them. `hist` re-exports it under a
+guarded import, so it is absent with an older boost-histogram.
+
+That trade is what buys the memory. A nominal value, one statistical variance for
+it, and 13 weight-based systematics is `nelem = 15` — 15 doubles per bin. The
+`Weight` equivalent spreads the 14 variations across a categorical systematics
+axis and stores a `WeightedSum` — value *and* variance — in every cell: 2 × 14 =
+28 doubles per nominal bin. The saving comes from paying for the variance once,
+where it is actually needed, instead of once per variation.
+
+When proposing `MultiCell` to an analyst, spell that trade out rather than
+assuming it is understood: they gain one fast fill and roughly half the memory,
+and they give up a statistical uncertainty per variation. Since `nelem` is fixed
+at construction, the choice cannot be revisited without refilling.
+
 ---
 
-## Preprocessing and scaling
+## Scaling out: preprocessing, application, execution
 
-`dataset_tools.preprocess` computes per-file `steps`, `num_entries`, `uuid`, and
-(with `save_form=True`, the default) the awkward form, returning
-`(available, all)` filesets. Filesets are pydantic `DataGroupSpec` models but the
-APIs also accept — and return — the legacy plain-`dict` format.
+Mode-independent: `ProcessorABC` requires `process(events)` (`postprocess` is
+optional), and `analysis_tools.PackedSelection` (cut bookkeeping), `Weights`
+(event weights + systematic variations) and the N-1 helpers are the standard
+building blocks in either pipeline.
+
+Everything else is per-mode. Two pipelines exist, they share no API, and all three
+stages differ — pick one per analysis rather than mixing them:
+
+| stage | `"eager"` / `"virtual"` | `"dask"` |
+| --- | --- | --- |
+| preprocess | `Runner`'s own embedded preprocessor | `dataset_tools.preprocess` |
+| apply | `Runner(…, processor_instance=…)` | `apply_to_fileset` / `apply_to_dataset` |
+| execute | an executor: `Iterative`, `Futures`, `Dask`, `Parsl` | `.compute()` on the returned graph |
+
+`coffea.compute` appears below as the intended convergence point for both columns.
+**It does not exist on `master` — do not import it.**
+
+### `"eager"` / `"virtual"` mode
+
+**Preprocessing.** `Runner` never calls `dataset_tools.preprocess`. It carries its
+own preprocessor from the pre-dask architecture — `metadata_fetcher_root` and
+`_preprocess_fileset_root` (plus their `_parquet` counterparts) feeding
+`_chunk_generator` — which runs implicitly when the `Runner` is called, or
+explicitly via `Runner.preprocess(...)`.
+
+**Application and execution.** The `Runner` does both: it applies the processor
+chunk by chunk and drives the executor.
+
+```python
+from coffea.processor import Runner, FuturesExecutor
+
+run = Runner(executor=FuturesExecutor(workers=4), schema=NanoAODSchema)
+out = run(fileset, treename="Events", processor_instance=MyProcessor())
+```
+
+`Runner` builds its events with `mode="virtual"`. A fully eager workflow is one
+you drive yourself: read with `mode="eager"` and use no executor at all.
+
+*Direction of travel:* delegate preprocessing to the pydantic
+`dataset_tools.preprocess` instead of the embedded copy, then move preprocessing
+and execution together under `coffea.compute`.
+
+### `"dask"` mode
+
+**Preprocessing.** `dataset_tools.preprocess` computes per-file `steps`,
+`num_entries`, `uuid`, and (with `save_form=True`) the awkward form, returning
+`(available, all)`. Filesets are pydantic `DataGroupSpec` models, but the API also
+accepts — and returns — the legacy plain-`dict` format; the return type matches
+the input type.
+
+**Application.** `apply_to_fileset` / `apply_to_dataset` read at `mode="dask"` and
+build a `dask-awkward` graph. They require the optional dask stack, and nothing in
+the eager/virtual column calls them.
 
 ```python
 from coffea.dataset_tools import preprocess, apply_to_fileset, max_chunks
 
 available, allfiles = preprocess(fileset, step_size=100_000, save_form=True)
 
-# dask-only: builds a dask-awkward graph
 out, report = apply_to_fileset(
     MyProcessor(), max_chunks(available, 5),
     schemaclass=NanoAODSchema,
@@ -125,27 +206,12 @@ out, report = apply_to_fileset(
 )
 ```
 
-`preprocess` output feeds both execution paths, but **`apply_to_fileset` is the
-dask path and nothing else**: it requires the optional dask stack and builds a
-dask-awkward graph. The `Runner` + executor API below does not call it, and
-eager/virtual code must not depend on it. The two paths share no unified API
-today, so pick one per analysis rather than mixing them.
+**Execution.** Nothing has run yet — `out` and `report` are graphs. Compute them
+**together** (`dask.compute(out, report)`), otherwise the report does not describe
+the run that produced the output.
 
----
-
-## Processors and executors
-
-`ProcessorABC` requires `process(events)`; `postprocess` is optional. Run it
-either through `apply_to_fileset` (dask) or the `Runner` + executor API:
-
-```python
-from coffea.processor import Runner, FuturesExecutor
-run = Runner(executor=FuturesExecutor(workers=4), schema=NanoAODSchema)
-out = run(fileset, treename="Events", processor_instance=MyProcessor())
-```
-
-`analysis_tools.PackedSelection` (cut bookkeeping), `Weights` (event weights +
-systematic variations), and the N-1 helpers are the standard building blocks.
+*Direction of travel:* either folded into `coffea.compute` alongside
+graphed-awkward, or deprecated outright.
 
 ---
 
@@ -185,8 +251,6 @@ systematic variations), and the N-1 helpers are the standard building blocks.
   collides with the momentum coordinate set and is rejected by
   `__awkward_validation__` — rename the field.
 - `mode="dask"` requires the optional dask stack; without it, install `[dask,dask-awkward]`.
-- The access `report` from `apply_to_fileset` must be computed together with the
-  analysis output to be accurate.
 
 ---
 

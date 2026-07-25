@@ -27,7 +27,7 @@ pytest                                  # tests (testpaths=tests/); -n auto to p
 - **Field assignment in awkward is setitem**: `events["Muon", "pt2"] = …`.
   Attribute assignment (`events.Muon.pt2 = …`) never embeds the field in the
   underlying `RecordArray`, so it is always subtly wrong.
-- **No Python loop over an array's `axis=0`** outside a numba-jitted function —
+- **No Python loop over an array's `axis=0`** (events) outside a numba-jitted function —
   vectorize instead (rare exceptions: `ARCHITECTURE.md`, *Manipulating awkward
   arrays*).
 - **The dask stack is optional** (v2026.7.0+). Don't assume `dask`/`dask-awkward`
@@ -48,7 +48,6 @@ pytest                                  # tests (testpaths=tests/); -n auto to p
 | --- | --- |
 | understanding a subsystem or writing new code (NanoEvents modes, awkward idioms, histogramming, preprocessing, processors, conventions, gotchas) | **`ARCHITECTURE.md`** — headings are a TOC: `grep -n '^#' ARCHITECTURE.md`, then read the one section you need |
 | migrating an analysis across coffea eras (0.7 / dask-DAG / virtual / pydantic) | **`docs/agents/migration.md`** |
-| running a multi-step change with the review loops | **`.claude/skills/`** (planning · planning-review · implementation · implementation-review) |
 | touching agent/config files | *Provenance & protection* below + `ARCHITECTURE.md#provenance--protection-of-agent-files` |
 
 ## Version targets (keep current)
