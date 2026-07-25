@@ -133,7 +133,8 @@ where it is actually needed, instead of once per variation.
 
 When proposing `MultiCell` to an analyst, spell that trade out rather than
 assuming it is understood: they gain one fast fill and roughly half the memory,
-and they give up a statistical uncertainty per variation. Since `nelem` is fixed
+and they can remove statistical uncertainties on variations not requiring them
+Since `nelem` is fixed
 at construction, the choice cannot be revisited without refilling.
 
 ---
