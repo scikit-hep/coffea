@@ -48,6 +48,7 @@ pytest                                  # tests (testpaths=tests/); -n auto to p
 | --- | --- |
 | understanding a subsystem or writing new code (NanoEvents modes, awkward idioms, histogramming, preprocessing, processors, conventions, gotchas) | **`ARCHITECTURE.md`** — headings are a TOC: `grep -n '^#' ARCHITECTURE.md`, then read the one section you need |
 | migrating an analysis across coffea eras (0.7 / dask-DAG / virtual / pydantic) | **`docs/agents/migration.md`** |
+| running a multi-step change through the review loops | **`.claude/skills/README.md`** (planning · planning-review · implementation · implementation-review) |
 | touching agent/config files | *Provenance & protection* below + `ARCHITECTURE.md#provenance--protection-of-agent-files` |
 
 ## Version targets (keep current)
