@@ -1,3 +1,5 @@
+import os
+
 import awkward as ak
 import numpy as np
 import pytest
@@ -80,6 +82,10 @@ def common_prepare_awkward(jets):
 @pytest.mark.dask_client
 def test_triton(tmp_path, dask_client):
     _ = pytest.importorskip("tritonclient")
+    if os.environ.get("TRITON_UNAVAILABLE") == "1":
+        # Set by CI when the server image could not be pulled; a server that did
+        # start is still expected to answer, so this does not mask real failures.
+        pytest.skip("triton inference server image unavailable")
 
     from coffea.ml_tools.triton_wrapper import triton_wrapper
 
