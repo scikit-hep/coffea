@@ -1,4 +1,3 @@
-import inspect
 import io
 import pathlib
 import warnings
@@ -248,7 +247,6 @@ class NanoEventsFactory:
         self._mapping = mapping
         self._partition_key = partition_key
         self._events = lambda: None
-        self._mapping_accepts_form_mapping = None
 
     def __getstate__(self):
         return {
@@ -262,7 +260,6 @@ class NanoEventsFactory:
         self._mapping = state["mapping"]
         self._partition_key = state["partition_key"]
         self._events = lambda: None
-        self._mapping_accepts_form_mapping = None
 
     @classmethod
     def from_root(
@@ -785,18 +782,7 @@ class NanoEventsFactory:
         if self._mode == "dask":
             dask_awkward = _import_dask_awkward()
             dask_awkward.lib.core.dak_cache.clear()
-
-            # Whether the mapping accepts form_mapping (explicitly or via **kwargs) only
-            # depends on the mapping callable, so inspect its signature once and memoize.
-            if self._mapping_accepts_form_mapping is None:
-                params = inspect.signature(self._mapping).parameters
-                self._mapping_accepts_form_mapping = "form_mapping" in params or any(
-                    p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
-                )
-            if self._mapping_accepts_form_mapping:
-                events = self._mapping(form_mapping=self._schema)
-            else:
-                events = self._mapping()
+            events = self._mapping(form_mapping=self._schema)
             report = None
             if isinstance(events, tuple):
                 events, report = events
