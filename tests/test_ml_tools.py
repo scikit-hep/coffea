@@ -126,7 +126,7 @@ def _make_triton_wrapper():
     )
 
 
-def test_triton_eager(tmp_path):
+def test_triton_ak(tmp_path):
     tw = _make_triton_wrapper()
     ak_jets = prepare_jets_array(njets=256)
 
@@ -141,7 +141,7 @@ def test_triton_eager(tmp_path):
 
 
 @pytest.mark.dask_client
-def test_triton(tmp_path, dask_client):
+def test_triton_dak(tmp_path, dask_client):
     dak = _dask_awkward()
     tw = _make_triton_wrapper()
 
@@ -181,7 +181,7 @@ def _make_torch_wrapper(**kwargs):
     return torch_wrapper_test("tests/samples/pn_demo.pt", **kwargs)
 
 
-def test_torch_eager(tmp_path):
+def test_torch_ak(tmp_path):
     tw = _make_torch_wrapper()
     ak_jets = prepare_jets_array(njets=256)
     assert len(tw(ak_jets)) == len(ak_jets)
@@ -195,7 +195,7 @@ def test_torch_eager(tmp_path):
 
 
 @pytest.mark.dask_client
-def test_torch(tmp_path, dask_client):
+def test_torch_dak(tmp_path, dask_client):
     dak = _dask_awkward()
     tw = _make_torch_wrapper()
 
@@ -272,7 +272,7 @@ def _make_tf_length0_wrapper():
     )
 
 
-def test_tensorflow_eager(tmp_path):
+def test_tensorflow_ak(tmp_path):
     tfw = _make_tf_wrapper()
     ak_jets = prepare_jets_array(njets=256)
     assert len(tfw(ak_jets)) == len(ak_jets)
@@ -288,7 +288,7 @@ def test_tensorflow_eager(tmp_path):
 
 
 @pytest.mark.dask_client
-def test_tensorflow(tmp_path, dask_client):
+def test_tensorflow_dak(tmp_path, dask_client):
     dak = _dask_awkward()
     tfw = _make_tf_wrapper()
 
@@ -340,7 +340,7 @@ def _xgboost_events(nevents=1_000):
     )
 
 
-def test_xgboost_eager(tmp_path):
+def test_xgboost_ak(tmp_path):
     xgb_wrap = _make_xgboost_wrapper()
     ak_events = _xgboost_events()
 
@@ -351,7 +351,7 @@ def test_xgboost_eager(tmp_path):
 
 
 @pytest.mark.dask_client
-def test_xgboost(tmp_path, dask_client):
+def test_xgboost_dak(tmp_path, dask_client):
     dak = _dask_awkward()
     xgb_wrap = _make_xgboost_wrapper()
 
