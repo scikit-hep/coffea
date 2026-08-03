@@ -1837,7 +1837,11 @@ def test_corrected_met_type1_autoderive_raw_pt():
 def test_corrected_met_type1_hardcoded():
     """Verify Type-1 corrected MET (both .txt and correctionlib) matches hardcoded expectations for the first 5 events."""
     correctionlib = pytest.importorskip("correctionlib")
-    from coffea.jetmet_tools import CorrectedMETFactory, FactorizedJetCorrector, CorrectionLibJEC
+    from coffea.jetmet_tools import (
+        CorrectedMETFactory,
+        CorrectionLibJEC,
+        FactorizedJetCorrector,
+    )
 
     s = _build_type1_summer22_inputs()
     ev, name_map = s["evaluator"], s["name_map"]
@@ -1849,26 +1853,45 @@ def test_corrected_met_type1_hardcoded():
     )
 
     # .txt-based
-    jec_L1_txt = FactorizedJetCorrector(**{_SUMMER22_LEVELS[0]: ev[_SUMMER22_LEVELS[0]]})
-    jec_L1L2L3_txt = FactorizedJetCorrector(**{name: ev[name] for name in _SUMMER22_LEVELS})
-    met_txt = CorrectedMETFactory(name_map, jec_L1L2L3=jec_L1L2L3_txt, jec_L1=jec_L1_txt).build(
-        pfmet, corrected_jets, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets
+    jec_L1_txt = FactorizedJetCorrector(
+        **{_SUMMER22_LEVELS[0]: ev[_SUMMER22_LEVELS[0]]}
     )
+    jec_L1L2L3_txt = FactorizedJetCorrector(
+        **{name: ev[name] for name in _SUMMER22_LEVELS}
+    )
+    met_txt = CorrectedMETFactory(
+        name_map, jec_L1L2L3=jec_L1L2L3_txt, jec_L1=jec_L1_txt
+    ).build(pfmet, corrected_jets, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets)
 
     # correctionlib-based
-    cset = correctionlib.CorrectionSet.from_file("tests/samples/jet_jerc_Summer22_V3.json.gz")
-    jec_L1_cl = CorrectionLibJEC(cset[f"{_SUMMER22_TAG}_L1FastJet_{_SUMMER22_JT}"])
-    jec_L1L2L3_cl = CorrectionLibJEC(cset.compound[f"{_SUMMER22_TAG}_L1L2L3Res_{_SUMMER22_JT}"])
-    met_cl = CorrectedMETFactory(name_map, jec_L1L2L3=jec_L1L2L3_cl, jec_L1=jec_L1_cl).build(
-        pfmet, corrected_jets, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets
+    cset = correctionlib.CorrectionSet.from_file(
+        "tests/samples/jet_jerc_Summer22_V3.json.gz"
     )
+    jec_L1_cl = CorrectionLibJEC(cset[f"{_SUMMER22_TAG}_L1FastJet_{_SUMMER22_JT}"])
+    jec_L1L2L3_cl = CorrectionLibJEC(
+        cset.compound[f"{_SUMMER22_TAG}_L1L2L3Res_{_SUMMER22_JT}"]
+    )
+    met_cl = CorrectedMETFactory(
+        name_map, jec_L1L2L3=jec_L1L2L3_cl, jec_L1=jec_L1_cl
+    ).build(pfmet, corrected_jets, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets)
 
     # Expected values for first 5 events
-    expected_pt = [56.71658517976303, 65.9617027504427, 36.44936318875199, 29.049212550884096, 38.90181763646251]
-    expected_phi = [2.529857014684793, -1.0578153037237557, 0.10473577139427523, -2.6176013801134985, -2.7193310575000793]
+    expected_pt = [
+        56.71658517976303,
+        65.9617027504427,
+        36.44936318875199,
+        29.049212550884096,
+        38.90181763646251,
+    ]
+    expected_phi = [
+        2.529857014684793,
+        -1.0578153037237557,
+        0.10473577139427523,
+        -2.6176013801134985,
+        -2.7193310575000793,
+    ]
 
     assert np.allclose(met_txt.pt[:5], expected_pt, rtol=1e-5)
     assert np.allclose(met_txt.phi[:5], expected_phi, rtol=1e-5)
     assert np.allclose(met_cl.pt[:5], expected_pt, rtol=1e-5)
     assert np.allclose(met_cl.phi[:5], expected_phi, rtol=1e-5)
-
