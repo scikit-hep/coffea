@@ -36,7 +36,14 @@ class PreloadedSourceMapping(BaseSourceMapping):
     def __init__(
         self, array_source, start, stop, cache=None, access_log=None, buffer_cache=None
     ):
-        super().__init__(array_source, start, stop, cache, access_log, buffer_cache)
+        super().__init__(
+            array_source,
+            start,
+            stop,
+            cache,
+            access_log,
+            buffer_cache=buffer_cache,
+        )
 
     @classmethod
     def _extract_base_form(cls, column_source, force_to_i64=False):

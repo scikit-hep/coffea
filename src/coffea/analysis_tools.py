@@ -55,28 +55,6 @@ conda install -c conda-forge dask-histogram""") from err
     return hist.Hist
 
 
-def _generate_slices(array_length, max_elements=128):
-    """Generate slices to split an array into chunks of at most `max_elements` elements
-
-    Parameters
-    ----------
-    array_length : int
-        The length of the array to split
-    max_elements : int, optional
-        The maximum number of elements in each chunk. Default is 128.
-
-    Returns
-    -------
-    slices : list of slice objects
-        A list of slice objects to iterate over and split the array into chunks with at most `max_elements` elements per slice
-    """
-    slices = []
-    for start in range(0, array_length, max_elements):
-        end = min(start + max_elements, array_length)
-        slices.append(slice(start, end))
-    return slices
-
-
 def boolean_masks_to_categorical_integers(
     masks,
     insert_unmasked_as_zeros=False,
@@ -187,10 +165,12 @@ class WeightStatistics:
 
     def __add__(self, other):
         temp = WeightStatistics(self.sumw, self.sumw2, self.minw, self.maxw, self.n)
-        return temp.add(other)
+        temp.add(other)
+        return temp
 
     def __iadd__(self, other):
-        return self.add(other)
+        self.add(other)
+        return self
 
 
 class Weights:
@@ -394,7 +374,7 @@ class Weights:
         """Add a new weight with multiple variations in delayed mode"""
         dask_awkward = _import_dask_awkward()
 
-        if isinstance(weight, awkward.types.OptionType):
+        if isinstance(dask_awkward.type(weight), awkward.types.OptionType):
             # TODO what to do with option-type? is it representative of unknown weight
             # and we default to one or is it an invalid weight and we should never use this
             # event in the first place (0) ?
@@ -567,8 +547,8 @@ class Weights:
         """
         if modifier is None:
             return self._weight
-        elif "Down" in modifier and modifier not in self._modifiers:
-            return self._weight / self._modifiers[modifier.replace("Down", "Up")]
+        elif modifier.endswith("Down") and modifier not in self._modifiers:
+            return self._weight / self._modifiers[modifier[:-4] + "Up"]
         return self._weight * self._modifiers[modifier]
 
     def partial_weight(self, include=[], exclude=[], modifier=None):
@@ -628,12 +608,17 @@ class Weights:
 
         if modifier is None:
             return w
-        elif modifier.replace("Down", "").replace("Up", "") not in names:
+        base = (
+            modifier[:-4]
+            if modifier.endswith("Down")
+            else modifier[:-2] if modifier.endswith("Up") else modifier
+        )
+        if not any(base == n or base.startswith(n + "_") for n in names):
             raise ValueError(
                 f"Modifier {modifier} is not in the list of included weights"
             )
-        elif "Down" in modifier and modifier not in self._modifiers:
-            return w / self._modifiers[modifier.replace("Down", "Up")]
+        if modifier.endswith("Down") and modifier not in self._modifiers:
+            return w / self._modifiers[modifier[:-4] + "Up"]
         return w * self._modifiers[modifier]
 
     @property
@@ -642,7 +627,8 @@ class Weights:
         keys = set(self._modifiers.keys())
         # add any missing 'Down' variation
         for k in self._modifiers.keys():
-            keys.add(k.replace("Up", "Down"))
+            if k.endswith("Up"):
+                keys.add(k[:-2] + "Down")
         return keys
 
 
@@ -1188,10 +1174,6 @@ class NminusOne:
         if do_weighted:
             axes.append(hist.storage.Weight())
         if not self._delayed_mode and not do_categorical:
-            if categorical is not None:
-                raise NotImplementedError(
-                    "yieldhist is not implemented for non-delayed mode (v1) with categorical"
-                )
             h = hist.Hist(*axes)
             weighttofill = self._wgtev if do_weighted else self._nev
             if do_scaled:
@@ -1200,10 +1182,6 @@ class NminusOne:
         elif self._delayed_mode and not do_categorical:
             dask_awkward = _import_dask_awkward()
 
-            if categorical is not None:
-                raise NotImplementedError(
-                    "yieldhist is not implemented for non-delayed mode (v1) with categorical"
-                )
             h = Hist(*axes)
 
             for i, mask in enumerate(self._masks, 1):
@@ -1772,10 +1750,6 @@ class Cutflow:
         if do_weighted:
             axes.append(hist.storage.Weight())
         if not self._delayed_mode and not do_categorical:
-            if categorical is not None:
-                raise NotImplementedError(
-                    "yieldhist is not implemented for non-delayed mode (v1) with categorical"
-                )
             honecut = hist.Hist(*axes)
             hcutflow = honecut.copy()
             hcutflow.axes.name = ("cutflow",)
@@ -1789,10 +1763,6 @@ class Cutflow:
         elif self._delayed_mode and not do_categorical:
             dask_awkward = _import_dask_awkward()
 
-            if categorical is not None:
-                raise NotImplementedError(
-                    "yieldhist is not implemented for non-delayed mode (v1) with categorical"
-                )
             honecut = Hist(*axes)
             hcutflow = honecut.copy()
             hcutflow.axes.name = ("cutflow",)
@@ -2291,7 +2261,6 @@ class PackedSelection:
         for name, selection in selections.items():
             self.add(name, selection, fill_value)
 
-    @lru_cache
     def require(self, **names):
         """Return a mask vector corresponding to specific requirements
 
@@ -2318,6 +2287,12 @@ class PackedSelection:
         returns a boolean array where an entry is True if the corresponding entries
         ``cut1 == True``, ``cut2 == False``, and ``cut3`` arbitrary.
         """
+        # copy so a caller mutating the returned mask cannot corrupt the shared cache
+        result = self._require(**names)
+        return result.copy() if isinstance(result, numpy.ndarray) else result
+
+    @lru_cache
+    def _require(self, **names):
         for cut, v in names.items():
             if not isinstance(cut, str) or cut not in self._names:
                 raise ValueError(
