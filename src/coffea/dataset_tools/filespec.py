@@ -26,6 +26,17 @@ StepPair = Annotated[
 ]
 
 
+def _file_object_path_split(path: str) -> tuple[str, str | None]:
+    """Split ``"filename:object_path"`` into ``(filename, object_path)``.
+
+    Delegates to uproot's splitter, which handles XRootD URLs whose host carries a
+    port colon (e.g. ``"root://host:1094//store/f.root"``).
+    """
+    from uproot._util import file_object_path_split
+
+    return file_object_path_split(path)
+
+
 class GenericFileSpec(BaseModel):
     object_path: str | None = None
     steps: Annotated[list[StepPair], Field(min_length=1)] | None = None
@@ -559,22 +570,14 @@ class DatasetSpec(BaseModel):
                 elif k == "files":
                     # promote files list to dict if necessary
                     if isinstance(v, list):
-                        # If files is a list, convert it to a dict and let it pass through the rest of the promotion logic
-                        tmp = [f.rsplit(":", maxsplit=1) for f in v]
+                        # Convert the files list to a dict and let it pass through the rest of the promotion logic.
+                        # Each entry may embed a ROOT object path as a trailing ":Tree" suffix; the filename itself may
+                        # be an XRootD URL that contains a port colon (e.g. "root://host:1094//path/f.root"), so use
+                        # uproot's splitter to separate filename from object path rather than splitting on the port colon.
                         files = {}
-                        for fsplit in tmp:
-                            # Need a valid split into file name and object path
-                            if len(fsplit) > 1:
-                                # but ensure we don't catch 'root://' and split that
-                                if fsplit[1].startswith("//"):
-                                    # no object path
-                                    files[":".join(fsplit)] = None
-                                else:
-                                    # file name and object path
-                                    files[fsplit[0]] = fsplit[1]
-                            else:
-                                # no object path
-                                files[fsplit[0]] = None
+                        for f in v:
+                            filename, object_path = _file_object_path_split(f)
+                            files[filename] = object_path
                         new_data["files"] = files
                     else:
                         new_data["files"] = copy.deepcopy(v)
