@@ -1195,7 +1195,9 @@ def _build_type1_summer22_inputs():
     jets["Rho"] = ak.broadcast_arrays(events.Rho.fixedGridRhoFastjetAll, jets.pt)[0]
 
     jec_cache = cachetools.Cache(np.inf)
-    corrected_jets = CorrectedJetsFactory(name_map, jec_stack).build(jets, lazy_cache=jec_cache)
+    corrected_jets = CorrectedJetsFactory(name_map, jec_stack).build(
+        jets, lazy_cache=jec_cache
+    )
 
     pfmet = events.PFMET
     uncl_delta = pfmet.sumPtUnclustered / np.sqrt(2.0)
@@ -1227,7 +1229,9 @@ def _build_type1_summer22_inputs():
 
     raw_met = events.RawPFMET
     corrt1jets = events.CorrT1METJet
-    corrt1jets["Rho"] = ak.broadcast_arrays(events.Rho.fixedGridRhoFastjetAll, corrt1jets.rawPt)[0]
+    corrt1jets["Rho"] = ak.broadcast_arrays(
+        events.Rho.fixedGridRhoFastjetAll, corrt1jets.rawPt
+    )[0]
 
     return {
         "events": events,
@@ -1294,7 +1298,11 @@ def test_corrected_met_type1_closure():
 
     met_factory = CorrectedMETFactory(name_map, jec_L1L2L3=jec_L1L2L3, jec_L1=jec_L1)
     corrected_met = met_factory.build(
-        pfmet, corrected_jets, lazy_cache=jec_cache, RawMET=raw_met, CorrT1METJets=corrt1jets
+        pfmet,
+        corrected_jets,
+        lazy_cache=jec_cache,
+        RawMET=raw_met,
+        CorrT1METJets=corrt1jets,
     )
 
     # --- 1. Independent-formula closure using pt_raw ---
@@ -1359,15 +1367,37 @@ def test_corrected_met_type1_hardcoded():
     )
 
     # .txt-based
-    jec_L1_txt = FactorizedJetCorrector(**{_SUMMER22_LEVELS[0]: ev[_SUMMER22_LEVELS[0]]})
-    jec_L1L2L3_txt = FactorizedJetCorrector(**{name: ev[name] for name in _SUMMER22_LEVELS})
-    met_txt = CorrectedMETFactory(name_map, jec_L1L2L3=jec_L1L2L3_txt, jec_L1=jec_L1_txt).build(
-        pfmet, corrected_jets, lazy_cache=jec_cache, RawMET=raw_met, CorrT1METJets=corrt1jets
+    jec_L1_txt = FactorizedJetCorrector(
+        **{_SUMMER22_LEVELS[0]: ev[_SUMMER22_LEVELS[0]]}
+    )
+    jec_L1L2L3_txt = FactorizedJetCorrector(
+        **{name: ev[name] for name in _SUMMER22_LEVELS}
+    )
+    met_txt = CorrectedMETFactory(
+        name_map, jec_L1L2L3=jec_L1L2L3_txt, jec_L1=jec_L1_txt
+    ).build(
+        pfmet,
+        corrected_jets,
+        lazy_cache=jec_cache,
+        RawMET=raw_met,
+        CorrT1METJets=corrt1jets,
     )
 
     # Expected values for first 5 events
-    expected_pt = [56.71658517976303, 65.9617027504427, 36.44936318875199, 29.049212550884096, 38.90181763646251]
-    expected_phi = [2.529857014684793, -1.0578153037237557, 0.10473577139427523, -2.6176013801134985, -2.7193310575000793]
+    expected_pt = [
+        56.71658517976303,
+        65.9617027504427,
+        36.44936318875199,
+        29.049212550884096,
+        38.90181763646251,
+    ]
+    expected_phi = [
+        2.529857014684793,
+        -1.0578153037237557,
+        0.10473577139427523,
+        -2.6176013801134985,
+        -2.7193310575000793,
+    ]
 
     assert np.allclose(ak.to_numpy(met_txt.pt[:5]), np.array(expected_pt), rtol=1e-5)
     assert np.allclose(ak.to_numpy(met_txt.phi[:5]), np.array(expected_phi), rtol=1e-5)
