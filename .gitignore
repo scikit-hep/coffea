@@ -116,3 +116,6 @@ dask-worker-space/
 src/coffea/_version.py
 
 .DS_Store
+
+# Review-loop scratch; see .claude/skills/README.md
+.agent-work/
