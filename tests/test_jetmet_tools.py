@@ -1371,5 +1371,3 @@ def test_corrected_met_type1_hardcoded():
 
     assert np.allclose(ak.to_numpy(met_txt.pt[:5]), np.array(expected_pt), rtol=1e-5)
     assert np.allclose(ak.to_numpy(met_txt.phi[:5]), np.array(expected_phi), rtol=1e-5)
-
-
