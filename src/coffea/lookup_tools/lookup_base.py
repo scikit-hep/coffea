@@ -128,8 +128,7 @@ class lookup_base:
             for x in args
         ):
             raise TypeError(
-                "lookup base must receive high level awkward arrays,"
-                " numpy arrays, strings, or numbers!"
+                "lookup base must receive high level awkward arrays, numpy arrays, strings, or numbers!"
             )
 
         return tomap(self, *actual_args)

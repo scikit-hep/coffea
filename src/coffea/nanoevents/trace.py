@@ -70,9 +70,9 @@ def _make_length_zero_one_tracer(
     for key, buffer in container.items():
         container[key] = partial(generate, buffer=buffer, report=report, buffer_key=key)
 
-    assert list(container.keys()) == list(
-        expected_buffer_keys
-    ), "length zero/one array buffer keys do not match the expected ones"
+    assert list(container.keys()) == list(expected_buffer_keys), (
+        "length zero/one array buffer keys do not match the expected ones"
+    )
     array = ak.from_buffers(
         form=form,
         length=length,

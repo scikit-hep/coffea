@@ -121,7 +121,7 @@ def _get_pfn_for_site(path, rules):
             if m := re.match(rule, path):
                 grs = m.groups()
                 for i in range(len(grs)):
-                    pfn = pfn.replace(f"${i+1}", grs[i])
+                    pfn = pfn.replace(f"${i + 1}", grs[i])
                 return pfn
     else:
         # not adding any slash as the path usually starts with it

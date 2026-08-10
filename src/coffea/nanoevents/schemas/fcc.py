@@ -480,7 +480,7 @@ class FCCSchema(BaseSchema):
             for key, target in self.mc_relations.items():
                 col_name = target.split(".")[0]
                 if name.endswith(key):
-                    range_name = f"{col_name.replace('#','idx')}_ranges"
+                    range_name = f"{col_name.replace('#', 'idx')}_ranges"
                     ranges_content[range_name] = transforms.begin_end_mapping_form(
                         *begin, *end, branch_forms[f"{col_name}/{target}"]
                     )

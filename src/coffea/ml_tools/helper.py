@@ -29,12 +29,12 @@ class nonserializable_attribute:
         self._nonserial_list = nonserial_list
 
         for name in nonserial_list:
-            assert (
-                name.isidentifier()
-            ), f"Requested variable {name} cannot be used as variable name"
-            assert hasattr(
-                self, "_create_" + name
-            ), f"Method _create_{name} needs to be implemented in by class"
+            assert name.isidentifier(), (
+                f"Requested variable {name} cannot be used as variable name"
+            )
+            assert hasattr(self, "_create_" + name), (
+                f"Method _create_{name} needs to be implemented in by class"
+            )
             setattr(self, "_" + name, None)
 
     def __getattr__(self, name):

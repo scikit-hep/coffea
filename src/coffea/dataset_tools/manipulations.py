@@ -311,8 +311,7 @@ def get_failed_steps_for_dataset(
     for fname, fdesc in dataset["files"].items():
         if "steps" not in fdesc:
             raise RuntimeError(
-                f"steps specification not found in file description for {fname}, "
-                "please specify steps consistently in input dataset."
+                f"steps specification not found in file description for {fname}, please specify steps consistently in input dataset."
             )
 
     fnames = set(dataset["files"].keys())

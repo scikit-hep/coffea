@@ -304,8 +304,7 @@ class CorrectedMETFactory:
             for name in _TYPE1_JET_KEYS:
                 if name not in name_map or name_map[name] is None:
                     raise ValueError(
-                        f"There is no name mapping for {name}, which is needed for "
-                        f"CorrectedMETFactory in Type-1 mode"
+                        f"There is no name mapping for {name}, which is needed for CorrectedMETFactory in Type-1 mode"
                     )
 
         self.name_map = name_map
@@ -345,16 +344,14 @@ class CorrectedMETFactory:
         if self.type1_mode:
             if in_RawMET is None:
                 raise ValueError(
-                    "in_RawMET is required when CorrectedMETFactory is in Type-1 mode "
-                    "(jec_L1L2L3 and jec_L1 were provided)."
+                    "in_RawMET is required when CorrectedMETFactory is in Type-1 mode (jec_L1L2L3 and jec_L1 were provided)."
                 )
             if in_CorrT1METJets is not None:
                 # Validate CorrT1 name_map keys
                 for name in _TYPE1_CORRT1_KEYS:
                     if name not in self.name_map or self.name_map[name] is None:
                         raise ValueError(
-                            f"There is no name mapping for {name}, which is needed "
-                            f"when in_CorrT1METJets is provided"
+                            f"There is no name mapping for {name}, which is needed when in_CorrT1METJets is provided"
                         )
             return self._build_type1(
                 in_MET, in_corrected_jets, in_RawMET, in_CorrT1METJets

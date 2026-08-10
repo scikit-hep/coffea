@@ -128,9 +128,9 @@ class BTagScaleFactor:
                 sorted({x for tup in corr.index.levels[1] for x in tup})
             )
             if numpy.all(edges_eta >= 0):
-                assert (
-                    edges_eta[0] == 0.0
-                ), "BTV correction doesn't cover the middle of the detector!"
+                assert edges_eta[0] == 0.0, (
+                    "BTV correction doesn't cover the middle of the detector!"
+                )
                 edges_eta = numpy.concatenate([-edges_eta[:0:-1], edges_eta])
             edges_pt = numpy.array(
                 sorted({x for tup in corr.index.levels[2] for x in tup})

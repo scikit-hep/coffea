@@ -1119,20 +1119,10 @@ class NminusOne:
             xev = [x * scale for x in xev]
         coffea_console.print(header)
         for i, name in enumerate(self._names):
-            stats = (
-                f"Ignoring [{_rcol[5]}]{name:<20}[/{_rcol[5]}]"
-                f"pass = {xev[i+1]:<20}"
-                f"all = {xev[0]:<20}"
-                f"-- eff = {xev[i+1]*100/xev[0]:.1f} %"
-            )
+            stats = f"Ignoring [{_rcol[5]}]{name:<20}[/{_rcol[5]}]pass = {xev[i + 1]:<20}all = {xev[0]:<20}-- eff = {xev[i + 1] * 100 / xev[0]:.1f} %"
             coffea_console.print(stats)
 
-        stats_all = (
-            f"[{_rcol[6]}]All cuts[/{_rcol[6]}] {'':<20}"
-            f"pass = {xev[-1]:<20}"
-            f"all = {xev[0]:<20}"
-            f"-- eff = {xev[-1]*100/xev[0]:.1f} %"
-        )
+        stats_all = f"[{_rcol[6]}]All cuts[/{_rcol[6]}] {'':<20}pass = {xev[-1]:<20}all = {xev[0]:<20}-- eff = {xev[-1] * 100 / xev[0]:.1f} %"
         coffea_console.print(stats_all)
 
     def yieldhist(self, weighted=None, scale=None, categorical=None):
@@ -1708,11 +1698,11 @@ class Cutflow:
         for i, name in enumerate(self._names):
             stats = (
                 f"Cut [{_rcol[5]}]{name:<20}[/{_rcol[5]}]:"
-                f"pass = {xevonecut[i+1]:<20}"
-                f"cumulative pass = {xevcutflow[i+1]:<20}"
+                f"pass = {xevonecut[i + 1]:<20}"
+                f"cumulative pass = {xevcutflow[i + 1]:<20}"
                 f"all = {xevonecut[0]:<20}"
-                f"-- eff = {xevonecut[i+1]*100/xevonecut[0]:.1f} %{'':<20}"
-                f"-- cumulative eff = {xevcutflow[i+1]*100/xevcutflow[0]:.1f} %"
+                f"-- eff = {xevonecut[i + 1] * 100 / xevonecut[0]:.1f} %{'':<20}"
+                f"-- cumulative eff = {xevcutflow[i + 1] * 100 / xevcutflow[0]:.1f} %"
             )
             coffea_console.print(stats)
 

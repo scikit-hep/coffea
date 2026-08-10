@@ -1729,8 +1729,7 @@ def test_corrected_met_type1_closure():
     exp_pt = np.hypot(exp_x, exp_y)
 
     assert ak.all(np.isclose(exp_pt, corrected_met.pt, rtol=1e-5, atol=1e-3)), (
-        "Type-1 MET does not match independent recomputation from raw pT — "
-        "check the raw-pT reconstruction."
+        "Type-1 MET does not match independent recomputation from raw pT — check the raw-pT reconstruction."
     )
 
     # --- 2. Physics closure against the stored (production) Type-1 MET ---
@@ -1738,8 +1737,7 @@ def test_corrected_met_type1_closure():
     dist_type1 = ak.mean(abs(corrected_met.pt - stored))
     dist_raw = ak.mean(abs(raw_met.pt - stored))
     assert dist_type1 < dist_raw, (
-        f"Type-1 correction did not move MET toward the stored PFMET "
-        f"(|type1-stored|={dist_type1:.3f} vs |raw-stored|={dist_raw:.3f})"
+        f"Type-1 correction did not move MET toward the stored PFMET (|type1-stored|={dist_type1:.3f} vs |raw-stored|={dist_raw:.3f})"
     )
 
 

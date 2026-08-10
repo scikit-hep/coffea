@@ -38,10 +38,7 @@ class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):
         """
         if _tf_import_error is not None:
             warnings.warn(
-                "Users should make sure the torch package is installed before proceeding!\n"
-                "> pip install tensorflow\n"
-                "or\n"
-                "> conda install tensorflow",
+                "Users should make sure the torch package is installed before proceeding!\n> pip install tensorflow\nor\n> conda install tensorflow",
                 UserWarning,
             )
             raise _tf_import_error
@@ -69,23 +66,23 @@ class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):
 
         def _equal_shape(mod_in: tuple, arr_shape: tuple) -> None:
             """Tuple of input shape and array shape"""
-            assert len(mod_in) == len(
-                arr_shape
-            ), f"Mismatch number of axis (model: {mod_in}; received: {arr_shape})"
+            assert len(mod_in) == len(arr_shape), (
+                f"Mismatch number of axis (model: {mod_in}; received: {arr_shape})"
+            )
             match = [
                 (m == a if m is not None else True) for m, a in zip(mod_in, arr_shape)
             ]
-            assert numpy.all(
-                match
-            ), f"Mismatch shape (model: {mod_in}; received: {arr_shape})"
+            assert numpy.all(match), (
+                f"Mismatch shape (model: {mod_in}; received: {arr_shape})"
+            )
 
         if isinstance(model_input, tuple):
             # Single input model
             _equal_shape(model_input, input_arr.shape)
         else:
-            assert len(input_arr) == len(
-                model_input
-            ), f"Mismatch number of inputs (model: {len(model_input)}; received: {len(input_arr)})"
+            assert len(input_arr) == len(model_input), (
+                f"Mismatch number of inputs (model: {len(model_input)}; received: {len(input_arr)})"
+            )
             for model_shape, arr in zip(model_input, input_arr):
                 _equal_shape(model_shape, arr.shape)
 

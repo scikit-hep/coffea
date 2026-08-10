@@ -528,9 +528,9 @@ def test_crossval_junc():
         txt_arr = np.asarray(txt_results[source], dtype=np.float32)
         clib_arr = np.asarray(clib_results[source], dtype=np.float32)
 
-        assert (
-            txt_arr.shape == clib_arr.shape
-        ), f"Shape mismatch for {source}: txt={txt_arr.shape}, clib={clib_arr.shape}"
+        assert txt_arr.shape == clib_arr.shape, (
+            f"Shape mismatch for {source}: txt={txt_arr.shape}, clib={clib_arr.shape}"
+        )
         np.testing.assert_allclose(txt_arr, clib_arr)
 
 
@@ -616,7 +616,7 @@ def test_crossval_jersf():
     )
     clib_sf = np.asarray(clib_sf, dtype=np.float32)
 
-    assert (
-        txt_sf.shape == clib_sf.shape
-    ), f"Shape mismatch: txt={txt_sf.shape}, clib={clib_sf.shape}"
+    assert txt_sf.shape == clib_sf.shape, (
+        f"Shape mismatch: txt={txt_sf.shape}, clib={clib_sf.shape}"
+    )
     np.testing.assert_allclose(txt_sf, clib_sf)

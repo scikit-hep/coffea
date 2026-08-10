@@ -325,13 +325,16 @@ def test_electron_forms(mode):
 )
 def test_jet_forms(mode):
     def filter_name(name):
-        return name in [
-            "AnalysisJetsAuxDyn.pt",
-            "AnalysisJetsAuxDyn.eta",
-            "AnalysisJetsAuxDyn.phi",
-            "AnalysisJetsAuxDyn.m",
-            "AnalysisJetsAuxDyn.btaggingLink",  # this one is split into sub branches, important to test this
-        ]
+        return (
+            name
+            in [
+                "AnalysisJetsAuxDyn.pt",
+                "AnalysisJetsAuxDyn.eta",
+                "AnalysisJetsAuxDyn.phi",
+                "AnalysisJetsAuxDyn.m",
+                "AnalysisJetsAuxDyn.btaggingLink",  # this one is split into sub branches, important to test this
+            ]
+        )
 
     events = _events(filter_name, mode=mode)
 
@@ -445,11 +448,13 @@ def test_entry_start_and_entry_stop():
         schemaclass=PHYSLITESchema,
         entry_start=31,
         iteritems_options=dict(
-            filter_name=lambda name: name
-            in [
-                "AnalysisElectronsAuxDyn.pt",
-                "AnalysisElectronsAuxDyn.trackParticleLinks",
-            ]
+            filter_name=lambda name: (
+                name
+                in [
+                    "AnalysisElectronsAuxDyn.pt",
+                    "AnalysisElectronsAuxDyn.trackParticleLinks",
+                ]
+            )
         ),
     ).events()
 
@@ -459,11 +464,13 @@ def test_entry_start_and_entry_stop():
         schemaclass=PHYSLITESchema,
         entry_stop=31,
         iteritems_options=dict(
-            filter_name=lambda name: name
-            in [
-                "AnalysisElectronsAuxDyn.pt",
-                "AnalysisElectronsAuxDyn.trackParticleLinks",
-            ]
+            filter_name=lambda name: (
+                name
+                in [
+                    "AnalysisElectronsAuxDyn.pt",
+                    "AnalysisElectronsAuxDyn.trackParticleLinks",
+                ]
+            )
         ),
     ).events()
 
@@ -474,11 +481,13 @@ def test_entry_start_and_entry_stop():
         entry_start=31,
         entry_stop=62,
         iteritems_options=dict(
-            filter_name=lambda name: name
-            in [
-                "AnalysisElectronsAuxDyn.pt",
-                "AnalysisElectronsAuxDyn.trackParticleLinks",
-            ]
+            filter_name=lambda name: (
+                name
+                in [
+                    "AnalysisElectronsAuxDyn.pt",
+                    "AnalysisElectronsAuxDyn.trackParticleLinks",
+                ]
+            )
         ),
     ).events()
 

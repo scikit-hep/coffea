@@ -77,19 +77,19 @@ def parse_yaml(loaded_dict, parsed_dict):
                         loaded_dict[key][subkey][subsubkey], target_text=True
                     )
     # Add an extra datatype: podio::ObjectID (for convenience, we use edm4hep::ObjectID even though it is from podio)
-    parsed_dict["datatypes"]["edm4hep::ObjectID"] = (
-        {  # Actually from podio, but, for parsing compatibility, keep as edm4hep
-            "Description": "The Monte Carlo particle - based on the lcio::MCParticle.",
-            "Author": "Prayag Yadav",
-            "Members": {
-                "index": {"type": "int64", "doc": "indices to the target collection"},
-                "collectionID": {
-                    "type": "int64",
-                    "doc": "indices to the target collection",
-                },
+    parsed_dict["datatypes"][
+        "edm4hep::ObjectID"
+    ] = {  # Actually from podio, but, for parsing compatibility, keep as edm4hep
+        "Description": "The Monte Carlo particle - based on the lcio::MCParticle.",
+        "Author": "Prayag Yadav",
+        "Members": {
+            "index": {"type": "int64", "doc": "indices to the target collection"},
+            "collectionID": {
+                "type": "int64",
+                "doc": "indices to the target collection",
             },
-        }
-    )
+        },
+    }
     return parsed_dict
 
 
@@ -540,7 +540,6 @@ class EDM4HEPSchema(BaseSchema):
                         )
                         continue
                     for matched_collection in matched_collections:
-
                         # grab the offset from one of the branches of the target datatype
                         target_vars = self.parsed_edm4hep["datatypes"][target_datatype][
                             "Members"
@@ -666,7 +665,6 @@ class EDM4HEPSchema(BaseSchema):
                                 )
 
                     for matched_collection in matched_collections:
-
                         # grab the offset from one of the branches of the target datatype
                         target_datatype = self._datatype_mixins.get(
                             matched_collection, None
@@ -706,8 +704,7 @@ class EDM4HEPSchema(BaseSchema):
                             for name, targetform in target_contents.items()
                         }
                         OneToManyRelations_content_global = {
-                            name
-                            + "_Global": transforms.nested_local2global_form(
+                            name + "_Global": transforms.nested_local2global_form(
                                 form,
                                 target_datatype_offset_form,
                             )
@@ -806,7 +803,6 @@ class EDM4HEPSchema(BaseSchema):
                                 )
 
                         for matched_collection in matched_collections:
-
                             # grab the offset from one of the branches of the target datatype
                             target_datatype = self._datatype_mixins.get(
                                 matched_collection, None
@@ -879,9 +875,7 @@ class EDM4HEPSchema(BaseSchema):
                                     {
                                         f"Link_{member}_{matched_collection}": OneToOneRelations[
                                             member
-                                        ][
-                                            "doc"
-                                        ]
+                                        ]["doc"]
                                     }
                                 )
 

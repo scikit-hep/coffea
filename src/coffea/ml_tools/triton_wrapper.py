@@ -204,21 +204,18 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
             # Checking the name
             if iname not in self.model_inputs.keys():
                 raise ValueError(
-                    f"Input [{iname}] not defined in model! "
-                    f"Inputs defined by model: {[x for x in self.model_inputs.keys()]}"
+                    f"Input [{iname}] not defined in model! Inputs defined by model: {[x for x in self.model_inputs.keys()]}"
                 )
             # Checking the shape
             ishape = numpy.array(iarr.shape)
             mshape = numpy.array(self.model_inputs[iname]["shape"])
             if len(ishape) != len(mshape):
                 raise ValueError(
-                    f"Input [{iname}] got wrong dimension: {len(ishape)} "
-                    f"(Expected {len(mshape)})"
+                    f"Input [{iname}] got wrong dimension: {len(ishape)} (Expected {len(mshape)})"
                 )
             if not all(numpy.where(mshape > 0, ishape == mshape, True)):
                 raise ValueError(
-                    f"Input [{iname}] got array of shape {ishape} "
-                    f"(Expected: {mshape}, -1 means arbitrary)"
+                    f"Input [{iname}] got array of shape {ishape} (Expected: {mshape}, -1 means arbitrary)"
                 )
             # Checking data type. Notice that this will only raise a warning! Data
             # type defined by triton can be found here:

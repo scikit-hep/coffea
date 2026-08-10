@@ -296,7 +296,7 @@ Some basic commands:
                     self.selected_datasets_metadata.append(metadata)
                 else:
                     self.selected_datasets_metadata.append({})
-                print(f"- ({s+1}) {self.last_query_list[s]}")
+                print(f"- ({s + 1}) {self.last_query_list[s]}")
             else:
                 print(
                     f"[red]The requested dataset is not in the list. Please insert a position <={Nresults}"
@@ -387,7 +387,7 @@ Some basic commands:
             )
             for i, (site, stat) in enumerate(sorted_sites.items()):
                 table.add_row(
-                    str(i), site, f"{stat} / {Nfiles}", f"{stat*100/Nfiles:.1f}%"
+                    str(i), site, f"{stat} / {Nfiles}", f"{stat * 100 / Nfiles:.1f}%"
                 )
 
             self.console.print(table)

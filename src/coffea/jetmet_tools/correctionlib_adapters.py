@@ -286,9 +286,7 @@ class CorrectionLibJECStack:
         jec_adapter = CorrectionLibJEC(cset.compound[jec_name])
         if "JetPt" not in jec_adapter.signature:
             raise ValueError(
-                f"Expected 'JetPt' in JEC correction inputs, "
-                f"got {jec_adapter.signature}. "
-                f"The JSON-POG input naming convention may have changed."
+                f"Expected 'JetPt' in JEC correction inputs, got {jec_adapter.signature}. The JSON-POG input naming convention may have changed."
             )
 
         # JUNC

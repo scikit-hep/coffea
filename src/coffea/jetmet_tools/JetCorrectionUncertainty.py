@@ -10,8 +10,7 @@ def _checkConsistency(against, tocheck):
     else:
         if against != tocheck:
             raise Exception(
-                "Corrector for {} is mixed"
-                "with correctors for {}!".format(tocheck, against)
+                f"Corrector for {tocheck} is mixedwith correctors for {against}!"
             )
     return tocheck
 
@@ -90,9 +89,7 @@ class JetCorrectionUncertainty:
         for name, func in kwargs.items():
             if not isinstance(func, jec_uncertainty_lookup):
                 raise Exception(
-                    "{} is a {} and not a jec_uncertainty_lookup!".format(
-                        name, type(func)
-                    )
+                    f"{name} is a {type(func)} and not a jec_uncertainty_lookup!"
                 )
             campaign, dataera, datatype, level, jettype = split_jec_name(name)
 

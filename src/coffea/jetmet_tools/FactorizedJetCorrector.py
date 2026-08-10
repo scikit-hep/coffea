@@ -13,8 +13,7 @@ def _checkConsistency(against, tocheck):
     else:
         if against != tocheck:
             raise Exception(
-                "Corrector for {} is mixed"
-                "with correctors for {}!".format(tocheck, against)
+                f"Corrector for {tocheck} is mixedwith correctors for {against}!"
             )
     return tocheck
 
@@ -83,9 +82,7 @@ class FactorizedJetCorrector:
         for name, func in kwargs.items():
             if not isinstance(func, jme_standard_function):
                 raise Exception(
-                    "{} is a {} and not a jme_standard_function!".format(
-                        name, type(func)
-                    )
+                    f"{name} is a {type(func)} and not a jme_standard_function!"
                 )
             info = name.split("_")
             if len(info) > 6 or len(info) < 5:
