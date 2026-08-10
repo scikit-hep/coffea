@@ -50,7 +50,6 @@ def corrected_type1_met(
 _TYPE1_JET_KEYS = [
     "RawMETpt",
     "RawMETphi",
-    "JetRawFactor",
     "JetMuonSubtrFactor",
     "JetMuonSubtrDeltaPhi",
     "JetChEmEF",
@@ -69,6 +68,29 @@ _TYPE1_CORRT1_KEYS = [
 ]
 
 
+def _ensure_jet_raw_pt_field(jets, name_map):
+    """Ensure that the jet array carries a raw jet pT field.
+
+    If ``name_map["ptRaw"]`` is missing from ``jets.fields``, try to derive it
+    from ``name_map["JetRawFactor"]`` (and ``JetPt_orig`` if present, else ``JetPt``).
+    """
+    raw_field = name_map["ptRaw"]
+    if raw_field in jets.fields:
+        return jets
+
+    raw_factor_key = name_map.get("JetRawFactor")
+    if raw_factor_key is None or raw_factor_key not in jets.fields:
+        raise ValueError(
+            f"Type-1 MET needs a raw jet pT: add a {raw_field!r} field "
+            "(e.g. 'pt_raw = (1 - rawFactor) * pt' before jet correction) or "
+            "provide a 'JetRawFactor' name mapping so it can be derived."
+        )
+
+    orig_key = name_map["JetPt"] + "_orig"
+    base_pt = jets[orig_key] if orig_key in jets.fields else jets[name_map["JetPt"]]
+    return awkward.with_field(jets, base_pt * (1.0 - jets[raw_factor_key]), raw_field)
+
+
 def _compute_jec_factors(jets, name_map, jec_L1, jec_L1L2L3):
     """Compute L1 and L1L2L3 JEC factors for the Jet collection.
 
@@ -80,9 +102,7 @@ def _compute_jec_factors(jets, name_map, jec_L1, jec_L1L2L3):
     factor_L1, factor_L1L2L3 : awkward.Array
         Jagged arrays of JEC factors matching jets shape.
     """
-    jet_pt = jets[name_map["JetPt"]]
-    raw_factor = jets[name_map["JetRawFactor"]]
-    jet_pt_raw = jet_pt * (1.0 - raw_factor)
+    jet_pt_raw = jets[name_map["ptRaw"]]
 
     counts = awkward.num(jets)
 
@@ -192,13 +212,11 @@ def _compute_jet_type1_deltas_with_factors(
         If provided, multiply pt_noMuL1L2L3 by this factor (for JES/JER variations).
     """
     # Step 1: muon-subtracted raw pT and phi
-    jet_pt = jets[name_map["JetPt"]]
-    raw_factor = jets[name_map["JetRawFactor"]]
     muon_substr_factor = jets[name_map["JetMuonSubtrFactor"]]
     muon_substr_dphi = jets[name_map["JetMuonSubtrDeltaPhi"]]
     jet_phi = jets[name_map["JetPhi"]]
 
-    jet_pt_raw = jet_pt * (1.0 - raw_factor)
+    jet_pt_raw = jets[name_map["ptRaw"]]
     pt_noMuRaw = jet_pt_raw * (1.0 - muon_substr_factor)
     phi_noMuRaw = muon_substr_dphi + jet_phi
 
@@ -450,6 +468,10 @@ class CorrectedMETFactory(object):
 
     def _build_type1(self, MET, corrected_jets, raw_met, corrt1jets):
         """Type-1 MET correction path — all computations are eager (no awkward.virtual)."""
+
+        # Ensure the jets carry a raw pT field (derive it if the user did not).
+        if self.name_map["ptRaw"] not in corrected_jets.fields:
+            corrected_jets = _ensure_jet_raw_pt_field(corrected_jets, self.name_map)
 
         # --- Compute JEC factors once (reused for all variations) ---
         jet_factor_L1, jet_factor_L1L2L3 = _compute_jec_factors(

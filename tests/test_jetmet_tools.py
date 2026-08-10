@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import pytest
 import cachetools
 import awkward as ak
 from coffea.util import numpy as np
@@ -1120,3 +1121,255 @@ def test_corrected_met_type1_v12():
     print("Type-1 corrected MET v12 (nominal):", corrected_met.pt)
     print("Raw MET v12 (orig):", corrected_met.pt_orig)
     print("\nType-1 MET v12 test passed.")
+
+
+# Type-1 MET closure tests. The nano_tt_v15 sample is Run3, so Summer22 JECs
+# (here as both .txt and correctionlib JSON) are the correct era and track the
+# stored production MET; the Summer16 smoke tests above cannot.
+_SUMMER22_TAG = "Summer22_22Sep2023_V3_MC"
+_SUMMER22_JT = "AK4PFPuppi"
+_SUMMER22_LEVELS = [
+    f"{_SUMMER22_TAG}_L1FastJet_{_SUMMER22_JT}",
+    f"{_SUMMER22_TAG}_L2Relative_{_SUMMER22_JT}",
+    f"{_SUMMER22_TAG}_L2L3Residual_{_SUMMER22_JT}",
+    f"{_SUMMER22_TAG}_L3Absolute_{_SUMMER22_JT}",
+]
+
+
+def _summer22_evaluator():
+    from coffea.lookup_tools import extractor
+
+    extract = extractor()
+    extract.add_weight_sets(
+        [f"* * tests/samples/{name}.jec.txt.gz" for name in _SUMMER22_LEVELS]
+        + [
+            "* * tests/samples/Spring16_25nsV10_MC_PtResolution_AK4PFPuppi.jr.txt.gz",
+            "* * tests/samples/Spring16_25nsV10_MC_SF_AK4PFPuppi.jersf.txt.gz",
+        ]
+    )
+    extract.finalize()
+    return extract.make_evaluator()
+
+
+def _build_type1_summer22_inputs():
+    """Shared Summer22 setup: name_map, corrected jets, and MET collections."""
+    import os
+    import cachetools
+    from coffea.jetmet_tools import CorrectedJetsFactory, JECStack
+    from coffea.nanoevents import NanoEventsFactory
+
+    ev = _summer22_evaluator()
+    events = NanoEventsFactory.from_root(
+        os.path.abspath("tests/samples/nano_tt_v15.root")
+    ).events()
+
+    jec_stack = JECStack(
+        {name: ev[name] for name in _SUMMER22_LEVELS}
+        | {
+            "Spring16_25nsV10_MC_PtResolution_AK4PFPuppi": ev[
+                "Spring16_25nsV10_MC_PtResolution_AK4PFPuppi"
+            ],
+            "Spring16_25nsV10_MC_SF_AK4PFPuppi": ev[
+                "Spring16_25nsV10_MC_SF_AK4PFPuppi"
+            ],
+        }
+    )
+    name_map = jec_stack.blank_name_map
+    name_map.update(
+        {
+            "JetPt": "pt",
+            "JetMass": "mass",
+            "JetEta": "eta",
+            "JetA": "area",
+            "ptRaw": "pt_raw",
+            "massRaw": "mass_raw",
+            "Rho": "Rho",
+            "ptGenJet": "pt_gen",
+        }
+    )
+
+    jets = events.Jet
+    jets["pt_raw"] = (1 - jets["rawFactor"]) * jets.pt
+    jets["mass_raw"] = (1 - jets["rawFactor"]) * jets.mass
+    jets["pt_gen"] = ak.values_astype(ak.fill_none(jets.matched_gen.pt, 0), np.float32)
+    jets["Rho"] = ak.broadcast_arrays(events.Rho.fixedGridRhoFastjetAll, jets.pt)[0]
+
+    jec_cache = cachetools.Cache(np.inf)
+    corrected_jets = CorrectedJetsFactory(name_map, jec_stack).build(jets, lazy_cache=jec_cache)
+
+    pfmet = events.PFMET
+    uncl_delta = pfmet.sumPtUnclustered / np.sqrt(2.0)
+    pfmet["MetUnclustEnUpDeltaX"] = uncl_delta
+    pfmet["MetUnclustEnUpDeltaY"] = uncl_delta
+
+    name_map.update(
+        {
+            "METpt": "pt",
+            "METphi": "phi",
+            "JetPhi": "phi",
+            "UnClusteredEnergyDeltaX": "MetUnclustEnUpDeltaX",
+            "UnClusteredEnergyDeltaY": "MetUnclustEnUpDeltaY",
+            "RawMETpt": "pt",
+            "RawMETphi": "phi",
+            "JetMuonSubtrFactor": "muonSubtrFactor",
+            "JetMuonSubtrDeltaPhi": "muonSubtrDeltaPhi",
+            "JetChEmEF": "chEmEF",
+            "JetNeEmEF": "neEmEF",
+            "CorrT1JetPt": "rawPt",
+            "CorrT1JetPhi": "phi",
+            "CorrT1JetEta": "eta",
+            "CorrT1JetArea": "area",
+            "CorrT1JetMuonSubtrFactor": "muonSubtrFactor",
+            "CorrT1JetMuonSubtrDeltaPhi": "muonSubtrDeltaPhi",
+            "CorrT1JetEmEF": "EmEF",
+        }
+    )
+
+    raw_met = events.RawPFMET
+    corrt1jets = events.CorrT1METJet
+    corrt1jets["Rho"] = ak.broadcast_arrays(events.Rho.fixedGridRhoFastjetAll, corrt1jets.rawPt)[0]
+
+    return {
+        "events": events,
+        "evaluator": ev,
+        "name_map": name_map,
+        "corrected_jets": corrected_jets,
+        "pfmet": pfmet,
+        "raw_met": raw_met,
+        "corrt1jets": corrt1jets,
+        "jec_cache": jec_cache,
+    }
+
+
+def _independent_type1_delta(
+    raw_pt,
+    muon_subtr_factor,
+    muon_subtr_dphi,
+    phi,
+    eta,
+    area,
+    rho,
+    em_pass,
+    jec_L1,
+    jec_L1L2L3,
+):
+    """Independent Type-1 (delta_px, delta_py), using raw pT and jagged inputs."""
+
+    def inputs(corr):
+        avail = {"JetPt": raw_pt, "JetEta": eta, "JetA": area, "Rho": rho}
+        return {k: avail[k] for k in corr.signature}
+
+    f_L1 = jec_L1.getCorrection(**inputs(jec_L1))
+    f_L1L2L3 = jec_L1L2L3.getCorrection(**inputs(jec_L1L2L3))
+    pt_noMuRaw = raw_pt * (1 - muon_subtr_factor)
+    phi_noMuRaw = muon_subtr_dphi + phi
+    pt_L1 = pt_noMuRaw * f_L1
+    pt_L1L2L3 = pt_noMuRaw * f_L1L2L3
+    mask = (pt_L1L2L3 > 15.0) & em_pass
+    diff = ak.where(mask, pt_L1L2L3 - pt_L1, 0.0)
+    return (
+        ak.sum(diff * np.cos(phi_noMuRaw), axis=1),
+        ak.sum(diff * np.sin(phi_noMuRaw), axis=1),
+    )
+
+
+def test_corrected_met_type1_closure():
+    """Type-1 MET closure: (1) matches an independent recomputation from the
+    preserved raw pT (fails for ``corrected_pt * (1-rawFactor)``); (2) lands
+    closer to the stored production PFMET than the raw MET does."""
+    from coffea.jetmet_tools import CorrectedMETFactory, FactorizedJetCorrector
+
+    s = _build_type1_summer22_inputs()
+    ev, name_map = s["evaluator"], s["name_map"]
+    corrected_jets, pfmet, raw_met, corrt1jets, jec_cache = (
+        s["corrected_jets"],
+        s["pfmet"],
+        s["raw_met"],
+        s["corrt1jets"],
+        s["jec_cache"],
+    )
+
+    jec_L1 = FactorizedJetCorrector(**{_SUMMER22_LEVELS[0]: ev[_SUMMER22_LEVELS[0]]})
+    jec_L1L2L3 = FactorizedJetCorrector(**{name: ev[name] for name in _SUMMER22_LEVELS})
+
+    met_factory = CorrectedMETFactory(name_map, jec_L1L2L3=jec_L1L2L3, jec_L1=jec_L1)
+    corrected_met = met_factory.build(
+        pfmet, corrected_jets, lazy_cache=jec_cache, RawMET=raw_met, CorrT1METJets=corrt1jets
+    )
+
+    # --- 1. Independent-formula closure using pt_raw ---
+    cj = corrected_jets
+    rho_jet = ak.broadcast_arrays(cj["Rho"], cj.pt)[0]
+    jet_dpx, jet_dpy = _independent_type1_delta(
+        cj["pt_raw"],
+        cj["muonSubtrFactor"],
+        cj["muonSubtrDeltaPhi"],
+        cj["phi"],
+        cj["eta"],
+        cj["area"],
+        rho_jet,
+        (cj["chEmEF"] + cj["neEmEF"]) < 0.9,
+        jec_L1,
+        jec_L1L2L3,
+    )
+    rho_corrt1 = ak.broadcast_arrays(corrt1jets["Rho"], corrt1jets.rawPt)[0]
+    c1_dpx, c1_dpy = _independent_type1_delta(
+        corrt1jets["rawPt"],
+        corrt1jets["muonSubtrFactor"],
+        corrt1jets["muonSubtrDeltaPhi"],
+        corrt1jets["phi"],
+        corrt1jets["eta"],
+        corrt1jets["area"],
+        rho_corrt1,
+        corrt1jets["EmEF"] < 0.9,
+        jec_L1,
+        jec_L1L2L3,
+    )
+    exp_x = raw_met.pt * np.cos(raw_met.phi) - (jet_dpx + c1_dpx)
+    exp_y = raw_met.pt * np.sin(raw_met.phi) - (jet_dpy + c1_dpy)
+    exp_pt = np.hypot(exp_x, exp_y)
+
+    assert ak.all(np.isclose(exp_pt, corrected_met.pt, rtol=1e-5, atol=1e-3)), (
+        "Type-1 MET does not match independent recomputation from raw pT — "
+        "check the raw-pT reconstruction."
+    )
+
+    # --- 2. Physics closure against the stored (production) Type-1 MET ---
+    stored = pfmet.pt  # NanoAOD-stored, already Type-1 corrected
+    dist_type1 = ak.mean(abs(corrected_met.pt - stored))
+    dist_raw = ak.mean(abs(raw_met.pt - stored))
+    assert dist_type1 < dist_raw, (
+        f"Type-1 correction did not move MET toward the stored PFMET "
+        f"(|type1-stored|={dist_type1:.3f} vs |raw-stored|={dist_raw:.3f})"
+    )
+
+
+def test_corrected_met_type1_hardcoded():
+    """Verify Type-1 corrected MET matches hardcoded expectations for the first 5 events."""
+    from coffea.jetmet_tools import CorrectedMETFactory, FactorizedJetCorrector
+
+    s = _build_type1_summer22_inputs()
+    ev, name_map = s["evaluator"], s["name_map"]
+    corrected_jets, pfmet, raw_met, corrt1jets, jec_cache = (
+        s["corrected_jets"],
+        s["pfmet"],
+        s["raw_met"],
+        s["corrt1jets"],
+        s["jec_cache"],
+    )
+
+    # .txt-based
+    jec_L1_txt = FactorizedJetCorrector(**{_SUMMER22_LEVELS[0]: ev[_SUMMER22_LEVELS[0]]})
+    jec_L1L2L3_txt = FactorizedJetCorrector(**{name: ev[name] for name in _SUMMER22_LEVELS})
+    met_txt = CorrectedMETFactory(name_map, jec_L1L2L3=jec_L1L2L3_txt, jec_L1=jec_L1_txt).build(
+        pfmet, corrected_jets, lazy_cache=jec_cache, RawMET=raw_met, CorrT1METJets=corrt1jets
+    )
+
+    # Expected values for first 5 events
+    expected_pt = [56.71658517976303, 65.9617027504427, 36.44936318875199, 29.049212550884096, 38.90181763646251]
+    expected_phi = [2.529857014684793, -1.0578153037237557, 0.10473577139427523, -2.6176013801134985, -2.7193310575000793]
+
+    assert np.allclose(ak.to_numpy(met_txt.pt[:5]), np.array(expected_pt), rtol=1e-5)
+    assert np.allclose(ak.to_numpy(met_txt.phi[:5]), np.array(expected_phi), rtol=1e-5)
+
+
