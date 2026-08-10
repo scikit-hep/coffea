@@ -1,0 +1,31 @@
+PackedSelection
+===============
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: PackedSelection
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~PackedSelection.names
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~PackedSelection.add
+      ~PackedSelection.all
+      ~PackedSelection.require
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: names
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: add
+   .. automethod:: all
+   .. automethod:: require

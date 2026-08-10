@@ -1,0 +1,6 @@
+awkward_rewrap
+==============
+
+.. currentmodule:: coffea.util
+
+.. autofunction:: awkward_rewrap

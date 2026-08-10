@@ -1,0 +1,19 @@
+value_accumulator
+=================
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: value_accumulator
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~value_accumulator.add
+      ~value_accumulator.identity
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: add
+   .. automethod:: identity

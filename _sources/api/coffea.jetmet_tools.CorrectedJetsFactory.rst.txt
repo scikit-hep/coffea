@@ -1,0 +1,19 @@
+CorrectedJetsFactory
+====================
+
+.. currentmodule:: coffea.jetmet_tools
+
+.. autoclass:: CorrectedJetsFactory
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~CorrectedJetsFactory.build
+      ~CorrectedJetsFactory.uncertainties
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: build
+   .. automethod:: uncertainties

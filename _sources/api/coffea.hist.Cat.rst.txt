@@ -1,0 +1,31 @@
+Cat
+===
+
+.. currentmodule:: coffea.hist
+
+.. autoclass:: Cat
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~Cat.size
+      ~Cat.sorting
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~Cat.identifiers
+      ~Cat.index
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: size
+   .. autoattribute:: sorting
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: identifiers
+   .. automethod:: index

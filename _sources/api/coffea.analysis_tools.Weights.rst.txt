@@ -1,0 +1,35 @@
+Weights
+=======
+
+.. currentmodule:: coffea.analysis_tools
+
+.. autoclass:: Weights
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~Weights.variations
+      ~Weights.weightStatistics
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~Weights.add
+      ~Weights.add_multivariation
+      ~Weights.partial_weight
+      ~Weights.weight
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: variations
+   .. autoattribute:: weightStatistics
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: add
+   .. automethod:: add_multivariation
+   .. automethod:: partial_weight
+   .. automethod:: weight

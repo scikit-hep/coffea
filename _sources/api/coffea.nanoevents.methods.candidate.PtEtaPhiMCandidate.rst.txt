@@ -1,0 +1,7 @@
+PtEtaPhiMCandidate
+==================
+
+.. currentmodule:: coffea.nanoevents.methods.candidate
+
+.. autoclass:: PtEtaPhiMCandidate
+   :show-inheritance:

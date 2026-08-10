@@ -1,0 +1,21 @@
+AssociatedPFCand
+================
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: AssociatedPFCand
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~AssociatedPFCand.collection_map
+      ~AssociatedPFCand.jet
+      ~AssociatedPFCand.pf
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: collection_map
+   .. autoattribute:: jet
+   .. autoattribute:: pf

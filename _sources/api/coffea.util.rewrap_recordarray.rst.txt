@@ -1,0 +1,6 @@
+rewrap_recordarray
+==================
+
+.. currentmodule:: coffea.util
+
+.. autofunction:: rewrap_recordarray

@@ -1,0 +1,6 @@
+poisson_interval
+================
+
+.. currentmodule:: coffea.hist
+
+.. autofunction:: poisson_interval

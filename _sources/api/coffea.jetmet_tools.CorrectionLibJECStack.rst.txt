@@ -1,0 +1,35 @@
+CorrectionLibJECStack
+=====================
+
+.. currentmodule:: coffea.jetmet_tools
+
+.. autoclass:: CorrectionLibJECStack
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~CorrectionLibJECStack.blank_name_map
+      ~CorrectionLibJECStack.jec
+      ~CorrectionLibJECStack.jer
+      ~CorrectionLibJECStack.jersf
+      ~CorrectionLibJECStack.junc
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~CorrectionLibJECStack.from_file
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: blank_name_map
+   .. autoattribute:: jec
+   .. autoattribute:: jer
+   .. autoattribute:: jersf
+   .. autoattribute:: junc
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: from_file

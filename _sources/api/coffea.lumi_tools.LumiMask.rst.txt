@@ -1,0 +1,17 @@
+LumiMask
+========
+
+.. currentmodule:: coffea.lumi_tools
+
+.. autoclass:: LumiMask
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~LumiMask.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

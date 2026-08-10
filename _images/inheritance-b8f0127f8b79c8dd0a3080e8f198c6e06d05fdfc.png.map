@@ -1,0 +1,6 @@
+<map id="inheritanceea61dfda65" name="inheritanceea61dfda65">
+<area shape="rect" id="node1" href="../api/coffea.processor.AccumulatorABC.html#coffea.processor.AccumulatorABC" target="_top" title="Abstract base class for an accumulator" alt="" coords="5,104,136,129"/>
+<area shape="rect" id="node3" href="../api/coffea.analysis_tools.WeightStatistics.html#coffea.analysis_tools.WeightStatistics" target="_top" title="WeightStatistics" alt="" coords="184,104,311,129"/>
+<area shape="rect" id="node2" href="../api/coffea.analysis_tools.PackedSelection.html#coffea.analysis_tools.PackedSelection" target="_top" title="Store several boolean arrays in a compact manner" alt="" coords="7,55,134,80"/>
+<area shape="rect" id="node4" href="../api/coffea.analysis_tools.Weights.html#coffea.analysis_tools.Weights" target="_top" title="Container for event weights and associated systematic shifts" alt="" coords="33,5,108,31"/>
+</map>

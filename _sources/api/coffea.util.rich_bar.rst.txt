@@ -1,0 +1,6 @@
+rich_bar
+========
+
+.. currentmodule:: coffea.util
+
+.. autofunction:: rich_bar

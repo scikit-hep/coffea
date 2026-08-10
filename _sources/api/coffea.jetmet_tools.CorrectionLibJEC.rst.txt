@@ -1,0 +1,27 @@
+CorrectionLibJEC
+================
+
+.. currentmodule:: coffea.jetmet_tools
+
+.. autoclass:: CorrectionLibJEC
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~CorrectionLibJEC.signature
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~CorrectionLibJEC.getCorrection
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: signature
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: getCorrection

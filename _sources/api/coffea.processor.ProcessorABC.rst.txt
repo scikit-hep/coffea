@@ -1,0 +1,19 @@
+ProcessorABC
+============
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: ProcessorABC
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~ProcessorABC.postprocess
+      ~ProcessorABC.process
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: postprocess
+   .. automethod:: process

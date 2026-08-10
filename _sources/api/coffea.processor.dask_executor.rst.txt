@@ -1,0 +1,49 @@
+dask_executor
+=============
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: dask_executor
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~dask_executor.client
+      ~dask_executor.compression
+      ~dask_executor.desc
+      ~dask_executor.function_name
+      ~dask_executor.heavy_input
+      ~dask_executor.priority
+      ~dask_executor.retries
+      ~dask_executor.status
+      ~dask_executor.treereduction
+      ~dask_executor.unit
+      ~dask_executor.use_dataframes
+      ~dask_executor.worker_affinity
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~dask_executor.__call__
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: client
+   .. autoattribute:: compression
+   .. autoattribute:: desc
+   .. autoattribute:: function_name
+   .. autoattribute:: heavy_input
+   .. autoattribute:: priority
+   .. autoattribute:: retries
+   .. autoattribute:: status
+   .. autoattribute:: treereduction
+   .. autoattribute:: unit
+   .. autoattribute:: use_dataframes
+   .. autoattribute:: worker_affinity
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

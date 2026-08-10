@@ -1,0 +1,6 @@
+deprecate
+=========
+
+.. currentmodule:: coffea.util
+
+.. autofunction:: deprecate

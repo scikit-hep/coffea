@@ -1,0 +1,79 @@
+Hist
+====
+
+.. currentmodule:: coffea.hist
+
+.. autoclass:: Hist
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~Hist.DEFAULT_DTYPE
+      ~Hist.fields
+      ~Hist.label
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~Hist.add
+      ~Hist.axes
+      ~Hist.axis
+      ~Hist.clear
+      ~Hist.compatible
+      ~Hist.copy
+      ~Hist.dense_axes
+      ~Hist.dense_dim
+      ~Hist.dim
+      ~Hist.fill
+      ~Hist.group
+      ~Hist.identifiers
+      ~Hist.identity
+      ~Hist.integrate
+      ~Hist.project
+      ~Hist.rebin
+      ~Hist.remove
+      ~Hist.scale
+      ~Hist.sparse_axes
+      ~Hist.sparse_dim
+      ~Hist.sparse_nbins
+      ~Hist.sum
+      ~Hist.to_boost
+      ~Hist.to_hist
+      ~Hist.values
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: DEFAULT_DTYPE
+   .. autoattribute:: fields
+   .. autoattribute:: label
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: add
+   .. automethod:: axes
+   .. automethod:: axis
+   .. automethod:: clear
+   .. automethod:: compatible
+   .. automethod:: copy
+   .. automethod:: dense_axes
+   .. automethod:: dense_dim
+   .. automethod:: dim
+   .. automethod:: fill
+   .. automethod:: group
+   .. automethod:: identifiers
+   .. automethod:: identity
+   .. automethod:: integrate
+   .. automethod:: project
+   .. automethod:: rebin
+   .. automethod:: remove
+   .. automethod:: scale
+   .. automethod:: sparse_axes
+   .. automethod:: sparse_dim
+   .. automethod:: sparse_nbins
+   .. automethod:: sum
+   .. automethod:: to_boost
+   .. automethod:: to_hist
+   .. automethod:: values

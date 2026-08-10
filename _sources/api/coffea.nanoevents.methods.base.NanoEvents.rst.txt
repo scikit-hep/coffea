@@ -1,0 +1,17 @@
+NanoEvents
+==========
+
+.. currentmodule:: coffea.nanoevents.methods.base
+
+.. autoclass:: NanoEvents
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~NanoEvents.metadata
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: metadata

@@ -1,0 +1,19 @@
+PFNanoAODSchema
+===============
+
+.. currentmodule:: coffea.nanoevents
+
+.. autoclass:: PFNanoAODSchema
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~PFNanoAODSchema.all_cross_references
+      ~PFNanoAODSchema.mixins
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: all_cross_references
+   .. autoattribute:: mixins

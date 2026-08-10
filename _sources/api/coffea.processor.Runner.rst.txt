@@ -1,0 +1,73 @@
+Runner
+======
+
+.. currentmodule:: coffea.processor
+
+.. autoclass:: Runner
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~Runner.align_clusters
+      ~Runner.cachestrategy
+      ~Runner.chunksize
+      ~Runner.dynamic_chunksize
+      ~Runner.executor
+      ~Runner.format
+      ~Runner.maxchunks
+      ~Runner.metadata_cache
+      ~Runner.mmap
+      ~Runner.pre_executor
+      ~Runner.processor_compression
+      ~Runner.retries
+      ~Runner.savemetrics
+      ~Runner.skipbadfiles
+      ~Runner.skyhook_options
+      ~Runner.use_dataframes
+      ~Runner.use_skyhook
+      ~Runner.xrootdtimeout
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~Runner.__call__
+      ~Runner.automatic_retries
+      ~Runner.get_cache
+      ~Runner.metadata_fetcher
+      ~Runner.preprocess
+      ~Runner.read_coffea_config
+      ~Runner.run
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: align_clusters
+   .. autoattribute:: cachestrategy
+   .. autoattribute:: chunksize
+   .. autoattribute:: dynamic_chunksize
+   .. autoattribute:: executor
+   .. autoattribute:: format
+   .. autoattribute:: maxchunks
+   .. autoattribute:: metadata_cache
+   .. autoattribute:: mmap
+   .. autoattribute:: pre_executor
+   .. autoattribute:: processor_compression
+   .. autoattribute:: retries
+   .. autoattribute:: savemetrics
+   .. autoattribute:: skipbadfiles
+   .. autoattribute:: skyhook_options
+   .. autoattribute:: use_dataframes
+   .. autoattribute:: use_skyhook
+   .. autoattribute:: xrootdtimeout
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__
+   .. automethod:: automatic_retries
+   .. automethod:: get_cache
+   .. automethod:: metadata_fetcher
+   .. automethod:: preprocess
+   .. automethod:: read_coffea_config
+   .. automethod:: run

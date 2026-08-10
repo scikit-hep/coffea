@@ -1,0 +1,19 @@
+StringBin
+=========
+
+.. currentmodule:: coffea.hist
+
+.. autoclass:: StringBin
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~StringBin.label
+      ~StringBin.name
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: label
+   .. autoattribute:: name

@@ -1,0 +1,17 @@
+SecondaryVertex
+===============
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: SecondaryVertex
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~SecondaryVertex.p4
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: p4

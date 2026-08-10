@@ -1,0 +1,5 @@
+coffea.jetmet_tools
+===================
+
+.. automodapi:: coffea.jetmet_tools
+    :no-heading:

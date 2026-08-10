@@ -1,0 +1,17 @@
+evaluator
+=========
+
+.. currentmodule:: coffea.lookup_tools
+
+.. autoclass:: evaluator
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~evaluator.keys
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: keys

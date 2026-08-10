@@ -1,0 +1,35 @@
+Bin
+===
+
+.. currentmodule:: coffea.hist
+
+.. autoclass:: Bin
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~Bin.size
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~Bin.centers
+      ~Bin.edges
+      ~Bin.identifiers
+      ~Bin.index
+      ~Bin.reduced
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: size
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: centers
+   .. automethod:: edges
+   .. automethod:: identifiers
+   .. automethod:: index
+   .. automethod:: reduced

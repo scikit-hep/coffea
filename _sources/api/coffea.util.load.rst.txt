@@ -1,0 +1,6 @@
+load
+====
+
+.. currentmodule:: coffea.util
+
+.. autofunction:: load

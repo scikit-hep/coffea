@@ -1,0 +1,21 @@
+LowPtElectron
+=============
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: LowPtElectron
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~LowPtElectron.matched_electron
+      ~LowPtElectron.matched_gen
+      ~LowPtElectron.matched_photon
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: matched_electron
+   .. autoattribute:: matched_gen
+   .. autoattribute:: matched_photon

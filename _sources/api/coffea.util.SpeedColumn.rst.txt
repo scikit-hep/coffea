@@ -1,0 +1,17 @@
+SpeedColumn
+===========
+
+.. currentmodule:: coffea.util
+
+.. autoclass:: SpeedColumn
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~SpeedColumn.render
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: render

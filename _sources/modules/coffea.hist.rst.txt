@@ -1,0 +1,5 @@
+coffea.hist
+===========
+
+.. automodapi:: coffea.hist
+    :no-heading:

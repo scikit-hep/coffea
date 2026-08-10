@@ -1,0 +1,17 @@
+MissingET
+=========
+
+.. currentmodule:: coffea.nanoevents.methods.nanoaod
+
+.. autoclass:: MissingET
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~MissingET.r
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: r
