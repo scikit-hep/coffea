@@ -1145,7 +1145,8 @@ class ParquetFileContext:
 class Runner:
     """A convenience wrapper to submit jobs for a file set
 
-    A file set in this context is a dictionary of dataset: [file list] entries.
+    A file set in this context is a dictionary where the key is the name
+    of a dataset and the value is a list of files.
 
     Parameters
     ----------
@@ -1206,6 +1207,9 @@ class Runner:
         cachestrategy: "dask-worker" or callable returning a mapping, optional
             Define the cache used to hold columns of data in memory for re-processing.
             The default is ``None`` where no caching takes place.
+            If the literal "dask-worker", use the :py:class:`ColumnCache <coffea.processor.dask.ColumnCache>`
+            plugin added to the dask worker by name. *Warning* If the ColumnCache plugin is not
+            found by name, then it is silently ignored and no caching takes place.
             The cache constructed from this strategy is passed as ``buffer_cache``
             to :py:class:`NanoEventsFactory <coffea.nanoevents.NanoEventsFactory>`.
         checkpointer : CheckpointerABC, optional
