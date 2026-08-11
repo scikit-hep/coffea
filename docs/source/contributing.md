@@ -69,6 +69,12 @@ ask for help.
 
 - Preview the generated HTML at `docs/build/html/index.html` before opening
   your pull request.
+- Parts of the documentation reference optional sub-components of coffea,
+  so you may want to install all of the optional components in order to
+  mimic the complete documentation site. `pip install -e .[dev,caches,dask,dask-awkward]`
+- Additionally, parts of the documentation use `graphviz` to construct
+  class inheritance trees. If you want to view those, install the `graphviz`
+  system package as well (e.g. `sudo apt install graphviz` on Debian variants).
 
 ## Release cadence
 
