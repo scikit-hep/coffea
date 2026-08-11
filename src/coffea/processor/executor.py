@@ -1176,8 +1176,7 @@ class Runner:
             Defaults to False.
         xrootdtimeout : int, optional
             Passed to `uproot.open <https://uproot.readthedocs.io/en/latest/uproot.reading.open.html>`_
-            as the ``timeout`` option where it is also undocumented, but I assume is the time in seconds
-            the function will wait before giving up on opening a file.
+            as the ``timeout`` option. The time in seconds we will wait before giving up on the file.
             Defaults to 60, ignored if ``format`` is not ``"root"``.
         align_clusters: bool, optional
             ROOT files write data from adjacent entries of TTree branches and RNTuple fields into clusters.
