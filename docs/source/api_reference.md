@@ -48,9 +48,11 @@ package that are not included in the `coffea` namespace. That is, they
 must be explicitly imported.
 
 ```{eval-rst}
-.. automodule:: coffea.dataset_tools.dataset_query
-    :members:
+.. autosummary::
+    :toctree: modules
+    :template: automodapi_templ.rst
 
-.. automodule:: coffea.dataset_tools.rucio_utils
-    :members:
+    coffea.dataset_tools.dataset_query
+    coffea.dataset_tools.rucio_utils
+    coffea.processor.dask
 ```

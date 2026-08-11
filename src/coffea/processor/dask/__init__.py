@@ -1,3 +1,5 @@
+"""helpers for tuning dask behavior for coffea"""
+
 import os
 from collections.abc import MutableMapping
 from threading import Lock
@@ -12,6 +14,8 @@ get_worker = _distributed.get_worker
 
 
 class ColumnCache(WorkerPlugin, MutableMapping):
+    """dask worker plugin to cache columns of data"""
+
     name = "columncache"
 
     def __init__(self, maxmem=5e8, maxcompressed=2e9, maxdisk=1e10):
