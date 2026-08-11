@@ -1170,6 +1170,18 @@ class Runner:
             determine chunking.  Defaults to a in-memory LRU cache that holds 100k entries
             (about 1MB depending on the length of filenames, etc.)  If you edit an input file
             (please don't) during a session, the session can be restarted to clear the cache.
+        skipbadfiles : bool or tuple of exceptions
+            If True, skip files which throw an exception when opened.
+            If a tuple of exceptions, only skip files that throw those exceptions.
+            If False, 
+        xrootdtimeout : int, optional
+        align_clusters: bool, optional
+        savemetrics: bool, optional
+        schema: schemas.BaseSchema, optional
+        processor_compression: int, optional
+        format: str, optional
+            Defines input file format, must be either 'root' or 'parquet'
+        cachestrategy: "dask-worker" or callable of a mapping, optional
         checkpointer : CheckpointerABC, optional
             A CheckpointerABC instance to manage checkpointing of each chunk output
         use_result_type : bool, optional
