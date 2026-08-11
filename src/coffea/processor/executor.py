@@ -1145,7 +1145,7 @@ class ParquetFileContext:
 class Runner:
     """A convenience wrapper to submit jobs for a file set
 
-    A file set in this context is a dictionary of dataset: [file list] entries. 
+    A file set in this context is a dictionary of dataset: [file list] entries.
 
     Parameters
     ----------
