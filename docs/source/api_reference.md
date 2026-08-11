@@ -20,6 +20,7 @@ imported explicitly.
 ```{eval-rst}
 .. autosummary::
     :toctree: modules
+    :caption: Available by Default
     :template: automodapi_templ.rst
 
     coffea.analysis_tools
@@ -50,6 +51,7 @@ must be explicitly imported.
 ```{eval-rst}
 .. autosummary::
     :toctree: modules
+    :caption: Need to Manually Import
     :template: automodapi_templ.rst
 
     coffea.dataset_tools.dataset_query
