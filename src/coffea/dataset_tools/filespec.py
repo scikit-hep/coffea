@@ -33,6 +33,18 @@ class GenericFileSpec(BaseModel):
     format: str | None = None
     lfn: str | None = None
     pfn: str | None = None
+    # Experimental: hex bitset over the owning dataset's union-form top-level fields
+    # (bit i set = field i is present in this file); meaningful only relative to that
+    # dataset's saved form field order. Subject to change; do not rely on the encoding.
+    experimental_field_bitset: str | None = None
+
+    def __eq__(self, other: Any) -> bool:
+        # experimental fields do not participate in equality: two specs describing the
+        # same file compare equal regardless of experimental annotations
+        if self.__class__ is not other.__class__:
+            return NotImplemented
+        excluded = {"experimental_field_bitset"}
+        return self.model_dump(exclude=excluded) == other.model_dump(exclude=excluded)
 
     def __add__(self, other: GenericFileSpec) -> GenericFileSpec:
         if not isinstance(other, GenericFileSpec):
@@ -60,6 +72,14 @@ class GenericFileSpec(BaseModel):
             new_spec["num_entries"] = self.num_entries
         else:
             new_spec["num_entries"] = max(self.num_entries, other.num_entries)
+        if self.experimental_field_bitset is None:
+            new_spec["experimental_field_bitset"] = other.experimental_field_bitset
+        elif other.experimental_field_bitset not in (
+            None,
+            self.experimental_field_bitset,
+        ):
+            # disagreeing bitsets cannot be reconciled without the owning forms
+            new_spec["experimental_field_bitset"] = None
         return type(self)(**new_spec)
 
     def __sub__(self, other: GenericFileSpec) -> GenericFileSpec:
@@ -466,6 +486,22 @@ class DatasetSpec(BaseModel):
         return self.form == other.form
 
     def __add__(self, other: DatasetSpec) -> DatasetSpec:
+        return self.union_with(other)
+
+    def union_with(self, other: DatasetSpec, sort_fields: bool = False) -> DatasetSpec:
+        """Merge two DatasetSpecs, computing the union of their saved forms.
+
+        Files merge like ``+`` on the file collections and metadata merges with ``other``
+        taking precedence. When both operands carry a saved form, the result's form is
+        their union (every field appearing in either form), and per-file experimental
+        field bitsets are remapped to the union field order. When neither operand has a
+        form the result has none. Adding a form-bearing spec to a form-less one raises a
+        ValueError, since the union form could not describe the form-less operand's files.
+        ``sort_fields=True`` sorts record fields recursively so the serialized union form
+        is byte-stable regardless of operand order.
+
+        ``__add__`` delegates here with default options.
+        """
         if not isinstance(other, DatasetSpec):
             raise TypeError(
                 f"Can only add DatasetSpec to DatasetSpec, got {type(other)}"
@@ -475,19 +511,155 @@ class DatasetSpec(BaseModel):
                 raise ValueError(
                     f"Cannot add DatasetSpec with different dids: {self.did} and {other.did}"
                 )
+        if (self.compressed_form is None) != (other.compressed_form is None):
+            raise ValueError(
+                "Cannot add a DatasetSpec with a saved form to one without: the union "
+                "form could not describe the files of the form-less operand. Preprocess "
+                "it with save_form=True (or clear the other form) first."
+            )
         new_spec = self.model_dump()
-        new_spec["files"] = self.files + other.files
+        merged_files = self.files + other.files
+        new_spec["files"] = merged_files.model_dump()
         # merge metadata dictionaries, with other taking precedence
         new_metadata = copy.deepcopy(self.metadata)
         new_metadata.update(other.metadata)
         new_spec["metadata"] = new_metadata
         # format will be re-evaluated in post validation
         new_spec["format"] = None
-        # compressed_form is not merged, set to None
-        new_spec["compressed_form"] = None
         # did is not merged, set to None
         new_spec["did"] = self.did if self.did is not None else other.did
+
+        if self.compressed_form is None and other.compressed_form is None:
+            new_spec["compressed_form"] = None
+        else:
+            import awkward
+
+            from coffea.dataset_tools.forms import (
+                decode_field_bitset,
+                encode_field_bitset,
+                sort_form_fields,
+                union_form_jsonstr,
+            )
+            from coffea.util import compress_form
+
+            self_form = self.form
+            other_form = other.form
+            if list(self_form.fields) == list(other_form.fields) and (
+                self_form == other_form
+            ):
+                union_form = sort_form_fields(self_form) if sort_fields else self_form
+                union_jsonstr = union_form.to_json()
+            else:
+                union_jsonstr = union_form_jsonstr(
+                    [self_form, other_form], sort_fields=sort_fields
+                )
+                union_form = awkward.forms.from_json(union_jsonstr)
+            new_spec["compressed_form"] = compress_form(union_jsonstr)
+
+            # remap per-file field bitsets from each operand's field order to the union's
+            union_fields = list(union_form.fields)
+
+            def _decoded(files, form):
+                fields = list(form.fields)
+                return {
+                    fname: (
+                        decode_field_bitset(fs.experimental_field_bitset, fields)
+                        if fs.experimental_field_bitset is not None
+                        else None
+                    )
+                    for fname, fs in files.items()
+                }
+
+            fields_self = _decoded(self.files, self_form)
+            fields_other = _decoded(other.files, other_form)
+            for fname, spec_dict in new_spec["files"].items():
+                present_self = fields_self.get(fname)
+                present_other = fields_other.get(fname)
+                if present_self is None:
+                    present = present_other
+                elif present_other is None or present_self == present_other:
+                    present = present_self
+                else:
+                    # the same file reports different field sets; unknowable which is right
+                    present = None
+                spec_dict["experimental_field_bitset"] = (
+                    encode_field_bitset(present, union_fields)
+                    if present is not None
+                    else None
+                )
         return type(self)(**new_spec)
+
+    def canonicalize_form(self) -> Self:
+        """Return a copy whose saved form has recursively sorted record fields.
+
+        Sorting makes the serialized form (and anything hashed from it) independent of the
+        union/merge history that produced it; per-file experimental field bitsets are
+        remapped to the sorted field order. A spec without a saved form is returned as an
+        unmodified copy.
+        """
+        spec = self.model_dump()
+        if self.compressed_form is not None:
+            from coffea.dataset_tools.forms import (
+                decode_field_bitset,
+                encode_field_bitset,
+                sort_form_fields,
+            )
+            from coffea.util import compress_form
+
+            old_form = self.form
+            old_fields = list(old_form.fields)
+            sorted_form = sort_form_fields(old_form)
+            new_fields = list(sorted_form.fields)
+            spec["compressed_form"] = compress_form(sorted_form.to_json())
+            for fname, spec_dict in spec["files"].items():
+                bitset = spec_dict.get("experimental_field_bitset")
+                if bitset is not None:
+                    spec_dict["experimental_field_bitset"] = encode_field_bitset(
+                        decode_field_bitset(bitset, old_fields), new_fields
+                    )
+        return type(self)(**spec)
+
+    def _prune_form_for_files(self, spec: dict) -> dict:
+        """Prune the saved union form in a dumped ``spec`` to the fields its files carry.
+
+        Pruning applies only when every remaining file has an experimental field bitset
+        (otherwise the field content of some file is unknown and the form is kept as a
+        superset). Bitsets are remapped to the pruned field order.
+        """
+        if self.compressed_form is None or not spec["files"]:
+            return spec
+        bitsets = {
+            fname: file_spec.get("experimental_field_bitset")
+            for fname, file_spec in spec["files"].items()
+        }
+        if any(bitset is None for bitset in bitsets.values()):
+            return spec
+
+        from coffea.dataset_tools.forms import (
+            decode_field_bitset,
+            encode_field_bitset,
+            prune_form_fields,
+        )
+        from coffea.util import compress_form
+
+        form = self.form
+        old_fields = list(form.fields)
+        keep_fields = set()
+        present_by_file = {}
+        for fname, bitset in bitsets.items():
+            present = decode_field_bitset(bitset, old_fields)
+            present_by_file[fname] = present
+            keep_fields |= present
+        if keep_fields == set(old_fields):
+            return spec
+        pruned_form = prune_form_fields(form, keep_fields)
+        new_fields = list(pruned_form.fields)
+        spec["compressed_form"] = compress_form(pruned_form.to_json())
+        for fname, file_spec in spec["files"].items():
+            file_spec["experimental_field_bitset"] = encode_field_bitset(
+                present_by_file[fname], new_fields
+            )
+        return spec
 
     def __sub__(self, other: DatasetSpec) -> DatasetSpec:
         if not isinstance(other, DatasetSpec):
@@ -699,9 +871,14 @@ class DatasetSpec(BaseModel):
         return type(self)(**spec)
 
     def limit_files(self, max_files: int | slice | None) -> Self:
-        """Limit the number of files."""
+        """Limit the number of files.
+
+        When every remaining file carries an experimental field bitset, the saved union
+        form is pruned to the fields those files carry; otherwise it is kept as a superset.
+        """
         spec = self.model_dump()
-        spec["files"] = self.files.limit_files(max_files)
+        spec["files"] = self.files.limit_files(max_files).model_dump()
+        spec = self._prune_form_for_files(spec)
         return type(self)(**spec)
 
     def filter_files(
@@ -709,11 +886,16 @@ class DatasetSpec(BaseModel):
         filter_name: str | None = None,
         filter_callable: Callable[[FileSpecUnion], bool] | None = None,
     ) -> Self:
-        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_callable)."""
+        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_callable).
+
+        When every remaining file carries an experimental field bitset, the saved union
+        form is pruned to the fields those files carry; otherwise it is kept as a superset.
+        """
         spec = self.model_dump()
         spec["files"] = self.files.filter_files(
             filter_name=filter_name, filter_callable=filter_callable
-        )
+        ).model_dump()
+        spec = self._prune_form_for_files(spec)
         return type(self)(**spec)
 
 
@@ -937,7 +1119,8 @@ class ModelFactory:
             raise TypeError(
                 f"{cls.__name__}.filespec_to_dict expects a Coffea(Parquet)FileSpec(Optional), got {type(input)} instead: {input}"
             )
-        return input.model_dump()
+        # the legacy dict format does not carry experimental fields
+        return input.model_dump(exclude={"experimental_field_bitset"})
 
     @classmethod
     def dict_to_datasetspec(cls, input: dict[str, Any], verbose=False) -> DatasetSpec:
@@ -953,6 +1136,9 @@ class ModelFactory:
             input, DatasetSpec
         ), f"{cls.__name__}.datasetspec_to_dict expects a DatasetSpec, got {type(input)} instead: {input}"
         if coerce_filespec_to_dict:
-            return input.model_dump()
+            # the legacy dict format does not carry experimental fields
+            return input.model_dump(
+                exclude={"files": {"__all__": {"experimental_field_bitset"}}}
+            )
         else:
             return dict(input)
