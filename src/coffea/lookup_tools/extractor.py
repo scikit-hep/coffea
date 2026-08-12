@@ -109,7 +109,9 @@ class extractor:
             temp = weightdesc.strip().split(" ")
             if len(temp) != 3:
                 raise Exception(
-                    f'"{weightdesc}" not formatted as "<local name> <name> <weights file>"'
+                    '"{}" not formatted as "<local name> <name> <weights file>"'.format(
+                        weightdesc
+                    )
                 )
             local_name, name, thefile = tuple(temp)
             if name == "*":

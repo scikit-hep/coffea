@@ -375,18 +375,16 @@ class column_accumulator(AccumulatorABC):
         ):
             if self._empty.shape != other._empty.shape:
                 raise ValueError(
-                    "Cannot add two column_accumulator objects of dissimilar shape ({!r} vs {!r})".format(
-                        self._empty.shape, other._empty.shape
-                    )
+                    "Cannot add two column_accumulator objects of dissimilar shape (%r vs %r)"
+                    % (self._empty.shape, other._empty.shape)
                 )
         if isinstance(self._empty, awkward.Array) and isinstance(
             other._empty, awkward.Array
         ):
             if self._empty.ndim != other._empty.ndim:
                 raise ValueError(
-                    "Cannot add two column_accumulator objects of dissimilar dimensionality ({!r} vs {!r})".format(
-                        self._empty.ndim, other._empty.ndim
-                    )
+                    "Cannot add two column_accumulator objects of dissimilar dimensionality (%r vs %r)"
+                    % (self._empty.ndim, other._empty.ndim)
                 )
         self._value = numpy.concatenate((self._value, other._value), axis=0)
 

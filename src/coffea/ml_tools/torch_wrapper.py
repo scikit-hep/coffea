@@ -56,7 +56,10 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
     def __init__(self, torch_jit: str, expected_output_shape: tuple[int] | None = None):
         if _torch_import_error is not None:
             warnings.warn(
-                "Users should make sure the torch package is installed before proceeding!\n> pip install torch\nor\n> conda install torch",
+                "Users should make sure the torch package is installed before proceeding!\n"
+                "> pip install torch\n"
+                "or\n"
+                "> conda install torch",
                 UserWarning,
             )
             raise _torch_import_error

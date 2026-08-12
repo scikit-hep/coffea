@@ -683,7 +683,8 @@ class FuturesExecutor(ExecutorBase):
             or (isinstance(self.merging, tuple) and len(self.merging) == 3)
         ):
             raise ValueError(
-                f"merging={self.merging} not understood. Required format is (n_batches, min_batch_size, max_batch_size)"
+                f"merging={self.merging} not understood. Required format is "
+                "(n_batches, min_batch_size, max_batch_size)"
             )
         elif self.merging is True:
             self.merging = (5, 4, 100)
@@ -998,7 +999,8 @@ class ParslExecutor(ExecutorBase):
             or (isinstance(self.merging, tuple) and len(self.merging) == 3)
         ):
             raise ValueError(
-                f"merging={self.merging} not understood. Required format is (n_batches, min_batch_size, max_batch_size)"
+                f"merging={self.merging} not understood. Required format is "
+                "(n_batches, min_batch_size, max_batch_size)"
             )
         elif self.merging is True:
             self.merging = (5, 4, 100)
@@ -1193,20 +1195,20 @@ class Runner:
     processor_compression: int = 1
     format: str = "root"
     checkpointer: CheckpointerABC | None = None
-    cachestrategy: None | (
-        Literal["dask-worker"] | Callable[..., MutableMapping]
-    ) = None
+    cachestrategy: None | (Literal["dask-worker"] | Callable[..., MutableMapping]) = (
+        None
+    )
 
     def __post_init__(self):
         if self.pre_executor is None:
             self.pre_executor = self.executor
 
-        assert isinstance(self.executor, ExecutorBase), (
-            "Expected executor to derive from ExecutorBase"
-        )
-        assert isinstance(self.pre_executor, ExecutorBase), (
-            "Expected pre_executor to derive from ExecutorBase"
-        )
+        assert isinstance(
+            self.executor, ExecutorBase
+        ), "Expected executor to derive from ExecutorBase"
+        assert isinstance(
+            self.pre_executor, ExecutorBase
+        ), "Expected pre_executor to derive from ExecutorBase"
 
         if self.metadata_cache is None:
             self.metadata_cache = DEFAULT_METADATA_CACHE
@@ -1533,10 +1535,12 @@ class Runner:
             if preload is None and last_exc is not None:
                 if not self.skipbadfiles:
                     raise RuntimeError(
-                        f"Could not open any file for dataset {dataset!r} for tracing. Last error: {last_exc!r}"
+                        f"Could not open any file for dataset {dataset!r} for tracing. "
+                        f"Last error: {last_exc!r}"
                     ) from last_exc
                 warnings.warn(
-                    f"Could not trace columns for dataset {dataset!r}, skipping preload for this dataset. Last error: {last_exc!r}",
+                    f"Could not trace columns for dataset {dataset!r}, "
+                    f"skipping preload for this dataset. Last error: {last_exc!r}",
                     stacklevel=2,
                 )
                 continue
@@ -2064,7 +2068,8 @@ class Runner:
         chunks = list(chunks)
         if len(chunks) == 0:
             raise ValueError(
-                "No chunks survived preprocessing.\nIf you used skipbadfiles=True or similar, it is possible all your files are bad."
+                "No chunks survived preprocessing.\n"
+                "If you used skipbadfiles=True or similar, it is possible all your files are bad."
             )
 
         exe_args = {

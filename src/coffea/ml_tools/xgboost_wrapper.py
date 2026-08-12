@@ -26,7 +26,10 @@ class xgboost_wrapper(numpy_call_wrapper, nonserializable_attribute):
     def __init__(self, fname):
         if _xgboost_import_error is not None:
             warnings.warn(
-                "Users should make sure the xgboost package is installed before proceeding!\n> pip install xgboost==1.5.1\nor\n> conda install xgboost==1.5.1",
+                "Users should make sure the xgboost package is installed before proceeding!\n"
+                "> pip install xgboost==1.5.1\n"
+                "or\n"
+                "> conda install xgboost==1.5.1",
                 UserWarning,
             )
             raise _xgboost_import_error

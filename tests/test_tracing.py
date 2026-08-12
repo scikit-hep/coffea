@@ -73,26 +73,23 @@ def test_tracing_nanoevents():
     ).events()
 
     necessary_columns = trace_with_typetracer(_analysis, events)
-    assert (
-        sorted(list(necessary_columns))
-        == [
-            "Electron_eta",
-            "Electron_jetIdx",
-            "Electron_phi",  # actual typetracer "overtouching", see https://github.com/scikit-hep/vector/pull/542
-            "Electron_pt",
-            "Jet_btagDeepFlavB",
-            "Jet_eta",
-            "Jet_mass",
-            "Jet_phi",
-            "Jet_pt",
-            "Muon_eta",
-            "Muon_phi",  # actual typetracer "overtouching", see https://github.com/scikit-hep/vector/pull/542
-            "Muon_pt",
-            "nElectron",
-            "nJet",
-            "nMuon",
-        ]
-    )
+    assert sorted(list(necessary_columns)) == [
+        "Electron_eta",
+        "Electron_jetIdx",
+        "Electron_phi",  # actual typetracer "overtouching", see https://github.com/scikit-hep/vector/pull/542
+        "Electron_pt",
+        "Jet_btagDeepFlavB",
+        "Jet_eta",
+        "Jet_mass",
+        "Jet_phi",
+        "Jet_pt",
+        "Muon_eta",
+        "Muon_phi",  # actual typetracer "overtouching", see https://github.com/scikit-hep/vector/pull/542
+        "Muon_pt",
+        "nElectron",
+        "nJet",
+        "nMuon",
+    ]
 
     necessary_columns = trace_with_length_zero_array(_analysis, events)
     assert sorted(list(necessary_columns)) == [
@@ -129,26 +126,23 @@ def test_tracing_nanoevents():
     ]
 
     necessary_columns = trace(_analysis, events)  # this will succeed with typetracer
-    assert (
-        sorted(list(necessary_columns))
-        == [
-            "Electron_eta",
-            "Electron_jetIdx",
-            "Electron_phi",  # actual typetracer "overtouchng", see https://github.com/scikit-hep/vector/pull/542
-            "Electron_pt",
-            "Jet_btagDeepFlavB",
-            "Jet_eta",
-            "Jet_mass",
-            "Jet_phi",
-            "Jet_pt",
-            "Muon_eta",
-            "Muon_phi",  # actual typetracer "overtouching", see https://github.com/scikit-hep/vector/pull/542
-            "Muon_pt",
-            "nElectron",
-            "nJet",
-            "nMuon",
-        ]
-    )
+    assert sorted(list(necessary_columns)) == [
+        "Electron_eta",
+        "Electron_jetIdx",
+        "Electron_phi",  # actual typetracer "overtouchng", see https://github.com/scikit-hep/vector/pull/542
+        "Electron_pt",
+        "Jet_btagDeepFlavB",
+        "Jet_eta",
+        "Jet_mass",
+        "Jet_phi",
+        "Jet_pt",
+        "Muon_eta",
+        "Muon_phi",  # actual typetracer "overtouching", see https://github.com/scikit-hep/vector/pull/542
+        "Muon_pt",
+        "nElectron",
+        "nJet",
+        "nMuon",
+    ]
 
     assert access_log == []
     _ = _analysis(events)

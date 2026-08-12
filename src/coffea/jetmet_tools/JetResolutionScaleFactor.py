@@ -10,7 +10,8 @@ def _checkConsistency(against, tocheck):
     else:
         if against != tocheck:
             raise Exception(
-                f"Corrector for {tocheck} is mixedwith correctors for {against}!"
+                "Corrector for {} is mixed"
+                "with correctors for {}!".format(tocheck, against)
             )
     return tocheck
 

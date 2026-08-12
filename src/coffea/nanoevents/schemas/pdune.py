@@ -142,8 +142,12 @@ class PDUNESchema(BaseSchema):
     def _build_collections(self, branch_forms):
         self.branch_behavior_dict = self._type_dictionary_builder(branch_forms)
 
-        key_form_dict = {}  # finally formed nested dictionary, the input to build branch form structure
-        key_dict = {}  # instead of having `form` in the leaf, using the string 'ak_form'
+        key_form_dict = (
+            {}
+        )  # finally formed nested dictionary, the input to build branch form structure
+        key_dict = (
+            {}
+        )  # instead of having `form` in the leaf, using the string 'ak_form'
 
         # i.e. reco_beam.startPoint --> reco_beam, startPoint
         # branch_keys = {}  # branch_name:[keys, pos]--> a data struct to store

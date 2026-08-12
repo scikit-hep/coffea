@@ -85,9 +85,7 @@ class auto_schema(BaseSchema):
             record_name = (
                 "PtEtaPhiMCandidate"
                 if is_4vector_mass
-                else "PtEtaPhiECandidate"
-                if is_4vector_E
-                else "NanoCollection"
+                else "PtEtaPhiECandidate" if is_4vector_E else "NanoCollection"
             )
 
             record = _build_record_array(
@@ -105,10 +103,9 @@ class auto_schema(BaseSchema):
         for item_name in single_items:
             output[item_name] = contents[item_name]
 
-        self._form["fields"], self._form["contents"] = (
-            [k for k in output.keys()],
-            [v for v in output.values()],
-        )
+        self._form["fields"], self._form["contents"] = [k for k in output.keys()], [
+            v for v in output.values()
+        ]
 
     @classmethod
     def behavior(cls):

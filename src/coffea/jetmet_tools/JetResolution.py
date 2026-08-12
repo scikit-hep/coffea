@@ -10,7 +10,8 @@ def _checkConsistency(against, tocheck):
     else:
         if against != tocheck:
             raise Exception(
-                f"Corrector for {tocheck} is mixedwith correctors for {against}!"
+                "Corrector for {} is mixed"
+                "with correctors for {}!".format(tocheck, against)
             )
     return tocheck
 
@@ -63,7 +64,9 @@ class JetResolution:
         for name, func in kwargs.items():
             if not isinstance(func, jme_standard_function):
                 raise Exception(
-                    f"{name} is a {type(func)} and not a jme_standard_function!"
+                    "{} is a {} and not a jme_standard_function!".format(
+                        name, type(func)
+                    )
                 )
             info = name.split("_")
             if len(info) > 6 or len(info) < 5:

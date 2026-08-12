@@ -878,9 +878,9 @@ class ProcTask(CoffeaVineTask):
         if total < 2:
             return m.soft_terminate()
 
-        m.stats_coffea["chunks_total"] += (
-            1  # 1 chunk is split into 2, so we need to add 1 to the total
-        )
+        m.stats_coffea[
+            "chunks_total"
+        ] += 1  # 1 chunk is split into 2, so we need to add 1 to the total
         m.stats_coffea["chunks_split"] += 1
 
         # remove the original item from the known work items, as it is being
@@ -912,7 +912,9 @@ class ProcTask(CoffeaVineTask):
     def debug_info(self):
         i = self.item
         msg = super().debug_info()
-        return f"{(i.dataset, i.filename, i.treename, i.entrystart, i.entrystop)} {msg}"
+        return "{} {}".format(
+            (i.dataset, i.filename, i.treename, i.entrystart, i.entrystop), msg
+        )
 
 
 class AccumTask(CoffeaVineTask):

@@ -58,7 +58,8 @@ def _lazify_form(form, prefix, docstr=None, typestr=None):
             or form["content"]["primitive"] != "bool"
         ):
             raise ValueError(
-                "Only boolean NumpyArrays can be created dynamically if missing in file!"
+                "Only boolean NumpyArrays can be created dynamically if "
+                "missing in file!"
             )
         assert prefix.endswith("!load")
         form["form_key"] = quote(prefix + "allowmissing,!index")
@@ -227,6 +228,7 @@ class UprootSourceMapping(BaseSourceMapping):
     ):
         # make sure uproot is single-core since our calling context might not be
         if allow_missing and columnhandle is None:
+
             return awkward.contents.IndexedOptionArray(
                 awkward.index.Index64(numpy.full(stop - start, -1, dtype=numpy.int64)),
                 awkward.contents.NumpyArray(numpy.array([], dtype=bool)),

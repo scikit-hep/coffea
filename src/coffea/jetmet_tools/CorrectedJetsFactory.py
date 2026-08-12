@@ -150,14 +150,16 @@ class CorrectedJetsFactory:
 
         if "ptRaw" not in name_map or name_map["ptRaw"] is None:
             warnings.warn(
-                "There is no name mapping for ptRaw, CorrectedJets will assume that <object>.pt is raw pt!"
+                "There is no name mapping for ptRaw,"
+                " CorrectedJets will assume that <object>.pt is raw pt!"
             )
             name_map["ptRaw"] = name_map["JetPt"] + "_raw"
         self.treat_pt_as_raw = "ptRaw" not in name_map
 
         if "massRaw" not in name_map or name_map["massRaw"] is None:
             warnings.warn(
-                "There is no name mapping for massRaw, CorrectedJets will assume that <object>.mass is raw pt!"
+                "There is no name mapping for massRaw,"
+                " CorrectedJets will assume that <object>.mass is raw pt!"
             )
             name_map["ptRaw"] = name_map["JetMass"] + "_raw"
 
@@ -177,7 +179,8 @@ class CorrectedJetsFactory:
 
         if "ptGenJet" not in name_map:
             warnings.warn(
-                'Input jet collections must provide "ptGenJet" to apply the hybrid JER smearing method. Falling back to stochastic smearing.'
+                'Input jet collections must provide "ptGenJet" to apply the hybrid JER smearing method. '
+                "Falling back to stochastic smearing."
             )
             self.forceStochastic = True
 

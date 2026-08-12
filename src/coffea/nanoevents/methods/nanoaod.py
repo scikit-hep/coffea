@@ -775,7 +775,8 @@ class Vertex(base.NanoCollection):
         missing = _VERTEX_REQUIRED.difference(self.fields)
         if missing:
             raise ValueError(
-                f"{type(self).__name__} requires fields {sorted(_VERTEX_REQUIRED)}; missing: {sorted(missing)}"
+                f"{type(self).__name__} requires fields {sorted(_VERTEX_REQUIRED)}; "
+                f"missing: {sorted(missing)}"
             )
 
 
@@ -804,7 +805,8 @@ class SecondaryVertex(Vertex):
         missing = _SECONDARY_VERTEX_REQUIRED.difference(self.fields)
         if missing:
             raise ValueError(
-                f"{type(self).__name__} requires fields {sorted(_SECONDARY_VERTEX_REQUIRED)} (in addition to x/y/z); missing: {sorted(missing)}"
+                f"{type(self).__name__} requires fields {sorted(_SECONDARY_VERTEX_REQUIRED)} "
+                f"(in addition to x/y/z); missing: {sorted(missing)}"
             )
         super().__awkward_validation__()
 

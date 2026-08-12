@@ -11,6 +11,11 @@ ci:
     submodules: false
 
 repos:
+- repo: https://github.com/psf/black-pre-commit-mirror
+  rev: 26.5.1
+  hooks:
+  - id: black
+
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v6.0.0
   hooks:
@@ -40,7 +45,6 @@ repos:
   hooks:
   - id: ruff-check
     args: [--fix, --show-fixes]
-  - id: ruff-format
 
 - repo: https://github.com/codespell-project/codespell
   rev: v2.4.3

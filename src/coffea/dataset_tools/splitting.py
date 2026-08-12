@@ -95,7 +95,8 @@ def _get_files_entries(data):
     if isinstance(files, (list, tuple)):
         return "list", sorted(files)
     raise TypeError(
-        f"Expected dataset['files'] to be a dict or list, got {type(files).__name__}"
+        f"Expected dataset['files'] to be a dict or list, "
+        f"got {type(files).__name__}"
     )
 
 
@@ -126,7 +127,9 @@ def _normalize_fileset(fileset, treename):
         if isinstance(data, (list, tuple)):
             if treename is None:
                 raise ValueError(
-                    f"Dataset '{dataset}' uses list-format files; 'treename' must be supplied to make the chunk self-contained."
+                    f"Dataset '{dataset}' uses list-format files; "
+                    "'treename' must be supplied to make the chunk "
+                    "self-contained."
                 )
             normalized[dataset] = {"files": list(data), "treename": treename}
         elif isinstance(data, dict):
@@ -151,7 +154,8 @@ def _normalize_fileset(fileset, treename):
                 normalized[dataset] = data
         else:
             raise TypeError(
-                f"Unsupported dataset value type for '{dataset}': {type(data).__name__}"
+                f"Unsupported dataset value type for '{dataset}': "
+                f"{type(data).__name__}"
             )
     return normalized
 

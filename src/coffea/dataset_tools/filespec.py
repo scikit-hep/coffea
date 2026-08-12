@@ -104,7 +104,7 @@ class GenericFileSpec(BaseModel):
         for i in range(1, len(self.steps)):
             if starts[i] < stops[i - 1]:
                 raise ValueError(
-                    f"steps: start of step {i} ({starts[i]}) is less than stop of previous step ({stops[i - 1]})"
+                    f"steps: start of step {i} ({starts[i]}) is less than stop of previous step ({stops[i-1]})"
                 )
             if stops[i] < starts[i]:
                 raise ValueError(
@@ -259,16 +259,16 @@ class InputFilesMixin:
                     if "format" not in v:
                         v["format"] = "root"
                     else:
-                        assert v["format"] == "root", (
-                            f"Expected 'format' to be 'root', got {v['format']} for {k}"
-                        )
+                        assert (
+                            v["format"] == "root"
+                        ), f"Expected 'format' to be 'root', got {v['format']} for {k}"
                 elif fmt == "parquet":
                     if "format" not in v:
                         v["format"] = "parquet"
                     else:
-                        assert v["format"] == "parquet", (
-                            f"Expected 'format' to be 'parquet', got {v['format']} for {k}"
-                        )
+                        assert (
+                            v["format"] == "parquet"
+                        ), f"Expected 'format' to be 'parquet', got {v['format']} for {k}"
         return data
 
     @property
@@ -356,6 +356,7 @@ class InputFiles(
     MutableMapping,
     InputFilesMixin,
 ):
+
     def __iter__(self) -> Iterable[str]:
         return iter(self.root)
 
@@ -402,6 +403,7 @@ class PreprocessedFiles(
     MutableMapping,
     InputFilesMixin,
 ):
+
     def __iter__(self) -> Iterable[str]:
         return iter(self.root)
 
@@ -947,9 +949,9 @@ class ModelFactory:
         input: DatasetSpec,
         coerce_filespec_to_dict: bool = True,
     ) -> dict[str, Any]:
-        assert isinstance(input, DatasetSpec), (
-            f"{cls.__name__}.datasetspec_to_dict expects a DatasetSpec, got {type(input)} instead: {input}"
-        )
+        assert isinstance(
+            input, DatasetSpec
+        ), f"{cls.__name__}.datasetspec_to_dict expects a DatasetSpec, got {type(input)} instead: {input}"
         if coerce_filespec_to_dict:
             return input.model_dump()
         else:

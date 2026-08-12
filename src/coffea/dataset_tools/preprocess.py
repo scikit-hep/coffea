@@ -151,7 +151,7 @@ def get_steps(
                 if numpy.any(step_mask):
                     warnings.warn(
                         f"In file {arg.file}, steps: {out[step_mask]} with align_clusters=True are "
-                        f"{step_size_safety_factor * 100:.0f}% larger than target "
+                        f"{step_size_safety_factor*100:.0f}% larger than target "
                         f"step size: {target_step_size}!"
                     )
 
@@ -378,6 +378,7 @@ def preprocess_legacy(
     (all_processed_files,) = dask.compute(files_to_preprocess, scheduler=scheduler)
 
     for name, processed_files in all_processed_files.items():
+
         if len(awkward.drop_none(processed_files, axis=0)) == 0:
             ds_empty_msg = (
                 "There was no populated list of files returned from querying your input dataset."
@@ -447,7 +448,8 @@ def preprocess_legacy(
                         or content.content.primitive != "bool"
                     ):
                         raise ValueError(
-                            "IndexedOptionArrays can only contain NumpyArrays of bools in mergers of flat-tuple-like schemas!"
+                            "IndexedOptionArrays can only contain NumpyArrays of "
+                            "bools in mergers of flat-tuple-like schemas!"
                         )
                     parameters = (
                         content.content.parameters.copy()
@@ -641,7 +643,7 @@ def get_parquet_form_uuid_steps(
                 if numpy.any(step_mask):
                     warnings.warn(
                         f"In file {arg.file}, steps: {out[step_mask]} with use_row_groups=True are "
-                        f"{step_size_safety_factor * 100:.0f}% larger than target "
+                        f"{step_size_safety_factor*100:.0f}% larger than target "
                         f"step size: {target_step_size}!"
                     )
             else:
@@ -1000,6 +1002,7 @@ def _preprocess_pydantic(
     (all_processed_files,) = dask.compute(files_to_preprocess, scheduler=scheduler)
 
     for name, processed_files in all_processed_files.items():
+
         if len(awkward.drop_none(processed_files, axis=0)) == 0:
             ds_empty_msg = (
                 "There was no populated list of files returned from querying your input dataset."
@@ -1069,7 +1072,8 @@ def _preprocess_pydantic(
                         or content.content.primitive != "bool"
                     ):
                         raise ValueError(
-                            "IndexedOptionArrays can only contain NumpyArrays of bools in mergers of flat-tuple-like schemas!"
+                            "IndexedOptionArrays can only contain NumpyArrays of "
+                            "bools in mergers of flat-tuple-like schemas!"
                         )
                     parameters = (
                         content.content.parameters.copy()

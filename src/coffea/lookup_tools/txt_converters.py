@@ -163,7 +163,8 @@ def _build_standard_jme_lookup(
                 bins[layout[i + offset_name]] = numpy.union1d(binMins, binMaxs)
             else:
                 warnings.warn(
-                    f"binning for file for {name} is malformed in variable {layout[i + offset_name]}"
+                    "binning for file for %s is malformed in variable %s"
+                    % (name, layout[i + offset_name])
                 )
                 bins[layout[i + offset_name]] = numpy.union1d(binMins, binMaxs[-1:])
         else:
@@ -185,7 +186,8 @@ def _build_standard_jme_lookup(
                     theBins = numpy.union1d(binMins, binMaxs)
                 else:
                     warnings.warn(
-                        f"binning for file for {name} is malformed in variable {layout[i + offset_name]}"
+                        "binning for file for %s is malformed in variable %s"
+                        % (name, layout[i + offset_name])
                     )
                     theBins = numpy.union1d(binMins, binMaxs[-1:])
                 allBins = numpy.append(allBins, theBins)
@@ -365,7 +367,9 @@ def convert_junc_txt_file(juncFilePath):
                 continue
             elif line.startswith("["):
                 component_name = line.strip()[1:-1]  # remove leading and trailing []
-                cname = f"just/sum/dummy/dir/{basename}_{component_name}.junc.txt"
+                cname = "just/sum/dummy/dir/{}_{}.junc.txt".format(
+                    basename, component_name
+                )
                 components.append((cname, []))
             elif components:
                 components[-1][1].append(line)

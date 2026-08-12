@@ -114,7 +114,8 @@ def _coordinate_validation(fields):
         cartesian = sorted(fields & _AZIMUTHAL_CARTESIAN)
         polar = sorted(fields & _AZIMUTHAL_POLAR)
         errors.append(
-            f"conflicting azimuthal coordinate representations present: cartesian={cartesian}, polar={polar}"
+            "conflicting azimuthal coordinate representations present: "
+            f"cartesian={cartesian}, polar={polar}"
         )
 
     has_z = bool(fields & _Z_COMPONENT)

@@ -58,8 +58,7 @@ class TreeMakerSchema(BaseSchema):
             components = {  # Extracting the various composite object names
                 k.split(".")[-1]: k
                 for k in branch_forms
-                if k.startswith(objname + "/")
-                or
+                if k.startswith(objname + "/") or
                 # Second case for skimming
                 k.startswith(objname + "_/")
             }

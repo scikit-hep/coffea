@@ -75,7 +75,8 @@ def flatten_idxs(idx_in, jaggedarray):
             [idx_out[~good_idx]] + [idx_in[i][~good_idx] for i in range(len(idx_in))]
         )
         raise Exception(
-            f"Calculated invalid index {numpy.vstack(input_idxs)} for array with length {len(flattened)}"
+            "Calculated invalid index {} for"
+            " array with length {}".format(numpy.vstack(input_idxs), len(flattened))
         )
 
     return idx_out
