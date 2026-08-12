@@ -121,6 +121,7 @@ dev = [
   "ipython",
   "myst-nb",
   "pydata-sphinx-theme",
+  "sphinx-autobuild>=2024.10.03"
 ]
 
 #[project.entry-points."dask.sizeof"]
