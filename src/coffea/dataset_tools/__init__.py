@@ -26,7 +26,15 @@ from coffea.dataset_tools.preprocess import (
     preprocess,
     preprocess_legacy,
     preprocess_parquet,
+    preprocess_rntuple,
     preprocess_root,
+)
+from coffea.dataset_tools.preprocess_backends import (
+    DaskBackend,
+    FuturesBackend,
+    IterativeBackend,
+    PreprocessBackend,
+    PreprocessJob,
 )
 from coffea.dataset_tools.splitting import hash_fileset, split_fileset
 
@@ -34,6 +42,7 @@ __all__ = [
     "preprocess",
     "preprocess_legacy",
     "preprocess_parquet",
+    "preprocess_rntuple",
     "preprocess_root",
     "split_fileset",
     "hash_fileset",
@@ -58,4 +67,9 @@ __all__ = [
     "DatasetSpec",
     "DataGroupSpec",
     "ModelFactory",
+    "PreprocessBackend",
+    "PreprocessJob",
+    "DaskBackend",
+    "FuturesBackend",
+    "IterativeBackend",
 ]
