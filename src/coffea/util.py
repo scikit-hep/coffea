@@ -5,6 +5,7 @@ import gzip
 import hashlib
 import warnings
 from functools import partial
+from functools import update_wrapper
 from typing import Any
 
 import awkward
@@ -419,11 +420,8 @@ class _DaskMethod:
 def dask_method(maybe_func=None, *, no_dispatch=False):
     def dask_method_wrapper(func):
         method = _DaskMethod(func)
-
-        if no_dispatch:
-            return method.dask(_adapt_naive_dask_get(func))
-        else:
-            return method
+        f = method.dask(_adapt_naive_dask_get(func)) if no_dispatch else method
+        return update_wrapper(f, func)
 
     if maybe_func is None:
         return dask_method_wrapper
