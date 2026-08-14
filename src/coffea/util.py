@@ -4,8 +4,7 @@ import base64
 import gzip
 import hashlib
 import warnings
-from functools import partial
-from functools import update_wrapper
+from functools import partial, update_wrapper
 from typing import Any
 
 import awkward
@@ -420,7 +419,7 @@ class _DaskMethod:
     # calling it directly (and to check that my doc-trick doesn't change
     # any of the behavior under test)
     def __call__(self, *args, **kwargs):
-        raise NotImplemented
+        raise NotImplementedError
 
     def dask(self, func):
         self._dask_get = _make_dask_method(func)
