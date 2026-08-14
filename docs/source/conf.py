@@ -142,7 +142,7 @@ html_logo = "logo/coffea_favicon.png"
 html_favicon = "logo/coffea_favicon.png"
 
 # -- MyST configuration -------------------------------------------------
-myst_enable_extensions = ["colon_fence", "deflist"]
+myst_enable_extensions = ["colon_fence", "deflist", "dollarmath"]
 myst_heading_anchors = 3
 
 # exclude for now
