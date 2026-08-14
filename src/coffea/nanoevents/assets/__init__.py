@@ -7,6 +7,8 @@ import yaml
 root_dir = importlib.resources.files("coffea.nanoevents.assets")
 
 versions = [
+    "01-01",
+    "01-00",
     "00-10-01",
     "00-10-02",
     "00-10-03",
