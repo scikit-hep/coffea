@@ -412,9 +412,12 @@ class _DaskMethod:
 
         return self._impl.__get__(instance, owner)
 
+    def __call__(self, *args, **kwargs):
+        return self._impl(*args, **kwargs)
+
     def dask(self, func):
         self._dask_get = _make_dask_method(func)
-        return self
+        return update_wrapper(self, self._impl)
 
 
 def dask_method(maybe_func=None, *, no_dispatch=False):
