@@ -412,8 +412,15 @@ class _DaskMethod:
 
         return self._impl.__get__(instance, owner)
 
+    # this __call__ method is only present to signal
+    # to Sphinx that these objects should be treated as methods
+    # in the documentation
+    # since this is purely for tricking Sphinx,
+    # it raises a NotImplemented error to prevent anyone from accidentally
+    # calling it directly (and to check that my doc-trick doesn't change
+    # any of the behavior under test)
     def __call__(self, *args, **kwargs):
-        return self._impl(*args, **kwargs)
+        raise NotImplemented
 
     def dask(self, func):
         self._dask_get = _make_dask_method(func)
