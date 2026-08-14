@@ -3,4 +3,3 @@
 
 .. automodapi:: {{ fullname }}
     :no-heading:
-    :include-all-objects:
