@@ -43,6 +43,7 @@ A small example::
 
 """
 
+import functools
 import numbers
 
 import awkward
@@ -97,7 +98,9 @@ _ALIAS_GROUPS = {
 }
 
 
+@functools.lru_cache(maxsize=4096)
 def _coordinate_validation(fields):
+    fields = set(fields)
     errors = []
     for label, aliases in _ALIAS_GROUPS.items():
         overlap = fields & aliases
@@ -131,7 +134,7 @@ def _coordinate_validation(fields):
             + ", ".join(present_longitudinal)
         )
     return (
-        errors,
+        tuple(errors),
         has_xy,
         has_rhophi,
         has_z or has_theta or has_eta,
@@ -211,10 +214,10 @@ class TwoVector(MomentumAwkward2D):
         return self / self.r
 
     def __awkward_validation__(self):
-        fields = set(self.fields)
         errors, has_cart, has_polar, has_longitudinal, has_temporal = (
-            _coordinate_validation(fields)
+            _coordinate_validation(tuple(self.fields))
         )
+        errors = list(errors)
         if not (has_cart or has_polar):
             errors.append(
                 "missing azimuthal coordinates: need x/px and y/py, or rho/pt and phi"
@@ -319,10 +322,10 @@ class ThreeVector(MomentumAwkward3D):
         return self / self.rho
 
     def __awkward_validation__(self):
-        fields = set(self.fields)
         errors, has_cart, has_polar, has_longitudinal, has_temporal = (
-            _coordinate_validation(fields)
+            _coordinate_validation(tuple(self.fields))
         )
+        errors = list(errors)
         if not (has_cart or has_polar):
             errors.append(
                 "missing azimuthal coordinates: need x/px and y/py, or rho/pt and phi"
@@ -558,10 +561,10 @@ class LorentzVector(MomentumAwkward4D):
         return _nearest_core(dask_array, other, axis, metric, return_metric, threshold)
 
     def __awkward_validation__(self):
-        fields = set(self.fields)
         errors, has_cart, has_polar, has_longitudinal, has_temporal = (
-            _coordinate_validation(fields)
+            _coordinate_validation(tuple(self.fields))
         )
+        errors = list(errors)
         if not (has_cart or has_polar):
             errors.append(
                 "missing azimuthal coordinates: need x/px and y/py, or rho/pt and phi"

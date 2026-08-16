@@ -1143,13 +1143,10 @@ class ParquetFileContext:
 
 @dataclass
 class Runner:
-    """A tool to run a processor using uproot for data delivery
+    """A convenience wrapper to submit jobs for a file set
 
-    A convenience wrapper to submit jobs for a file set, which is a
-    dictionary of dataset: [file list] entries.  Supports only uproot TTree
-    reading, via NanoEvents.  For more customized processing,
-    e.g. to read other objects from the files and pass them into data frames,
-    one can write a similar function in their user code.
+    A file set in this context is a dictionary where the key is the name
+    of a dataset and the value is a list of files.
 
     Parameters
     ----------
@@ -1170,6 +1167,50 @@ class Runner:
             determine chunking.  Defaults to a in-memory LRU cache that holds 100k entries
             (about 1MB depending on the length of filenames, etc.)  If you edit an input file
             (please don't) during a session, the session can be restarted to clear the cache.
+        skipbadfiles : bool or tuple of Exception, optional
+            If True, skip files which throw an ``OSError`` exception when opened after reaching
+            the limit on retry attempts.
+            If a tuple of exceptions, only skip files that throw those exceptions.
+            If False, propagate the exception thrown by the file open upwards, probably causing
+            processing to cease.
+            Defaults to False.
+        xrootdtimeout : int, optional
+            Passed to `uproot.open <https://uproot.readthedocs.io/en/latest/uproot.reading.open.html>`_
+            as the ``timeout`` option. The time in seconds we will wait before giving up on the file.
+            Defaults to 60, ignored if ``format`` is not ``"root"``.
+        align_clusters: bool, optional
+            ROOT files write data from adjacent entries of TTree branches and RNTuple fields into clusters.
+            If this option is True, we attempt to read those clusters in sequence together,
+            hopefully improving overall read performance.
+            Defaults to False, only usable when input ``format`` is ``"root"``.
+        savemetrics: bool, optional
+            If True, include timing, I/O, and memory usage metrics in the output result.
+            Defaults to False.
+        schema: BaseSchema instance, optional
+            The schema to use for opening the file and interpreting the data.
+            Defaults to the NanoAODSchema.
+        processor_compression: int, optional
+            The compression level to use when compressing the processor instance before
+            sending it to the worker. A value of ``None`` will prevent any compression from
+            being done on the processor instance which can be helpful in the case where your
+            processor instance is failing to be handled by ``cloudpickle`` but can cause
+            performance bottlenecks if sending your processor instance to/from the workers
+            becomes the longest task.
+            The default value is ``1``.
+            This is passed as ``compression_level`` to
+            `lz4.frame.compress <https://python-lz4.readthedocs.io/en/stable/lz4.frame.html#lz4.frame.compress>`_
+            for those curious.
+        format: str, optional
+            Defines input file format, must be either ``"root"`` or ``"parquet"``.
+            Defaults to ``"root"``.
+        cachestrategy: "dask-worker" or callable returning a mapping, optional
+            Define the cache used to hold columns of data in memory for re-processing.
+            The default is ``None`` where no caching takes place.
+            If the literal "dask-worker", use the :py:class:`ColumnCache <coffea.processor.dask.ColumnCache>`
+            plugin added to the dask worker by name. *Warning* If the ColumnCache plugin is not
+            found by name, then it is silently ignored and no caching takes place.
+            The cache constructed from this strategy is passed as ``buffer_cache``
+            to :py:class:`NanoEventsFactory <coffea.nanoevents.NanoEventsFactory>`.
         checkpointer : CheckpointerABC, optional
             A CheckpointerABC instance to manage checkpointing of each chunk output
         use_result_type : bool, optional

@@ -1132,3 +1132,96 @@ def test_awkward_validation():
             with_name="SecondaryVertex",
             behavior=nanoaod.behavior,
         )
+
+
+def test_candidate_addition_propagates_charge():
+    """Regression test for scikit-hep/coffea#1578.
+
+    ``Candidate + Candidate`` (and any same-class candidate sum) must keep the
+    ``charge`` field and sum charges. Before the fix, a module-level
+    ``copy_behaviors`` call pre-registered LorentzVector's charge-less ``add``
+    for ``(Candidate, Candidate)`` (via ``setdefault`` in ``mixin_class``),
+    silently dropping charge.
+    """
+    from coffea.nanoevents.methods import candidate
+
+    # ---- Candidate + Candidate ----
+    c1 = ak.zip(
+        {"x": [1.0], "y": [0.0], "z": [0.0], "t": [10.0], "charge": [1]},
+        with_name="Candidate",
+        behavior=candidate.behavior,
+    )
+    c2 = ak.zip(
+        {"x": [0.0], "y": [1.0], "z": [0.0], "t": [20.0], "charge": [-1]},
+        with_name="Candidate",
+        behavior=candidate.behavior,
+    )
+    csum = c1 + c2
+    assert "charge" in csum.fields
+    assert ak.to_list(csum.charge) == [0]
+    assert ak.to_list(csum.x) == [1.0]
+    assert ak.to_list(csum.t) == [30.0]
+
+    same_sign = c1 + c1
+    assert ak.to_list(same_sign.charge) == [2]
+
+    # ---- PtEtaPhiMCandidate + PtEtaPhiMCandidate ----
+    m1 = ak.zip(
+        {"pt": [10.0], "eta": [0.5], "phi": [0.1], "mass": [0.105], "charge": [1]},
+        with_name="PtEtaPhiMCandidate",
+        behavior=candidate.behavior,
+    )
+    m2 = ak.zip(
+        {"pt": [20.0], "eta": [-0.5], "phi": [0.2], "mass": [0.105], "charge": [-1]},
+        with_name="PtEtaPhiMCandidate",
+        behavior=candidate.behavior,
+    )
+    msum = m1 + m2
+    assert "charge" in msum.fields
+    assert ak.to_list(msum.charge) == [0]
+
+    # ---- PtEtaPhiECandidate + PtEtaPhiECandidate ----
+    e1 = ak.zip(
+        {"pt": [10.0], "eta": [0.5], "phi": [0.1], "energy": [10.6], "charge": [1]},
+        with_name="PtEtaPhiECandidate",
+        behavior=candidate.behavior,
+    )
+    e2 = ak.zip(
+        {"pt": [20.0], "eta": [-0.5], "phi": [0.2], "energy": [20.6], "charge": [-1]},
+        with_name="PtEtaPhiECandidate",
+        behavior=candidate.behavior,
+    )
+    esum = e1 + e2
+    assert "charge" in esum.fields
+    assert ak.to_list(esum.charge) == [0]
+
+
+def test_genvistau_addition_propagates_charge():
+    """Regression test for scikit-hep/coffea#1578 (GenVisTau asymmetry).
+
+    ``GenVisTau + GenVisTau`` dropped charge while ``GenVisTau + Muon`` kept it,
+    because GenVisTau's module-level ``copy_behaviors`` (from
+    PtEtaPhiMLorentzVector) ran before its ``@mixin_class`` decorator and
+    shadowed the inherited charge-propagating ``Candidate.add``.
+    """
+    from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+
+    NanoAODSchema.warn_missing_crossrefs = False
+    events = NanoEventsFactory.from_root(
+        {"tests/samples/nano_dy.root": "Events"},
+        schemaclass=NanoAODSchema,
+        mode="eager",
+    ).events()
+
+    gvt = events.GenVisTau
+    pairs = gvt[ak.num(gvt) >= 2]
+    assert len(pairs) > 0, "sample must contain events with >=2 GenVisTau"
+    gg = pairs[:, 0] + pairs[:, 1]
+    assert "charge" in gg.fields
+    assert ak.all(gg.charge == (pairs[:, 0].charge + pairs[:, 1].charge))
+
+    # Cross-class sum must still keep charge (never regressed).
+    mu = events.Muon
+    common = (ak.num(gvt) >= 1) & (ak.num(mu) >= 1)
+    gm = gvt[common][:, 0] + mu[common][:, 0]
+    assert "charge" in gm.fields

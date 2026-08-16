@@ -22,8 +22,8 @@ jobs:
     name: pre-commit
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v7
       with:
         python-version: "3.14"
     - uses: pre-commit/action@v3.0.1
@@ -51,7 +51,7 @@ jobs:
     name: Test w/o dask client (${{ matrix.os }}) - py ${{ matrix.python-version }}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
     - name: Set up micromamba
@@ -95,7 +95,7 @@ jobs:
         python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "not dask_client" -n 4
     - name: Upload codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
     - name: Install graphviz
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       uses: ts-graphviz/setup-graphviz@v2
@@ -129,7 +129,7 @@ jobs:
     name: Test w/ dask client (${{ matrix.os }}) - py ${{ matrix.python-version }}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
     - name: Set up micromamba
@@ -179,7 +179,7 @@ jobs:
         shell: bash -el {0}
     name: Test without dask
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up micromamba
       uses: mamba-org/setup-micromamba@v3
       with:
@@ -216,7 +216,7 @@ jobs:
         python-version: ["3.14"]
     name: test coffea-taskvine
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up micromamba
       uses: mamba-org/setup-micromamba@v3
       with:
@@ -257,9 +257,9 @@ jobs:
     name: deploy release
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
     - name: Build package for PyPI
@@ -268,11 +268,11 @@ jobs:
     - name: Verify the distribution
       run: pipx run twine check --strict dist/*
     - name: Generate artifact attestation for sdist and wheel
-      uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+      uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
       with:
         subject-path: "dist/coffea-*"
     - name: Publish package to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.14.0
+      uses: pypa/gh-action-pypi-publish@v1.14.2
       with:
         user: __token__
         password: ${{ secrets.PYPI_TOKEN }}
