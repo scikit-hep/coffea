@@ -268,9 +268,7 @@ def test_preprocessing_cache_smaller_than_fileset(filetype):
     # FileMeta is keyed on (dataset, filename, treename), so the same file under
     # distinct dataset names gives distinct cache entries
     n_datasets = 4
-    fileset = {
-        f"dataset{i}": {"files": {nano_dy: "Events"}} for i in range(n_datasets)
-    }
+    fileset = {f"dataset{i}": {"files": {nano_dy: "Events"}} for i in range(n_datasets)}
 
     run = processor.Runner(
         executor=processor.IterativeExecutor(),
