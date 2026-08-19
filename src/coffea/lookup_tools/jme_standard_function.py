@@ -2,8 +2,13 @@ from copy import deepcopy
 
 import awkward
 import numpy
-from numpy import sqrt  # noqa: F401
-from numpy import abs, exp, log, log10  # noqa: F401
+from numpy import (  # noqa: F401
+    abs,
+    exp,
+    log,
+    log10,
+    sqrt,  # noqa: F401
+)
 from numpy import maximum as max  # noqa: F401
 from numpy import minimum as min  # noqa: F401
 from numpy import power as pow  # noqa: F401
