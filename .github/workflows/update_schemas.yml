@@ -1,0 +1,222 @@
+name: Update EDM4hep Schema
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+    update-schema:
+        name: update-schema
+        runs-on: ubuntu-latest
+        if: github.event_name == 'workflow_dispatch'
+
+        steps:
+        - uses: actions/checkout@v6
+
+        - name: Retrieve latest schema YAML
+          run: |
+            TAG=$(git ls-remote --tags --sort="v:refname" https://github.com/key4hep/EDM4hep \
+            | tail -1 \
+            | sed 's|.*refs/tags/||')
+            VERSION=${TAG#v}
+
+            curl -L \
+            -o src/coffea/nanoevents/assets/edm4hep_v${VERSION}.yaml \
+            https://raw.githubusercontent.com/key4hep/EDM4hep/v${VERSION}/edm4hep.yaml
+
+        - name: Update assets/__init__.py
+          run: |
+            TAG=$(git ls-remote --tags --sort="v:refname" https://github.com/key4hep/EDM4hep \
+            | tail -1 \
+            | sed 's|.*refs/tags/||')
+            VERSION=${TAG#v}
+
+            python3 <<EOF
+            from pathlib import Path
+
+            VERSION = "$VERSION"
+
+            path = Path("src/coffea/nanoevents/assets/__init__.py")
+            text = path.read_text()
+
+            if f'"{VERSION}"' not in text:
+                marker = "versions = ["
+                idx = text.find(marker)
+
+                if idx == -1:
+                    raise RuntimeError("Could not find versions list")
+
+                insert_pos = text.find("\n", idx) + 1
+                new_line = f'    "{VERSION}",\n'
+
+                text = text[:insert_pos] + new_line + text[insert_pos:]
+                path.write_text(text)
+
+                print(f"Added version {VERSION}")
+            else:
+                print(f"Version {VERSION} already exists")
+            EOF
+        - name: Update edm4hep.py
+          run: |
+            TAG=$(git ls-remote --tags --sort="v:refname" https://github.com/key4hep/EDM4hep \
+              | tail -1 \
+              | sed 's|.*refs/tags/||')
+            VERSION=${TAG#v}
+
+            python3 <<EOF
+            from pathlib import Path
+            import re
+
+            VERSION = "$VERSION"
+
+            VERSION_DASH = VERSION.replace(".", "-")
+            VERSION_US = VERSION.replace(".", "_").replace("-", "_")
+
+            path = Path("src/coffea/nanoevents/schemas/edm4hep.py")
+            text = path.read_text()
+
+
+            # Find current latest version
+
+            match = re.search(
+                r'class EDM4HEPSchema\(BaseSchema\):.*?edm4hep_version = "([^"]+)"',
+                text,
+                re.DOTALL,
+            )
+
+            if not match:
+                raise RuntimeError("Could not find EDM4HEPSchema version")
+
+            old_version_dash = match.group(1)
+            old_version_dot = old_version_dash.replace("-", ".")
+            old_version_us = old_version_dash.replace("-", "_")
+
+            old_class_name = f"EDM4HEPSchema_v{old_version_us}"
+
+            print(f"Old latest version: {old_version_dash}")
+            print(f"New latest version: {VERSION}")
+
+
+            # Create subclass for previous latest version
+
+            if old_class_name not in text:
+
+                new_class = f"""
+
+            class {old_class_name}(EDM4HEPSchema):
+                \"\"\"Schema-builder for EDM4HEP root file structure.
+                EDM4HEPSchema for edm4hep version {old_version_dot}
+                \"\"\"
+
+                edm4hep_version = "{old_version_dash}"
+
+            """
+
+                # Insert before first existing versioned class
+                insert = re.search(
+                    r"^class EDM4HEPSchema_v",
+                    text,
+                    re.MULTILINE,
+                )
+
+                if not insert:
+                    raise RuntimeError(
+                        "Could not find existing versioned EDM4HEPSchema class"
+                    )
+
+                text = (
+                    text[:insert.start()]
+                    + new_class
+                    + text[insert.start():]
+                )
+
+            # Update base EDM4HEPSchema version
+
+            text = re.sub(
+                r'(class EDM4HEPSchema\(BaseSchema\):.*?edm4hep_version = )"[^"]+"',
+                rf'\1"{VERSION_DASH}"',
+                text,
+                count=1,
+                flags=re.DOTALL,
+            )
+
+
+            # Update version() docstring
+
+            doc_entry = (
+                f'                - "{VERSION}": corresponds to '
+                f'{VERSION} version of edm4hep.yaml'
+            )
+
+            if doc_entry not in text:
+                match = re.search(
+                    r'^\s+- "[\d.\-]+": corresponds to .*',
+                    text,
+                    re.MULTILINE,
+                )
+
+                if not match:
+                    raise RuntimeError(
+                        "Could not find version() docstring entries"
+                    )
+
+                text = (
+                    text[:match.start()]
+                    + doc_entry
+                    + "\n"
+                    + text[match.start():]
+                )
+
+
+            # Update version_match dictionary
+
+            new_mapping = f'            "{VERSION}": EDM4HEPSchema,'
+
+            if new_mapping not in text:
+                text = text.replace(
+                    '            "latest": EDM4HEPSchema,\n',
+                    '            "latest": EDM4HEPSchema,\n' + new_mapping + "\n",
+                )
+
+
+            old_mapping = None
+            old_key = None
+            for candidate in (old_version_dash, old_version_dot):
+                probe = f'            "{candidate}": EDM4HEPSchema,'
+                if probe in text:
+                    old_mapping = probe
+                    old_key = candidate
+                    break
+
+            if old_mapping is None:
+                raise RuntimeError(
+                    "Could not find version_match entry for previous latest "
+                    f"version ({old_version_dash} / {old_version_dot})"
+                )
+
+            new_old_mapping = f'            "{old_key}": {old_class_name},'
+
+            text = text.replace(old_mapping, new_old_mapping)
+
+            path.write_text(text)
+
+            print(
+                f"Updated edm4hep.py: "
+                f"{old_key} -> {old_class_name}, "
+                f"{VERSION} is now latest"
+            )
+            EOF
+
+        - name: Commit and push changes
+          run: |
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+
+            git add src/coffea/nanoevents/assets/edm4hep_v*.yaml \
+                    src/coffea/nanoevents/assets/__init__.py \
+                    src/coffea/nanoevents/schemas/edm4hep.py
+
+            git commit -m "Update EDM4hep schema" || echo "No changes"
+            git push

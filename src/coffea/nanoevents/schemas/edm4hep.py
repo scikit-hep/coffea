@@ -57,10 +57,45 @@ def parse_Members_and_Relations(Members_and_Relation_List, target_text=False):
     return parsed
 
 
+def _synthesize_link_datatypes(loaded_dict):
+    """Starting with edm4hep 01-00, Link types (e.g. RecoMCParticleLink) moved
+    out of the 'datatypes' section into their own 'links' section.
+
+    Convert each 'links' entry back into the old-style datatype shape --
+    a single 'float weight' member plus 'from'/'to' OneToOneRelations --
+    matching exactly what every link looked like before this change (and
+    what podio's own release notes describe: every link now stores its
+    weight as a shared, generic structure; a link's 'from'/'to' play the
+    same role they always did). This lets every other lookup in this file
+    keep working unchanged, regardless of which shape a given edm4hep
+    version happens to use.
+    """
+    synthesized = {}
+    for link_name, link_def in loaded_dict.get("links", {}).items():
+        from_type = link_def["From"]
+        to_type = link_def["To"]
+        synthesized[link_name] = {
+            "Description": link_def.get("Description", ""),
+            "Author": link_def.get("Author", ""),
+            "Members": ["float weight  // weight of this link"],
+            "OneToOneRelations": [
+                f"{from_type}  from  // reference to the source object of this link",
+                f"{to_type}  to  // reference to the target object of this link",
+            ],
+        }
+    return synthesized
+
+
 def parse_yaml(loaded_dict, parsed_dict):
     """The loaded yaml needs to processed further to create a favourable structure.
     Mainly, the Members and Relations need to be parsed
     """
+    link_datatypes = _synthesize_link_datatypes(loaded_dict)
+    if link_datatypes:
+        loaded_dict = copy.deepcopy(loaded_dict)
+        loaded_dict["datatypes"].update(link_datatypes)
+        parsed_dict["datatypes"].update(copy.deepcopy(link_datatypes))
+
     for key in loaded_dict.keys():
         if not isinstance(loaded_dict[key], dict):
             continue
@@ -106,7 +141,7 @@ class EDM4HEPSchema(BaseSchema):
     __dask_capable__ = True
 
     # Latest (default) edm4hep_version
-    edm4hep_version = "00-99-01"
+    edm4hep_version = "01-01"
 
     # EDM4HEP components mixins
     _components_mixins = {
@@ -174,6 +209,8 @@ class EDM4HEPSchema(BaseSchema):
                 Version of edm4hep.yaml. Allowed values:
 
                 - "latest" (default): corresponds to 00.99.01 version of edm4hep.yaml
+                - "01-00": corresponds to 01-00 version of edm4hep.yaml
+                - "01-01": corresponds to 01-01 version of edm4hep.yaml
                 - "00.99.01": corresponds to 00.99.01 version of edm4hep.yaml
                 - "00.99.00": corresponds to 00.99.00 version of edm4hep.yaml
                 - "00.10.05": corresponds to 00.10.05 version of edm4hep.yaml
@@ -184,7 +221,9 @@ class EDM4HEPSchema(BaseSchema):
         """
         version_match = {
             "latest": EDM4HEPSchema,
-            "00.99.01": EDM4HEPSchema,
+            "01-01": EDM4HEPSchema,
+            "01-00": EDM4HEPSchema_v01_00,
+            "00.99.01": EDM4HEPSchema_v00_99_01,
             "00.99.00": EDM4HEPSchema_v00_99_00,
             "00.10.05": EDM4HEPSchema_v00_10_05,
             "00.10.04": EDM4HEPSchema_v00_10_04,
@@ -236,6 +275,9 @@ class EDM4HEPSchema(BaseSchema):
                 mixins[name] = datatype.split("::")[-1][:-1]
             else:
                 mixins[name] = datatype
+
+            if mixins[name] == "LinkData" and name.endswith("Collection"):
+                mixins[name] = name[: -len("Collection")]
 
         mixins_dictionary = {**mixins, **self.extra_mixins}
         self._datatype_mixins = mixins_dictionary
@@ -304,7 +346,7 @@ class EDM4HEPSchema(BaseSchema):
         Members = collection_edm4hep.get("Members", {})
         VectorMembers = collection_edm4hep.get("VectorMembers", {})
         OneToOneRelations = collection_edm4hep.get("OneToOneRelations", {})
-        OneToManyRelations = collection_edm4hep.get("OneToOneRelations", {})
+        OneToManyRelations = collection_edm4hep.get("OneToManyRelations", {})
         composite_dict = {
             **Members,
             **VectorMembers,
@@ -1090,6 +1132,22 @@ class EDM4HEPSchema(BaseSchema):
         raise NotImplementedError(
             f"uproot_writeable is not implemented for {cls.__name__}"
         )
+
+
+class EDM4HEPSchema_v01_00(EDM4HEPSchema):
+    """Schema-builder for EDM4HEP root file structure.
+    EDM4HEPSchema for edm4hep version 01.00
+    """
+
+    edm4hep_version = "01-00"
+
+
+class EDM4HEPSchema_v00_99_01(EDM4HEPSchema):
+    """Schema-builder for EDM4HEP root file structure.
+    EDM4HEPSchema for edm4hep version 00.99.01
+    """
+
+    edm4hep_version = "00-99-01"
 
 
 class EDM4HEPSchema_v00_99_00(EDM4HEPSchema):
