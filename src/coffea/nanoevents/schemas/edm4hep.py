@@ -3,7 +3,7 @@ import re
 import warnings
 
 from coffea.nanoevents import transforms
-from coffea.nanoevents.assets import edm4hep_ver
+from coffea.nanoevents.assets import edm4hep_ver, versions
 from coffea.nanoevents.methods import vector
 from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
 from coffea.nanoevents.util import concat
@@ -135,13 +135,14 @@ def sort_dict(d):
 
 class EDM4HEPSchema(BaseSchema):
     """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.99.01
+    EDM4HEPSchema for the newest bundled edm4hep.yaml version; use
+    ``EDM4HEPSchema.version(...)`` to pick an older one.
     """
 
     __dask_capable__ = True
 
-    # Latest (default) edm4hep_version
-    edm4hep_version = "01-01"
+    # Latest (default) edm4hep_version: the newest bundled edm4hep.yaml
+    edm4hep_version = versions[-1]
 
     # EDM4HEP components mixins
     _components_mixins = {
@@ -206,35 +207,16 @@ class EDM4HEPSchema(BaseSchema):
         Parameters
         ----------
             ver : str, optional
-                Version of edm4hep.yaml. Allowed values:
-
-                - "latest" (default): corresponds to 00.99.01 version of edm4hep.yaml
-                - "01-00": corresponds to 01-00 version of edm4hep.yaml
-                - "01-01": corresponds to 01-01 version of edm4hep.yaml
-                - "00.99.01": corresponds to 00.99.01 version of edm4hep.yaml
-                - "00.99.00": corresponds to 00.99.00 version of edm4hep.yaml
-                - "00.10.05": corresponds to 00.10.05 version of edm4hep.yaml
-                - "00.10.04": corresponds to 00.10.04 version of edm4hep.yaml
-                - "00.10.03": corresponds to 00.10.03 version of edm4hep.yaml
-                - "00.10.02": corresponds to 00.10.02 version of edm4hep.yaml
-                - "00.10.01": corresponds to 00.10.01 version of edm4hep.yaml
+                Version of edm4hep.yaml, written either as "00.99.04" or "00-99-04".
+                "latest" (default) selects the newest bundled version. The available
+                versions are listed in ``coffea.nanoevents.assets.versions``.
         """
-        version_match = {
-            "latest": EDM4HEPSchema,
-            "01-01": EDM4HEPSchema,
-            "01-00": EDM4HEPSchema_v01_00,
-            "00.99.01": EDM4HEPSchema_v00_99_01,
-            "00.99.00": EDM4HEPSchema_v00_99_00,
-            "00.10.05": EDM4HEPSchema_v00_10_05,
-            "00.10.04": EDM4HEPSchema_v00_10_04,
-            "00.10.03": EDM4HEPSchema_v00_10_03,
-            "00.10.02": EDM4HEPSchema_v00_10_02,
-            "00.10.01": EDM4HEPSchema_v00_10_01,
-        }
-        schema = version_match.get(ver, None)
+        if ver == "latest":
+            return EDM4HEPSchema
+        schema = _versioned_schemas.get(ver.replace(".", "-"), None)
         if schema is None:
             raise ValueError(
-                f"The given version {ver} is not found. Available versions are : {', '.join(version_match.keys())} ."
+                f"The given version {ver} is not found. Available versions are : {', '.join(versions)} ."
             )
         return schema
 
@@ -302,12 +284,12 @@ class EDM4HEPSchema(BaseSchema):
 
         for var, branch_list in inverted_dict.items():
             assign_name = var.split("@")[0]
-            type_name = var.split("@")[1].split("::")[1]
-            mixin = self._components_mixins.get(type_name, None)
             if assign_name == "momentum":
                 continue  # Used to create 4 vector for the whole collection, later.
             if var.split("@")[1] == "unknown":
-                continue
+                continue  # member not defined in this edm4hep version; leave branches flat
+            type_name = var.split("@")[1].split("::")[1]
+            mixin = self._components_mixins.get(type_name, None)
 
             to_zip_raw = {
                 item["branch_subvar"]: branch_forms.pop(item["name"])
@@ -1134,65 +1116,19 @@ class EDM4HEPSchema(BaseSchema):
         )
 
 
-class EDM4HEPSchema_v01_00(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 01.00
+def _versioned_schema(ver):
+    name = "EDM4HEPSchema_v" + ver.replace("-", "_")
+    doc = f"""Schema-builder for EDM4HEP root file structure.
+    EDM4HEPSchema for edm4hep version {ver.replace("-", ".")}
     """
-
-    edm4hep_version = "01-00"
-
-
-class EDM4HEPSchema_v00_99_01(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.99.01
-    """
-
-    edm4hep_version = "00-99-01"
+    return type(
+        name,
+        (EDM4HEPSchema,),
+        {"edm4hep_version": ver, "__doc__": doc, "__module__": __name__},
+    )
 
 
-class EDM4HEPSchema_v00_99_00(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.99.00
-    """
-
-    edm4hep_version = "00-99-00"
-
-
-class EDM4HEPSchema_v00_10_05(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.10.05
-    """
-
-    edm4hep_version = "00-10-05"
-
-
-class EDM4HEPSchema_v00_10_04(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.10.04
-    """
-
-    edm4hep_version = "00-10-04"
-
-
-class EDM4HEPSchema_v00_10_03(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.10.03
-    """
-
-    edm4hep_version = "00-10-03"
-
-
-class EDM4HEPSchema_v00_10_02(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.10.02
-    """
-
-    edm4hep_version = "00-10-02"
-
-
-class EDM4HEPSchema_v00_10_01(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.10.01
-    """
-
-    edm4hep_version = "00-10-01"
+# One EDM4HEPSchema_v<version> subclass per bundled edm4hep.yaml. Registering them
+# as module globals keeps them importable by name and picklable by reference.
+_versioned_schemas = {ver: _versioned_schema(ver) for ver in versions}
+globals().update({s.__name__: s for s in _versioned_schemas.values()})
