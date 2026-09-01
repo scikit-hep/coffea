@@ -1474,11 +1474,7 @@ class Runner:
                 use_result_type=self.use_result_type,
             )
             out, _ = pre_executor(to_get, closure, out)
-            while out:
-                item = out.pop()
-                self.metadata_cache[item] = item.metadata
-            for filemeta in fileset:
-                filemeta.maybe_populate(self.metadata_cache)
+            self._cache_and_populate(fileset, out)
 
     def _preprocess_fileset_parquet(self, fileset: dict) -> None:
         # this is a bit of an abuse of map-reduce but ok
@@ -1509,10 +1505,18 @@ class Runner:
                 use_result_type=self.use_result_type,
             )
             out, _ = pre_executor(to_get, closure, out)
-            while out:
-                item = out.pop()
-                self.metadata_cache[item] = item.metadata
-            for filemeta in fileset:
+            self._cache_and_populate(fileset, out)
+
+    def _cache_and_populate(self, fileset: list, out: set_accumulator) -> None:
+        fetched = {}
+        while out:
+            item = out.pop()
+            self.metadata_cache[item] = item.metadata
+            fetched[item] = item.metadata
+        for filemeta in fileset:
+            if filemeta in fetched:
+                filemeta.metadata = fetched[filemeta]
+            else:
                 filemeta.maybe_populate(self.metadata_cache)
 
     def _filter_badfiles(self, fileset: dict) -> list:
