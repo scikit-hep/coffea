@@ -8,8 +8,9 @@ from typing import TypeVar, Union
 try:
     from typing import Protocol, runtime_checkable  # type: ignore
 except ImportError:
-    from typing_extensions import Protocol  # type: ignore
     from typing import runtime_checkable
+
+    from typing_extensions import Protocol  # type: ignore
 
 import awkward
 import numpy
