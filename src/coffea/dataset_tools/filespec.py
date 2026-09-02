@@ -34,13 +34,11 @@ class GenericFileSpec(BaseModel):
     lfn: str | None = None
     pfn: str | None = None
     # Experimental: hex bitset over the owning dataset's union-form top-level fields
-    # (bit i set = field i is present in this file); meaningful only relative to that
-    # dataset's saved form field order. Subject to change; do not rely on the encoding.
+    # (bit i set = field i present); only meaningful in that form's field order.
     experimental_field_bitset: str | None = None
 
     def __eq__(self, other: Any) -> bool:
-        # experimental fields do not participate in equality: two specs describing the
-        # same file compare equal regardless of experimental annotations
+        # experimental annotations do not participate in equality
         if self.__class__ is not other.__class__:
             return NotImplemented
         excluded = {"experimental_field_bitset"}
@@ -489,18 +487,12 @@ class DatasetSpec(BaseModel):
         return self.union_with(other)
 
     def union_with(self, other: DatasetSpec, sort_fields: bool = False) -> DatasetSpec:
-        """Merge two DatasetSpecs, computing the union of their saved forms.
+        """Merge two DatasetSpecs; ``__add__`` delegates here.
 
-        Files merge like ``+`` on the file collections and metadata merges with ``other``
-        taking precedence. When both operands carry a saved form, the result's form is
-        their union (every field appearing in either form), and per-file experimental
-        field bitsets are remapped to the union field order. When neither operand has a
-        form the result has none. Adding a form-bearing spec to a form-less one raises a
-        ValueError, since the union form could not describe the form-less operand's files.
-        ``sort_fields=True`` sorts record fields recursively so the serialized union form
-        is byte-stable regardless of operand order.
-
-        ``__add__`` delegates here with default options.
+        Files and metadata merge as in ``+`` (``other``'s metadata wins). If both operands
+        carry a saved form the result's form is their union and per-file field bitsets are
+        remapped to it; if only one does, raise ValueError. ``sort_fields=True`` sorts
+        record fields recursively so the serialized form is independent of operand order.
         """
         if not isinstance(other, DatasetSpec):
             raise TypeError(
@@ -513,9 +505,8 @@ class DatasetSpec(BaseModel):
                 )
         if (self.compressed_form is None) != (other.compressed_form is None):
             raise ValueError(
-                "Cannot add a DatasetSpec with a saved form to one without: the union "
-                "form could not describe the files of the form-less operand. Preprocess "
-                "it with save_form=True (or clear the other form) first."
+                "Cannot add a DatasetSpec with a saved form to one without; "
+                "preprocess it with save_form=True first."
             )
         new_spec = self.model_dump()
         merged_files = self.files + other.files
@@ -580,7 +571,7 @@ class DatasetSpec(BaseModel):
                 elif present_other is None or present_self == present_other:
                     present = present_self
                 else:
-                    # the same file reports different field sets; unknowable which is right
+                    # conflicting field sets for the same file
                     present = None
                 spec_dict["experimental_field_bitset"] = (
                     encode_field_bitset(present, union_fields)
@@ -592,10 +583,7 @@ class DatasetSpec(BaseModel):
     def canonicalize_form(self) -> Self:
         """Return a copy whose saved form has recursively sorted record fields.
 
-        Sorting makes the serialized form (and anything hashed from it) independent of the
-        union/merge history that produced it; per-file experimental field bitsets are
-        remapped to the sorted field order. A spec without a saved form is returned as an
-        unmodified copy.
+        Makes the serialized form independent of merge history; bitsets are remapped.
         """
         spec = self.model_dump()
         if self.compressed_form is not None:
@@ -622,9 +610,7 @@ class DatasetSpec(BaseModel):
     def _prune_form_for_files(self, spec: dict) -> dict:
         """Prune the saved union form in a dumped ``spec`` to the fields its files carry.
 
-        Pruning applies only when every remaining file has an experimental field bitset
-        (otherwise the field content of some file is unknown and the form is kept as a
-        superset). Bitsets are remapped to the pruned field order.
+        Only when every file has a field bitset; otherwise the form stays a superset.
         """
         if self.compressed_form is None or not spec["files"]:
             return spec
@@ -862,8 +848,8 @@ class DatasetSpec(BaseModel):
     def limit_files(self, max_files: int | slice | None) -> Self:
         """Limit the number of files.
 
-        When every remaining file carries an experimental field bitset, the saved union
-        form is pruned to the fields those files carry; otherwise it is kept as a superset.
+        The saved union form is pruned to the remaining files' fields when every file
+        carries a field bitset.
         """
         spec = self.model_dump()
         spec["files"] = self.files.limit_files(max_files).model_dump()
@@ -877,8 +863,8 @@ class DatasetSpec(BaseModel):
     ) -> Self:
         """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_callable).
 
-        When every remaining file carries an experimental field bitset, the saved union
-        form is pruned to the fields those files carry; otherwise it is kept as a superset.
+        The saved union form is pruned to the remaining files' fields when every file
+        carries a field bitset.
         """
         spec = self.model_dump()
         spec["files"] = self.files.filter_files(
