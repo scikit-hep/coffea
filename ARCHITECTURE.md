@@ -47,9 +47,10 @@ events = NanoEventsFactory.from_root(
 ).events()
 ```
 
-`from_preloaded` is eager. `steps_per_file` replaces the old "chunks" terminology
-and is rejected in `mode="dask"`, as is `entry_start`/`entry_stop`; a schema whose
-`__dask_capable__` is false warns and falls back to `"virtual"`.
+`from_preloaded` is eager. `steps_per_file` replaces the old "chunks" terminology;
+in `mode="dask"` it warns, because it hides chunk lengths from dask, and
+`entry_start`/`entry_stop` are ignored there. A schema whose `__dask_capable__` is
+false warns and falls back to `"virtual"`.
 
 Schemas: `NanoAODSchema`, `PFNanoAODSchema`, `ScoutingNanoAODSchema`,
 `PHYSLITESchema`, `TreeMakerSchema`, `FCCSchema`, `FCCSchema_edm4hep1`,
@@ -185,9 +186,10 @@ otherwise the report does not describe the run that produced the output.
 
 - `float32` kinematics can overflow to `inf` under scikit-hep `vector`; upcast and
   verify.
-- A custom field named after a vector coordinate or one of its aliases (`x`, `px`,
-  `y`, `py`, `z`, `pz`, `rho`, `pt`, `phi`, `theta`, `eta`, `t`, `tau`, `E`, `M`,
-  `mass`, ...) is rejected by `__awkward_validation__` — rename the field.
+- On a vector collection, a custom field that duplicates or conflicts with a
+  coordinate the record already carries — `rho` beside `pt`, `z` beside `eta`,
+  `tau` beside `mass` — is rejected by `__awkward_validation__`. Rename it.
+  Records that are not vectors are unaffected.
 - `mode="dask"` requires the optional dask stack: install `[dask,dask-awkward]`.
 
 ---
