@@ -1,10 +1,8 @@
 """Helpers for combining awkward forms across files and datasets.
 
-A dataset's saved form is the union of its files' forms: NanoAOD-style inputs routinely have
-per-file field differences (e.g. ``HLT_*`` trigger bits or ``GenModel`` points present in only
-some files), so the dataset form must cover every field that appears anywhere while remaining
-readable for files that lack some of them. This module is import-light (awkward only) so both
-:mod:`coffea.dataset_tools.preprocess` and :mod:`coffea.dataset_tools.filespec` can use it.
+A dataset's saved form is the union of its files' forms (NanoAOD files differ in
+``HLT_*``/``GenModel`` fields). Imports only awkward so both ``preprocess`` and
+``filespec`` can use it.
 """
 
 from __future__ import annotations
@@ -21,13 +19,9 @@ __all__ = [
 
 
 def union_form_jsonstr(forms: list, sort_fields: bool = False) -> str | None:
-    """Compute the union form (as a JSON string) over a list of awkward forms.
+    """Union form (as JSON) of a list of flat-tuple-like awkward forms; consumes the list.
 
-    The input list is consumed. Returns None if the list is empty. Mirrors the merging of
-    flat-tuple-like schemas used when building a dataset's union form across files. Fields
-    appear in merge order by default; ``sort_fields=True`` recursively sorts record fields so
-    the serialized form is byte-stable regardless of merge order (awkward form equality is
-    field-order-insensitive either way).
+    Returns None for an empty list. Fields keep merge order unless ``sort_fields``.
     """
     union_array = None
     while len(forms):
@@ -92,11 +86,7 @@ def _sort_record_nodes(node) -> None:
 
 
 def sort_form_fields(form: awkward.forms.Form) -> awkward.forms.Form:
-    """Return a copy of ``form`` with record fields recursively sorted by name.
-
-    Tuple-like records (no field names) are left untouched. Sorting canonicalizes the
-    serialized byte order of forms whose field order depends on union/merge history.
-    """
+    """Copy of ``form`` with record fields recursively sorted by name (tuples untouched)."""
     form_dict = form.to_dict(verbose=True)
     _sort_record_nodes(form_dict)
     return awkward.forms.from_dict(form_dict)
@@ -105,10 +95,9 @@ def sort_form_fields(form: awkward.forms.Form) -> awkward.forms.Form:
 def prune_form_fields(
     form: awkward.forms.Form, keep_fields: set[str]
 ) -> awkward.forms.Form:
-    """Return a copy of ``form`` with only the top-level record fields in ``keep_fields``.
+    """Copy of ``form`` keeping only the top-level record fields in ``keep_fields``.
 
-    Only the outermost record is pruned: dataset union forms merge file forms at the top
-    level, so that is the level at which fields can disappear when files are removed.
+    Union forms merge file forms at the top level, so only that level is pruned.
     """
     form_dict = form.to_dict(verbose=True)
     if not (
@@ -127,11 +116,9 @@ def prune_form_fields(
 
 
 def encode_field_bitset(present_fields, union_fields: list[str]) -> str:
-    """Encode which of ``union_fields`` a file carries as a compact hex bitset string.
+    """Hex bitset over ``union_fields``: bit ``i`` set means ``union_fields[i]`` is present.
 
-    Bit ``i`` (value ``1 << i``) corresponds to ``union_fields[i]``; a set bit means the
-    field is present in the file. Fields outside ``union_fields`` are ignored. The encoding
-    is only meaningful relative to the field order of the owning dataset's saved form.
+    Fields outside ``union_fields`` are ignored.
     """
     present = set(present_fields)
     bits = 0
