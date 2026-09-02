@@ -16,8 +16,7 @@ from coffea.dataset_tools.forms import (
 
 _DY = "tests/samples/nano_dy.root"
 
-# Two CMS NanoAOD files carrying disjoint subsets of GenModel_TChiZH_* model-point flags
-# (the GenModel case #1478 targets): file A has GenModel_TChiZH_700_1, file B does not.
+# NanoAOD files with disjoint GenModel_TChiZH_* flags (#1478); only A has TChiZH_700_1
 _GENMODEL_A = "tests/samples/nano_genmodel_with20_700_1_with0_1100_200_with0_950_400"
 _GENMODEL_B = "tests/samples/nano_genmodel_without_700_1_with0_1100_200_with20_950_400"
 
@@ -28,8 +27,7 @@ def _record_form(**fields):
 
 @pytest.fixture
 def hlt_files(tmp_path):
-    """Two small TTree files sharing a flat branch but with disjoint HLT-style bool branches
-    (the per-file field variation the union form exists to cover)."""
+    """Two TTree files sharing ``x`` but with disjoint HLT-style bool branches."""
     file_a = str(tmp_path / "hlt_a.root")
     file_b = str(tmp_path / "hlt_b.root")
     with uproot.recreate(file_a) as f:
@@ -108,8 +106,7 @@ def test_field_bitset_roundtrip():
 
 
 def test_add_unions_forms_matches_joint_preprocess(hlt_files):
-    """Adding two separately preprocessed DatasetSpecs yields the same union form as
-    preprocessing all files together, without re-opening any file."""
+    """Adding separately preprocessed specs matches preprocessing all files together."""
     file_a, file_b = hlt_files
     ds_a = _preprocessed({file_a: "Events"})
     ds_b = _preprocessed({file_b: "Events"})
@@ -285,10 +282,7 @@ _GM_700 = "GenModel_TChiZH_700_1"
     [(".root", "Events"), (".parquet", None)],
 )
 def test_genmodel_union_makes_absent_fields_optional(ext, object_path):
-    """Adding two DatasetSpecs whose files carry disjoint GenModel model-point flags unions
-    their forms: the result is a superset of both, and a flag present in only one file becomes
-    an option type so it stays readable (as None) for the file that lacks it -- the GenModel
-    behavior #1478 targets, for both ROOT and parquet inputs."""
+    """A flag present in only one file becomes an option type in the union form (#1478)."""
     files_a = {_GENMODEL_A + ext: object_path}
     files_b = {_GENMODEL_B + ext: object_path}
     da, _ = preprocess(
@@ -303,7 +297,6 @@ def test_genmodel_union_makes_absent_fields_optional(ext, object_path):
     )
     fields_a = set(da["genmodel"].form.fields)
     fields_b = set(db["genmodel"].form.fields)
-    # the fixtures differ in their GenModel subset, and only file A has GenModel_TChiZH_700_1
     assert fields_a != fields_b
     assert _GM_700 in fields_a and _GM_700 not in fields_b
 
@@ -317,15 +310,13 @@ def test_genmodel_union_makes_absent_fields_optional(ext, object_path):
     assert isinstance(content, awkward.forms.IndexedOptionForm)
     assert isinstance(content.content, awkward.forms.NumpyForm)
     assert content.content.primitive == "bool"
-    # GenModel_TChiZH_700_1 (present only in A) is optional in the union
     assert isinstance(
         union.contents[union.fields.index(_GM_700)], awkward.forms.IndexedOptionForm
     )
 
 
 def test_genmodel_matches_joint_preprocess():
-    """The union built by adding two separately-preprocessed GenModel DatasetSpecs equals the
-    form built by preprocessing both files together in one dataset."""
+    """Adding separately preprocessed GenModel specs matches joint preprocessing."""
     da, _ = preprocess(
         DataGroupSpec({"genmodel": {"files": {_GENMODEL_A + ".root": "Events"}}}),
         save_form=True,
@@ -354,8 +345,7 @@ def test_genmodel_matches_joint_preprocess():
 
 
 def test_genmodel_bitsets_and_filter_prune():
-    """Each GenModel file's experimental bitset decodes to its own branch set, and filtering the
-    combined dataset back to one file prunes the union form to that file's branches."""
+    """Bitsets decode to each file's branch set and filtering prunes the union form."""
     combined, _ = preprocess(
         DataGroupSpec(
             {
@@ -401,11 +391,9 @@ def _genmodel_form(files):
 
 
 def test_genmodel_union_form_preserves_masked_events():
-    """Events passing a GenModel model-point mask survive the union form unchanged. File A's
-    GenModel_TChiZH_700_1 selection is the same read with A's own saved form or the dataset union
-    form, and for each model point the combined (A+B) count equals the per-file sum and the known
-    per-file truth (700_1: 20 from A only; 950_400: 20 from B only; 1100_200: 0). Uses the dask
-    read path, where the union form injects the option-typed flag physically absent from a file.
+    """Reading through the union form does not change model-point selections.
+
+    Per-file truth: 700_1 is 20 events from A, 950_400 is 20 from B, 1100_200 is 0.
     """
     pytest.importorskip("dask")
     pytest.importorskip("dask_awkward")
@@ -420,7 +408,7 @@ def test_genmodel_union_form_preserves_masked_events():
         mask = awkward.fill_none(events.GenModel[point], False)
         return int(awkward.count_nonzero(mask).compute())
 
-    # the precise regression: applying the union form does not falsify A's True flags
+    # the regression: the union form must not falsify A's True flags
     assert selected({a_root: "Events"}, form_a, "TChiZH_700_1") == 20
     assert selected({a_root: "Events"}, union, "TChiZH_700_1") == 20
 
@@ -436,9 +424,7 @@ def test_genmodel_union_form_preserves_masked_events():
 
 
 def test_genmodel_union_flag_requires_fill_none_for_masking():
-    """A model-point flag absent from a file is injected as None by the union form, so selecting
-    events with fill_none(flag, False) keeps only the True rows (20, all from file A), while the
-    raw option-type mask keeps the None rows too and over-selects every event (40)."""
+    """An injected-None flag over-selects unless masked with ``fill_none(flag, False)``."""
     pytest.importorskip("dask")
     pytest.importorskip("dask_awkward")
 

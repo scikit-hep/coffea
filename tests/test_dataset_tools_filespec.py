@@ -1260,6 +1260,65 @@ class TestDatasetSpec:
         with pytest.raises(RuntimeError):
             DatasetSpec(**raises_runtimeerror)
 
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            ("file.root:Events", ("file.root", "Events")),
+            ("file.root:Dir/Tree", ("file.root", "Dir/Tree")),
+            ("file.root", ("file.root", None)),
+            ("root://host//path/f.root", ("root://host//path/f.root", None)),
+            (
+                "root://host:1094//path/f.root",
+                ("root://host:1094//path/f.root", None),
+            ),
+            (
+                "root://host.cern.ch:1094//store/data/f.root",
+                ("root://host.cern.ch:1094//store/data/f.root", None),
+            ),
+            (
+                "root://host:1094//path/f.root:Events",
+                ("root://host:1094//path/f.root", "Events"),
+            ),
+            ("/local/path/f.root", ("/local/path/f.root", None)),
+            ("f.root", ("f.root", None)),
+        ],
+    )
+    def test_uproot_file_object_path_split_contract(self, path, expected):
+        """Pin the private uproot splitter the files-list parsing relies on."""
+        from uproot._util import file_object_path_split
+
+        assert tuple(file_object_path_split(path)) == expected
+
+    def test_list_input_xrootd_url_with_port_and_object_path(self):
+        ds = DatasetSpec(
+            files=["root://host.cern.ch:1094//store/data/f.root:Events"],
+            metadata={},
+        )
+        ((name, spec),) = ds.files.root.items()
+        assert name == "root://host.cern.ch:1094//store/data/f.root"
+        assert spec.object_path == "Events"
+
+    def test_list_input_xrootd_url_with_port_no_object_path(self):
+        ds = DatasetSpec(
+            files=["root://host.cern.ch:1094//store/data/dir.parquet"],
+            metadata={},
+        )
+        ((name, spec),) = ds.files.root.items()
+        assert name == "root://host.cern.ch:1094//store/data/dir.parquet"
+        assert spec.object_path is None
+
+    def test_list_input_object_path_with_slashes(self):
+        ds = DatasetSpec(files=["file.root:Dir/Tree"], metadata={})
+        ((name, spec),) = ds.files.root.items()
+        assert name == "file.root"
+        assert spec.object_path == "Dir/Tree"
+
+    def test_list_input_local_path_with_object_path(self):
+        ds = DatasetSpec(files=["/local/path/f.root:Events"], metadata={})
+        ((name, spec),) = ds.files.root.items()
+        assert name == "/local/path/f.root"
+        assert spec.object_path == "Events"
+
 
 class TestDatasetJoinableSpec:
     """Test DatasetJoinableSpec class"""

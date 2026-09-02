@@ -31,9 +31,7 @@ from coffea.dataset_tools.filespec import (
     DatasetSpec,
     ModelFactory,
 )
-from coffea.dataset_tools.forms import (
-    encode_field_bitset,
-)
+from coffea.dataset_tools.forms import encode_field_bitset
 from coffea.dataset_tools.forms import union_form_jsonstr as _union_form_jsonstr
 from coffea.dataset_tools.preprocess_backends import (
     DaskBackend,
@@ -1282,9 +1280,7 @@ def _preprocess_pydantic(
 
         union_form_jsonstr = _union_form_jsonstr(dataset_forms)
 
-        # Per-file experimental field bitsets: which top-level union-form fields each file
-        # carries, encoded against the union field order. These enable offline pruning of the
-        # union form when files are filtered out and per-file branch-set comparisons.
+        # per-file field bitsets, encoded against the union field order
         bitset_by_file = {}
         if union_form_jsonstr is not None:
             union_fields = awkward.forms.from_json(union_form_jsonstr).fields
@@ -1387,11 +1383,7 @@ def _advertise_datagroupspec() -> None:
 
 
 def _datagroupspec_to_dict(datagroupspec: DataGroupSpec) -> dict:
-    """Convert a DataGroupSpec back to a plain (JSON-serializable) dict fileset.
-
-    The legacy dict format does not carry per-file metadata or experimental fields
-    (dataset-level metadata is kept).
-    """
+    """Convert a DataGroupSpec to a plain dict fileset; drops per-file metadata and experimental fields."""
     return datagroupspec.model_dump(
         exclude={
             "__all__": {"files": {"__all__": {"metadata", "experimental_field_bitset"}}}
