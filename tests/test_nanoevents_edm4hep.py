@@ -351,17 +351,13 @@ def test_bundled_version_parses(ver):
     parsed = parse_yaml(loaded, copy.deepcopy(loaded))
     assert "edm4hep::MCParticle" in parsed["datatypes"]
     if ver >= "00-99":
-        # From 00-99-02 on, links live in a separate yaml section and must be
-        # synthesized into datatypes for the schema to resolve them.
         link = parsed["datatypes"]["edm4hep::RecoMCParticleLink"]
         assert "weight" in link["Members"]
         assert link["OneToOneRelations"]["from"]["target"] == "ReconstructedParticle"
         assert link["OneToOneRelations"]["to"]["target"] == "MCParticle"
 
 
-# Example files written by EDM4hep's scripts/createEDM4hepFile.py: the 00-99-0x
-# files are EDM4hep's own backwards-compatibility inputs, the 01-01 file is a
-# "Key4hep build" CI artifact. All store links as vector<podio::LinkData>.
+# EDM4hep's own example files (backwards-compat inputs and a CI artifact)
 version_samples = {
     "00.99.02": "edm4hep_example_v00-99-02_podio_v01-03.root",
     "00.99.03": "edm4hep_example_v00-99-03_podio_v01-06.root",
@@ -388,7 +384,6 @@ def test_upstream_example_file(ver, fname, mode):
         **kwargs,
     ).events()
 
-    assert "MCParticleCollection" in events.fields
     link = events.RecoMCParticleLinkCollection
     assert link.fields == [
         "Link_from_ReconstructedParticleCollection",

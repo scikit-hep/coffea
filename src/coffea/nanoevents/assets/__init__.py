@@ -6,8 +6,7 @@ import yaml
 
 root_dir = importlib.resources.files("coffea.nanoevents.assets")
 
-# Every bundled edm4hep_v<version>.yaml is a supported version; the newest is the
-# default. EDM4hep tags are zero-padded, so lexical order is release order.
+# Zero-padded tags: lexical order is release order.
 versions = sorted(
     p.name[len("edm4hep_v") : -len(".yaml")]
     for p in root_dir.iterdir()

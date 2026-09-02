@@ -58,25 +58,14 @@ def parse_Members_and_Relations(Members_and_Relation_List, target_text=False):
 
 
 def _synthesize_link_datatypes(loaded_dict):
-    """Starting with edm4hep 01-00, Link types (e.g. RecoMCParticleLink) moved
-    out of the 'datatypes' section into their own 'links' section.
-
-    Convert each 'links' entry back into the old-style datatype shape --
-    a single 'float weight' member plus 'from'/'to' OneToOneRelations --
-    matching exactly what every link looked like before this change (and
-    what podio's own release notes describe: every link now stores its
-    weight as a shared, generic structure; a link's 'from'/'to' play the
-    same role they always did). This lets every other lookup in this file
-    keep working unchanged, regardless of which shape a given edm4hep
-    version happens to use.
-    """
+    """edm4hep >= 00-99-02 defines links in a 'links' section; rebuild them in the
+    datatype shape (float weight + from/to relations) the rest of the parser expects."""
     synthesized = {}
     for link_name, link_def in loaded_dict.get("links", {}).items():
         from_type = link_def["From"]
         to_type = link_def["To"]
         synthesized[link_name] = {
             "Description": link_def.get("Description", ""),
-            "Author": link_def.get("Author", ""),
             "Members": ["float weight  // weight of this link"],
             "OneToOneRelations": [
                 f"{from_type}  from  // reference to the source object of this link",
@@ -90,11 +79,9 @@ def parse_yaml(loaded_dict, parsed_dict):
     """The loaded yaml needs to processed further to create a favourable structure.
     Mainly, the Members and Relations need to be parsed
     """
-    link_datatypes = _synthesize_link_datatypes(loaded_dict)
-    if link_datatypes:
-        loaded_dict = copy.deepcopy(loaded_dict)
-        loaded_dict["datatypes"].update(link_datatypes)
-        parsed_dict["datatypes"].update(copy.deepcopy(link_datatypes))
+    links = _synthesize_link_datatypes(loaded_dict)
+    loaded_dict = {**loaded_dict, "datatypes": {**loaded_dict["datatypes"], **links}}
+    parsed_dict["datatypes"].update(copy.deepcopy(links))
 
     for key in loaded_dict.keys():
         if not isinstance(loaded_dict[key], dict):
@@ -141,7 +128,6 @@ class EDM4HEPSchema(BaseSchema):
 
     __dask_capable__ = True
 
-    # Latest (default) edm4hep_version: the newest bundled edm4hep.yaml
     edm4hep_version = versions[-1]
 
     # EDM4HEP components mixins
@@ -258,6 +244,7 @@ class EDM4HEPSchema(BaseSchema):
             else:
                 mixins[name] = datatype
 
+            # podio::LinkData carries no link type; recover it from the collection name
             if mixins[name] == "LinkData" and name.endswith("Collection"):
                 mixins[name] = name[: -len("Collection")]
 
@@ -287,7 +274,7 @@ class EDM4HEPSchema(BaseSchema):
             if assign_name == "momentum":
                 continue  # Used to create 4 vector for the whole collection, later.
             if var.split("@")[1] == "unknown":
-                continue  # member not defined in this edm4hep version; leave branches flat
+                continue  # not in this edm4hep version
             type_name = var.split("@")[1].split("::")[1]
             mixin = self._components_mixins.get(type_name, None)
 
@@ -1128,7 +1115,6 @@ def _versioned_schema(ver):
     )
 
 
-# One EDM4HEPSchema_v<version> subclass per bundled edm4hep.yaml. Registering them
-# as module globals keeps them importable by name and picklable by reference.
+# Module globals keep EDM4HEPSchema_v* importable by name and picklable by reference.
 _versioned_schemas = {ver: _versioned_schema(ver) for ver in versions}
 globals().update({s.__name__: s for s in _versioned_schemas.values()})

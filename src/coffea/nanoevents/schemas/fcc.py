@@ -647,7 +647,6 @@ class FCCSchema_edm4hep1(EDM4HEPSchema):
     For more info, check coffea.nanoevents.schemas.EDM4HEPSchema
     """
 
-    # FCC edm4hep1 samples and their tests predate the newer bundled schemas.
     edm4hep_version = "00-99-01"
 
     # By default, the schema does not copy the links to their target datatype collections

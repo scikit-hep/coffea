@@ -14,8 +14,7 @@ jobs:
       - uses: actions/checkout@v7
       - name: Fetch every EDM4hep release yaml not yet bundled
         run: |
-          # Releases are tagged vMM-mm or vMM-mm-pp; v00-99 is bundled as 00-99-00 and
-          # older releases are not supported.
+          # v00-99 is bundled as 00-99-00; older releases are unsupported
           for tag in $(git ls-remote --tags --refs https://github.com/key4hep/EDM4hep \
                        | sed 's|.*refs/tags/||' | grep -E '^v[0-9]{2}-[0-9]{2}(-[0-9]{2})?$'); do
             ver=${tag#v}
@@ -31,7 +30,4 @@ jobs:
           branch: update-edm4hep-schemas
           commit-message: "feat: bundle new EDM4hep schema versions"
           title: "feat: bundle new EDM4hep schema versions"
-          body: |
-            Automated download of edm4hep.yaml for EDM4hep releases that were not yet
-            bundled (https://github.com/key4hep/EDM4hep/tags). The newest bundled
-            version becomes the default for `EDM4HEPSchema`.
+          body: "edm4hep.yaml of EDM4hep releases not yet bundled; the newest becomes the `EDM4HEPSchema` default."
