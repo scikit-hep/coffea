@@ -1,24 +1,13 @@
-"""Prototype for mutable (resizable) steps: generator-driven step iteration where the
-consumer may renegotiate the step size mid-stream.
+"""Prototype for mutable (resizable) steps.
 
-Stored ``steps`` on a file spec are a static tiling chosen at preprocess time. Execution
-backends with runtime resource information (e.g. a resource-monitoring scheduler that sees a
-worker near memory exhaustion) can do better by shrinking or growing subsequent chunks while
-a file is being processed. This module provides that as a ``send``-channel generator
-protocol: iterating yields ``[start, stop]`` steps, and ``generator.send(new_size)`` requests
-that subsequent steps be *at most* ``new_size`` entries, with the remainder of the current
-region re-tiled as evenly as possible::
+Stored ``steps`` are a static tiling chosen at preprocess time; a resource-aware backend
+may want to shrink later chunks while a file is being processed. Here iteration yields
+``[start, stop]`` steps and ``generator.send(new_size)`` makes subsequent steps at most
+``new_size`` entries, re-tiling the remainder evenly (``n = ceil(remaining / new_size)``,
+``actual = ceil(remaining / n)``). This is the ``send``-channel shape of
+``Computable.gen_steps`` in the ``coffea.compute`` protocol.
 
-    n = ceil(remaining / new_size)
-    actual = ceil(remaining / n)
-
-so a resize triggered by resource exhaustion can never produce a larger-than-requested step,
-and the remaining steps stay near-uniform. The same channel shape is used by
-``Computable.gen_steps`` in the ``coffea.compute`` protocol, so consumers written against
-this prototype translate directly.
-
-Everything here is a prototype: APIs may change, and nothing is re-exported from
-``coffea.dataset_tools``.
+Prototype: APIs may change and nothing is re-exported from ``coffea.dataset_tools``.
 """
 
 from __future__ import annotations
@@ -36,6 +25,7 @@ __all__ = [
     "remaining_regions",
     "completed_spec",
     "WallTimeStepPolicy",
+    "AdaptiveRun",
     "run_adaptive_steps",
 ]
 
@@ -50,10 +40,8 @@ def resizable_steps(
 ) -> Generator[list[int], int | None, None]:
     """Yield ``[begin, end]`` steps tiling ``[start, stop)``, honoring resize requests.
 
-    Steps are at most the current target size and as even as possible: each iteration
-    re-tiles the remaining entries as ``ceil(remaining / ceil(remaining / size))``, which is
-    stable while the size is unchanged. Sending a positive integer sets the target size for
-    all subsequent steps; sending ``None`` (plain iteration) keeps the current size.
+    Steps are at most the target size and as even as possible. Sending a positive integer
+    sets the target size for subsequent steps; plain iteration keeps the current size.
     """
     _validate_size(step_size)
     current = step_size
@@ -73,9 +61,8 @@ def resizable_steps(
 def coverage_regions(filespec) -> list[list[int]]:
     """The contiguous entry regions a file spec covers, as ``[begin, end]`` pairs.
 
-    Adjacent steps (``stop == next start``) merge into one region. A spec without steps
-    covers ``[0, num_entries)``; a spec with neither steps nor num_entries cannot be tiled
-    and raises a ValueError.
+    Adjacent steps merge. Without steps the region is ``[0, num_entries)``; with neither,
+    raise ValueError.
     """
     if filespec.steps is not None:
         regions: list[list[int]] = []
@@ -121,9 +108,7 @@ def iter_dataset_steps(
 ) -> Generator[tuple[str, list[int]], int | None, None]:
     """Yield resizable ``(filename, [start, stop])`` steps over every file of a DatasetSpec.
 
-    A resize request applies from the next step onward and carries across file boundaries,
-    so a consumer that shrinks the step size mid-file keeps the smaller size for later files
-    until it requests otherwise.
+    A resize request applies from the next step onward and carries across file boundaries.
     """
     current = step_size
     for fname, filespec in dataset.files.items():
@@ -142,9 +127,7 @@ def iter_dataset_steps(
 def remaining_regions(filespec, completed: list[list[int]]) -> list[list[int]]:
     """The parts of a file spec's coverage not contained in ``completed`` ranges.
 
-    ``completed`` are arbitrary ``[start, stop]`` pairs (they need not align with the spec's
-    stored steps -- resized steps generally do not). Returns ``[begin, end]`` regions suitable
-    for resuming iteration via :func:`resizable_steps`.
+    ``completed`` pairs need not align with the stored steps (resized steps rarely do).
     """
     merged: list[list[int]] = []
     for begin, end in sorted([list(pair) for pair in completed]):
@@ -169,11 +152,9 @@ def remaining_regions(filespec, completed: list[list[int]]) -> list[list[int]]:
 
 
 def completed_spec(filespec, completed: list[list[int]]):
-    """A copy of ``filespec`` whose steps are the ``completed`` ranges.
+    """A copy of ``filespec`` whose steps are the ``completed`` ranges, or None if empty.
 
-    Useful for persisting progress: the result round-trips like any spec, and adding it to a
-    spec built from later completions accumulates coverage via the ordinary step arithmetic.
-    Returns ``None`` when nothing has completed.
+    Adding such specs accumulates coverage via the ordinary step arithmetic.
     """
     if not completed:
         return None
@@ -186,9 +167,8 @@ def completed_spec(filespec, completed: list[list[int]]):
 class WallTimeStepPolicy:
     """Toy resize policy targeting a fixed wall time per step.
 
-    After each step, the next target size is ``current * target_seconds / elapsed``, clamped
-    to ``[min_step_size, max_step_size]`` and damped by ``max_growth`` per adjustment so a
-    single fast outlier does not balloon the step size.
+    The next target is ``current * target_seconds / elapsed``, capped at ``max_growth``
+    times the current size and clamped to ``[min_step_size, max_step_size]``.
     """
 
     target_seconds: float
@@ -227,11 +207,8 @@ def run_adaptive_steps(
 ) -> AdaptiveRun:
     """Toy driver: process a DatasetSpec step by step, resizing steps from measured wall time.
 
-    ``work(filename, [start, stop])`` is called for each step; its wall time (measured with
-    ``clock``) feeds ``policy.propose``, and any proposed size is sent into the step
-    generator, re-tiling the remainder. This is the single-consumer analogue of what a
-    resource-monitoring scheduler does with worker feedback; ``clock`` is injectable so the
-    control loop is testable without real waiting.
+    ``work(filename, [start, stop])`` runs per step; its wall time under ``clock`` feeds
+    ``policy.propose`` and any proposed size is sent into the step generator.
     """
     _validate_size(step_size)
     gen = iter_dataset_steps(dataset, step_size)

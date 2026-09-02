@@ -133,8 +133,8 @@ def test_iter_dataset_steps_resize_carries_across_files(dataset):
             item = next(gen)
     except StopIteration:
         pass
-    fnames = {fname for fname, _ in seen}
-    assert fnames == set(dataset.files) - {fname_first} or fnames == set(dataset.files)
+    # the first file was a single step, so everything after the resize is the second file
+    assert {fname for fname, _ in seen} == set(dataset.files) - {fname_first}
     for _, step in seen:
         assert step[1] - step[0] <= 10
     second_file_steps = [step for fname, step in seen if fname != fname_first]
@@ -202,6 +202,15 @@ def test_run_adaptive_steps_converges_to_target(dataset):
     assert len(run.results) == len(run.step_sizes)
 
 
+def test_wall_time_policy_growth_is_damped_and_clamped():
+    policy = WallTimeStepPolicy(target_seconds=1.0, max_step_size=64, max_growth=2.0)
+    assert policy.propose(4, 0.0) == 8
+    assert policy.propose(4, 0.01) == 8
+    assert policy.propose(40, 0.0) == 64
+    assert policy.propose(64, 0.0) is None
+    assert policy.propose(4, 8.0) == 1
+
+
 def test_run_adaptive_steps_growth_is_damped(dataset):
     clock = _FakeClock()
 
@@ -212,7 +221,5 @@ def test_run_adaptive_steps_growth_is_damped(dataset):
     run = run_adaptive_steps(
         dataset, instant_work, step_size=4, policy=policy, clock=clock
     )
-    # growth per adjustment is bounded by max_growth and capped at max_step_size
-    for previous, current in zip(run.step_sizes, run.step_sizes[1:]):
-        assert current <= max(previous * 2, 1) or current <= 64
-    assert max(run.step_sizes) <= 64
+    # targets double each step (4, 8, 16, 32, 64); actual steps re-tile the 40-entry files
+    assert run.step_sizes == [4, 8, 14, 14, 40]
