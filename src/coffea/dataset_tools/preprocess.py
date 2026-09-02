@@ -265,11 +265,9 @@ def get_steps(
             If True, require every object to be an RNTuple and raise a ValueError otherwise.
             If False, TTree and RNTuple objects are auto-detected and handled transparently.
         metadata_extractor : Callable or None, default None
-            User function called once per file with the open uproot file handle (the
-            ReadOnlyDirectory, not the tree); must return a JSON-serializable dict, which is
-            stored as that file's metadata. Runs inside the per-file error handling, so an
-            extraction failure participates in skip_bad_files/file_exceptions. Must be
-            picklable to run under process pools or distributed schedulers.
+            Called once per file with the open uproot file handle (the ReadOnlyDirectory);
+            returns a JSON-serializable dict stored as that file's metadata. Runs inside the
+            per-file error handling and must be picklable.
 
     Returns
     -------
@@ -293,8 +291,7 @@ def get_steps(
                     f"require_rntuple=True but {arg.object_path!r} in {arg.file!r} is a "
                     f"{type(tree).__name__}, not an RNTuple."
                 )
-            # run the user extractor on the open file handle, inside this block so a file
-            # whose extraction fails participates in skip_bad_files/file_exceptions
+            # inside the try so extractor failures count as per-file errors
             user_meta = (
                 metadata_extractor(the_file) if metadata_extractor is not None else None
             )
@@ -729,11 +726,9 @@ def get_parquet_form_uuid_steps(
             When using use_row_groups, if a resulting step is larger than step_size by this factor
             warn the user that the resulting steps may be highly irregular.
         metadata_extractor : Callable or None, default None
-            User function called once per file with the parquet metadata mapping returned by
-            ``awkward.metadata_from_parquet``; must return a JSON-serializable dict, which is
-            stored as that file's metadata. Runs inside the per-file error handling, so an
-            extraction failure participates in skip_bad_files/file_exceptions. Must be
-            picklable to run under process pools or distributed schedulers.
+            Called once per file with the ``awkward.metadata_from_parquet`` mapping; returns
+            a JSON-serializable dict stored as that file's metadata. Runs inside the per-file
+            error handling and must be picklable.
 
     Returns
     -------
@@ -748,8 +743,7 @@ def get_parquet_form_uuid_steps(
     for arg in lz_or_nf:
         try:
             the_file = awkward.metadata_from_parquet(arg.file, **parquet_options)
-            # run the user extractor on the parquet metadata, inside this block so a file
-            # whose extraction fails participates in skip_bad_files/file_exceptions
+            # inside the try so extractor failures count as per-file errors
             user_meta = (
                 metadata_extractor(the_file) if metadata_extractor is not None else None
             )
@@ -924,14 +918,12 @@ def preprocess_root(
             worker, subject to ``skip_bad_files``/``file_exceptions`` like any other per-file
             error.
         metadata_extractor : Callable or None, default None
-            User function called once per file with the open uproot file handle; must return a
-            JSON-serializable dict, stored as that file's ``metadata`` on its file spec. Runs
-            inside the per-file error handling (participates in skip_bad_files/file_exceptions)
+            Called once per file with the open uproot file handle; returns a JSON-serializable
+            dict stored as that file's ``metadata``. Runs inside the per-file error handling
             and must be picklable.
         metadata_reducer : Callable or None, default None
-            User function called once per dataset with ``{filename: extracted_dict}`` for the
-            available files; must return a dict, merged into the dataset's ``metadata`` (reducer
-            output takes precedence over existing keys) on both returned filesets.
+            Called once per dataset with ``{filename: file_metadata}``; returns a dict merged
+            into the dataset's ``metadata`` (reducer keys win) on both returned filesets.
     Returns
     -------
         out_available : DataGroupSpec
@@ -1062,14 +1054,12 @@ def preprocess_parquet(
             PreprocessBackend instance. None selects "dask" when dask and dask-awkward are
             importable and "iterative" otherwise.
         metadata_extractor : Callable or None, default None
-            User function called once per file with the parquet metadata mapping from
-            ``awkward.metadata_from_parquet``; must return a JSON-serializable dict, stored as
-            that file's ``metadata`` on its file spec. Runs inside the per-file error handling
-            (participates in skip_bad_files/file_exceptions) and must be picklable.
+            Called once per file with the ``awkward.metadata_from_parquet`` mapping; returns
+            a JSON-serializable dict stored as that file's ``metadata``. Runs inside the
+            per-file error handling and must be picklable.
         metadata_reducer : Callable or None, default None
-            User function called once per dataset with ``{filename: extracted_dict}`` for the
-            available files; must return a dict, merged into the dataset's ``metadata`` (reducer
-            output takes precedence over existing keys) on both returned filesets.
+            Called once per dataset with ``{filename: file_metadata}``; returns a dict merged
+            into the dataset's ``metadata`` (reducer keys win) on both returned filesets.
     Returns
     -------
         out_available : DataGroupSpec
@@ -1309,6 +1299,10 @@ def _preprocess_pydantic(
 
         # Index successfully-processed files by filename. Skipped/bad files were dropped as
         # None by the worker and are simply absent here.
+        orig_meta = {
+            fname: file_info.get("metadata")
+            for fname, file_info in out_updated[name]["files"].items()
+        }
         available_by_file = {
             item["file"]: {
                 "object_path": item["object_path"],
@@ -1319,7 +1313,7 @@ def _preprocess_pydantic(
                 "metadata": (
                     json.loads(item["user_metadata_json"])
                     if item["user_metadata_json"] is not None
-                    else None
+                    else orig_meta.get(item["file"])
                 ),
             }
             for item in awkward.drop_none(processed_files_without_forms).to_list()
@@ -1347,14 +1341,14 @@ def _preprocess_pydantic(
                     "steps": orig_item["steps"],
                     "num_entries": orig_item["num_entries"],
                     "uuid": orig_item["uuid"],
+                    "metadata": orig_meta.get(filename),
                 },
             )
 
         out_updated[name]["files"] = files_out
         out_available[name]["files"] = files_available
 
-        # Reduce per-file extracted metadata into the dataset-level metadata (e.g. summing
-        # per-file sums-of-weights); the reducer output takes precedence over existing keys.
+        # reducer keys take precedence over existing dataset metadata
         if metadata_reducer is not None:
             per_file_meta = {
                 fname: info["metadata"]
@@ -1481,18 +1475,15 @@ def preprocess(
             PreprocessBackend instance. None selects "dask" when dask and dask-awkward are
             importable and "iterative" otherwise.
         metadata_extractor : Callable or None, default None
-            User function called once per file with the open file handle (uproot
-            ReadOnlyDirectory for ROOT files, ``awkward.metadata_from_parquet`` mapping for
-            parquet); must return a JSON-serializable dict, stored as that file's ``metadata``
-            on its file spec (pydantic output only; the legacy dict output does not carry
-            per-file metadata). Runs inside the per-file error handling and must be picklable.
-            Not supported with ``preprocess_legacy_root=True``.
+            Called once per file with the open file handle (uproot ReadOnlyDirectory for ROOT,
+            ``awkward.metadata_from_parquet`` mapping for parquet); returns a JSON-serializable
+            dict stored as that file's ``metadata`` (dropped from legacy dict output). Runs
+            inside the per-file error handling and must be picklable. Not supported with
+            ``preprocess_legacy_root=True``.
         metadata_reducer : Callable or None, default None
-            User function called once per dataset with ``{filename: extracted_dict}`` for the
-            available files; must return a dict, merged into the dataset's ``metadata``
-            (reducer output takes precedence over existing keys) on both returned filesets.
-            The reduced dataset-level metadata survives dict output as well. Not supported
-            with ``preprocess_legacy_root=True``.
+            Called once per dataset with ``{filename: file_metadata}``; returns a dict merged
+            into the dataset's ``metadata`` (reducer keys win) on both returned filesets, and
+            kept in legacy dict output. Not supported with ``preprocess_legacy_root=True``.
     Returns
     -------
         out_available : DataGroupSpec | dict
