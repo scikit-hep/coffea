@@ -4,10 +4,18 @@ from pathlib import Path
 
 import awkward as ak
 import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 import uproot
 
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
+from coffea.nanoevents.factory import _key_formatter
+from coffea.nanoevents.mapping.parquet import (
+    ParquetSourceMapping,
+    TrivialParquetOpener,
+)
+from coffea.nanoevents.util import tuple_to_key
 
 
 def genroundtrips(genpart):
@@ -350,8 +358,7 @@ parquet_suffixes = [
 ]
 
 
-# virtual is the mode the production Runner parquet path uses (executor.py).
-@pytest.mark.parametrize("mode", ["eager", "virtual"])
+@pytest.mark.parametrize("mode", ["eager", "virtual"])  # virtual: the Runner's mode
 @pytest.mark.parametrize("suffix", parquet_suffixes)
 @pytest.mark.parametrize(
     "entry_start,entry_stop", [(5, 15), (1, 40), (0, 10), (37, 40)]
@@ -359,10 +366,7 @@ parquet_suffixes = [
 def test_parquet_entry_range_matches_full_slice(
     tests_directory, mode, suffix, entry_start, entry_stop
 ):
-    """Reading a parquet file with entry_start > 0 returns the same per-event
-    data as reading the whole file and slicing, for both jagged and flat
-    branches.
-    """
+    """entry_start > 0 must equal slicing a full read, for jagged and flat branches."""
     path = f"{tests_directory}/samples/nano_dy.{suffix}"
     from_parquet = getattr(
         NanoEventsFactory, f"from_{suffix.removeprefix('extensionarray.')}"
@@ -379,7 +383,6 @@ def test_parquet_entry_range_matches_full_slice(
 
     assert len(sub) == entry_stop - entry_start
 
-    # Jagged collections (the buggy path) must match the full-read slice exactly.
     for field in ("Muon", "Jet", "Electron"):
         sub_pt = ak.to_list(getattr(sub, field).pt)
         full_pt = ak.to_list(getattr(full, field).pt[entry_start:entry_stop])
@@ -387,7 +390,6 @@ def test_parquet_entry_range_matches_full_slice(
             sub_pt == full_pt
         ), f"{field}.pt mismatch for [{entry_start}:{entry_stop}]"
 
-    # A flat (per-event) branch should match as well.
     assert ak.to_list(sub.MET.pt) == ak.to_list(full.MET.pt[entry_start:entry_stop])
 
 
@@ -395,15 +397,7 @@ def test_parquet_entry_range_matches_full_slice(
     "entry_start,entry_stop", [(5, 15), (1, 40), (0, 10), (37, 40)]
 )
 def test_parquet_int32_list_offsets_entry_range(tmp_path, entry_start, entry_stop):
-    """Cover the numpy.int32 offsets branch of the parquet entry-range slice.
-
-    The nano_dy sample files all decode to LargeListArray (int64 offsets), so a
-    plain pyarrow ``list_`` column (int32 offsets) is needed to exercise the
-    other side of the dtype selection in ParquetSourceMapping.
-    """
-    import pyarrow as pa
-    import pyarrow.parquet as pq
-
+    """nano_dy decodes to LargeListArray; a plain list_ column covers int32 offsets."""
     n = 40
     jagged = [[float(i)] * (i % 3) for i in range(n)]
     table = pa.table(
@@ -412,7 +406,6 @@ def test_parquet_int32_list_offsets_entry_range(tmp_path, entry_start, entry_sto
             "flat": pa.array(np.arange(n, dtype=np.float32)),
         }
     )
-    # guard the premise: a non-large list is what yields int32 offsets
     assert pa.types.is_list(table.schema.field("jag").type)
     path = str(tmp_path / "int32list.parquet")
     pq.write_table(table, path)
@@ -434,19 +427,7 @@ def test_parquet_int32_list_offsets_entry_range(tmp_path, entry_start, entry_sto
 
 
 def test_parquet_column_cache_avoids_repeated_reads(tests_directory, monkeypatch):
-    """A jagged parquet column is materialized through two separate buffer keys
-    (offsets and content). The per-source column cache collapses these into a
-    single read of the column while returning identical data.
-    """
-    import pyarrow.parquet as pq
-
-    from coffea.nanoevents.factory import _key_formatter
-    from coffea.nanoevents.mapping.parquet import (
-        ParquetSourceMapping,
-        TrivialParquetOpener,
-    )
-    from coffea.nanoevents.util import tuple_to_key
-
+    """Offsets and content of one jagged column come from a single column read."""
     path = f"{tests_directory}/samples/nano_dy.parquet"
 
     read_counts = {}
@@ -487,11 +468,9 @@ def test_parquet_column_cache_avoids_repeated_reads(tests_directory, monkeypatch
         highlevel=True,
     )
 
-    # Offsets and content of one jagged column -> a single underlying read.
     assert read_counts["Muon_pt"] == 1
 
-    # And the cache must not corrupt the returned data: compare against the
-    # value seen through the normal (un-monkeypatched) reader path.
+    # cached data must equal the plain reader path
     reference = NanoEventsFactory.from_parquet(
         path, schemaclass=NanoAODSchema, mode="eager"
     ).events()

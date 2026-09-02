@@ -9,11 +9,8 @@ from fsspec.core import OpenFile
 from coffea.nanoevents.mapping.base import BaseSourceMapping, UUIDOpener
 from coffea.nanoevents.util import quote, tuple_to_key
 
-# Number of distinct parquet columns kept materialized per open file. A single
-# jagged buffer access (offsets + content) reads the same column more than once,
-# and a NanoEvents view typically touches only a handful of columns at a time,
-# so a small cache eliminates redundant full-column reads without holding the
-# whole file in memory.
+# A jagged column is requested once per buffer (offsets, content); caching a few
+# columns per open file makes that one read.
 _PARQUET_COLUMN_CACHE_SIZE = 16
 
 
@@ -33,9 +30,6 @@ class TrivialParquetOpener(UUIDOpener):
             self.file = file
             self.dataset = dataset
             self.openfile = openfile
-            # Cache materialized single-column tables so that the multiple buffer
-            # accesses for one column (e.g. offsets and content of a jagged array)
-            # do not each re-read the entire column from the parquet file.
             self._column_cache = LRUCache(_PARQUET_COLUMN_CACHE_SIZE)
 
         def __del__(self):
@@ -131,22 +125,17 @@ class ParquetSourceMapping(BaseSourceMapping):
             out = None
             if isinstance(aspa, (pa.lib.ListArray, pa.lib.LargeListArray)):
                 value_type = aspa.type.value_type
-                # A sliced pyarrow (Large)ListArray does not copy its buffers; it
-                # only records a logical ``aspa.offset`` into the shared offsets
-                # buffer. Read ``len(aspa) + 1`` offsets starting at that logical
-                # offset and rebase them to start at 0, so the returned
-                # ListOffsetArray indexes into the (already sliced) flattened
-                # content that ``flatten()`` returns.
+                # A sliced (Large)ListArray shares its buffers and records a logical
+                # offset; take len+1 offsets from there and rebase to 0 to match flatten().
                 dtype = (
                     numpy.int64
                     if isinstance(aspa, pa.lib.LargeListArray)
                     else numpy.int32
                 )
-                raw_offsets = numpy.frombuffer(aspa.buffers()[1], dtype=dtype)
-                offsets = raw_offsets[aspa.offset : aspa.offset + len(aspa) + 1]
-                offsets = offsets.astype(numpy.int64)
-                offsets = offsets - offsets[0]
-                offsets = awkward.index.Index64(offsets)
+                offsets = numpy.frombuffer(aspa.buffers()[1], dtype=dtype)[
+                    aspa.offset : aspa.offset + len(aspa) + 1
+                ].astype(numpy.int64)
+                offsets = awkward.index.Index64(offsets - offsets[0])
 
                 if not isinstance(value_type, pa.lib.DataType):
                     raise Exception(
