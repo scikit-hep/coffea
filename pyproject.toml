@@ -58,6 +58,7 @@ dependencies = [
   "lz4",
   "cloudpickle>=1.2.3",
   "toml>=0.10.2",
+  "pyyaml",
   "mplhep>=0.1.18",
   "packaging",
   "pandas",
