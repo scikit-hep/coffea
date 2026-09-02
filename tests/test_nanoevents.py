@@ -1,4 +1,6 @@
+import inspect
 import os
+import re
 from pathlib import Path
 
 import awkward as ak
@@ -7,6 +9,7 @@ import pytest
 import uproot
 
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
+from coffea.nanoevents.methods import nanoaod
 
 
 def genroundtrips(genpart):
@@ -121,11 +124,7 @@ def test_read_nanomc(tests_directory, suffix):
 
 
 def _discover_crossrefs(module):
-    # Cross-references are the mixin properties resolved through
-    # _apply_global_index; discover them from the schema itself so new ones are
-    # covered automatically. Skip the auto-generated Array/Record twins.
-    import inspect
-
+    # properties resolved via _apply_global_index, skipping generated Array/Record twins
     pairs = []
     for cname, cls in inspect.getmembers(module, inspect.isclass):
         if cls.__module__ != module.__name__ or cname.endswith(("Array", "Record")):
@@ -138,12 +137,6 @@ def _discover_crossrefs(module):
             if "_apply_global_index" in source:
                 pairs.append((cname, pname))
     return sorted(set(pairs))
-
-
-def _nanoaod_crossrefs():
-    from coffea.nanoevents.methods import nanoaod
-
-    return _discover_crossrefs(nanoaod)
 
 
 @pytest.fixture(scope="module")
@@ -159,13 +152,9 @@ def nano_dy_modes(tests_directory):
     }
 
 
-@pytest.mark.parametrize("record,attr", _nanoaod_crossrefs())
+@pytest.mark.parametrize("record,attr", _discover_crossrefs(nanoaod))
 def test_nanoaod_crossref_target_type(nano_dy_modes, record, attr):
-    """Every ``matched_*``/parent/child cross-reference resolves the global index
-    against a specific collection. Sweep every cross-reference the schema defines
-    and require eager (known-correct), virtual, and dask to agree on the resolved
-    record type and fields.
-    """
+    """Virtual and dask must resolve each cross-reference as eager does."""
     eager = nano_dy_modes["eager"]
     field = next(
         (
@@ -194,12 +183,8 @@ def test_nanoaod_crossref_target_type(nano_dy_modes, record, attr):
         assert set(got.fields) == set(ref.fields)
 
 
-# Intended target collection of each NanoAOD cross-reference, read by hand from
-# the data model. This is an absolute oracle, independent of the implementation:
-# the mode-consistency test above cannot see a cross-reference that points at
-# the wrong collection in *every* mode (e.g. Muon.matched_jet -> Electron), but
-# a mismatch against this table does. AssociatedPFCand/SV resolve their target
-# dynamically from collection_map, so they carry no static literal to check.
+# Intended target of each cross-reference per the NanoAOD data model; the
+# mode-consistency test cannot see a target that is wrong in every mode.
 nanoaod_crossref_targets = {
     ("Electron", "matched_gen"): "GenPart",
     ("Electron", "matched_jet"): "Jet",
@@ -230,6 +215,7 @@ nanoaod_crossref_targets = {
     ("Tau", "matched_gen"): "GenPart",
     ("Tau", "matched_jet"): "Jet",
 }
+# target resolved at runtime from collection_map
 nanoaod_crossref_dynamic = {
     ("AssociatedPFCand", "jet"),
     ("AssociatedPFCand", "pf"),
@@ -239,8 +225,6 @@ nanoaod_crossref_dynamic = {
 
 
 def _crossref_source_bodies(prop):
-    import inspect
-
     bodies = [inspect.getsource(prop.fget)]
     dask_get = getattr(prop, "_dask_get", None)
     if dask_get is not None and dask_get.__closure__:
@@ -255,19 +239,7 @@ def _crossref_source_bodies(prop):
 
 
 def test_nanoaod_crossref_declared_target():
-    """Absolute-consistency companion to test_nanoaod_crossref_target_type.
-
-    Parse every cross-reference's eager and dask source bodies and require each
-    literal ``_events().X._apply_global_index`` to match the hand-declared
-    target collection. This catches a cross-reference wired to the wrong
-    collection identically in all modes, which mode-consistency cannot. The
-    completeness assertions keep the table in lockstep with the schema.
-    """
-    import inspect
-    import re
-
-    from coffea.nanoevents.methods import nanoaod
-
+    """Each literal ``_events().X._apply_global_index`` names the declared target."""
     literal = re.compile(r"_events\(\)\.(\w+)\._apply_global_index")
     discovered = set()
     for cname, cls in inspect.getmembers(nanoaod, inspect.isclass):
