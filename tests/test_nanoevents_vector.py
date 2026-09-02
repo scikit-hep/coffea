@@ -1225,3 +1225,33 @@ def test_genvistau_addition_propagates_charge():
     common = (ak.num(gvt) >= 1) & (ak.num(mu) >= 1)
     gm = gvt[common][:, 0] + mu[common][:, 0]
     assert "charge" in gm.fields
+
+
+@pytest.mark.parametrize(
+    "name,fields,behavior",
+    [
+        ("TwoVector", ["x", "y"], "vector"),
+        ("ThreeVector", ["x", "y", "z"], "vector"),
+        ("LorentzVector", ["x", "y", "z", "t"], "vector"),
+        ("Candidate", ["x", "y", "z", "t", "charge"], "candidate"),
+    ],
+)
+def test_ak_reducers(name, fields, behavior):
+    """Regression test for scikit-hep/coffea#1620"""
+    from coffea.nanoevents.methods import candidate
+
+    a = ak.zip(
+        {f: [[1.0, 0.0], [], [2.0], [1.0, 2.0]] for f in fields},
+        with_name=name,
+        behavior={"vector": vector, "candidate": candidate}[behavior].behavior,
+    )
+    expected_sum = ak.zip(
+        {f: [1.0, 0.0, 2.0, 3.0] for f in fields},
+        with_name=name,
+        behavior={"vector": vector, "candidate": candidate}[behavior].behavior,
+    )
+    assert_record_arrays_equal(ak.sum(a, axis=1), a.sum(axis=1))
+    assert_record_arrays_equal(ak.sum(a, axis=1), expected_sum)
+    assert ak.to_list(ak.sum(a, axis=1, mask_identity=True))[1] is None
+    assert ak.to_list(ak.count(a, axis=1)) == [2, 0, 1, 2]
+    assert ak.to_list(ak.count_nonzero(a, axis=1)) == [1, 0, 1, 2]
