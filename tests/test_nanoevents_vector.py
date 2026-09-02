@@ -1347,7 +1347,12 @@ def test_array_factor_matches_cartesian(name, kin, components, cartesian_name):
         behavior=vector.behavior,
     )
     factor = ak.Array([2.0, -3.0])
-    for scaled, ref in ((a * factor, cart * factor), (a / factor, cart / factor)):
+    one = factor[1:]
+    for scaled, ref in (
+        (a * factor, cart * factor),
+        (a / factor, cart / factor),
+        (a[:1] * one, cart[:1] * one),
+    ):
         for c in components:
             assert_allclose(
                 ak.to_list(getattr(scaled, c)), ak.to_list(getattr(ref, c)), atol=ATOL

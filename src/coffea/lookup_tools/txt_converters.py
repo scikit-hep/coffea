@@ -467,7 +467,7 @@ def convert_effective_area_file(eaFilePath):
     # silently reduced to the wrong values, so refuse it instead
     if nBinnedVars > 1:
         raise NotImplementedError(
-            "N-dimensional effective-area files are not supported"
+            f"N-dimensional effective-area files are not supported: {eaFilePath}"
         )
     nEvalVars = int(layout[nBinnedVars + 1])
 

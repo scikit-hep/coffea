@@ -1267,7 +1267,7 @@ class Runner:
         """The exception types ``skipbadfiles`` permits us to swallow."""
         if self.skipbadfiles is True:
             return (OSError,)
-        if self.skipbadfiles is False:
+        if not self.skipbadfiles:
             return ()
         return self.skipbadfiles
 

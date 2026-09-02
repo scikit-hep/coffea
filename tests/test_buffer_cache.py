@@ -236,16 +236,27 @@ def test_buffer_cache_small_and_empty_array_compression():
         np.testing.assert_array_equal(result, arr)
 
 
-def test_buffer_cache_rejects_foreign_codec():
-    class NumcodecsShapedCodec:
-        """Duck-types coffea's ``Codec``, but with numcodecs' encode/decode contract."""
+def test_buffer_cache_codec_dispatch():
+    from coffea.nanoevents.mapping.buffer_cache import (
+        NoCompressionCodec,
+        ShapeDTypeStruct,
+    )
 
-        def encode(self, buf):
-            return buf
+    class DuckCodec:
+        """Structurally a coffea ``Codec`` without inheriting from it."""
 
-        def decode(self, buf):
-            return buf
+        def encode(self, arr):
+            return arr.tobytes(), ShapeDTypeStruct(
+                dtype=arr.dtype, shape=arr.shape, compressed=False
+            )
 
-    for bad in (5, NumcodecsShapedCodec()):
-        with pytest.raises(TypeError, match="numcodecs"):
-            BufferCache(cache=None, codec=bad)
+        def decode(self, buffer, struct):
+            return np.frombuffer(buffer, struct.dtype).reshape(struct.shape)
+
+    with pytest.raises(TypeError, match="numcodecs"):
+        BufferCache(cache=None, codec=5)
+
+    for good in (NoCompressionCodec(), DuckCodec()):
+        cache = BufferCache(cache={}, codec=good)
+        cache["key"] = np.arange(4)
+        np.testing.assert_array_equal(cache["key"], np.arange(4))

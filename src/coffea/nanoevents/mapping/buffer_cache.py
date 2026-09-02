@@ -203,9 +203,7 @@ def BufferCache(
 
     if numcodecs is not None and isinstance(codec, numcodecs.abc.Codec):
         codec = NumCodecsWrapper(codec=codec)
-    elif Codec not in type(codec).__mro__:
-        # Codec is runtime_checkable, so isinstance() would also admit
-        # numcodecs-shaped objects, whose encode/decode have a different contract
+    elif not isinstance(codec, Codec):
         raise TypeError(
             "codec must be an instance of a Codec subclass "
             "(e.g. NoCompressionCodec) or of numcodecs.abc.Codec "
