@@ -14,7 +14,8 @@ are the table of contents (`grep -n '^#' ARCHITECTURE.md`).
 - `dataset_tools/` — dataset specification (pydantic, `filespec.py`),
   `preprocess`, `apply_to_fileset`, fileset manipulation.
 - `processor/` — `ProcessorABC`, `Runner`, executors (`IterativeExecutor`,
-  `FuturesExecutor`, `DaskExecutor`, parsl, taskvine) and `accumulator.py`.
+  `FuturesExecutor`, `DaskExecutor`, `ParslExecutor`, `TaskVineExecutor`) and
+  `accumulator.py`.
 - `analysis_tools.py` — `PackedSelection`, `Weights`, N-1 and systematics helpers.
 - `jetmet_tools/`, `btag_tools/`, `lookup_tools/`, `lumi_tools/`, `ml_tools/` —
   corrections, scale factors, lookup tables, lumi masks, ML inference adapters.
@@ -114,7 +115,7 @@ one per analysis rather than mixing them:
 | --- | --- | --- |
 | preprocess | `Runner`'s own embedded preprocessor | `dataset_tools.preprocess` |
 | apply | `Runner(..., processor_instance=...)` | `apply_to_fileset` / `apply_to_dataset` |
-| execute | an executor: `Iterative`, `Futures`, `Dask`, `Parsl` | `.compute()` on the returned graph |
+| execute | an executor: `Iterative`, `Futures`, `Dask`, `Parsl`, `TaskVine` | `.compute()` on the returned graph |
 
 ### `"eager"` / `"virtual"` mode
 
