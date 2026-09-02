@@ -9,4 +9,7 @@ source/modules: source/api_reference.md
 clean:
 	rm -rf build source/modules source/api
 
+watch:
+	sphinx-autobuild source build
+
 .PHONY: clean
