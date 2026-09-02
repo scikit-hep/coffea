@@ -10,7 +10,7 @@ them on demand.
 ## Environment
 
 ```bash
-pip install -e '.[dev]'                 # tests, linters, docs
+pip install -e '.[dev]'                 # tests, linters, docs (or: uv sync)
 pip install -e '.[dask,dask-awkward]'   # optional: distributed / mode="dask"
 pre-commit run --all-files              # black, ruff, codespell — must pass
 pytest                                  # testpaths=tests/; -n auto to parallelize
