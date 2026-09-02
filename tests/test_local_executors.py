@@ -2,6 +2,7 @@ import os.path as osp
 
 import pyarrow
 import pytest
+from cachetools import LRUCache
 
 from coffea import processor
 from coffea.nanoevents import schemas
@@ -252,6 +253,35 @@ _bad_fileset = {
         "files": [osp.abspath("tests/samples/non_existent.root")],
     }
 }
+
+
+@pytest.mark.parametrize("filetype", ["ttree", "rntuple", "parquet"])
+def test_preprocessing_cache_smaller_than_fileset(filetype):
+    # the metadata cache is bounded, so a fileset larger than it used to lose
+    # the just-fetched metadata of the earliest files to eviction, see #1614
+    suffix = {"ttree": ".root", "rntuple": "_rntuple.root", "parquet": ".parquet"}[
+        filetype
+    ]
+    runner_format = "parquet" if filetype == "parquet" else "root"
+    nano_dy = f"tests/samples/nano_dy{suffix}"
+
+    # FileMeta is keyed on (dataset, filename, treename), so the same file under
+    # distinct dataset names gives distinct cache entries
+    n_datasets = 4
+    fileset = {f"dataset{i}": {"files": {nano_dy: "Events"}} for i in range(n_datasets)}
+
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(),
+        schema=schemas.NanoAODSchema,
+        chunksize=1000000,
+        format=runner_format,
+        metadata_cache=LRUCache(n_datasets - 2),
+    )
+    chunks = list(run.preprocess(fileset))
+
+    assert len(chunks) == n_datasets
+    assert {chunk.dataset for chunk in chunks} == set(fileset)
+    assert all(chunk.entrystop > 0 for chunk in chunks)
 
 
 @pytest.mark.parametrize(

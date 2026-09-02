@@ -30,8 +30,6 @@ def test_from_preloaded_honors_buffer_cache(tests_directory):
 
 
 def test_preloaded_nanoevents():
-    pytest.xfail("preloaded nanoevents doesn't support dask yet")
-
     columns = [
         "nMuon",
         "Muon_pt",
@@ -41,8 +39,12 @@ def test_preloaded_nanoevents():
         "Muon_charge",
         "nJet",
         "Jet_eta",
+        # event ID fields are required by NanoAODSchema.error_missing_event_ids
+        "run",
+        "luminosityBlock",
+        "event",
     ]
-    p = NanoEventsProcessor(columns=columns)
+    p = NanoEventsProcessor(columns=columns, mode="eager")
 
     rootdir = uproot.open(os.path.abspath("tests/samples/nano_dy.root"))
     tree = rootdir["Events"]

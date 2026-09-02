@@ -43,6 +43,7 @@ A small example::
 
 """
 
+import functools
 import numbers
 
 import awkward
@@ -97,7 +98,9 @@ _ALIAS_GROUPS = {
 }
 
 
+@functools.lru_cache(maxsize=4096)
 def _coordinate_validation(fields):
+    fields = set(fields)
     errors = []
     for label, aliases in _ALIAS_GROUPS.items():
         overlap = fields & aliases
@@ -131,12 +134,22 @@ def _coordinate_validation(fields):
             + ", ".join(present_longitudinal)
         )
     return (
-        errors,
+        tuple(errors),
         has_xy,
         has_rhophi,
         has_z or has_theta or has_eta,
         bool(fields & _TEMPORAL),
     )
+
+
+# awkward looks up reducer overloads by record name only, so the ones vector
+# registers for Momentum{2,3,4}D never reach our collections. Forward those that
+# don't rebuild a record. Sum has to go through our own, which keeps the charge
+# field and names the result after what it actually built.
+_count_reducer = vector.backends.awkward.behavior[awkward.count, "Momentum4D"]
+_count_nonzero_reducer = vector.backends.awkward.behavior[
+    awkward.count_nonzero, "Momentum4D"
+]
 
 
 @awkward.mixin_class(behavior)
@@ -186,6 +199,18 @@ class TwoVector(MomentumAwkward2D):
             behavior=self.behavior,
         )
 
+    @awkward.mixin_class_method(awkward.sum)
+    def _reduce_sum(self, mask_identity):
+        return self.sum(axis=1)
+
+    @awkward.mixin_class_method(awkward.count)
+    def _reduce_count(self, mask_identity):
+        return _count_reducer(self, mask_identity)
+
+    @awkward.mixin_class_method(awkward.count_nonzero)
+    def _reduce_count_nonzero(self, mask_identity):
+        return _count_nonzero_reducer(self, mask_identity)
+
     @awkward.mixin_class_method(numpy.multiply, {numbers.Number})
     def multiply(self, other):
         """Multiply this vector by a scalar elementwise using ``x`` and ``y`` components"""
@@ -211,10 +236,10 @@ class TwoVector(MomentumAwkward2D):
         return self / self.r
 
     def __awkward_validation__(self):
-        fields = set(self.fields)
         errors, has_cart, has_polar, has_longitudinal, has_temporal = (
-            _coordinate_validation(fields)
+            _coordinate_validation(tuple(self.fields))
         )
+        errors = list(errors)
         if not (has_cart or has_polar):
             errors.append(
                 "missing azimuthal coordinates: need x/px and y/py, or rho/pt and phi"
@@ -301,6 +326,18 @@ class ThreeVector(MomentumAwkward3D):
             behavior=self.behavior,
         )
 
+    @awkward.mixin_class_method(awkward.sum)
+    def _reduce_sum(self, mask_identity):
+        return self.sum(axis=1)
+
+    @awkward.mixin_class_method(awkward.count)
+    def _reduce_count(self, mask_identity):
+        return _count_reducer(self, mask_identity)
+
+    @awkward.mixin_class_method(awkward.count_nonzero)
+    def _reduce_count_nonzero(self, mask_identity):
+        return _count_nonzero_reducer(self, mask_identity)
+
     @awkward.mixin_class_method(numpy.multiply, {numbers.Number})
     def multiply(self, other):
         """Multiply this vector by a scalar elementwise using ``x``, ``y``, and ``z`` components"""
@@ -319,10 +356,10 @@ class ThreeVector(MomentumAwkward3D):
         return self / self.rho
 
     def __awkward_validation__(self):
-        fields = set(self.fields)
         errors, has_cart, has_polar, has_longitudinal, has_temporal = (
-            _coordinate_validation(fields)
+            _coordinate_validation(tuple(self.fields))
         )
+        errors = list(errors)
         if not (has_cart or has_polar):
             errors.append(
                 "missing azimuthal coordinates: need x/px and y/py, or rho/pt and phi"
@@ -420,6 +457,18 @@ class LorentzVector(MomentumAwkward4D):
             with_name="LorentzVector",
             behavior=self.behavior,
         )
+
+    @awkward.mixin_class_method(awkward.sum)
+    def _reduce_sum(self, mask_identity):
+        return self.sum(axis=1)
+
+    @awkward.mixin_class_method(awkward.count)
+    def _reduce_count(self, mask_identity):
+        return _count_reducer(self, mask_identity)
+
+    @awkward.mixin_class_method(awkward.count_nonzero)
+    def _reduce_count_nonzero(self, mask_identity):
+        return _count_nonzero_reducer(self, mask_identity)
 
     @awkward.mixin_class_method(numpy.multiply, {numbers.Number})
     def multiply(self, other):
@@ -558,10 +607,10 @@ class LorentzVector(MomentumAwkward4D):
         return _nearest_core(dask_array, other, axis, metric, return_metric, threshold)
 
     def __awkward_validation__(self):
-        fields = set(self.fields)
         errors, has_cart, has_polar, has_longitudinal, has_temporal = (
-            _coordinate_validation(fields)
+            _coordinate_validation(tuple(self.fields))
         )
+        errors = list(errors)
         if not (has_cart or has_polar):
             errors.append(
                 "missing azimuthal coordinates: need x/px and y/py, or rho/pt and phi"
