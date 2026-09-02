@@ -613,7 +613,14 @@ class Weights:
             if modifier.endswith("Down")
             else modifier[:-2] if modifier.endswith("Up") else modifier
         )
-        if not any(base == n or base.startswith(n + "_") for n in names):
+        # a multivariation modifier is named "<weight>_<variation>"; the longest
+        # matching weight name is the one that owns it
+        owner = max(
+            (n for n in self._weights if base == n or base.startswith(n + "_")),
+            key=len,
+            default=None,
+        )
+        if owner not in names:
             raise ValueError(
                 f"Modifier {modifier} is not in the list of included weights"
             )

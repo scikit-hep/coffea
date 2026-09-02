@@ -151,6 +151,8 @@ class CorrectedJetsFactory:
         # from PhysicsTools/PatUtils/interface/SmearedJetProducerT.h#L283
         self.forceStochastic = False
 
+        name_map = dict(name_map)
+
         self.treat_pt_as_raw = "ptRaw" not in name_map or name_map["ptRaw"] is None
         if self.treat_pt_as_raw:
             warnings.warn(
@@ -159,7 +161,10 @@ class CorrectedJetsFactory:
             )
             name_map["ptRaw"] = name_map["JetPt"] + "_raw"
 
-        if "massRaw" not in name_map or name_map["massRaw"] is None:
+        self.treat_mass_as_raw = (
+            "massRaw" not in name_map or name_map["massRaw"] is None
+        )
+        if self.treat_mass_as_raw:
             warnings.warn(
                 "There is no name mapping for massRaw,"
                 " CorrectedJets will assume that <object>.mass is raw mass!"
@@ -249,6 +254,7 @@ class CorrectedJetsFactory:
         # take care of nominal JEC (no JER if available)
         if self.treat_pt_as_raw:
             out_dict[self.name_map["ptRaw"]] = out_dict[self.name_map["JetPt"]]
+        if self.treat_mass_as_raw:
             out_dict[self.name_map["massRaw"]] = out_dict[self.name_map["JetMass"]]
 
         jec_name_map = dict(self.name_map)

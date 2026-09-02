@@ -1230,8 +1230,13 @@ _JEC_ONLY_NAMES = [
 ]
 
 
-def _jec_only_setup(with_raw):
+def _jec_only_setup(with_pt_raw, with_mass_raw=None):
+    """``with_mass_raw`` defaults to ``with_pt_raw``; set it to exercise the
+    asymmetric cases where only one of the two raw fields is mapped."""
     from coffea.jetmet_tools import JECStack
+
+    if with_mass_raw is None:
+        with_mass_raw = with_pt_raw
 
     counts = np.array([2, 0, 1])
     fields = {
@@ -1241,8 +1246,9 @@ def _jec_only_setup(with_raw):
         "area": ak.unflatten(np.array([0.5, 0.5, 0.5]), counts),
         "Rho": ak.unflatten(np.array([15.0, 15.0, 15.0]), counts),
     }
-    if with_raw:
+    if with_pt_raw:
         fields["pt_raw"] = fields["pt"] * 0.95
+    if with_mass_raw:
         fields["mass_raw"] = fields["mass"] * 0.95
     jets = ak.zip(fields)
 
@@ -1253,34 +1259,75 @@ def _jec_only_setup(with_raw):
     name_map["JetEta"] = "eta"
     name_map["JetA"] = "area"
     name_map["Rho"] = "Rho"
-    if with_raw:
+    if with_pt_raw:
         name_map["ptRaw"] = "pt_raw"
+    if with_mass_raw:
         name_map["massRaw"] = "mass_raw"
     return jets, jec_stack, name_map
 
 
-def test_corrected_jets_factory_no_raw_name_map():
-    from coffea.jetmet_tools import CorrectedJetsFactory, FactorizedJetCorrector
-
-    jets, jec_stack, name_map = _jec_only_setup(with_raw=False)
-    with pytest.warns(UserWarning):
-        jet_factory = CorrectedJetsFactory(name_map, jec_stack)
-    assert jet_factory.treat_pt_as_raw
-    assert jet_factory.name_map["ptRaw"] == "pt_raw"
-    assert jet_factory.name_map["massRaw"] == "mass_raw"
-
-    corrected_jets = jet_factory.build(jets)
+def _jec_only_corrections(jets, jet_pt):
+    from coffea.jetmet_tools import FactorizedJetCorrector
 
     corrector = FactorizedJetCorrector(
         **{name: evaluator[name] for name in _JEC_ONLY_NAMES}
     )
-    check_corrs = corrector.getCorrection(
-        JetEta=jets.eta, Rho=jets.Rho, JetPt=jets.pt, JetA=jets.area
+    return corrector.getCorrection(
+        JetEta=jets.eta, Rho=jets.Rho, JetPt=jet_pt, JetA=jets.area
     )
+
+
+def test_corrected_jets_factory_no_raw_name_map():
+    from coffea.jetmet_tools import CorrectedJetsFactory
+
+    jets, jec_stack, name_map = _jec_only_setup(with_pt_raw=False)
+    with pytest.warns(UserWarning):
+        jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+    assert name_map["ptRaw"] is None  # caller's mapping is left alone
+    assert name_map["massRaw"] is None
+    assert jet_factory.name_map["ptRaw"] == "pt_raw"
+    assert jet_factory.name_map["massRaw"] == "mass_raw"
+    assert jet_factory.treat_pt_as_raw
+    assert jet_factory.treat_mass_as_raw
+
+    corrected_jets = jet_factory.build(jets)
+
+    check_corrs = _jec_only_corrections(jets, jets.pt)
     assert ak.all(np.abs(corrected_jets.pt - check_corrs * jets.pt) < 1e-6)
     assert ak.all(np.abs(corrected_jets.mass - check_corrs * jets.mass) < 1e-6)
     assert ak.all(corrected_jets.pt_raw == jets.pt)
     assert ak.all(corrected_jets.mass_raw == jets.mass)
+
+
+def test_corrected_jets_factory_pt_raw_without_mass_raw():
+    from coffea.jetmet_tools import CorrectedJetsFactory
+
+    jets, jec_stack, name_map = _jec_only_setup(with_pt_raw=True, with_mass_raw=False)
+    with pytest.warns(UserWarning, match="massRaw"):
+        jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+
+    corrected_jets = jet_factory.build(jets)
+
+    check_corrs = _jec_only_corrections(jets, jets.pt_raw)
+    assert ak.all(np.abs(corrected_jets.pt - check_corrs * jets.pt_raw) < 1e-6)
+    assert ak.all(np.abs(corrected_jets.mass - check_corrs * jets.mass) < 1e-6)
+    assert ak.all(corrected_jets.mass_raw == jets.mass)
+
+
+def test_corrected_jets_factory_mass_raw_without_pt_raw():
+    from coffea.jetmet_tools import CorrectedJetsFactory
+
+    jets, jec_stack, name_map = _jec_only_setup(with_pt_raw=False, with_mass_raw=True)
+    with pytest.warns(UserWarning, match="ptRaw"):
+        jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+
+    corrected_jets = jet_factory.build(jets)
+
+    check_corrs = _jec_only_corrections(jets, jets.pt)
+    assert ak.all(np.abs(corrected_jets.pt - check_corrs * jets.pt) < 1e-6)
+    # the supplied raw mass must survive, not be overwritten by the reco mass
+    assert ak.all(np.abs(corrected_jets.mass - check_corrs * jets.mass_raw) < 1e-6)
+    assert ak.all(corrected_jets.mass_raw == jets.mass_raw)
 
 
 def test_rand_gauss_empty():
@@ -1294,7 +1341,7 @@ def test_rand_gauss_empty():
 def test_corrected_jets_factory_does_not_mutate_input():
     from coffea.jetmet_tools import CorrectedJetsFactory
 
-    jets, jec_stack, name_map = _jec_only_setup(with_raw=True)
+    jets, jec_stack, name_map = _jec_only_setup(with_pt_raw=True)
     with pytest.warns(UserWarning):
         jet_factory = CorrectedJetsFactory(name_map, jec_stack)
 
@@ -1307,7 +1354,7 @@ def test_corrected_jets_factory_does_not_mutate_input():
 def test_corrected_jets_factory_empty_record_message():
     from coffea.jetmet_tools import CorrectedJetsFactory
 
-    _, jec_stack, name_map = _jec_only_setup(with_raw=True)
+    _, jec_stack, name_map = _jec_only_setup(with_pt_raw=True)
     with pytest.warns(UserWarning):
         jet_factory = CorrectedJetsFactory(name_map, jec_stack)
     with pytest.raises(Exception, match="'pt'"):

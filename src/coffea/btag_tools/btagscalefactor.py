@@ -145,8 +145,6 @@ class BTagScaleFactor:
                 edges_discr[:-1],
                 indexing="ij",
             )
-            mapping = numpy.full(bin_low_edges[0].shape, -1)
-
             fbins = numpy.array([b[0] for b in allbins])
             eta_lo = numpy.array([b[1][0] for b in allbins])
             eta_hi = numpy.array([b[1][1] for b in allbins])
@@ -158,9 +156,13 @@ class BTagScaleFactor:
             eta_cell = bin_low_edges[1].reshape(-1, 1)
             pt_cell = bin_low_edges[2].reshape(-1, 1)
             discr_cell = bin_low_edges[3].reshape(-1, 1)
-            btvflavor_cell = numpy.empty(bin_low_edges[0].size, dtype=fbins.dtype)
+            flavor_cell = bin_low_edges[0].reshape(-1)
+            btvflavor_cell = numpy.full(flavor_cell.shape, -1, dtype=fbins.dtype)
             for flav, btv in self._flavor2btvflavor.items():
-                btvflavor_cell[bin_low_edges[0].reshape(-1) == flav] = btv
+                btvflavor_cell[flavor_cell == flav] = btv
+            assert not numpy.any(
+                btvflavor_cell == -1
+            ), "jet flavor with no BTV equivalent in _flavor2btvflavor"
             btvflavor_cell = btvflavor_cell.reshape(-1, 1)
 
             base_match = (
@@ -180,7 +182,7 @@ class BTagScaleFactor:
             fallback &= abseta_match.any(axis=1)
             result[fallback] = abseta_match.argmax(axis=1)[fallback]
 
-            mapping = result.reshape(mapping.shape)
+            mapping = result.reshape(bin_low_edges[0].shape)
 
             if self.workingpoint == BTagScaleFactor.RESHAPE:
                 self._corrections[syst] = dense_mapped_lookup(

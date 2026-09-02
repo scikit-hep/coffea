@@ -425,11 +425,16 @@ def test_jec_txt_effareas():
     print(evaluator["photon_id_EA_Pho"])
 
 
-def test_effective_area_2d_binning():
+def test_effective_area_2d_unsupported():
     from coffea.lookup_tools.txt_converters import convert_effective_area_file
 
-    wrapped = convert_effective_area_file("tests/samples/photon_id_2d.ea.txt")
-    assert any(name.startswith("photon_id_2d") for (name, _t) in wrapped.keys())
+    wrapped = convert_effective_area_file("tests/samples/photon_id.ea.txt")
+    values, dims = wrapped[("photon_id_EA_Pho", "dense_lookup")]
+    assert np.allclose(dims, [0.0, 1.0, 1.479, 2.0, 2.2, 2.3, 2.4, 2.5])
+    assert np.allclose(values, [0.1210, 0.1107, 0.0699, 0.1056, 0.1457, 0.1719, 0.1998])
+
+    with pytest.raises(NotImplementedError):
+        convert_effective_area_file("tests/samples/photon_id_2d.ea.txt")
 
 
 def test_pileup_json_wildcard():

@@ -2344,8 +2344,9 @@ def test_weights_modifier_suffix_and_multivariation(mode):
     weights.add_multivariation(
         "test", central, modifierNames=["A"], weightsUp=[up], weightsDown=[down]
     )
-    # weight name carrying 'Up'/'Down' mid-string must survive suffix handling
+    # weight names carrying 'Up'/'Down' mid-string must survive suffix handling
     weights.add("myUpdate", central, weightUp=up)
+    weights.add("Downstream", central, weightUp=up)
 
     # bug 41: multivariation modifiers must be recognized by partial_weight
     assert np.allclose(
@@ -2360,12 +2361,39 @@ def test_weights_modifier_suffix_and_multivariation(mode):
         get(weights.partial_weight(include=["myUpdate"], modifier="myUpdateUp")), 1.25
     )
 
-    # bug 46: auto-derived Down for a name containing 'Down'-like fragments
+    # bug 46: auto-derived Down for names containing 'Up'/'Down' fragments
     assert np.allclose(get(weights.weight("myUpdateDown")), 0.8)
+    assert np.allclose(get(weights.weight("DownstreamDown")), 0.8)
+    assert weights.variations == {
+        "test_AUp",
+        "test_ADown",
+        "myUpdateUp",
+        "myUpdateDown",
+        "DownstreamUp",
+        "DownstreamDown",
+    }
 
     # modifier of an excluded weight is still rejected
     with pytest.raises(ValueError, match="not in the list of included weights"):
         weights.partial_weight(include=["myUpdate"], modifier="test_AUp")
+
+
+def test_weights_partial_weight_prefix_collision():
+    from coffea.analysis_tools import Weights
+
+    central = np.ones(4)
+    up = np.full(4, 1.25)
+
+    weights = Weights(4, storeIndividual=True)
+    weights.add("btagSF", central)
+    weights.add("btagSF_bc", central, weightUp=up)
+
+    # "btagSF" is a '_'-prefix of "btagSF_bc" but does not own its modifier
+    with pytest.raises(ValueError, match="not in the list of included weights"):
+        weights.partial_weight(include=["btagSF"], modifier="btagSF_bcUp")
+    assert np.allclose(
+        weights.partial_weight(include=["btagSF_bc"], modifier="btagSF_bcUp"), 1.25
+    )
 
 
 def test_packed_selection_require_returns_independent_copy():

@@ -1,9 +1,12 @@
+import importlib.util
 import sys
 import types as _types
 
 
 def _install_fake_rucio():
-    if "rucio" in sys.modules:
+    # never shadow a real rucio install; sys.modules is checked first because
+    # find_spec raises on a module without a spec (i.e. this fake)
+    if "rucio" in sys.modules or importlib.util.find_spec("rucio") is not None:
         return
     rucio = _types.ModuleType("rucio")
     client_mod = _types.ModuleType("rucio.client")

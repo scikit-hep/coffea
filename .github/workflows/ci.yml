@@ -94,16 +94,16 @@ jobs:
       run: |
         python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "not dask_client" -n 4
     - name: Upload codecov
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
       uses: codecov/codecov-action@v7
     - name: Install graphviz
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
       uses: ts-graphviz/setup-graphviz@v2
     - name: Install pandoc
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
       uses: r-lib/actions/setup-pandoc@v2
     - name: Build documentation
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
       run: |
         cd docs && make html
         touch build/html/.nojekyll
