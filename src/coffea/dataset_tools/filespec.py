@@ -12,7 +12,14 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-from pydantic import BaseModel, Field, RootModel, computed_field, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    RootModel,
+    ValidationError,
+    computed_field,
+    model_validator,
+)
 
 StepPair = Annotated[
     list[Annotated[int, Field(ge=0)]], Field(min_length=2, max_length=2)
@@ -266,21 +273,24 @@ class InputFilesMixin:
 
     @property
     def num_entries(self) -> int | None:
-        """Compute the total number of entries across all files, if available."""
-        total = 0
-        for v in self.values():
-            if v.num_entries is not None:
-                total += v.num_entries
-        return total
+        """Total number of entries across all files, or None if any file's count is unknown.
+
+        An empty collection has 0 entries; a collection in which every file reports an
+        entry count returns their sum; if any file's count is None (not yet known) the
+        total is genuinely unknown and None is returned rather than an understated sum.
+        """
+        values = [v.num_entries for v in self.values()]
+        if any(n is None for n in values):
+            return None
+        return sum(values)
 
     @property
     def num_selected_entries(self) -> int | None:
-        """Compute the total number of selected entries across all files (calculated from steps), if available."""
-        total = 0
-        for v in self.values():
-            if v.num_selected_entries is not None:
-                total += v.num_selected_entries
-        return total
+        """Total selected entries (from steps) across all files, or None if any is unknown."""
+        values = [v.num_selected_entries for v in self.values()]
+        if any(n is None for n in values):
+            return None
+        return sum(values)
 
     def limit_steps(
         self, max_steps: int | slice | None, per_file: bool = False
@@ -364,23 +374,22 @@ class InputFiles(
 
     @model_validator(mode="after")
     def promote_and_check_files(self) -> Self:
-        preprocessed = {k: False for k in self.root}
         for k, v in self.root.items():
             try:
-                if isinstance(v, CoffeaROOTFileSpecOptional):
-                    self.root[k] = CoffeaROOTFileSpec(v)
-                if isinstance(v, CoffeaParquetFileSpecOptional):
-                    self.root[k] = CoffeaParquetFileSpec(v)
-                preprocessed[k] = True
-            except Exception:
-                # we failed to promote to the concrete spec, do nothing else
+                if isinstance(v, CoffeaROOTFileSpecOptional) and not isinstance(
+                    v, CoffeaROOTFileSpec
+                ):
+                    self.root[k] = CoffeaROOTFileSpec(**v.model_dump())
+                elif isinstance(v, CoffeaParquetFileSpecOptional) and not isinstance(
+                    v, CoffeaParquetFileSpec
+                ):
+                    self.root[k] = CoffeaParquetFileSpec(**v.model_dump())
+            except ValidationError:
+                # not enough information to promote this file to its concrete spec; leave it as-is
                 pass
-        if all(preprocessed.values()):
-            try:
-                self.root = PreprocessedFiles(self.root).root
-            except Exception:
-                # We couldn't promote to PreprocessedFiles, do nothing
-                pass
+        # Note: InputFiles cannot promote *itself* to PreprocessedFiles here, because pydantic
+        # ignores a different class returned from an after-validator. The container-level
+        # promotion (once all files are concrete) is performed in DatasetSpec.post_validate.
         return self
 
 
@@ -412,29 +421,49 @@ class PreprocessedFiles(
 
     @model_validator(mode="after")
     def promote_and_check_files(self) -> Self:
-        preprocessed = {k: False for k in self.root}
+        # Values are validated against ConcreteFileSpecUnion, so they are already concrete
+        # here; this defensively upgrades any Optional-typed-but-complete spec to its concrete
+        # type. A spec that genuinely lacks the required fields cannot reach this point (it
+        # fails ConcreteFileSpecUnion validation first); demotion to InputFiles is therefore
+        # handled at the DatasetSpec level via the `PreprocessedFiles | InputFiles` union
+        # fallback, not here (pydantic ignores a different class returned from an after-validator).
         for k, v in self.root.items():
-            try:
-                if isinstance(v, CoffeaROOTFileSpecOptional):
-                    self.root[k] = CoffeaROOTFileSpec(v)
-                if isinstance(v, CoffeaParquetFileSpecOptional):
-                    self.root[k] = CoffeaParquetFileSpec(v)
-                preprocessed[k] = True
-            except Exception:
-                # we failed to promote to the concrete spec, do nothing else
-                pass
-        if all(preprocessed.values()):
-            return self
-        else:
-            return InputFiles(self.root)
+            if isinstance(v, CoffeaROOTFileSpecOptional) and not isinstance(
+                v, CoffeaROOTFileSpec
+            ):
+                self.root[k] = CoffeaROOTFileSpec(**v.model_dump())
+            elif isinstance(v, CoffeaParquetFileSpecOptional) and not isinstance(
+                v, CoffeaParquetFileSpec
+            ):
+                self.root[k] = CoffeaParquetFileSpec(**v.model_dump())
+        return self
 
 
 class DatasetSpec(BaseModel):
-    files: InputFiles | PreprocessedFiles
+    files: PreprocessedFiles | InputFiles
     metadata: dict[Hashable, Any] = {}
     format: str | None = None
     compressed_form: str | None = None
     did: str | None = None
+
+    def __eq__(self, other: Any) -> bool:
+        # NOTE: defining __eq__ sets __hash__ to None, so DatasetSpec is unhashable. That
+        # is fine only because these pydantic models are not frozen (and hence already
+        # unhashable); do not freeze this model later without also restoring a __hash__.
+        if not isinstance(other, DatasetSpec):
+            return False
+        if not all(
+            getattr(self, k) == getattr(other, k)
+            for k in self.__dict__.keys()
+            if k != "compressed_form"
+        ):
+            return False
+        # Compare the compressed form strings first (cheap); the compressed bytes are
+        # non-deterministic even for identical decoded forms, so only fall back to
+        # decoding and comparing the awkward forms when the compressed strings differ.
+        if self.compressed_form == other.compressed_form:
+            return True
+        return self.form == other.form
 
     def __add__(self, other: DatasetSpec) -> DatasetSpec:
         if not isinstance(other, DatasetSpec):
@@ -476,64 +505,93 @@ class DatasetSpec(BaseModel):
 
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
+        # Catch a simple case of old style input: a list of files; files will be further handled/converted in dict path if they embed the object_path
+        if isinstance(data, list) and all(isinstance(f, str) for f in data):
+            data = {"files": copy.deepcopy(data)}
         if isinstance(data, dict):
-            data = copy.deepcopy(data)
-            files = data.pop("files")
-            # promote files list to dict if necessary
-            if isinstance(files, list):
-                # If files is a list, convert it to a dict and let it pass through the rest of the promotion logic
-                tmp = [f.rsplit(":", maxsplit=1) for f in files]
-                files = {}
-                for fsplit in tmp:
-                    # Need a valid split into file name and object path
-                    if len(fsplit) > 1:
-                        # but ensure we don't catch 'root://' and split that
-                        if fsplit[1].startswith("//"):
-                            # no object path
-                            files[":".join(fsplit)] = None
+            new_data = {}
+            for k, v in data.items():
+                if k == "form":
+                    if "compressed_form" not in data:
+                        # assume this was an uncompressed awkward form, try to compress it
+                        if v is None:
+                            new_data["compressed_form"] = None
                         else:
-                            # file name and object path
-                            files[fsplit[0]] = fsplit[1]
+                            try:
+                                import awkward
+
+                                from coffea.util import compress_form
+
+                                # Validate it's a valid form JSON by parsing it
+                                _ = awkward.forms.from_json(data["form"])
+                                # Compress the original JSON string
+                                new_data["compressed_form"] = compress_form(
+                                    data["form"]
+                                )
+                            except (
+                                ValueError,
+                                TypeError,
+                                KeyError,
+                            ):
+                                # if we can't compress it, test if it can be decompressed
+                                try:
+                                    import awkward
+
+                                    from coffea.util import decompress_form
+
+                                    _ = awkward.forms.from_json(
+                                        decompress_form(data["form"])
+                                    )
+                                    new_data["compressed_form"] = data["form"]
+                                except (
+                                    ValueError,
+                                    TypeError,
+                                    KeyError,
+                                ):
+                                    raise RuntimeError(
+                                        f"form: provided form could neither be compressed nor decompressed, please provide a valid (compressed_)form, got {data['form']}"
+                                    )
                     else:
-                        # no object path
-                        files[fsplit[0]] = None
-            data["files"] = files
-            if "form" in data.keys():
-                _form = data.pop("form")
-                if "compressed_form" not in data.keys():
-                    # assume this was an uncompressed awkward form, try to compress it
-                    try:
-                        import awkward
-
-                        from coffea.util import compress_form
-
-                        data["compressed_form"] = compress_form(
-                            awkward.forms.from_json(_form)
+                        # if there's already a compressed_form, take that and ignore the form
+                        new_data["compressed_form"] = copy.deepcopy(
+                            data["compressed_form"]
                         )
-                    except Exception:
-                        # if we can't compress it, test if it can be decompressed
-                        try:
-                            import awkward
-
-                            from coffea.util import decompress_form
-
-                            _ = awkward.forms.from_json(decompress_form(_form))
-                            data["compressed_form"] = _form
-                        except Exception:
-                            raise RuntimeError(
-                                "form: provided form could neither be compressed nor decompressed, please provide a valid compressed_form"
-                            )
+                elif k == "files":
+                    # promote files list to dict if necessary
+                    if isinstance(v, list):
+                        # If files is a list, convert it to a dict and let it pass through the rest of the promotion logic
+                        tmp = [f.rsplit(":", maxsplit=1) for f in v]
+                        files = {}
+                        for fsplit in tmp:
+                            # Need a valid split into file name and object path
+                            if len(fsplit) > 1:
+                                # but ensure we don't catch 'root://' and split that
+                                if fsplit[1].startswith("//"):
+                                    # no object path
+                                    files[":".join(fsplit)] = None
+                                else:
+                                    # file name and object path
+                                    files[fsplit[0]] = fsplit[1]
+                            else:
+                                # no object path
+                                files[fsplit[0]] = None
+                        new_data["files"] = files
+                    else:
+                        new_data["files"] = copy.deepcopy(v)
                 else:
-                    data["compressed_form"] = data["compressed_form"]
-            if "metadata" not in data.keys() or data["metadata"] is None:
-                data["metadata"] = {}
+                    new_data[k] = copy.deepcopy(v)
+            if "files" not in new_data.keys():
+                # If the structure is {filename0: object_path0, filename1: object_path1, ...}, embed as "files" key
+                new_data = {"files": new_data}
+            if "metadata" not in new_data.keys() or new_data["metadata"] is None:
+                new_data["metadata"] = {}
         elif isinstance(data, DatasetSpec):
-            data = data.model_dump()
+            new_data = data.model_dump()
         elif not isinstance(data, DatasetSpec):
             raise ValueError(
                 "DatasetSpec expects a dictionary with a 'files' key DatasetSpec instance"
             )
-        return data
+        return new_data
 
     def _check_form(self) -> bool | None:
         """Check the form can be decompressed into an awkward form, if present"""
@@ -542,7 +600,8 @@ class DatasetSpec(BaseModel):
             try:
                 _ = self.form
                 return True
-            except Exception:
+            except (ValueError, OSError, EOFError, TypeError, KeyError):
+                # base64/gzip/utf-8 decode or awkward.forms.from_json failure
                 return False
         else:
             return None
@@ -582,6 +641,21 @@ class DatasetSpec(BaseModel):
         if not self.set_check_format():
             raise ValueError(f"format: format must be one of {self._valid_formats()}")
 
+        # Promote InputFiles to PreprocessedFiles if all files are concrete specs
+        # This is needed because InputFiles.promote_and_check_files() cannot change the class of Self
+        if isinstance(self.files, InputFiles) and not isinstance(
+            self.files, PreprocessedFiles
+        ):
+            all_concrete = all(
+                isinstance(v, (CoffeaROOTFileSpec, CoffeaParquetFileSpec))
+                for v in self.files.values()
+            )
+            if all_concrete:
+                try:
+                    self.files = PreprocessedFiles(dict(self.files.root))
+                except ValidationError:
+                    # If promotion fails, keep the InputFiles
+                    pass
         return self
 
     @property
@@ -685,20 +759,29 @@ class DataGroupSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
 
     @model_validator(mode="before")
     def preprocess_data(cls, data: Any) -> Any:
-        data = copy.deepcopy(data)
+        # No deepcopy is needed at this level: the DataGroupSpec branch below produces a
+        # fresh dict via model_dump(), and every DatasetSpec value is deep-copied in
+        # DatasetSpec.preprocess_data. Caller input is therefore never mutated, while we
+        # avoid an extra full-fileset deepcopy pass on the hot preprocessing path.
         if isinstance(data, DataGroupSpec):
             return data.model_dump()
         return data
 
     @property
     def num_entries(self) -> int | None:
-        """Compute the total number of entries across all files in all datasets, if available."""
-        return sum(v.num_entries for v in self.root.values())
+        """Total entries across all datasets, or None if any dataset's count is unknown."""
+        values = [v.num_entries for v in self.root.values()]
+        if any(n is None for n in values):
+            return None
+        return sum(values)
 
     @property
     def num_selected_entries(self) -> int | None:
-        """Compute the total number of selected entries across all files (calculated from steps), if available."""
-        return sum(v.num_selected_entries for v in self.root.values())
+        """Total selected entries across all datasets, or None if any is unknown."""
+        values = [v.num_selected_entries for v in self.root.values()]
+        if any(n is None for n in values):
+            return None
+        return sum(values)
 
     @property
     def steps(self) -> dict[str, list[StepPair]] | None:
@@ -757,19 +840,22 @@ class DataGroupSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
 
 
 def identify_file_format(name_or_directory: str) -> str:
-    root_expression = re.compile(r"\.root")
-    parquet_expression = re.compile(r"\.(?:parq(?:uet)?|pq)")
-    if root_expression.search(name_or_directory):
-        return "root"
-    elif parquet_expression.search(name_or_directory):
-        return "parquet"
-    elif "." not in name_or_directory.split("/")[-1]:
-        # could be a parquet directory, would require a file opening to determine
-        return "parquet"  # maybe "parquet?" to trigger further inspection?
-    else:
+    # Inspect only the final path component so directory names can't be mistaken for extensions.
+    basename = name_or_directory.split("/")[-1]
+    root_matches = list(re.finditer(r"\.root", basename))
+    parquet_matches = list(re.finditer(r"\.(?:parq(?:uet)?|pq)", basename))
+    root_pos = root_matches[-1].start() if root_matches else -1
+    parquet_pos = parquet_matches[-1].start() if parquet_matches else -1
+    if root_pos == -1 and parquet_pos == -1:
+        if "." not in basename:
+            # could be a parquet directory, would require a file opening to determine
+            return "parquet"  # maybe "parquet?" to trigger further inspection?
         raise RuntimeError(
             f"identify_file_format couldn't identify if the string path is for a root file or parquet file/directory for {name_or_directory}"
         )
+    # Whichever extension appears last in the name wins, so e.g. "data.root.parquet"
+    # is identified as parquet rather than root.
+    return "root" if root_pos > parquet_pos else "parquet"
 
 
 class ModelFactory:
@@ -806,7 +892,8 @@ class ModelFactory:
                 raise TypeError(
                     f"ModelFactory.attempt_promotion got an unexpected input type {type(input)} for input: {input}"
                 )
-        except Exception:
+        except ValidationError:
+            # could not promote to the concrete spec; return the input unchanged
             return input
 
     @classmethod
@@ -815,7 +902,7 @@ class ModelFactory:
         assert isinstance(input, dict), f"{input} is not a dictionary"
         try:
             return CoffeaROOTFileSpec(**input)
-        except Exception:
+        except ValidationError:
             return CoffeaROOTFileSpecOptional(**input)
 
     @classmethod
@@ -824,7 +911,7 @@ class ModelFactory:
         assert isinstance(input, dict), f"{input} is not a dictionary"
         try:
             return CoffeaParquetFileSpec(**input)
-        except Exception:
+        except ValidationError:
             return CoffeaParquetFileSpecOptional(**input)
 
     @classmethod

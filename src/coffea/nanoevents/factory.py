@@ -1,3 +1,4 @@
+import inspect
 import io
 import pathlib
 import warnings
@@ -53,7 +54,15 @@ class _map_schema_base:  # ImplementsFormMapping, ImplementsFormMappingInfo
                 [
                     name
                     for name, maybe_transform in zip(operands, it_operands)
-                    if maybe_transform == "!load"
+                    # Match both "!load" and "!loadallowmissing": a saved/union form
+                    # marks branches that may be missing in some files with the
+                    # "!loadallowmissing" token (see nanoevents.mapping.base, which
+                    # dispatches on node.startswith("!load")). Both tokens denote a
+                    # real column read, so both branches must be requested from the
+                    # file. Matching only "!load" silently drops the maybe-missing
+                    # branches, causing dask mode to fabricate them as all-None even
+                    # in files that actually contain them.
+                    if maybe_transform.startswith("!load")
                 ]
             )
         return base_columns
@@ -159,8 +168,17 @@ class _map_schema_uproot(_map_schema_base):
             f"{start}-{stop}",
         )
         uuidpfn = {partition_key[0]: tree.file.file_path}
+        # A saved/union form can mark branches as maybe-missing
+        # ("!loadallowmissing"); such branches may be genuinely absent from
+        # this particular file, so only request the branches that are present.
+        # Absent branches are then simply not in the preloaded column source,
+        # and the PreloadedSourceMapping backfills them as all-None through its
+        # allow_missing path (matching eager/virtual semantics), while a
+        # genuinely-required ("!load") branch that is absent still raises
+        # loudly at buffer-access time.
+        present_keys = [key for key in keys if key in tree]
         arrays = tree.arrays(
-            keys,
+            present_keys,
             entry_start=start,
             entry_stop=stop,
             ak_add_doc=interp_options["ak_add_doc"],
@@ -230,6 +248,7 @@ class NanoEventsFactory:
         self._mapping = mapping
         self._partition_key = partition_key
         self._events = lambda: None
+        self._mapping_accepts_form_mapping = None
 
     def __getstate__(self):
         return {
@@ -243,6 +262,7 @@ class NanoEventsFactory:
         self._mapping = state["mapping"]
         self._partition_key = state["partition_key"]
         self._events = lambda: None
+        self._mapping_accepts_form_mapping = None
 
     @classmethod
     def from_root(
@@ -439,6 +459,8 @@ class NanoEventsFactory:
             file_handle=file_handle,
             use_ak_forth=use_ak_forth,
             virtual=mode == "virtual",
+            decompression_executor=decompression_executor,
+            interpretation_executor=interpretation_executor,
             preloaded_arrays=preloaded_arrays,
             buffer_cache=buffer_cache,
         )
@@ -765,7 +787,18 @@ class NanoEventsFactory:
         if self._mode == "dask":
             dask_awkward = _import_dask_awkward()
             dask_awkward.lib.core.dak_cache.clear()
-            events = self._mapping(form_mapping=self._schema)
+
+            # Whether the mapping accepts form_mapping (explicitly or via **kwargs) only
+            # depends on the mapping callable, so inspect its signature once and memoize.
+            if self._mapping_accepts_form_mapping is None:
+                params = inspect.signature(self._mapping).parameters
+                self._mapping_accepts_form_mapping = "form_mapping" in params or any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+                )
+            if self._mapping_accepts_form_mapping:
+                events = self._mapping(form_mapping=self._schema)
+            else:
+                events = self._mapping()
             report = None
             if isinstance(events, tuple):
                 events, report = events
