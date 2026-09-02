@@ -130,9 +130,6 @@ dev = [
   "pyinstrument",
 ]
 
-[dependency-groups]
-dev = ["coffea[dev]"]
-
 [tool.hatch]
 version.source = "vcs"
 build.hooks.vcs.version-file = "src/coffea/_version.py"
