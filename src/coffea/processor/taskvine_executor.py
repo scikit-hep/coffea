@@ -391,7 +391,9 @@ class CoffeaVine(Manager):
 
         self.console("Merging with local final accumulator...")
         accumulator = accumulate_result_files(
-            [t.output_file.source() for t in self.tasks_to_accumulate], accumulator
+            [t.output_file.source() for t in self.tasks_to_accumulate],
+            accumulator,
+            concurrent_reads=self.executor.concurrent_reads,
         )
 
         for t in self.tasks_to_accumulate:

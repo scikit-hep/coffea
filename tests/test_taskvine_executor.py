@@ -73,3 +73,34 @@ def test_processing_binds_concurrent_reads(monkeypatch, tmp_path):
     f.write_bytes(_compress({"x": 1}, 1))
     accum_fn([str(f)])
     assert sizes[-1] == 5
+
+
+def test_final_accumulation_uses_concurrent_reads(monkeypatch, tmp_path):
+    sizes = []
+    real_pool = tv.ThreadPool
+    monkeypatch.setattr(tv, "ThreadPool", lambda n: sizes.append(n) or real_pool(n))
+
+    f = tmp_path / "file.0"
+    f.write_bytes(_compress({"x": 1}, 1))
+
+    class FakeTask:
+        output_file = types.SimpleNamespace(source=lambda: str(f))
+
+        def cleanup_outputs(self, manager):
+            pass
+
+    class FakeConsole:
+        def __call__(self, *args, **kwargs):
+            pass
+
+        def warn(self, *args, **kwargs):
+            pass
+
+    m = tv.CoffeaVine.__new__(tv.CoffeaVine)
+    m.executor = types.SimpleNamespace(compression=1, concurrent_reads=7)
+    m.stats_coffea = {"chunks_processed": 1, "chunks_total": 1}
+    m.tasks_to_accumulate = [FakeTask()]
+    m.console = FakeConsole()
+
+    assert m._final_accumulation(None) == {"x": 1}
+    assert sizes == [7]

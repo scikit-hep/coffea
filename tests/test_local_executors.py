@@ -7,7 +7,7 @@ from cachetools import LRUCache
 from coffea import processor
 from coffea.nanoevents import schemas
 from coffea.processor import Err, Ok
-from coffea.processor.executor import UprootMissTreeError
+from coffea.processor.executor import ExecutorBase, UprootMissTreeError
 from coffea.processor.test_items import NanoEventsProcessor
 
 _exceptions = (FileNotFoundError, UprootMissTreeError, pyarrow.ArrowInvalid)
@@ -255,6 +255,25 @@ _bad_fileset = {
 }
 
 
+class _RecoverableExecutor(ExecutorBase):
+    """Deterministic stand-in for a ``recoverable=True`` executor: process items
+    in order, hand back the accumulator built so far with the first exception."""
+
+    def __call__(self, items, function, accumulator):
+        for item in items:
+            try:
+                accumulator = processor.accumulate([function(item)], accumulator)
+            except Exception as e:
+                return accumulator, e
+        return accumulator, 0
+
+
+def _fail_on_third_chunk(events):
+    if events.metadata["entrystart"] == 20:
+        raise RuntimeError("simulated chunk failure")
+    return {"nevents": len(events)}
+
+
 @pytest.mark.parametrize("filetype", ["ttree", "rntuple", "parquet"])
 def test_preprocessing_cache_smaller_than_fileset(filetype):
     # the metadata cache is bounded, so a fileset larger than it used to lose
@@ -415,23 +434,15 @@ def test_use_result_type_recoverable_non_matching_propagates():
     """A recoverable exception that doesn't match skipbadfiles' filter must
     still propagate (it's a real bug, not an expected failure)."""
     run = processor.Runner(
-        executor=processor.IterativeExecutor(),
+        executor=_RecoverableExecutor(),
         schema=schemas.NanoAODSchema,
+        chunksize=10,
         use_result_type=True,
-        skipbadfiles=(OSError,),  # filter doesn't include AssertionError
+        skipbadfiles=(OSError,),  # filter doesn't include the RuntimeError below
     )
-
-    boom = AssertionError("real bug")
-
-    def fake_run(**kwargs):
-        return Ok({"out": {"x": 1}, "exception": boom})
-
-    run.run = fake_run
-    with pytest.raises(AssertionError, match="real bug"):
-        run(
-            {"x": {"files": {"f.root": "Events"}}},
-            processor_instance=NanoEventsProcessor(mode="eager"),
-        )
+    with pytest.raises(Exception) as excinfo:
+        run(_good_fileset, processor_instance=_fail_on_third_chunk)
+    assert isinstance(excinfo.value.__cause__, RuntimeError)
 
 
 def test_use_result_type_run_non_matching_propagates():
@@ -562,39 +573,52 @@ def test_futures_mergepool_forms(form):
     import concurrent.futures as cf
 
     mp = {
-        "int": 2,
-        "class": cf.ProcessPoolExecutor,
-        "instance": cf.ProcessPoolExecutor(max_workers=2),
-        "bool": True,
-    }[form]
-    ex = processor.FuturesExecutor(
-        workers=2, merging=True, mergepool=mp, compression=None, status=False
-    )
-    out, code = ex(list(range(6)), _one, None)
-    assert out == {"n": 6}
-    assert code == 0
-    assert ex.mergepool is mp
-    if isinstance(mp, cf.Executor):
-        mp.shutdown()
-
-
-def test_recoverable_exception_raised_in_default_path():
-    # Bug 47: use_result_type=False must not silently drop a captured exception
-    run = processor.Runner(
-        executor=processor.IterativeExecutor(),
-        schema=schemas.NanoAODSchema,
-    )
-    boom = RuntimeError("recovered failure")
-
-    def fake_run(**kwargs):
-        return {"out": {"cutflow": {"events": 1}}, "exception": boom}
-
-    run.run = fake_run
-    with pytest.raises(RuntimeError, match="recovered failure"):
-        run(
-            {"x": {"files": {"f.root": "Events"}}},
-            processor_instance=NanoEventsProcessor(mode="eager"),
+        "int": lambda: 2,
+        "class": lambda: cf.ProcessPoolExecutor,
+        "instance": lambda: cf.ProcessPoolExecutor(max_workers=2),
+        "bool": lambda: True,
+    }[form]()
+    try:
+        ex = processor.FuturesExecutor(
+            workers=2, merging=True, mergepool=mp, compression=None, status=False
         )
+        out, code = ex(list(range(6)), _one, None)
+        assert out == {"n": 6}
+        assert code == 0
+        assert ex.mergepool is mp
+        if form == "instance":
+            assert mp.submit(abs, -1).result() == 1
+    finally:
+        if isinstance(mp, cf.Executor):
+            mp.shutdown()
+
+
+def test_recoverable_partial_output_reachable_in_default_path():
+    # Bug 47: use_result_type=False must not silently drop a captured exception,
+    # but recoverable=True promises the already-completed work back with it
+    run = processor.Runner(
+        executor=_RecoverableExecutor(),
+        schema=schemas.NanoAODSchema,
+        chunksize=10,
+    )
+    with pytest.raises(Exception) as excinfo:
+        run(_good_fileset, processor_instance=_fail_on_third_chunk)
+    assert isinstance(excinfo.value.__cause__, RuntimeError)
+    assert excinfo.value.partial_output == {"nevents": 20}
+
+    # run() is documented to propagate as well, not to hand back a dict with the
+    # exception tucked inside it
+    with pytest.raises(Exception) as excinfo:
+        run.run(_good_fileset, processor_instance=_fail_on_third_chunk)
+    assert excinfo.value.partial_output == {"nevents": 20}
+
+
+def test_tailtimeout_deprecation_warns_once():
+    # copy() rebuilds the executor internally; that is not a second occasion to
+    # deprecate an argument the user passed once
+    with pytest.warns(DeprecationWarning) as record:
+        processor.FuturesExecutor(tailtimeout=5).copy(unit="chunk")
+    assert sum(issubclass(w.category, DeprecationWarning) for w in record) == 1
 
 
 def test_maxchunks_limits_preprocess_file_opening():
@@ -612,6 +636,28 @@ def test_maxchunks_limits_preprocess_file_opening():
         executor=processor.IterativeExecutor(retries=0),
         schema=schemas.NanoAODSchema,
         maxchunks=1,
+    )
+    chunks = list(run.preprocess(fileset))
+    assert len(chunks) == 1
+    assert chunks[0].filename.endswith("nano_dy.root")
+
+
+def test_maxchunks_with_skipbadfiles_looks_past_a_bad_file():
+    # a bad file at the head of the list must not eat the maxchunks budget
+    fileset = {
+        "ZJets": {
+            "treename": "Events",
+            "files": [
+                osp.abspath("tests/samples/non_existent.root"),
+                osp.abspath("tests/samples/nano_dy.root"),
+            ],
+        }
+    }
+    run = processor.Runner(
+        executor=processor.IterativeExecutor(retries=0),
+        schema=schemas.NanoAODSchema,
+        maxchunks=1,
+        skipbadfiles=True,
     )
     chunks = list(run.preprocess(fileset))
     assert len(chunks) == 1
@@ -663,9 +709,9 @@ def test_watcher_recompresses_only_on_change(monkeypatch):
     assert ex_mod._decompress(out) == {"n": 1}
 
 
-def test_auto_dask_client_single_and_cleanup(monkeypatch):
-    # Bug 24: at most one auto-created dask Client, assigned to both executors and
-    # cleaned up afterwards
+@pytest.fixture
+def fake_dask_clients(monkeypatch):
+    """Records every Client the Runner auto-creates, without a real cluster."""
     from coffea.processor import executor as ex_mod
 
     created = []
@@ -683,6 +729,13 @@ def test_auto_dask_client_single_and_cleanup(monkeypatch):
             Client = FakeClient
 
     monkeypatch.setattr(ex_mod, "_import_distributed", lambda: FakeDistributed)
+    return created
+
+
+def test_auto_dask_client_single_and_cleanup(fake_dask_clients):
+    # Bug 24: at most one auto-created dask Client, assigned to both executors and
+    # cleaned up afterwards
+    created = fake_dask_clients
 
     executor = processor.DaskExecutor()
     runner = processor.Runner(executor=executor)
@@ -695,3 +748,14 @@ def test_auto_dask_client_single_and_cleanup(monkeypatch):
     assert len(created) == 1
     assert executor.client is None
     assert created[0].closed is True
+
+
+def test_auto_dask_client_left_alone_for_dataframes(fake_dask_clients):
+    # the lazy dd.DataFrame handed back outlives the call, so the Runner must not
+    # own (and close) the client its futures are bound to
+    executor = processor.DaskExecutor(use_dataframes=True)
+    runner = processor.Runner(executor=executor)
+    with runner._auto_dask_client() as client:
+        assert client is None
+    assert fake_dask_clients == []
+    assert executor.client is None
