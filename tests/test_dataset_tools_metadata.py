@@ -205,6 +205,27 @@ def test_file_metadata_excluded_from_legacy_dict_output(two_files):
     assert available["D"]["metadata"]["sumw_dataset"] == 80.0
 
 
+def test_repreprocess_without_extractor_keeps_file_metadata(two_files):
+    file_a, file_b = two_files
+    dgs = DataGroupSpec({"D": {"files": {file_a: "Events", file_b: "Events"}}})
+    first, _ = preprocess(
+        dgs,
+        save_form=False,
+        backend="iterative",
+        metadata_extractor=_sumw_style,
+    )
+    available, updated = preprocess(
+        first,
+        save_form=False,
+        backend="iterative",
+        metadata_reducer=_sum_sumw,
+    )
+    for out in (available, updated):
+        for fs in out["D"].files.values():
+            assert fs.metadata == {"sumw": 40.0}
+        assert out["D"].metadata["sumw_dataset"] == 80.0
+
+
 def test_filespec_metadata_add_merges(two_files):
     file_a, _ = two_files
     dgs = DataGroupSpec({"D": {"files": {file_a: "Events"}}})
@@ -221,8 +242,7 @@ def test_filespec_metadata_add_merges(two_files):
     assert merged.metadata == fs.metadata
 
 
-def test_extractor_with_rntuple(tmp_path):
-    """The extractor receives the open file for RNTuple inputs too."""
+def test_extractor_with_rntuple():
     rnt = "tests/samples/nano_dy_rntuple.root"
     dgs = DataGroupSpec({"D": {"files": {rnt: "Events"}}})
     available, _ = preprocess(

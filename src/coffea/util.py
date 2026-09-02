@@ -4,7 +4,7 @@ import base64
 import gzip
 import hashlib
 import warnings
-from functools import partial
+from functools import partial, update_wrapper
 from typing import Any
 
 import awkward
@@ -411,19 +411,26 @@ class _DaskMethod:
 
         return self._impl.__get__(instance, owner)
 
+    # this __call__ method is only present to signal
+    # to Sphinx that these objects should be treated as methods
+    # in the documentation
+    # since this is purely for tricking Sphinx,
+    # it raises a NotImplemented error to prevent anyone from accidentally
+    # calling it directly (and to check that my doc-trick doesn't change
+    # any of the behavior under test)
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError
+
     def dask(self, func):
         self._dask_get = _make_dask_method(func)
-        return self
+        return update_wrapper(self, self._impl)
 
 
 def dask_method(maybe_func=None, *, no_dispatch=False):
     def dask_method_wrapper(func):
         method = _DaskMethod(func)
-
-        if no_dispatch:
-            return method.dask(_adapt_naive_dask_get(func))
-        else:
-            return method
+        f = method.dask(_adapt_naive_dask_get(func)) if no_dispatch else method
+        return update_wrapper(f, func)
 
     if maybe_func is None:
         return dask_method_wrapper
