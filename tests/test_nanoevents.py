@@ -1,6 +1,7 @@
 import inspect
 import os
 import re
+import sys
 from functools import partial
 from pathlib import Path
 
@@ -795,22 +796,17 @@ def _all_schemas():
 
 @pytest.mark.parametrize("schemaclass", _all_schemas(), ids=lambda c: c.__name__)
 def test_schema_behavior_survives_pickling(schemaclass):
-    """Dask ships the schema's behavior dict to distributed workers, so every
-    entry has to be picklable, and every class in it has to be reachable under
-    its own qualified name -- otherwise cloudpickle falls back to copying the
-    class by value, which both bloats the graph and can fail outright.
+    """Behavior dicts are shipped to distributed workers, and their classes must
+    go by reference -- a shadowed class silently falls back to pickling by value.
     """
-    import sys
-
     cloudpickle = pytest.importorskip("cloudpickle")
 
-    behavior = dict(schemaclass.behavior())
+    behavior = schemaclass.behavior()
     cloudpickle.loads(cloudpickle.dumps(behavior))
 
     for key, value in behavior.items():
         if isinstance(value, type):
             module = sys.modules[value.__module__]
-            assert getattr(module, value.__qualname__, None) is value, (
-                f"{schemaclass.__name__} behavior[{key!r}] is shadowed: "
-                f"{value.__module__}.{value.__qualname__} is a different class"
-            )
+            assert (
+                getattr(module, value.__qualname__, None) is value
+            ), f"behavior[{key!r}] is not {value.__module__}.{value.__qualname__}"
