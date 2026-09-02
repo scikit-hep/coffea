@@ -10,12 +10,8 @@ def tests_directory() -> str:
 
 @pytest.fixture(scope="session")
 def _dask_session_client():
-    """A single, resource-bounded ``distributed.Client`` shared across the session.
-
-    ``set_as_default=False`` keeps the client from becoming the process-wide
-    default scheduler, so ``.compute()`` in tests that run after a ``dask_client``
-    test still uses the default scheduler rather than this cluster.
-    """
+    """Shared session cluster; ``set_as_default=False`` keeps it from becoming the
+    process-wide default scheduler."""
     distributed = pytest.importorskip("distributed")
 
     with distributed.Client(
