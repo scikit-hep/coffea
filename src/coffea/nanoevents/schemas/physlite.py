@@ -12,7 +12,7 @@ class PHYSLITESchema(BaseSchema):
 
     This is a schema for the `ATLAS DAOD_PHYSLITE derivation
     <https://gitlab.cern.ch/atlas/athena/-/blob/release/21.2.108.0/PhysicsAnalysis/DerivationFramework/DerivationFrameworkPhys/share/PHYSLITE.py>`_.
-    Closely following `schemas.nanoaod.NanoAODSchema`, it is mainly build from
+    Closely following ``schemas.nanoaod.NanoAODSchema``, it is mainly built from
     naming patterns where the "Analysis" prefix has been removed, so the
     collections will be named Electrons, Muons, instead of AnalysisElectrons,
     AnalysisMunos, etc. The collection fields correspond to the "Aux" and
@@ -21,7 +21,7 @@ class PHYSLITESchema(BaseSchema):
     Collections are assigned mixin types according to the `mixins` mapping.
     All collections are then zipped into one `base.NanoEvents` record and returned.
 
-    Cross references are build from ElementLink columns. Global indices are
+    Cross references are built from ElementLink columns. Global indices are
     created dynamically, using an ``_eventindex`` field that is attached to
     each collection.
     """
@@ -154,6 +154,9 @@ class PHYSLITESchema(BaseSchema):
                 mixin = self.mixins.get(objname, None)
                 if mixin == "TrackParticle":
                     to_zip["p"] = transforms.qoverp_to_p_form(to_zip["qOverP"])
+                    to_zip["pt"] = transforms.qoverp_theta_to_pt_form(
+                        to_zip["qOverP"], to_zip["theta"]
+                    )
                     to_zip["tau"] = transforms.full_like_from_content_form(
                         to_zip["theta"], 139.570
                     )
@@ -202,3 +205,9 @@ class PHYSLITESchema(BaseSchema):
         from coffea.nanoevents.methods import physlite
 
         return physlite.behavior
+
+    @classmethod
+    def uproot_writeable(cls, events):
+        raise NotImplementedError(
+            f"uproot_writeable is not implemented for {cls.__name__}"
+        )

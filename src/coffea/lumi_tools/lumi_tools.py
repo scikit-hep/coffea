@@ -2,17 +2,13 @@ import json
 from functools import partial
 
 import awkward
-import dask.delayed
-import dask_awkward
 import fsspec
 import numba
 import numpy
-from dask.base import tokenize
-from dask.highlevelgraph import HighLevelGraph
-from dask_awkward.layers import AwkwardTreeReductionLayer
-from dask_awkward.lib.core import new_array_object
 from numba import types
 from numba.typed import Dict
+
+from coffea.util import _import_dask, _import_dask_awkward, _isinstance
 
 _numba_bool = None
 if hasattr(types, "bool"):
@@ -65,7 +61,7 @@ class LumiData:
     ----------
         lumi_csv : str
             The path to the luminosity csv file to read from. Generally, this is the output file from brilcalc.
-        is_inst_lumi: bool, default False
+        is_inst_lumi : bool, default False
             If True, treats the values read in from ``lumi_csv`` as average instantaneous luminosities, instead of integrated luminosities.
 
     The values are extracted from the csv output as returned by brilcalc_, e.g. with a command such as::
@@ -128,13 +124,15 @@ class LumiData:
                 runs, lumis, self._lumidata[:, 2], self.index
             )
             # delayed object cache
-            if isinstance(runlumis, dask_awkward.Array):
+            if _isinstance(runlumis, "dask_awkward.lib.core.Array"):
+                dask = _import_dask()
                 self.index_delayed = dask.delayed(
                     tuple([runs, lumis, self._lumidata[:, 2]])
                 )
 
         tot_lumi = numpy.zeros((1,), dtype=numpy.dtype("float64"))
-        if isinstance(runlumis, dask_awkward.Array):
+        if _isinstance(runlumis, "dask_awkward.lib.core.Array"):
+            dask_awkward = _import_dask_awkward()
             lumi_meta = wrap_get_lumi(runlumis._meta, self.index)
             lumi_per_partition = dask_awkward.map_partitions(
                 wrap_get_lumi,
@@ -253,7 +251,8 @@ class LumiMask:
                 )
             return mask_out
 
-        if isinstance(runs, dask_awkward.Array):
+        if _isinstance(runs, "dask_awkward.lib.core.Array"):
+            dask_awkward = _import_dask_awkward()
             return dask_awkward.map_partitions(apply, runs, lumis)
         else:
             return apply(runs, lumis)
@@ -292,6 +291,11 @@ def _wrap_unique(array):
 
 
 def _lumilist_dak_unique(runs_and_lumis, split_every=8):
+    dask = _import_dask()
+    dask_awkward = _import_dask_awkward()
+    tokenize = dask.base.tokenize
+    HighLevelGraph = dask.highlevelgraph.HighLevelGraph
+
     concat_fn = partial(awkward.concatenate, axis=0)
 
     tree_node_fn = _wrap_unique
@@ -314,7 +318,7 @@ def _lumilist_dak_unique(runs_and_lumis, split_every=8):
         _wrap_unique, runs_and_lumis, label="lumilist-unique-chunked"
     )
 
-    trl = AwkwardTreeReductionLayer(
+    trl = dask_awkward.layers.AwkwardTreeReductionLayer(
         name=name_finalize,
         name_input=chunked.name,
         npartitions_input=chunked.npartitions,
@@ -329,7 +333,9 @@ def _lumilist_dak_unique(runs_and_lumis, split_every=8):
 
     meta = _wrap_unique(runs_and_lumis._meta)
 
-    return new_array_object(graph, name_finalize, meta=meta, npartitions=1)
+    return dask_awkward.lib.core.new_array_object(
+        graph, name_finalize, meta=meta, npartitions=1
+    )
 
 
 class LumiList:
@@ -343,7 +349,7 @@ class LumiList:
             Vectorized list of run numbers
         lumis : numpy.ndarray, dask_awkward.Array
             Vectorized list of lumiSection values
-        delayed: bool
+        delayed : bool
             Is this LumiList in delayed mode or not.
     """
 
@@ -362,8 +368,8 @@ class LumiList:
         if not delayed:
             self.array = numpy.zeros(shape=(0, 2), dtype=numpy.uint32)
 
-        if isinstance(runs, dask_awkward.Array) and isinstance(
-            lumis, dask_awkward.Array
+        if _isinstance(runs, "dask_awkward.lib.core.Array") and _isinstance(
+            lumis, "dask_awkward.lib.core.Array"
         ):
             self.array = _lumilist_dak_unique(
                 awkward.concatenate([runs[:, None], lumis[:, None]], axis=1)
@@ -375,7 +381,7 @@ class LumiList:
     def __iadd__(self, other):
         # TODO: re-apply unique? Or wait until end
         if isinstance(other, LumiList):
-            if isinstance(self.array, dask_awkward.Array):
+            if _isinstance(self.array, "dask_awkward.lib.core.Array"):
                 self.array = _lumilist_dak_unique(
                     awkward.concatenate([self.array, other.array], axis=0)
                 )
@@ -393,6 +399,6 @@ class LumiList:
 
     def clear(self):
         """Clear current lumi list"""
-        if isinstance(self.array, dask_awkward.Array):
+        if _isinstance(self.array, "dask_awkward.lib.core.Array"):
             raise RuntimeError("Delayed-mode LumiList cannot be cleared!")
         self.array = numpy.zeros(shape=(0, 2), dtype=numpy.uint32)

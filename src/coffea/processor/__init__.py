@@ -14,9 +14,12 @@ from .accumulator import (
 from .checkpointer import CheckpointerABC, SimpleCheckpointer
 from .executor import (
     DaskExecutor,
+    Err,
     FuturesExecutor,
     IterativeExecutor,
+    Ok,
     ParslExecutor,
+    Result,
     Runner,
 )
 from .processor import ProcessorABC
@@ -41,4 +44,7 @@ __all__ = [
     "dict_accumulator",
     "defaultdict_accumulator",
     "column_accumulator",
+    "Result",
+    "Ok",
+    "Err",
 ]

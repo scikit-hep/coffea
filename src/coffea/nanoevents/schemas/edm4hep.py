@@ -943,6 +943,8 @@ class EDM4HEPSchema(BaseSchema):
                 (k.replace(k, self._replacement[k]) if k in self._replacement else k): v
                 for k, v in collection_content.items()
             }
+            if mixin == "ReconstructedParticle":
+                collection_content.pop("E", None)
 
             first_var_form = collection_content[list(collection_content.keys())[0]]
             offset_form = {
@@ -1082,6 +1084,12 @@ class EDM4HEPSchema(BaseSchema):
         behavior.update(vector.behavior)
         behavior.update(edm4hep.behavior)
         return behavior
+
+    @classmethod
+    def uproot_writeable(cls, events):
+        raise NotImplementedError(
+            f"uproot_writeable is not implemented for {cls.__name__}"
+        )
 
 
 class EDM4HEPSchema_v00_99_00(EDM4HEPSchema):

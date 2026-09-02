@@ -288,6 +288,8 @@ class FCCSchema(BaseSchema):
                 (k.replace(k, self._replacement[k]) if k in self._replacement else k): v
                 for k, v in collection_content.items()
             }
+            if mixin == "ReconstructedParticle":
+                collection_content.pop("E", None)
 
             output[name] = zip_forms(sort_dict(collection_content), name, mixin)
             # Update some metadata
@@ -626,6 +628,12 @@ class FCCSchema(BaseSchema):
         behavior.update(vector.behavior)
         behavior.update(fcc.behavior)
         return behavior
+
+    @classmethod
+    def uproot_writeable(cls, events):
+        raise NotImplementedError(
+            f"uproot_writeable is not implemented for {cls.__name__}"
+        )
 
 
 class FCCSchema_edm4hep1(EDM4HEPSchema):

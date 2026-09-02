@@ -7,10 +7,15 @@ from functools import partial
 from typing import Any
 
 import awkward
-import dask_awkward
-from dask_awkward import dask_method, dask_property
 
-from coffea.util import awkward_rewrap, rewrap_recordarray
+from coffea.util import (
+    _import_dask_awkward,
+    _isinstance,
+    awkward_rewrap,
+    dask_method,
+    dask_property,
+    rewrap_recordarray,
+)
 
 behavior = {}
 
@@ -81,6 +86,7 @@ class Systematic:
         Make sure that the parent object always has a field called '__systematics__'.
         """
         if "__systematics__" not in awkward.fields(dask_array._meta):
+            dask_awkward = _import_dask_awkward()
             _ = dask_awkward.map_partitions(
                 _ensure_systematics_wrapper,
                 dask_array,
@@ -324,7 +330,7 @@ class NanoCollection:
                 return flat_take(layout)
 
         (index_out,) = awkward.broadcast_arrays(
-            index._meta if isinstance(index, dask_awkward.Array) else index
+            index._meta if _isinstance(index, "dask_awkward.lib.core.Array") else index
         )
         layout_out = awkward.transform(descend, index_out.layout, highlevel=False)
         out = awkward.Array(layout_out, behavior=self.behavior, attrs=self.attrs)

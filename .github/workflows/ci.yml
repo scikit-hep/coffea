@@ -22,8 +22,8 @@ jobs:
     name: pre-commit
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v7
       with:
         python-version: "3.14"
     - uses: pre-commit/action@v3.0.1
@@ -33,82 +33,69 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     needs: pre-commit
+    defaults:
+      run:
+        shell: bash -el {0}
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, macOS-latest, windows-latest]
-        python-version: ["3.10", "3.14"]
-        dask-client: ["with", "without"]
+        python-version: ["3.10", "3.14", "3.14t"]
+        include:
+          - python-version: "3.10"
+            python-conda-pkg: "python=3.10"
+          - python-version: "3.14"
+            python-conda-pkg: "python=3.14"
+          - python-version: "3.14t"
+            python-conda-pkg: "python-freethreading=3.14"
 
-    name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}, ${{ matrix.dask-client }} dask
+    name: Test w/o dask client (${{ matrix.os }}) - py ${{ matrix.python-version }}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: astral-sh/setup-uv@v7
+    - name: Set up micromamba
+      uses: mamba-org/setup-micromamba@v3
       with:
-        python-version: ${{ matrix.python-version }}
-        activate-environment: true
+        micromamba-version: "2.6.0-0"
+        environment-name: coffea-test
+        init-shell: bash
+        create-args: >-
+          -c conda-forge
+          ${{ matrix.python-conda-pkg }}
+          pip
+          uv
+          pytest-xdist
+          ${{ matrix.python-version != '3.14t' && 'pytorch-cpu' || '' }}
+          py-xgboost
+        cache-environment: true
 
-    - name: Set python test settings
-      run: |
-        echo "INSTALL_EXTRAS='[dev,caches,parsl,dask]'" >> $GITHUB_ENV
-
-    - name: Install dependencies (Linux)
+    - name: Install coffea and dependencies (Linux)
       if: startsWith( matrix.os, 'ubuntu' )
       run: |
-        echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
-        export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
-        uv pip install --upgrade pip setuptools wheel pytest-xdist
-        # mltool installs
-        # c.f. https://github.com/astral-sh/uv/issues/3437
-        uv pip install torch --index-url https://download.pytorch.org/whl/cpu
-        uv pip install xgboost
-        # install checked out coffea
-        uv pip install -q '.[dev,caches,parsl,dask,triton]' --upgrade
-        uv pip list
-    - name: Install dependencies (MacOS)
+        if [ "${{ matrix.python-version }}" = "3.14t" ]; then
+          uv pip install '.[dev,caches,parsl,dask,dask-awkward]'
+        else
+          uv pip install '.[dev,caches,parsl,dask,dask-awkward,triton]'
+        fi
+    - name: Install coffea and dependencies (macOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
-        export UV_BUILD_CONSTRAINT="$(pwd)/ruciospark_constraints.txt"
-        uv pip install --upgrade pip setuptools wheel pytest-xdist
-        # mltool installs
-        # c.f. https://github.com/astral-sh/uv/issues/3437
-        uv pip install torch
-        uv pip install xgboost
-        # install checked out coffea
-        uv pip install -q '.[dev,caches,dask]' --upgrade
-        uv pip list
-    - name: Install dependencies (Windows)
+        uv pip install '.[dev,caches,dask,dask-awkward]'
+    - name: Install coffea and dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install --upgrade pip setuptools wheel pytest-xdist
-        # mltool installs
-        # c.f. https://github.com/astral-sh/uv/issues/3437
-        uv pip install torch
-        uv pip install xgboost
-        # install checked out coffea
-        uv pip install -q '.[dev,caches,dask]' --upgrade
-        uv pip list
-
+        uv pip install '.[dev,caches,dask,dask-awkward]'
     - name: Start triton server with example model
-      if: startsWith( matrix.os, 'ubuntu' )
+      if: startsWith( matrix.os, 'ubuntu' ) && matrix.python-version != '3.14t'
       run: |
         docker run -d --rm -p 8000:8000 -p 8001:8001 -p 8002:8002 -v ${{ github.workspace }}/tests/samples/triton_models_test:/models nvcr.io/nvidia/tritonserver:25.11-pyt-python-py3 tritonserver --model-repository=/models
-
-    - name: Test with pytest (${{ matrix.dask-client }} dask Client - run in parallel)
-      if: matrix.dask-client == 'without'
+    - name: Test with pytest (without dask Client)
       run: |
-        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "not dask_client" -n 4
-    - name: Test with pytest (${{ matrix.dask-client }} dask Client)
-      if: matrix.dask-client == 'with'
-      run: |
-        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "dask_client"
+        python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "not dask_client" -n 4
     - name: Upload codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
     - name: Install graphviz
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       uses: ts-graphviz/setup-graphviz@v2
@@ -120,73 +107,146 @@ jobs:
       run: |
         cd docs && make html
         touch build/html/.nojekyll
-    # - name: Deploy documentation
-    #   if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
-    #   uses: crazy-max/ghaction-github-pages@v4
-    #   with:
-    #     target_branch: gh-pages
-    #     build_dir: docs/build/html
-    #   env:
-    #     GH_PAT: ${{ secrets.GITHUB_OAUTH }}
+
+  test-dask-client:
+    runs-on: ${{ matrix.os }}
+    needs: pre-commit
+    defaults:
+      run:
+        shell: bash -el {0}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macOS-latest, windows-latest]
+        python-version: ["3.10", "3.14", "3.14t"]
+        include:
+          - python-version: "3.10"
+            python-conda-pkg: "python=3.10"
+          - python-version: "3.14"
+            python-conda-pkg: "python=3.14"
+          - python-version: "3.14t"
+            python-conda-pkg: "python-freethreading=3.14"
+
+    name: Test w/ dask client (${{ matrix.os }}) - py ${{ matrix.python-version }}
+
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - name: Set up micromamba
+      uses: mamba-org/setup-micromamba@v3
+      with:
+        micromamba-version: "2.6.0-0"
+        environment-name: coffea-test
+        init-shell: bash
+        create-args: >-
+          -c conda-forge
+          ${{ matrix.python-conda-pkg }}
+          pip
+          uv
+          pytest-xdist
+          ${{ matrix.python-version != '3.14t' && 'pytorch-cpu' || '' }}
+          py-xgboost
+        cache-environment: true
+    - name: Install coffea and dependencies (Linux)
+      if: startsWith( matrix.os, 'ubuntu' )
+      run: |
+        if [ "${{ matrix.python-version }}" = "3.14t" ]; then
+          uv pip install '.[dev,caches,parsl,dask,dask-awkward]'
+        else
+          uv pip install '.[dev,caches,parsl,dask,dask-awkward,triton]'
+        fi
+    - name: Install coffea and dependencies (macOS)
+      if: matrix.os == 'macOS-latest'
+      run: |
+        uv pip install '.[dev,caches,dask,dask-awkward]'
+    - name: Install coffea and dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        uv pip install '.[dev,caches,dask,dask-awkward]'
+    - name: Start triton server with example model
+      if: startsWith( matrix.os, 'ubuntu' ) && matrix.python-version != '3.14t'
+      run: |
+        docker run -d --rm -p 8000:8000 -p 8001:8001 -p 8002:8002 -v ${{ github.workspace }}/tests/samples/triton_models_test:/models nvcr.io/nvidia/tritonserver:25.11-pyt-python-py3 tritonserver --model-repository=/models
+    - name: Test with pytest (with dask Client)
+      run: |
+        python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "dask_client" -n 4
+
+  test-no-dask:
+    runs-on: ubuntu-latest
+    needs: pre-commit
+    defaults:
+      run:
+        shell: bash -el {0}
+    name: Test without dask
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up micromamba
+      uses: mamba-org/setup-micromamba@v3
+      with:
+        environment-name: coffea-no-dask
+        init-shell: bash
+        create-args: >-
+          -c conda-forge
+          python=3.13
+          pip
+          uv
+          pytest-xdist
+        cache-environment: true
+    - name: Install coffea (no dask at all)
+      run: |
+        uv pip install '.[dev,caches,parsl,triton]'
+    - name: Test with pytest (no dask)
+      run: |
+        python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "not dask_client" -n 4
+    - name: Install dask and distributed (no dask-awkward)
+      run: |
+        uv pip install '.[dask]'
+    - name: Test with pytest (dask only, no dask-awkward)
+      run: |
+        python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "not dask_client" -n 4
 
   test-vine:
     runs-on: ubuntu-latest
     needs: pre-commit
+    defaults:
+      run:
+        shell: bash -el {0}
     strategy:
       matrix:
         python-version: ["3.14"]
     name: test coffea-taskvine
     steps:
-    - uses: actions/checkout@v6
-    - name: Set up Conda
-      uses: conda-incubator/setup-miniconda@v3
-      env:
-        ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    - uses: actions/checkout@v7
+    - name: Set up micromamba
+      uses: mamba-org/setup-micromamba@v3
       with:
-        auto-update-conda: true
-        python-version: ${{ matrix.python-version }}
-        channels: conda-forge
-    - name: Construct conda environment
-      shell: bash -l {0}
+        micromamba-version: "2.6.0-0"
+        environment-name: coffea-vine
+        init-shell: bash
+        create-args: >-
+          -c conda-forge
+          python=${{ matrix.python-version }}
+          ndcctools
+          pip
+          uv
+          pytest
+        cache-environment: true
+    - name: Install coffea
       run: |
-        conda create --yes --prefix ./coffea-conda-test-env -c conda-forge python=${{ matrix.python-version }} ndcctools uv
-        conda activate ./coffea-conda-test-env
-        uv pip install . 'dask<2025.1.0'
-        uv pip install pytest
+        uv pip install '.[dask,dask-awkward]' 'dask<2025.1.0'
     - name: Test with pytest coffea with dask + taskvine
       timeout-minutes: 5
       run: |
-        conda run --prefix ./coffea-conda-test-env pytest tests/test_taskvine_dask.py
+        python -m pytest tests/test_taskvine_dask.py
     - name: Test with pytest coffea with virtual arrays + taskvine
       timeout-minutes: 5
       run: |
-        conda run --prefix ./coffea-conda-test-env pytest tests/test_taskvine_virtual.py
-
-#  testskyhookjob:
-#    runs-on: ubuntu-latest
-#    needs: pre-commit
-#    name: test coffea-skyhook-job
-#
-#    steps:
-#    - uses: actions/checkout@3
-#    - name: Test Coffea Skyhook Bindings
-#      shell: bash -l {0}
-#      run: |
-#        docker build -t coffea-skyhook-test \
-#          --file docker/skyhook/Dockerfile \
-#          .
-#        docker run \
-#        -v $(pwd):/w \
-#        -w /w \
-#        -e IS_CI=true \
-#        --privileged \
-#        coffea-skyhook-test \
-#        ./docker/skyhook/script.sh
+        python -m pytest tests/test_taskvine_virtual.py
 
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    needs: [test, test-vine]
+    needs: [test, test-no-dask, test-vine]
     permissions:
       id-token: write
       attestations: write
@@ -197,9 +257,9 @@ jobs:
     name: deploy release
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
     - name: Build package for PyPI
@@ -208,17 +268,17 @@ jobs:
     - name: Verify the distribution
       run: pipx run twine check --strict dist/*
     - name: Generate artifact attestation for sdist and wheel
-      uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+      uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
       with:
         subject-path: "dist/coffea-*"
     - name: Publish package to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.13.0
+      uses: pypa/gh-action-pypi-publish@v1.14.2
       with:
         user: __token__
         password: ${{ secrets.PYPI_TOKEN }}
 
   pass:
-    needs: [test, test-vine]
+    needs: [test, test-dask-client, test-no-dask, test-vine]
     runs-on: ubuntu-latest
     steps:
       - run: echo "All jobs passed"

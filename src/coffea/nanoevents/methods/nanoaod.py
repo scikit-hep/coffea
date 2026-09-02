@@ -3,9 +3,9 @@
 import warnings
 
 import awkward
-from dask_awkward import dask_property
 
 from coffea.nanoevents.methods import base, candidate, vector
+from coffea.util import dask_property
 
 behavior = {}
 behavior.update(base.behavior)
@@ -27,6 +27,10 @@ def _set_repr_name(classname):
 
     # behavior[("__typestr__", classname)] = classname[0].lower() + classname[1:]
     behavior[classname].__repr__ = namefcn
+
+
+_VERTEX_REQUIRED = frozenset({"x", "y", "z"})
+_SECONDARY_VERTEX_REQUIRED = frozenset({"pt", "eta", "phi", "mass"})
 
 
 behavior.update(
@@ -195,10 +199,6 @@ GenParticleRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
 GenParticleRecord.ProjectionClass4D = GenParticleRecord  # noqa: F821
 GenParticleRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
 
-behavior.update(
-    awkward._util.copy_behaviors("PtEtaPhiMLorentzVector", "GenVisTau", behavior)
-)
-
 
 @awkward.mixin_class(behavior)
 class GenVisTau(candidate.PtEtaPhiMCandidate, base.NanoCollection):
@@ -215,6 +215,18 @@ class GenVisTau(candidate.PtEtaPhiMCandidate, base.NanoCollection):
         return dask_array._events().GenPart._apply_global_index(
             dask_array.genPartIdxMotherG
         )
+
+
+# Fill in cross-class LorentzVector behaviors for GenVisTau without overwriting
+# the charge-propagating Candidate.add the decorator just registered. Running
+# ``copy_behaviors`` before the decorator would pre-seed
+# ``(add, GenVisTau, GenVisTau)`` -> LorentzVector.add and silently drop charge
+# on ``GenVisTau + GenVisTau`` (see scikit-hep/coffea#1578).
+for _key, _value in awkward._util.copy_behaviors(
+    "PtEtaPhiMLorentzVector", "GenVisTau", behavior
+).items():
+    behavior.setdefault(_key, _value)
+del _key, _value
 
 
 _set_repr_name("GenVisTau")
@@ -540,7 +552,7 @@ class FsrPhoton(candidate.PtEtaPhiMCandidate, base.NanoCollection):
 
     @matched_muon.dask
     def matched_muon(self, dask_array):
-        return dask_array._events().Jet._apply_global_index(dask_array.muonIdxG)
+        return dask_array._events().Muon._apply_global_index(dask_array.muonIdxG)
 
 
 _set_repr_name("FsrPhoton")
@@ -759,6 +771,14 @@ class Vertex(base.NanoCollection):
             behavior=self.behavior,
         )
 
+    def __awkward_validation__(self):
+        missing = _VERTEX_REQUIRED.difference(self.fields)
+        if missing:
+            raise ValueError(
+                f"{type(self).__name__} requires fields {sorted(_VERTEX_REQUIRED)}; "
+                f"missing: {sorted(missing)}"
+            )
+
 
 _set_repr_name("Vertex")
 
@@ -780,6 +800,15 @@ class SecondaryVertex(Vertex):
             with_name="PtEtaPhiMLorentzVector",
             behavior=self.behavior,
         )
+
+    def __awkward_validation__(self):
+        missing = _SECONDARY_VERTEX_REQUIRED.difference(self.fields)
+        if missing:
+            raise ValueError(
+                f"{type(self).__name__} requires fields {sorted(_SECONDARY_VERTEX_REQUIRED)} "
+                f"(in addition to x/y/z); missing: {sorted(missing)}"
+            )
+        super().__awkward_validation__()
 
 
 _set_repr_name("SecondaryVertex")

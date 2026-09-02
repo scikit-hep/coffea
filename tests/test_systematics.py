@@ -1,12 +1,30 @@
 import awkward as ak
-import dask
 import numpy as np
 import pytest
+
+try:
+    import dask_awkward  # noqa: F401
+
+    _dak_available = True
+except ImportError:
+    _dak_available = False
 
 from coffea.nanoevents import NanoEventsFactory
 
 
-@pytest.mark.parametrize("mode", ["eager", "dask", "virtual"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "eager",
+        pytest.param(
+            "dask",
+            marks=pytest.mark.skipif(
+                not _dak_available, reason="dask-awkward not installed"
+            ),
+        ),
+        "virtual",
+    ],
+)
 @pytest.mark.parametrize("kind", ["UpDownSystematic", "UpDownMultiSystematic"])
 def test_single_field_variation(tests_directory, mode, kind):
     def get_array(array):
@@ -25,6 +43,8 @@ def test_single_field_variation(tests_directory, mode, kind):
     expected_met_pt = events.MET.pt
     expected_met_phi = events.MET.phi
     if mode == "dask":
+        import dask
+
         (
             expected_muon_pt,
             expected_jet_pt,
@@ -103,7 +123,19 @@ def test_single_field_variation(tests_directory, mode, kind):
         assert sorted(access_log) == ["Jet_pt", "MET_pt", "Muon_pt", "nJet", "nMuon"]
 
 
-@pytest.mark.parametrize("mode", ["eager", "dask", "virtual"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "eager",
+        pytest.param(
+            "dask",
+            marks=pytest.mark.skipif(
+                not _dak_available, reason="dask-awkward not installed"
+            ),
+        ),
+        "virtual",
+    ],
+)
 def test_multi_field_variation(tests_directory, mode):
     def get_array(array):
         return array.compute() if mode == "dask" else array
@@ -121,6 +153,8 @@ def test_multi_field_variation(tests_directory, mode):
     expected_met_pt = events.MET.pt
     expected_met_phi = events.MET.phi
     if mode == "dask":
+        import dask
+
         (
             expected_muon_pt,
             expected_jet_pt,
@@ -242,7 +276,19 @@ def test_multi_field_variation(tests_directory, mode):
         ]
 
 
-@pytest.mark.parametrize("mode", ["eager", "dask", "virtual"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "eager",
+        pytest.param(
+            "dask",
+            marks=pytest.mark.skipif(
+                not _dak_available, reason="dask-awkward not installed"
+            ),
+        ),
+        "virtual",
+    ],
+)
 def test_single_and_multi_field_variation(tests_directory, mode):
     def get_array(array):
         return array.compute() if mode == "dask" else array
@@ -260,6 +306,8 @@ def test_single_and_multi_field_variation(tests_directory, mode):
     expected_met_pt = events.MET.pt
     expected_met_phi = events.MET.phi
     if mode == "dask":
+        import dask
+
         (
             expected_muon_pt,
             expected_jet_pt,

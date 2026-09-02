@@ -1,12 +1,25 @@
+import contextlib
 import os
 
 import awkward as ak
-import dask
-import dask_awkward as dak
 import pytest
+
+try:
+    import dask
+
+    def _dask_cfg(opt):
+        return dask.config.set({"awkward.optimization.enabled": opt})
+
+except ImportError:
+
+    def _dask_cfg(opt):
+        return contextlib.nullcontext()
+
+
 from dummy_distributions import dummy_jagged_eta_pt
 
 from coffea import lookup_tools
+from coffea.lookup_tools.json_converters import convert_histo_json_file
 from coffea.nanoevents import NanoEventsFactory
 from coffea.util import numpy as np
 
@@ -145,7 +158,8 @@ def test_evaluate_noimpl():
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_correctionlib(optimization_enabled):
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    dak = pytest.importorskip("dask_awkward")
+    with _dask_cfg(optimization_enabled):
         extractor = lookup_tools.extractor()
         extractor.add_weight_sets(["* * tests/samples/testSF2d.corr.json.gz"])
 
@@ -194,7 +208,8 @@ def test_correctionlib(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_root_scalefactors(optimization_enabled):
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    dak = pytest.importorskip("dask_awkward")
+    with _dask_cfg(optimization_enabled):
         extractor = lookup_tools.extractor()
         extractor.add_weight_sets(
             ["testSF2d scalefactors_Tight_Electron tests/samples/testSF2d.histo.root"]
@@ -255,6 +270,45 @@ def test_histo_json_scalefactors():
     sf_err_out = evaluator["testJsonEIDISO_WH/eta_pt_ratio_error"](test_eta, test_pt)
     print(sf_out)
     print(sf_err_out)
+
+
+def test_histo_json_scalefactors_multi():
+    # dirA/histA has {value, error}, dirB/histB has {value, weight}
+    out = convert_histo_json_file("tests/samples/multihist_WH_out.histo.json")
+    keys = {name for (name, _kind) in out.keys()}
+    assert keys == {
+        "dirA/histA_value",
+        "dirA/histA_error",
+        "dirB/histB_value",
+        "dirB/histB_weight",
+    }
+
+    assert list(out[("dirA/histA_value", "dense_lookup")][0]) == [1.0, 2.0]
+    assert list(out[("dirA/histA_error", "dense_lookup")][0]) == [
+        pytest.approx(0.1),
+        pytest.approx(0.2),
+    ]
+    assert list(out[("dirB/histB_value", "dense_lookup")][0]) == [5.0, 6.0]
+    assert list(out[("dirB/histB_weight", "dense_lookup")][0]) == [9.0, 8.0]
+
+    extractor = lookup_tools.extractor()
+    extractor.add_weight_sets(["testMulti * tests/samples/multihist_WH_out.histo.json"])
+    extractor.finalize()
+    evaluator = extractor.make_evaluator()
+
+    x = ak.Array([0.5, 1.5])
+    assert list(evaluator["testMultidirA/histA_value"](x)) == [1.0, 2.0]
+    assert list(evaluator["testMultidirB/histB_weight"](x)) == [9.0, 8.0]
+
+
+def test_histo_json_scalefactors_multi_subset():
+    # the last histogram's value names are a subset of an earlier one's
+    out = convert_histo_json_file("tests/samples/multihist_subset_WH_out.histo.json")
+    assert {name for (name, _kind) in out.keys()} == {
+        "dirA/histA_value",
+        "dirA/histA_error",
+        "dirB/histB_value",
+    }
 
 
 def test_jec_txt_scalefactors():
@@ -372,6 +426,7 @@ def test_jec_txt_effareas():
 
 
 def test_rochester(tests_directory):
+    dak = pytest.importorskip("dask_awkward")
     rochester_data = lookup_tools.txt_converters.convert_rochester_file(
         f"{tests_directory}/samples/RoccoR2018.txt.gz", loaduncs=True
     )

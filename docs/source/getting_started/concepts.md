@@ -22,7 +22,7 @@ that were reconstructed in a collision event. The analysis code manipulates this
 quantities or summary statistics in the form of histograms. In contrast, columnar analysis operates on individual
 columns of data spanning a *chunk* (partition, batch) of rows using [array programming](https://en.wikipedia.org/wiki/Array_programming)
 primitives in turn, to compute derived quantities and summary statistics. Array programming is widely used within
-the [scientific python ecosystem](https://www.scipy.org/about.html), supported by the [numpy](https://numpy.org/) library.
+the [scientific python ecosystem](https://scipy.org/about/), supported by the [numpy](https://numpy.org/) library.
 However, although the existing scientific python stack is fully capable of analyzing rectangular arrays (i.e.
 no variable-length array dimensions), HEP data is very irregular, and manipulating it can become awkward without
 first generalizing array structure a bit. The [awkward](https://awkward-array.org) package does this,
@@ -91,7 +91,7 @@ You can swap between these executors by adjusting the `executor` argument passed
 Coffea supports three distributed schedulers out of the box:
 
 - {class}`~coffea.processor.DaskExecutor` integrates with a running [Dask Distributed](https://distributed.dask.org/en/latest/) cluster via a `distributed.Client`.
-- {class}`~coffea.processor.ParslExecutor` uses [Parsl](http://parsl-project.org/) to target a wide range of HPC and batch backends.
+- {class}`~coffea.processor.ParslExecutor` uses [Parsl](https://parsl-project.org/) to target a wide range of HPC and batch backends.
 - {class}`~coffea.processor.TaskVineExecutor` leverages [TaskVine](https://cctools.readthedocs.io/en/latest/taskvine/) for opportunistic and heterogeneous workers.
 
 Each executor shares the same `Runner` interface, making it easy to start locally and later connect to a remote resource manager.

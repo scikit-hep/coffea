@@ -22,10 +22,21 @@ from coffea.dataset_tools.manipulations import (
     slice_chunks,
     slice_files,
 )
-from coffea.dataset_tools.preprocess import preprocess
+from coffea.dataset_tools.preprocess import (
+    preprocess,
+    preprocess_legacy,
+    preprocess_parquet,
+    preprocess_root,
+)
+from coffea.dataset_tools.splitting import hash_fileset, split_fileset
 
 __all__ = [
     "preprocess",
+    "preprocess_legacy",
+    "preprocess_parquet",
+    "preprocess_root",
+    "split_fileset",
+    "hash_fileset",
     "apply_to_dataset",
     "apply_to_fileset",
     "max_chunks",

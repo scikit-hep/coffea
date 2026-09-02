@@ -1,3 +1,4 @@
+import inspect
 import io
 import pathlib
 import warnings
@@ -7,7 +8,6 @@ from functools import partial
 from types import FunctionType
 
 import awkward
-import dask_awkward
 import fsspec
 import uproot
 
@@ -21,7 +21,7 @@ from coffea.nanoevents.mapping import (
 )
 from coffea.nanoevents.schemas import BaseSchema, NanoAODSchema
 from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
-from coffea.util import _is_interpretable
+from coffea.util import _import_dask_awkward, _is_interpretable
 
 _offsets_label = quote(",!offsets")
 
@@ -54,7 +54,15 @@ class _map_schema_base:  # ImplementsFormMapping, ImplementsFormMappingInfo
                 [
                     name
                     for name, maybe_transform in zip(operands, it_operands)
-                    if maybe_transform == "!load"
+                    # Match both "!load" and "!loadallowmissing": a saved/union form
+                    # marks branches that may be missing in some files with the
+                    # "!loadallowmissing" token (see nanoevents.mapping.base, which
+                    # dispatches on node.startswith("!load")). Both tokens denote a
+                    # real column read, so both branches must be requested from the
+                    # file. Matching only "!load" silently drops the maybe-missing
+                    # branches, causing dask mode to fabricate them as all-None even
+                    # in files that actually contain them.
+                    if maybe_transform.startswith("!load")
                 ]
             )
         return base_columns
@@ -131,6 +139,9 @@ class _map_schema_uproot(_map_schema_base):
             },
             "form_key": None,
         }
+        typenames = form.parameters.get("typenames")
+        if typenames is not None:
+            lform["typenames"] = typenames
 
         return (
             awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form),
@@ -157,8 +168,17 @@ class _map_schema_uproot(_map_schema_base):
             f"{start}-{stop}",
         )
         uuidpfn = {partition_key[0]: tree.file.file_path}
+        # A saved/union form can mark branches as maybe-missing
+        # ("!loadallowmissing"); such branches may be genuinely absent from
+        # this particular file, so only request the branches that are present.
+        # Absent branches are then simply not in the preloaded column source,
+        # and the PreloadedSourceMapping backfills them as all-None through its
+        # allow_missing path (matching eager/virtual semantics), while a
+        # genuinely-required ("!load") branch that is absent still raises
+        # loudly at buffer-access time.
+        present_keys = [key for key in keys if key in tree]
         arrays = tree.arrays(
-            keys,
+            present_keys,
             entry_start=start,
             entry_stop=stop,
             ak_add_doc=interp_options["ak_add_doc"],
@@ -228,6 +248,7 @@ class NanoEventsFactory:
         self._mapping = mapping
         self._partition_key = partition_key
         self._events = lambda: None
+        self._mapping_accepts_form_mapping = None
 
     def __getstate__(self):
         return {
@@ -241,6 +262,7 @@ class NanoEventsFactory:
         self._mapping = state["mapping"]
         self._partition_key = state["partition_key"]
         self._events = lambda: None
+        self._mapping_accepts_form_mapping = None
 
     @classmethod
     def from_root(
@@ -271,19 +293,21 @@ class NanoEventsFactory:
             file : a string or dict input to ``uproot.open()`` or ``uproot.dask()`` or a ``uproot.reading.ReadOnlyDirectory``
                 The filename or dict of filenames including the treepath (as it would be passed directly to ``uproot.open()``
                 or ``uproot.dask()``) already opened file using e.g. ``uproot.open()``.
-            mode:
+            mode : str
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
             treepath : str, optional
-                Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``.
+                Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``
+                or a string that does not contain tree information that uproot can parse on its own.
             entry_start : int, optional (eager and virtual mode only)
                 Start at this entry offset in the tree (default 0)
             entry_stop : int, optional (eager and virtual mode only)
                 Stop at this entry offset in the tree (default end of tree)
-            steps_per_file: int, optional
+            steps_per_file : int, optional
                 Partition files into this many steps (previously "chunks")
-            preload (None or Callable):
-                A function to call to preload specific branches/columns in bulk. Only works in eager and virtual mode.
-                Passed to ``tree.arrays`` as the ``filter_branch`` argument to filter branches to be preloaded.
+            preload : Callable or Iterable[str] or None
+                Specifies which branches/columns to preload in bulk. Only works in eager and virtual mode.
+                Can be a callable passed to ``tree.arrays`` as the ``filter_branch`` argument,
+                or an iterable of branch name strings to preload.
             buffer_cache : dict, optional
                 A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
                 using globally-unique keys.
@@ -303,25 +327,16 @@ class NanoEventsFactory:
                 If the base form of the input file is known ahead of time we can skip opening a single file and parsing metadata.
             decompression_executor : Any, optional
                 Executor with a ``submit`` method used for decompression tasks. See
-                https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L109.
+                https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html.
             interpretation_executor : Any, optional
                 Executor with a ``submit`` method used for interpretation tasks. See
-                https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L113.
+                https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html.
 
         Returns
         -------
             NanoEventsFactory
                 Factory configured from ``file`` that can materialise NanoEvents.
         """
-        if treepath is not uproot._util.unset and not isinstance(
-            file, uproot.reading.ReadOnlyDirectory
-        ):
-            raise ValueError(
-                """Specification of treename by argument to from_root is no longer supported in coffea 2023.
-            Please use one of the allowed types for "files" specified by uproot: https://github.com/scikit-hep/uproot5/blob/v5.1.2/src/uproot/_dask.py#L109-L132
-            """
-            )
-
         if mode not in _allowed_modes:
             raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
 
@@ -331,8 +346,7 @@ class NanoEventsFactory:
                 small number of inputs (e.g. for early-stage/exploratory analysis) since it does not
                 inform dask of each chunk lengths at creation time, which can cause unexpected
                 slowdowns at scale. If you would like to process larger datasets please specify steps
-                using the appropriate uproot "files" specification:
-                    https://github.com/scikit-hep/uproot5/blob/v5.1.2/src/uproot/_dask.py#L109-L132.
+                using the appropriate uproot "files" specification: https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html
                 """,
                 RuntimeWarning,
             )
@@ -351,6 +365,10 @@ class NanoEventsFactory:
 
             to_open = file
             if isinstance(file, uproot.reading.ReadOnlyDirectory):
+                if treepath is uproot._util.unset:
+                    raise ValueError(
+                        "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
+                    )
                 to_open = file[treepath]
             opener = partial(
                 uproot.dask,
@@ -376,6 +394,10 @@ class NanoEventsFactory:
             mode = "virtual"
 
         if isinstance(file, uproot.reading.ReadOnlyDirectory):
+            if treepath is uproot._util.unset:
+                raise ValueError(
+                    "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
+                )
             tree = file[treepath]
             file_handle = file
         elif "<class 'uproot.rootio.ROOTDirectory'>" == str(type(file)):
@@ -385,6 +407,12 @@ class NanoEventsFactory:
             )
         else:
             tree = uproot.open(file, **uproot_options)
+            if isinstance(tree, uproot.reading.ReadOnlyDirectory):
+                if treepath is uproot._util.unset:
+                    raise ValueError(
+                        "The treepath argument must be specified when the file argument is a string that does not contain any treepath information that uproot can parse"
+                    )
+                tree = tree[treepath]
             file_handle = tree.file
 
         # Get the typenames
@@ -404,6 +432,9 @@ class NanoEventsFactory:
 
         preloaded_arrays = None
         if preload is not None:
+            if not callable(preload):
+                _preload_names = frozenset(preload)
+                preload = lambda b: b.name in _preload_names  # noqa: E731
             preloaded_arrays = tree.arrays(
                 filter_branch=preload,
                 entry_start=entry_start,
@@ -428,6 +459,8 @@ class NanoEventsFactory:
             file_handle=file_handle,
             use_ak_forth=use_ak_forth,
             virtual=mode == "virtual",
+            decompression_executor=decompression_executor,
+            interpretation_executor=interpretation_executor,
             preloaded_arrays=preloaded_arrays,
             buffer_cache=buffer_cache,
         )
@@ -461,14 +494,13 @@ class NanoEventsFactory:
         metadata=None,
         parquet_options={},
         storage_options=None,
-        skyhook_options={},
         access_log=None,
     ):
         """Quickly build NanoEvents from a parquet file
 
         Parameters
         ----------
-            file : str or pathlib.Path or pyarrow.NativeFile or io.IOBase
+            file : str or pathlib.Path or io.IOBase or pyarrow.NativeFile or pyarrow.parquet.ParquetFile
                 The filename or already opened file using e.g. ``pyarrow.NativeFile()``.
             mode : {"eager", "virtual", "dask"}, default "virtual"
                 Backend to use when interpreting parquet data.
@@ -496,7 +528,6 @@ class NanoEventsFactory:
                 Factory configured from ``file`` that can materialise NanoEvents.
         """
         import pyarrow
-        import pyarrow.dataset as ds
         import pyarrow.parquet
 
         ftypes = (
@@ -516,6 +547,7 @@ class NanoEventsFactory:
             and not isinstance(schemaclass, FunctionType)
             and schemaclass.__dask_capable__
         ):
+            dask_awkward = _import_dask_awkward()
             map_schema = _map_schema_parquet(
                 schemaclass=schemaclass,
                 behavior=dict(schemaclass.behavior()),
@@ -543,6 +575,8 @@ class NanoEventsFactory:
             warnings.warn(
                 f"{schemaclass} is not dask capable despite allowing dask, generating non-dask nanoevents"
             )
+        # only the str branch opens an fsspec handle for the shim to close
+        fs_file = None
         if isinstance(file, ftypes):
             table_file = pyarrow.parquet.ParquetFile(file, **parquet_options)
         elif isinstance(file, str):
@@ -575,25 +609,12 @@ class NanoEventsFactory:
             entry_start,
             entry_stop,
             access_log=access_log,
+            file_handle=table_file,
             virtual=mode == "virtual",
             buffer_cache=buffer_cache,
         )
 
-        format_ = "parquet"
-        dataset = None
-        shim = None
-        if len(skyhook_options) > 0:
-            format_ = ds.SkyhookFileFormat(
-                "parquet",
-                skyhook_options["ceph_config_path"].encode(),
-                skyhook_options["ceph_data_pool"].encode(),
-            )
-            dataset = ds.dataset(file, schema=table_file.schema_arrow, format=format_)
-            shim = TrivialParquetOpener.UprootLikeShim(file, dataset)
-        else:
-            shim = TrivialParquetOpener.UprootLikeShim(
-                table_file, dataset, openfile=fs_file
-            )
+        shim = TrivialParquetOpener.UprootLikeShim(table_file, None, openfile=fs_file)
 
         mapping.preload_column_source(partition_key[0], partition_key[1], shim)
 
@@ -715,7 +736,7 @@ class NanoEventsFactory:
                 A schema class deriving from `BaseSchema` and implementing the desired view of the file
             metadata : dict
                 Arbitrary metadata to add to the `base.NanoEvents` object
-            mode:
+            mode : str
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
         """
@@ -766,8 +787,20 @@ class NanoEventsFactory:
                 returned.
         """
         if self._mode == "dask":
+            dask_awkward = _import_dask_awkward()
             dask_awkward.lib.core.dak_cache.clear()
-            events = self._mapping(form_mapping=self._schema)
+
+            # Whether the mapping accepts form_mapping (explicitly or via **kwargs) only
+            # depends on the mapping callable, so inspect its signature once and memoize.
+            if self._mapping_accepts_form_mapping is None:
+                params = inspect.signature(self._mapping).parameters
+                self._mapping_accepts_form_mapping = "form_mapping" in params or any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+                )
+            if self._mapping_accepts_form_mapping:
+                events = self._mapping(form_mapping=self._schema)
+            else:
+                events = self._mapping()
             report = None
             if isinstance(events, tuple):
                 events, report = events

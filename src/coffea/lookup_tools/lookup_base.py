@@ -2,8 +2,9 @@ import numbers
 from functools import partial
 
 import awkward
-import dask_awkward
 import numpy
+
+from coffea.util import _import_dask, _import_dask_awkward, _isinstance
 
 
 def getfunction(
@@ -85,7 +86,9 @@ class lookup_base:
         delay_args = []
         delay_arg_indices = []
         for iarg, arg in enumerate(args):
-            if isinstance(arg, (awkward.highlevel.Array, dask_awkward.Array)):
+            if _isinstance(
+                arg, "awkward.highlevel.Array", "dask_awkward.lib.core.Array"
+            ):
                 actual_args.append(arg)
                 actual_arg_indices.append(iarg)
             else:
@@ -102,9 +105,9 @@ class lookup_base:
         )
 
         # if our inputs are all dask_awkward arrays, then we should map_partitions
-        if any(isinstance(x, (dask_awkward.Array)) for x in args):
-            import dask.delayed
-
+        if any(_isinstance(x, "dask_awkward.lib.core.Array") for x in args):
+            dask = _import_dask()
+            dask_awkward = _import_dask_awkward()
             out_meta = tomap(self, *tuple([arg._meta for arg in actual_args]))
 
             if not hasattr(self, "_delayed_corr"):

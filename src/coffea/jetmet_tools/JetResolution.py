@@ -1,10 +1,7 @@
 import re
 
-import awkward
-import dask_awkward
-import numpy
-
 from coffea.lookup_tools.jme_standard_function import jme_standard_function
+from coffea.util import _isinstance
 
 
 def _checkConsistency(against, tocheck):
@@ -158,8 +155,11 @@ class JetResolution:
             sig = func.signature
             args = tuple(kwargs[inp] for inp in sig)
 
-            if isinstance(
-                args[0], (dask_awkward.Array, awkward.highlevel.Array, numpy.ndarray)
+            if _isinstance(
+                args[0],
+                "dask_awkward.lib.core.Array",
+                "awkward.highlevel.Array",
+                "numpy.ndarray",
             ):
                 resos.append(
                     func(

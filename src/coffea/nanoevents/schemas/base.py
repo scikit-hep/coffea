@@ -131,3 +131,48 @@ class BaseSchema:
         from coffea.nanoevents.methods import base
 
         return base.behavior
+
+    @classmethod
+    def uproot_writeable(cls, events):
+        """
+        Converting BaseSchema events into something that is uproot writeable.
+        BaseSchema leaves every original branch as a top-level field, so this
+        just packs each uproot-compatible field into a dict ready for
+        ``uproot.WritableDirectory.mktree``.
+
+        Subclasses that apply non-trivial zipping during construction should
+        override this with a schema-specific inverse.
+
+        Parameters
+        ----------
+            events : NanoEvents
+                The BaseSchema events to be turned into something uproot-writeable
+
+        Returns
+        -------
+            out : dict
+                An uproot-writeable dictionary representing the same information
+                as the input events
+        """
+        import awkward as ak
+
+        def _is_compat(a):
+            """Is it a flat or 1-d jagged array?"""
+            t = ak.type(a)
+            if isinstance(t, ak.types.ArrayType):
+                if isinstance(t._content, ak.types.NumpyType):
+                    return True
+                if isinstance(t._content, ak.types.ListType) and isinstance(
+                    t._content._content, ak.types.NumpyType
+                ):
+                    return True
+            return False
+
+        def _make_packed(arr):
+            return ak.ak_to_packed.to_packed(ak.without_parameters(arr))
+
+        return {
+            bname: _make_packed(events[bname])
+            for bname in events.fields
+            if _is_compat(events[bname])
+        }

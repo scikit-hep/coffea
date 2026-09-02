@@ -2,10 +2,9 @@ import re
 from functools import reduce
 
 import awkward
-import dask_awkward
-import numpy
 
 from coffea.lookup_tools.jme_standard_function import jme_standard_function
+from coffea.util import _import_dask_awkward, _isinstance
 
 
 def _checkConsistency(against, tocheck):
@@ -162,7 +161,8 @@ class FactorizedJetCorrector:
 
         """
         first_kwarg = kwargs[list(kwargs.keys())[0]]
-        if type(first_kwarg) is dask_awkward.Array:
+        if _isinstance(first_kwarg, "dask_awkward.lib.core.Array"):
+            dask_awkward = _import_dask_awkward()
             levels = "/".join(self._levels)
             func = _getCorrectionFn(self, **kwargs)
             zl_out = func(
@@ -222,8 +222,11 @@ class FactorizedJetCorrector:
             )
 
             # lookup_base handles dask/awkward/numpy
-            if isinstance(
-                fargs[0], (dask_awkward.Array, awkward.highlevel.Array, numpy.ndarray)
+            if _isinstance(
+                fargs[0],
+                "dask_awkward.lib.core.Array",
+                "awkward.highlevel.Array",
+                "numpy.ndarray",
             ):
                 corrections.append(
                     func(

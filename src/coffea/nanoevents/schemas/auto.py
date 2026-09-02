@@ -46,7 +46,7 @@ class auto_schema(BaseSchema):
             - There is a recursiveness to this definition, as there is to any data structure,
               that is not matched with this. This should be made much more flexible. Perhaps
               with something like python type-hints so editors can also take advantage of this.
-            - Any `_` is inerpreted as going down a level in the structure.
+            - Any ``_`` is interpreted as going down a level in the structure.
 
         Args:
             base_form (Dict[str, Any]): The base form of what we are going to generate a new schema (form) for.
@@ -116,3 +116,9 @@ class auto_schema(BaseSchema):
         behavior.update(base.behavior)
         behavior.update(candidate.behavior)
         return behavior
+
+    @classmethod
+    def uproot_writeable(cls, events):
+        raise NotImplementedError(
+            f"uproot_writeable is not implemented for {cls.__name__}"
+        )

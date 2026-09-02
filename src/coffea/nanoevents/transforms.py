@@ -574,6 +574,43 @@ def qoverp_to_p(stack):
     stack.append(1.0 / numpy.abs(source))
 
 
+def qoverp_theta_to_pt_form(qoverp_form, theta_form):
+    if not (
+        qoverp_form["class"] == "NumpyArray"
+        or qoverp_form["class"].startswith("ListOffset")
+    ):
+        raise RuntimeError
+    if not (
+        theta_form["class"] == "NumpyArray"
+        or theta_form["class"].startswith("ListOffset")
+    ):
+        raise RuntimeError
+    if not (qoverp_form["class"] == theta_form["class"]):
+        raise RuntimeError
+    form = copy.deepcopy(qoverp_form)
+    if form["class"] == "NumpyArray":
+        form["form_key"] = concat(
+            qoverp_form["form_key"], theta_form["form_key"], "!qoverp_theta_to_pt"
+        )
+        form["parameters"].pop("__doc__", None)
+    elif form["class"].startswith("ListOffset"):
+        form["content"]["form_key"] = concat(
+            qoverp_form["form_key"],
+            theta_form["form_key"],
+            "!qoverp_theta_to_pt",
+            "!content",
+        )
+        form["parameters"].pop("__doc__", None)
+        form["content"]["parameters"].pop("__doc__", None)
+    return form
+
+
+def qoverp_theta_to_pt(stack):
+    theta = stack.pop()
+    qoverp = stack.pop()
+    stack.append(numpy.sin(theta) / numpy.abs(qoverp))
+
+
 # For Delphes:
 
 

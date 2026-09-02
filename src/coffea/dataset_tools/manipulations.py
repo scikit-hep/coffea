@@ -251,11 +251,15 @@ def filter_files(
     """
     Modify the input fileset so that only the files of each dataset that pass the filter remain.
 
+    This is intended for preprocessed filesets: for ``DatasetSpec`` entries the filtered
+    files are rebuilt as ``PreprocessedFiles``, so calling it on a not-yet-preprocessed
+    dataset (whose files are not all concrete specs) raises a ``pydantic.ValidationError``.
+
     Parameters
     ----------
         fileset : DataGroupSpec
             The set of datasets to be sliced.
-        thefilter: Callable[[tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | InputFiles | PreprocessedFiles], bool], default filters empty files
+        thefilter : Callable[[tuple[str, CoffeaROOTFileSpec | CoffeaParquetFileSpec] | InputFiles | PreprocessedFiles], bool], default filters empty files
             How to filter the files in the each dataset.
 
     Returns
@@ -269,7 +273,7 @@ def filter_files(
         to_apply_to = getattr(entry, "files") if is_datasetspec else entry["files"]
         updated = dict(filter(thefilter, to_apply_to.items()))
         if is_datasetspec:
-            out[name].files = InputFiles(updated)
+            out[name].files = PreprocessedFiles(updated)
         else:
             out[name]["files"] = updated
     return out
@@ -283,7 +287,7 @@ def get_failed_steps_for_dataset(
 
     Parameters
     ----------
-        dataset: DatasetSpec | dict
+        dataset : DatasetSpec | dict
             The dataset to be reduced to only contain files and row-ranges that have previously encountered failed file access.
         report : awkward.Array
             The computed file-access error report from dask-awkward.

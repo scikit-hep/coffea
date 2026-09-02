@@ -193,3 +193,28 @@ def test_tracing_nanoevents():
     _untypetracable_analysis(events)
     access_log = [x.branch for x in access_log]
     assert sorted(set(access_log)) == ["MET_sumEt"]
+
+
+def test_form_keys_to_columns_loadallowmissing():
+    # Regression test for scikit-hep/coffea#1578: branches that may be missing in
+    # some files carry the "!loadallowmissing" token (generated in
+    # nanoevents/mapping/uproot.py) instead of a plain "!load". The column-touch
+    # reporting must include these branches, matching the startswith("!load")
+    # convention used in nanoevents/mapping/base.py.
+    from coffea.nanoevents.trace import _form_keys_to_columns
+    from coffea.nanoevents.util import quote
+
+    prefix = "some-uuid/%2FEvents%3B1/0-40"
+    normal = prefix + "/data/" + quote("Muon_pt,!load,!content")
+    allowmissing_index = (
+        prefix + "/index/" + quote("Muon_missing,!loadallowmissing,!index")
+    )
+    allowmissing_content = (
+        prefix + "/data/" + quote("Muon_missing,!loadallowmissing,!content")
+    )
+
+    result = _form_keys_to_columns([normal, allowmissing_index, allowmissing_content])
+
+    # Muon_missing must not be silently dropped just because it may be absent in
+    # some files (would fail before the fix with the exact `== "!load"` match).
+    assert result == frozenset({"Muon_pt", "Muon_missing"})

@@ -1,6 +1,7 @@
 from collections.abc import MutableMapping
 
 import awkward as ak
+import numpy as np
 import pytest
 
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
@@ -132,3 +133,22 @@ def test_buffer_cache_hierarchical(tests_directory):
 
     hierarchical_cache.clear()  # rm's all files in mycache
     os.rmdir(f"{tests_directory}/mycache")
+
+
+def test_buffer_cache_small_and_empty_array_compression():
+    pytest.importorskip("numcodecs")
+    pytest.importorskip("zict")
+
+    from numcodecs import Blosc
+
+    codec = Blosc("zstd", clevel=1, shuffle=Blosc.BITSHUFFLE)
+    cache = BufferCache(cache=None, codec=codec)
+
+    for arr in [
+        np.array([], dtype=np.float32),  # 0 bytes
+        np.array([1, 2], dtype=np.int32),  # 8 bytes
+        np.array([1, 2, 3, 4], dtype=np.int32),  # 16 bytes
+    ]:
+        cache["key"] = arr
+        result = cache["key"]
+        np.testing.assert_array_equal(result, arr)

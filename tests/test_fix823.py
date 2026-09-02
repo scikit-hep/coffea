@@ -1,9 +1,12 @@
 from pathlib import Path
 
+import pytest
+
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 
 
 def test_explicit_delete_after_assign():
+    pytest.importorskip("dask_awkward")
     data_dir = Path(__file__).parent / "samples"
     testfile = data_dir / "nano_dy.root"
 
