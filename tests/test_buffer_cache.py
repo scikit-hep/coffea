@@ -136,7 +136,7 @@ def test_buffer_cache_hierarchical(tests_directory):
 
 
 @pytest.mark.parametrize("codec_name", ["none", "numcodecs"])
-@pytest.mark.parametrize("layout", ["contiguous", "sliced", "fortran"])
+@pytest.mark.parametrize("layout", ["contiguous", "sliced", "fortran", "scalar"])
 def test_buffer_cache_roundtrip_layouts(codec_name, layout):
     from coffea.nanoevents.mapping.buffer_cache import (
         CodecAwareCache,
@@ -158,12 +158,15 @@ def test_buffer_cache_roundtrip_layouts(codec_name, layout):
         arr = base.copy()
     elif layout == "sliced":
         arr = base[::2]
+    elif layout == "scalar":
+        arr = np.array(7, dtype=np.int64)
     else:
         arr = np.asfortranarray(base.reshape(8, 8))
-    assert layout == "contiguous" or not arr.flags["C_CONTIGUOUS"]
+    assert layout in ("contiguous", "scalar") or not arr.flags["C_CONTIGUOUS"]
 
     cache = CodecAwareCache(cache={}, codec=codec)
     cache["key"] = arr
+    assert cache["key"].shape == arr.shape
     np.testing.assert_array_equal(cache["key"], arr)
 
 
@@ -231,3 +234,18 @@ def test_buffer_cache_small_and_empty_array_compression():
         cache["key"] = arr
         result = cache["key"]
         np.testing.assert_array_equal(result, arr)
+
+
+def test_buffer_cache_rejects_foreign_codec():
+    class NumcodecsShapedCodec:
+        """Duck-types coffea's ``Codec``, but with numcodecs' encode/decode contract."""
+
+        def encode(self, buf):
+            return buf
+
+        def decode(self, buf):
+            return buf
+
+    for bad in (5, NumcodecsShapedCodec()):
+        with pytest.raises(TypeError, match="numcodecs"):
+            BufferCache(cache=None, codec=bad)

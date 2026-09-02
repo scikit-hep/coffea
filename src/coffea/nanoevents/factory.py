@@ -262,7 +262,7 @@ class NanoEventsFactory:
         self._schema = state["schema"]
         self._mapping = state["mapping"]
         self._partition_key = state["partition_key"]
-        self._mode = state.get("mode", "eager")
+        self._mode = state.get("mode", "virtual")
         self._events = lambda: None
         self._mapping_accepts_form_mapping = None
 
@@ -477,7 +477,6 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            buffer_cache,
             schemaclass,
             metadata,
             mode=mode,
@@ -624,7 +623,6 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            buffer_cache,
             schemaclass,
             metadata,
             mode,
@@ -706,7 +704,6 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            buffer_cache,
             schemaclass,
             metadata,
             mode="eager",
@@ -718,7 +715,6 @@ class NanoEventsFactory:
         mapping,
         partition_key,
         base_form,
-        buffer_cache,
         schemaclass,
         metadata,
         mode,
@@ -733,9 +729,6 @@ class NanoEventsFactory:
                 Basic information about the column source, uuid, paths.
             base_form : dict
                 The awkward form describing the nanoevents interpretation of the mapped file.
-            buffer_cache : dict
-                A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
-                using globally-unique keys.
             schemaclass : BaseSchema
                 A schema class deriving from `BaseSchema` and implementing the desired view of the file
             metadata : dict

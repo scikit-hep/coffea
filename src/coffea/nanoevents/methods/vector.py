@@ -637,28 +637,30 @@ class PtEtaPhiMLorentzVector(LorentzVector):
     def multiply(self, other):
         """Multiply this vector by a scalar elementwise using ``x``, ``y``, ``z``, and ``t`` components
 
-        In reality, this directly adjusts ``pt``, ``eta``, ``phi`` and ``mass`` for performance
+        For a non-negative scalar this directly adjusts ``pt``, ``eta``, ``phi`` and ``mass``
+        for performance and returns a `PtEtaPhiMLorentzVector`. Any other multiplier
+        (negative, or an array whose sign is not known ahead of time) returns a cartesian
+        `LorentzVector`, since (pt, eta, phi, mass) cannot represent ``t < 0``.
         """
-        if other < 0:
-            # (pt, eta, phi, mass) cannot represent t < 0, so match cartesian in x, y, z, t
+        if isinstance(other, numbers.Real) and other >= 0:
             return awkward.zip(
                 {
-                    "x": self.x * other,
-                    "y": self.y * other,
-                    "z": self.z * other,
-                    "t": self.t * other,
+                    "pt": self.pt * other,
+                    "eta": self.eta,
+                    "phi": self.phi,
+                    "mass": self.mass * other,
                 },
-                with_name="LorentzVector",
+                with_name="PtEtaPhiMLorentzVector",
                 behavior=self.behavior,
             )
         return awkward.zip(
             {
-                "pt": self.pt * other,
-                "eta": self.eta,
-                "phi": self.phi,
-                "mass": self.mass * other,
+                "x": self.x * other,
+                "y": self.y * other,
+                "z": self.z * other,
+                "t": self.t * other,
             },
-            with_name="PtEtaPhiMLorentzVector",
+            with_name="LorentzVector",
             behavior=self.behavior,
         )
 

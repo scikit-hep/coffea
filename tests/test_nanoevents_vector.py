@@ -1287,6 +1287,97 @@ def test_candidate_subtraction_differences_charge(name, kin1, kin2):
 
 
 @pytest.mark.parametrize(
+    "name,kin,components,cartesian_name",
+    [
+        ("TwoVector", {"x": [1.0, 2.0], "y": [3.0, -4.0]}, ("x", "y"), "TwoVector"),
+        (
+            "PolarTwoVector",
+            {"rho": [1.0, 2.0], "phi": [0.3, 2.5]},
+            ("x", "y"),
+            "TwoVector",
+        ),
+        (
+            "ThreeVector",
+            {"x": [1.0, 2.0], "y": [3.0, -4.0], "z": [5.0, 6.0]},
+            ("x", "y", "z"),
+            "ThreeVector",
+        ),
+        (
+            "SphericalThreeVector",
+            {"rho": [1.0, 2.0], "theta": [0.4, 2.0], "phi": [0.3, 2.5]},
+            ("x", "y", "z"),
+            "ThreeVector",
+        ),
+        (
+            "LorentzVector",
+            {"x": [1.0, 2.0], "y": [3.0, -4.0], "z": [5.0, 6.0], "t": [10.0, 20.0]},
+            ("x", "y", "z", "t"),
+            "LorentzVector",
+        ),
+        (
+            "PtEtaPhiMLorentzVector",
+            {
+                "pt": [1.0, 2.0],
+                "eta": [1.2, -0.8],
+                "phi": [0.3, 2.5],
+                "mass": [3.0, 4.0],
+            },
+            ("x", "y", "z", "t"),
+            "LorentzVector",
+        ),
+        (
+            "PtEtaPhiELorentzVector",
+            {
+                "pt": [1.0, 2.0],
+                "eta": [1.2, -0.8],
+                "phi": [0.3, 2.5],
+                "energy": [10.0, 20.0],
+            },
+            ("x", "y", "z", "t"),
+            "LorentzVector",
+        ),
+    ],
+)
+def test_array_factor_matches_cartesian(name, kin, components, cartesian_name):
+    """Scaling by an array of mixed sign agrees with scaling the cartesian vector."""
+    a = ak.zip(kin, with_name=name, behavior=vector.behavior)
+    cart = ak.zip(
+        {c: getattr(a, c) for c in components},
+        with_name=cartesian_name,
+        behavior=vector.behavior,
+    )
+    factor = ak.Array([2.0, -3.0])
+    for scaled, ref in ((a * factor, cart * factor), (a / factor, cart / factor)):
+        for c in components:
+            assert_allclose(
+                ak.to_list(getattr(scaled, c)), ak.to_list(getattr(ref, c)), atol=ATOL
+            )
+
+
+def test_ptetaphim_array_factor_dask():
+    dask_awkward = pytest.importorskip("dask_awkward")
+
+    a = ak.zip(
+        {"pt": [1.0, 2.0], "eta": [1.2, -0.8], "phi": [0.3, 2.5], "mass": [3.0, 4.0]},
+        with_name="PtEtaPhiMLorentzVector",
+        behavior=vector.behavior,
+    )
+    factor = ak.Array([2.0, -3.0])
+    dak_a = dask_awkward.from_awkward(a, 1)
+    dak_factor = dask_awkward.from_awkward(factor, 1)
+    for scaled, ref in (
+        (dak_a * dak_factor, a * factor),
+        (dak_a / dak_factor, a / factor),
+    ):
+        for c in ("x", "y", "z", "t"):
+            assert_allclose(
+                ak.to_list(getattr(scaled, c).compute()),
+                ak.to_list(getattr(ref, c)),
+                atol=ATOL,
+            )
+
+
+@pytest.mark.parametrize(
     "name,temporal",
     [("PtEtaPhiMLorentzVector", "mass"), ("PtEtaPhiELorentzVector", "energy")],
 )
