@@ -33,8 +33,7 @@ class GenericFileSpec(BaseModel):
     format: str | None = None
     lfn: str | None = None
     pfn: str | None = None
-    # Per-file user metadata, e.g. filled by preprocess(metadata_extractor=...). Must be
-    # JSON-serializable. Carried by the pydantic models only; legacy dict conversions drop it.
+    # Per-file user metadata (JSON-serializable), e.g. from preprocess(metadata_extractor=...)
     metadata: dict[str, Any] | None = None
     # Experimental: hex bitset over the owning dataset's union-form top-level fields
     # (bit i set = field i present); only meaningful in that form's field order.
