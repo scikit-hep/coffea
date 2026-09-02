@@ -559,22 +559,11 @@ class DatasetSpec(BaseModel):
                 elif k == "files":
                     # promote files list to dict if necessary
                     if isinstance(v, list):
-                        # If files is a list, convert it to a dict and let it pass through the rest of the promotion logic
-                        tmp = [f.rsplit(":", maxsplit=1) for f in v]
-                        files = {}
-                        for fsplit in tmp:
-                            # Need a valid split into file name and object path
-                            if len(fsplit) > 1:
-                                # but ensure we don't catch 'root://' and split that
-                                if fsplit[1].startswith("//"):
-                                    # no object path
-                                    files[":".join(fsplit)] = None
-                                else:
-                                    # file name and object path
-                                    files[fsplit[0]] = fsplit[1]
-                            else:
-                                # no object path
-                                files[fsplit[0]] = None
+                        # "file.root:Tree" -> (file, object path); uproot's (private) splitter
+                        # does not split XRootD URLs at the port colon
+                        from uproot._util import file_object_path_split
+
+                        files = dict(file_object_path_split(f) for f in v)
                         new_data["files"] = files
                     else:
                         new_data["files"] = copy.deepcopy(v)
