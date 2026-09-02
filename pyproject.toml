@@ -156,6 +156,11 @@ filterwarnings = [
   "ignore:There is no current event loop",
 ]
 
+[tool.check-wheel-contents]
+# Some EDM4hep schema versions are byte-identical to their predecessor; shipping
+# each one under its own version name is intentional.
+ignore = ["W002"]
+
 [tool.uv]
 # Supply-chain cooldown: ignore releases published in the last week.
 exclude-newer = "7 days"
