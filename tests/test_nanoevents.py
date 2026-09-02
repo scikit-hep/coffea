@@ -316,6 +316,36 @@ def test_read_from_uri(tests_directory, suffix):
             mock_fsspec_open.assert_called_once()
 
 
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
+@pytest.mark.parametrize("input_kind", ["str", "path", "parquetfile", "fileobj"])
+def test_from_parquet_input_types(tests_directory, input_kind, mode):
+    """Every documented input type yields the same events as the str path."""
+    path_str = f"{tests_directory}/samples/nano_dy.parquet"
+
+    def make_events(file):
+        return NanoEventsFactory.from_parquet(
+            file, schemaclass=NanoAODSchema, mode=mode
+        ).events()
+
+    ref_pt = ak.to_list(make_events(path_str).Muon.pt)
+
+    if input_kind == "fileobj":
+        with open(path_str, "rb") as fh:
+            events = make_events(fh)
+            if mode == "virtual":
+                events = ak.materialize(events)
+    else:
+        file = {
+            "str": path_str,
+            "path": Path(path_str),
+            "parquetfile": pq.ParquetFile(path_str),
+        }[input_kind]
+        events = make_events(file)
+
+    assert len(events) == 40
+    assert ak.to_list(events.Muon.pt) == ref_pt
+
+
 @pytest.mark.parametrize("suffix", suffixes)
 def test_read_nanodata(tests_directory, suffix):
     path = f"{tests_directory}/samples/nano_dimuon.{suffix}"
