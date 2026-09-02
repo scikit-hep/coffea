@@ -319,39 +319,28 @@ def test_read_from_uri(tests_directory, suffix):
 @pytest.mark.parametrize("mode", ["eager", "virtual"])
 @pytest.mark.parametrize("input_kind", ["str", "path", "parquetfile", "fileobj"])
 def test_from_parquet_input_types(tests_directory, input_kind, mode):
-    """``from_parquet`` accepts each documented input type.
-
-    str, pathlib.Path, pyarrow.parquet.ParquetFile, and file-like objects all
-    produce identical events.
-    """
-    import pyarrow.parquet
-
+    """Every documented input type yields the same events as the str path."""
     path_str = f"{tests_directory}/samples/nano_dy.parquet"
 
     def make_events(file):
         return NanoEventsFactory.from_parquet(
-            file,
-            schemaclass=NanoAODSchema,
-            mode=mode,
+            file, schemaclass=NanoAODSchema, mode=mode
         ).events()
 
-    # str reference
-    ref = make_events(path_str)
-    ref_pt = ak.to_list(ref.Muon.pt)
+    ref_pt = ak.to_list(make_events(path_str).Muon.pt)
 
-    if input_kind == "str":
-        events = ref
-    elif input_kind == "path":
-        events = make_events(Path(path_str))
-    elif input_kind == "parquetfile":
-        events = make_events(pyarrow.parquet.ParquetFile(path_str))
-    elif input_kind == "fileobj":
+    if input_kind == "fileobj":
         with open(path_str, "rb") as fh:
             events = make_events(fh)
-            events = ak.materialize(events) if mode == "virtual" else events
-            assert len(events) == 40
-            assert ak.to_list(events.Muon.pt) == ref_pt
-        return
+            if mode == "virtual":
+                events = ak.materialize(events)
+    else:
+        file = {
+            "str": path_str,
+            "path": Path(path_str),
+            "parquetfile": pq.ParquetFile(path_str),
+        }[input_kind]
+        events = make_events(file)
 
     assert len(events) == 40
     assert ak.to_list(events.Muon.pt) == ref_pt
