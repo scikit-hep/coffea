@@ -1,12 +1,24 @@
+import inspect
 import os
+import re
+from functools import partial
 from pathlib import Path
 
 import awkward as ak
 import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 import uproot
 
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
+from coffea.nanoevents.factory import _key_formatter
+from coffea.nanoevents.mapping.parquet import (
+    ParquetSourceMapping,
+    TrivialParquetOpener,
+)
+from coffea.nanoevents.methods import nanoaod
+from coffea.nanoevents.util import tuple_to_key
 
 
 def genroundtrips(genpart):
@@ -120,6 +132,148 @@ def test_read_nanomc(tests_directory, suffix):
     ]
 
 
+def _discover_crossrefs(module):
+    # properties resolved via _apply_global_index, skipping generated Array/Record twins
+    pairs = []
+    for cname, cls in inspect.getmembers(module, inspect.isclass):
+        if cls.__module__ != module.__name__ or cname.endswith(("Array", "Record")):
+            continue
+        for pname, prop in inspect.getmembers(cls, lambda m: isinstance(m, property)):
+            try:
+                source = inspect.getsource(prop.fget)
+            except (OSError, TypeError):
+                continue
+            if "_apply_global_index" in source:
+                pairs.append((cname, pname))
+    return sorted(set(pairs))
+
+
+@pytest.fixture(scope="module")
+def nano_dy_modes(tests_directory):
+    pytest.importorskip("dask_awkward")
+    path = f"{tests_directory}/samples/nano_dy.root:Events"
+    NanoAODSchema.warn_missing_crossrefs = False
+    return {
+        mode: NanoEventsFactory.from_root(
+            path, schemaclass=NanoAODSchema, mode=mode
+        ).events()
+        for mode in ("eager", "virtual", "dask")
+    }
+
+
+@pytest.mark.parametrize("record,attr", _discover_crossrefs(nanoaod))
+def test_nanoaod_crossref_target_type(nano_dy_modes, record, attr):
+    """Virtual and dask must resolve each cross-reference as eager does."""
+    eager = nano_dy_modes["eager"]
+    field = next(
+        (
+            f
+            for f in eager.fields
+            if eager[f].layout.purelist_parameter("__record__") == record
+        ),
+        None,
+    )
+    if field is None:
+        pytest.skip(f"{record} collection absent from nano_dy")
+
+    def resolve(mode):
+        obj = getattr(nano_dy_modes[mode][field], attr)
+        return obj._meta if mode == "dask" else obj
+
+    try:
+        ref = resolve("eager")
+    except Exception:
+        pytest.skip(f"{record}.{attr} unavailable in nano_dy")
+    ref_record = ref.layout.purelist_parameter("__record__")
+
+    for mode in ("virtual", "dask"):
+        got = resolve(mode)
+        assert got.layout.purelist_parameter("__record__") == ref_record
+        assert set(got.fields) == set(ref.fields)
+
+
+# Intended target of each cross-reference per the NanoAOD data model; the
+# mode-consistency test cannot see a target that is wrong in every mode.
+nanoaod_crossref_targets = {
+    ("Electron", "matched_gen"): "GenPart",
+    ("Electron", "matched_jet"): "Jet",
+    ("Electron", "matched_photon"): "Photon",
+    ("FatJet", "constituents"): "FatJetPFCands",
+    ("FatJet", "matched_gen"): "GenJetAK8",
+    ("FatJet", "subjets"): "SubJet",
+    ("FsrPhoton", "matched_muon"): "Muon",
+    ("GenParticle", "children"): "GenPart",
+    ("GenParticle", "distinctChildren"): "GenPart",
+    ("GenParticle", "distinctChildrenDeep"): "GenPart",
+    ("GenParticle", "distinctParent"): "GenPart",
+    ("GenParticle", "parent"): "GenPart",
+    ("GenVisTau", "parent"): "GenPart",
+    ("Jet", "constituents"): "JetPFCands",
+    ("Jet", "matched_electrons"): "Electron",
+    ("Jet", "matched_gen"): "GenJet",
+    ("Jet", "matched_muons"): "Muon",
+    ("LowPtElectron", "matched_electron"): "Electron",
+    ("LowPtElectron", "matched_gen"): "GenPart",
+    ("LowPtElectron", "matched_photon"): "Photon",
+    ("Muon", "matched_fsrPhoton"): "FsrPhoton",
+    ("Muon", "matched_gen"): "GenPart",
+    ("Muon", "matched_jet"): "Jet",
+    ("Photon", "matched_electron"): "Electron",
+    ("Photon", "matched_gen"): "GenPart",
+    ("Photon", "matched_jet"): "Jet",
+    ("Tau", "matched_gen"): "GenPart",
+    ("Tau", "matched_jet"): "Jet",
+}
+# target resolved at runtime from collection_map
+nanoaod_crossref_dynamic = {
+    ("AssociatedPFCand", "jet"),
+    ("AssociatedPFCand", "pf"),
+    ("AssociatedSV", "jet"),
+    ("AssociatedSV", "sv"),
+}
+
+
+def _crossref_source_bodies(prop):
+    bodies = [inspect.getsource(prop.fget)]
+    dask_get = getattr(prop, "_dask_get", None)
+    if dask_get is not None and dask_get.__closure__:
+        for cell in dask_get.__closure__:
+            fn = cell.cell_contents
+            if callable(fn):
+                try:
+                    bodies.append(inspect.getsource(fn))
+                except (OSError, TypeError):
+                    pass
+    return bodies
+
+
+def test_nanoaod_crossref_declared_target():
+    """Each literal ``_events().X._apply_global_index`` names the declared target."""
+    literal = re.compile(r"_events\(\)\.(\w+)\._apply_global_index")
+    discovered = set()
+    for cname, cls in inspect.getmembers(nanoaod, inspect.isclass):
+        if cls.__module__ != nanoaod.__name__ or cname.endswith(("Array", "Record")):
+            continue
+        for pname, prop in vars(cls).items():
+            if not isinstance(prop, property):
+                continue
+            bodies = _crossref_source_bodies(prop)
+            if not any("_apply_global_index" in b for b in bodies):
+                continue
+            discovered.add((cname, pname))
+            if (cname, pname) in nanoaod_crossref_dynamic:
+                continue
+            target = nanoaod_crossref_targets.get((cname, pname))
+            assert target is not None, f"declare a target for {cname}.{pname}"
+            for body in bodies:
+                for owner in literal.findall(body):
+                    assert (
+                        owner == target
+                    ), f"{cname}.{pname} resolves against {owner}, expected {target}"
+
+    assert discovered == set(nanoaod_crossref_targets) | nanoaod_crossref_dynamic
+
+
 @pytest.mark.parametrize("suffix", suffixes)
 def test_read_from_uri(tests_directory, suffix):
     """Make sure we can properly open the file when a uri is used"""
@@ -160,6 +314,36 @@ def test_read_from_uri(tests_directory, suffix):
             events = factory.events()
             assert len(events) == 40
             mock_fsspec_open.assert_called_once()
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
+@pytest.mark.parametrize("input_kind", ["str", "path", "parquetfile", "fileobj"])
+def test_from_parquet_input_types(tests_directory, input_kind, mode):
+    """Every documented input type yields the same events as the str path."""
+    path_str = f"{tests_directory}/samples/nano_dy.parquet"
+
+    def make_events(file):
+        return NanoEventsFactory.from_parquet(
+            file, schemaclass=NanoAODSchema, mode=mode
+        ).events()
+
+    ref_pt = ak.to_list(make_events(path_str).Muon.pt)
+
+    if input_kind == "fileobj":
+        with open(path_str, "rb") as fh:
+            events = make_events(fh)
+            if mode == "virtual":
+                events = ak.materialize(events)
+    else:
+        file = {
+            "str": path_str,
+            "path": Path(path_str),
+            "parquetfile": pq.ParquetFile(path_str),
+        }[input_kind]
+        events = make_events(file)
+
+    assert len(events) == 40
+    assert ak.to_list(events.Muon.pt) == ref_pt
 
 
 @pytest.mark.parametrize("suffix", suffixes)
@@ -341,6 +525,131 @@ def test_uproot_write(tmp_path):
     assert ak.all(orig_base.Muon_eta == test_base.Muon_eta)
     assert ak.all(orig_base.Jet_pt == test_base.Jet_pt)
     assert ak.all(orig_base.MET_pt == test_base.MET_pt)
+
+
+parquet_suffixes = [
+    "parquet",
+    "extensionarray.parquet",
+]
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual"])  # virtual: the Runner's mode
+@pytest.mark.parametrize("suffix", parquet_suffixes)
+@pytest.mark.parametrize(
+    "entry_start,entry_stop", [(5, 15), (1, 40), (0, 10), (37, 40)]
+)
+def test_parquet_entry_range_matches_full_slice(
+    tests_directory, mode, suffix, entry_start, entry_stop
+):
+    """entry_start > 0 must equal slicing a full read, for jagged and flat branches."""
+    path = f"{tests_directory}/samples/nano_dy.{suffix}"
+    from_parquet = getattr(
+        NanoEventsFactory, f"from_{suffix.removeprefix('extensionarray.')}"
+    )
+
+    full = from_parquet(path, schemaclass=NanoAODSchema, mode="eager").events()
+    sub = from_parquet(
+        path,
+        schemaclass=NanoAODSchema,
+        mode=mode,
+        entry_start=entry_start,
+        entry_stop=entry_stop,
+    ).events()
+
+    assert len(sub) == entry_stop - entry_start
+
+    for field in ("Muon", "Jet", "Electron"):
+        sub_pt = ak.to_list(getattr(sub, field).pt)
+        full_pt = ak.to_list(getattr(full, field).pt[entry_start:entry_stop])
+        assert (
+            sub_pt == full_pt
+        ), f"{field}.pt mismatch for [{entry_start}:{entry_stop}]"
+
+    assert ak.to_list(sub.MET.pt) == ak.to_list(full.MET.pt[entry_start:entry_stop])
+
+
+@pytest.mark.parametrize(
+    "entry_start,entry_stop", [(5, 15), (1, 40), (0, 10), (37, 40)]
+)
+def test_parquet_int32_list_offsets_entry_range(tmp_path, entry_start, entry_stop):
+    """nano_dy decodes to LargeListArray; a plain list_ column covers int32 offsets."""
+    n = 40
+    jagged = [[float(i)] * (i % 3) for i in range(n)]
+    table = pa.table(
+        {
+            "jag": pa.array(jagged, type=pa.list_(pa.float32())),
+            "flat": pa.array(np.arange(n, dtype=np.float32)),
+        }
+    )
+    assert pa.types.is_list(table.schema.field("jag").type)
+    path = str(tmp_path / "int32list.parquet")
+    pq.write_table(table, path)
+
+    full = NanoEventsFactory.from_parquet(
+        path, schemaclass=BaseSchema, mode="eager"
+    ).events()
+    sub = NanoEventsFactory.from_parquet(
+        path,
+        schemaclass=BaseSchema,
+        mode="eager",
+        entry_start=entry_start,
+        entry_stop=entry_stop,
+    ).events()
+
+    assert len(sub) == entry_stop - entry_start
+    assert ak.to_list(sub.jag) == ak.to_list(full.jag[entry_start:entry_stop])
+    assert ak.to_list(sub.flat) == ak.to_list(full.flat[entry_start:entry_stop])
+
+
+def test_parquet_column_cache_avoids_repeated_reads(tests_directory, monkeypatch):
+    """Offsets and content of one jagged column come from a single column read."""
+    path = f"{tests_directory}/samples/nano_dy.parquet"
+
+    read_counts = {}
+    orig_read = pq.ParquetFile.read
+
+    def counting_read(self, columns=None, use_threads=True, **kwargs):
+        for c in columns or []:
+            read_counts[c] = read_counts.get(c, 0) + 1
+        return orig_read(self, columns=columns, use_threads=use_threads, **kwargs)
+
+    monkeypatch.setattr(pq.ParquetFile, "read", counting_read)
+
+    parfile = pq.ParquetFile(path)
+    n = parfile.metadata.num_rows
+    mapping = ParquetSourceMapping(TrivialParquetOpener({"uu": path}), 0, n)
+    partition_key = ("uu", "obj", f"0-{n}")
+    mapping.preload_column_source(
+        partition_key[0],
+        partition_key[1],
+        TrivialParquetOpener.UprootLikeShim(parfile),
+    )
+
+    subform = mapping._extract_base_form(parfile.schema_arrow)
+    idx = subform["fields"].index("Muon_pt")
+    jagged_form = {
+        "class": "RecordArray",
+        "fields": ["Muon_pt"],
+        "contents": [subform["contents"][idx]],
+        "parameters": {"__doc__": "parquetfile"},
+        "form_key": "",
+    }
+
+    array = ak.from_buffers(
+        form=ak.forms.from_dict(jagged_form),
+        length=n,
+        container=mapping,
+        buffer_key=partial(_key_formatter, tuple_to_key(partition_key)),
+        highlevel=True,
+    )
+
+    assert read_counts["Muon_pt"] == 1
+
+    # cached data must equal the plain reader path
+    reference = NanoEventsFactory.from_parquet(
+        path, schemaclass=NanoAODSchema, mode="eager"
+    ).events()
+    assert ak.to_list(array.Muon_pt) == ak.to_list(reference.Muon.pt)
 
 
 def test_keys_for_buffer_keys_loadallowmissing():
