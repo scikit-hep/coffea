@@ -142,6 +142,16 @@ def _coordinate_validation(fields):
     )
 
 
+# awkward looks up reducer overloads by record name only, so the ones vector
+# registers for Momentum{2,3,4}D never reach our collections. Forward those that
+# don't rebuild a record. Sum has to go through our own, which keeps the charge
+# field and names the result after what it actually built.
+_count_reducer = vector.backends.awkward.behavior[awkward.count, "Momentum4D"]
+_count_nonzero_reducer = vector.backends.awkward.behavior[
+    awkward.count_nonzero, "Momentum4D"
+]
+
+
 @awkward.mixin_class(behavior)
 class TwoVector(MomentumAwkward2D):
     """A cartesian 2-dimensional vector
@@ -188,6 +198,18 @@ class TwoVector(MomentumAwkward2D):
             with_name="TwoVector",
             behavior=self.behavior,
         )
+
+    @awkward.mixin_class_method(awkward.sum)
+    def _reduce_sum(self, mask_identity):
+        return self.sum(axis=1)
+
+    @awkward.mixin_class_method(awkward.count)
+    def _reduce_count(self, mask_identity):
+        return _count_reducer(self, mask_identity)
+
+    @awkward.mixin_class_method(awkward.count_nonzero)
+    def _reduce_count_nonzero(self, mask_identity):
+        return _count_nonzero_reducer(self, mask_identity)
 
     @awkward.mixin_class_method(numpy.multiply, {numbers.Number})
     def multiply(self, other):
@@ -303,6 +325,18 @@ class ThreeVector(MomentumAwkward3D):
             with_name="ThreeVector",
             behavior=self.behavior,
         )
+
+    @awkward.mixin_class_method(awkward.sum)
+    def _reduce_sum(self, mask_identity):
+        return self.sum(axis=1)
+
+    @awkward.mixin_class_method(awkward.count)
+    def _reduce_count(self, mask_identity):
+        return _count_reducer(self, mask_identity)
+
+    @awkward.mixin_class_method(awkward.count_nonzero)
+    def _reduce_count_nonzero(self, mask_identity):
+        return _count_nonzero_reducer(self, mask_identity)
 
     @awkward.mixin_class_method(numpy.multiply, {numbers.Number})
     def multiply(self, other):
@@ -423,6 +457,18 @@ class LorentzVector(MomentumAwkward4D):
             with_name="LorentzVector",
             behavior=self.behavior,
         )
+
+    @awkward.mixin_class_method(awkward.sum)
+    def _reduce_sum(self, mask_identity):
+        return self.sum(axis=1)
+
+    @awkward.mixin_class_method(awkward.count)
+    def _reduce_count(self, mask_identity):
+        return _count_reducer(self, mask_identity)
+
+    @awkward.mixin_class_method(awkward.count_nonzero)
+    def _reduce_count_nonzero(self, mask_identity):
+        return _count_nonzero_reducer(self, mask_identity)
 
     @awkward.mixin_class_method(numpy.multiply, {numbers.Number})
     def multiply(self, other):

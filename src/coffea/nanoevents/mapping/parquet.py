@@ -3,10 +3,15 @@ import warnings
 
 import awkward
 import numpy
+from cachetools import LRUCache
 from fsspec.core import OpenFile
 
 from coffea.nanoevents.mapping.base import BaseSourceMapping, UUIDOpener
 from coffea.nanoevents.util import quote, tuple_to_key
+
+# A jagged column is requested once per buffer (offsets, content); caching a few
+# columns per open file makes that one read.
+_PARQUET_COLUMN_CACHE_SIZE = 16
 
 
 # IMPORTANT -> For now the uuid is just the uuid of the pfn.
@@ -25,6 +30,7 @@ class TrivialParquetOpener(UUIDOpener):
             self.file = file
             self.dataset = dataset
             self.openfile = openfile
+            self._column_cache = LRUCache(_PARQUET_COLUMN_CACHE_SIZE)
 
         def __del__(self):
             """
@@ -36,11 +42,17 @@ class TrivialParquetOpener(UUIDOpener):
                 self.openfile.close()
 
         def read(self, column_name):
+            try:
+                return self._column_cache[column_name]
+            except KeyError:
+                pass
             # make sure uproot is single-core since our calling context might not be
             if self.dataset is not None:
-                return self.dataset.to_table(use_threads=False, columns=[column_name])
+                table = self.dataset.to_table(use_threads=False, columns=[column_name])
             else:
-                return self.file.read([column_name], use_threads=False)
+                table = self.file.read([column_name], use_threads=False)
+            self._column_cache[column_name] = table
+            return table
 
         # for right now spoof the notion of directories in files
         # parquet can do it but we've gotta convince people to
@@ -113,17 +125,17 @@ class ParquetSourceMapping(BaseSourceMapping):
             out = None
             if isinstance(aspa, (pa.lib.ListArray, pa.lib.LargeListArray)):
                 value_type = aspa.type.value_type
-                offsets = None
-                if isinstance(aspa, pa.lib.LargeListArray):
-                    offsets = numpy.frombuffer(aspa.buffers()[1], dtype=numpy.int64)[
-                        : len(aspa) + 1
-                    ]
-                else:
-                    offsets = numpy.frombuffer(aspa.buffers()[1], dtype=numpy.int32)[
-                        : len(aspa) + 1
-                    ]
-                    offsets = offsets.astype(numpy.int64)
-                offsets = awkward.index.Index64(offsets)
+                # A sliced (Large)ListArray shares its buffers and records a logical
+                # offset; take len+1 offsets from there and rebase to 0 to match flatten().
+                dtype = (
+                    numpy.int64
+                    if isinstance(aspa, pa.lib.LargeListArray)
+                    else numpy.int32
+                )
+                offsets = numpy.frombuffer(aspa.buffers()[1], dtype=dtype)[
+                    aspa.offset : aspa.offset + len(aspa) + 1
+                ].astype(numpy.int64)
+                offsets = awkward.index.Index64(offsets - offsets[0])
 
                 if not isinstance(value_type, pa.lib.DataType):
                     raise Exception(
