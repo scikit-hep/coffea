@@ -32,9 +32,9 @@ behaviors, lazy `NanoEvents`) and is unmaintained.
 4. **Vectors go through scikit-hep `vector`.** It keeps to the input coordinate
    system, so `float32` fields can lose precision or overflow to `inf` where
    coffea's older behaviors did not; upcasting to `float64` is the usual fix, to be
-   verified against your own kinematics. Custom fields named after a coordinate or
-   one of its aliases are now rejected at construction (see *Common gotchas* in
-   `ARCHITECTURE.md`), so rename them.
+   verified against your own kinematics. A custom field that collides with a
+   coordinate its vector already carries is now rejected at construction rather
+   than silently shadowing it (see *Common gotchas* in `ARCHITECTURE.md`).
 5. **Processors and executors** still exist, but several executor arguments are
    keyword-only and `postprocess` is optional.
 6. **`PackedSelection` and `Weights`** moved from `coffea.processor` to
