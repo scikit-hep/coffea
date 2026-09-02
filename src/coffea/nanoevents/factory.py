@@ -500,7 +500,7 @@ class NanoEventsFactory:
 
         Parameters
         ----------
-            file : str or pathlib.Path or pyarrow.NativeFile or io.IOBase
+            file : str or pathlib.Path or io.IOBase or pyarrow.NativeFile or pyarrow.parquet.ParquetFile
                 The filename or already opened file using e.g. ``pyarrow.NativeFile()``.
             mode : {"eager", "virtual", "dask"}, default "virtual"
                 Backend to use when interpreting parquet data.
@@ -575,6 +575,8 @@ class NanoEventsFactory:
             warnings.warn(
                 f"{schemaclass} is not dask capable despite allowing dask, generating non-dask nanoevents"
             )
+        # only the str branch opens an fsspec handle for the shim to close
+        fs_file = None
         if isinstance(file, ftypes):
             table_file = pyarrow.parquet.ParquetFile(file, **parquet_options)
         elif isinstance(file, str):

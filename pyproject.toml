@@ -124,8 +124,8 @@ dev = [
   "sphinx-autobuild>=2024.10.03"
 ]
 
-#[project.entry-points."dask.sizeof"]
-#coffea = "coffea.sizeof:register"
+[dependency-groups]
+dev = ["coffea[dev]"]
 
 [tool.hatch]
 version.source = "vcs"

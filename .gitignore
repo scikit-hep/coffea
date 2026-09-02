@@ -117,5 +117,8 @@ src/coffea/_version.py
 
 .DS_Store
 
+# Don't track lock files
+uv.lock
+
 # Review-loop scratch; see .claude/skills/README.md
 .agent-work/
