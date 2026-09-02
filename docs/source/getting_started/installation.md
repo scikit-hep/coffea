@@ -274,9 +274,9 @@ to make a new kernel available that uses this environment.
 
    ```bash
    cd coffea
-   pip install --editable .[dev]
+   pip install --editable . --group dev
    # or if you need to work on the executors, e.g. dask,
-   pip install --editable .[dev,dask]
+   pip install --editable '.[dask]' --group dev
    ```
 
 3. Develop a cool new feature or fix some bugs

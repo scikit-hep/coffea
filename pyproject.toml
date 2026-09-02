@@ -102,26 +102,32 @@ caches = [
   "numcodecs>=0.13.1",
   "zict>=3.0.0",
 ]
-dev = [
-  "pre-commit",
-  "flake8",
-  "black",
+
+[dependency-groups]
+test = [
   "pytest",
   "pytest-xdist",
   "pytest-cov",
   "pytest-mpl",
   "pytest-asyncio",
   "pytest-mock",
-  "sphinx<8",
-  "nbsphinx",
-  "sphinx-rtd-theme",
-  "sphinx-automodapi",
-  "sphinx-copybutton>=0.3.2",
-  "pyinstrument",
+]
+docs = [
   "ipython",
   "myst-nb",
+  "nbsphinx",
   "pydata-sphinx-theme",
-  "sphinx-autobuild>=2024.10.03"
+  "sphinx<8",
+  "sphinx-autobuild>=2024.10.03",
+  "sphinx-automodapi",
+  "sphinx-copybutton>=0.3.2",
+  "sphinx-rtd-theme",
+]
+dev = [
+  { include-group = "docs" },
+  { include-group = "test" },
+  "pre-commit",
+  "pyinstrument",
 ]
 
 #[project.entry-points."dask.sizeof"]
@@ -137,7 +143,10 @@ testpaths = ["tests"]
 addopts = [
   "-rfesxX",
   "-v",
+  "--strict-config",
+  "--strict-markers",
 ]
+xfail_strict = true
 log_level = "INFO"
 markers = [
   "dask_client: test requires a live distributed.Client (uses the shared session cluster)",
@@ -146,6 +155,10 @@ markers = [
 filterwarnings = [
   "ignore:There is no current event loop",
 ]
+
+[tool.uv]
+# Supply-chain cooldown: ignore releases published in the last week.
+exclude-newer = "7 days"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
