@@ -1,11 +1,11 @@
 # Review-loop skills
 
-Four skills that take a change from idea to implementation through two review
-loops: **planning → planning-review** until the plan holds up, then
-**implementation → implementation-review** until the code does.
+Four skills that take a change from idea to merged-ready through two review
+loops: planning to planning-review until the plan holds up, then implementation
+to implementation-review until the code does.
 
-They are plain markdown and name no tool, model, or vendor. Any agent that can
-read files, edit files, and run tests can follow them.
+They are plain markdown and name no model or vendor. Any agent that can read
+files, edit files and run tests can follow them.
 
 | skill | reads | writes |
 | --- | --- | --- |
@@ -16,20 +16,15 @@ read files, edit files, and run tests can follow them.
 
 ## Fresh context per step
 
-**Every step runs in a new agent session.** No step inherits another's
-transcript; its only inputs are the repository and the files named above. This
-keeps each context small and stops one step's reasoning from anchoring the next —
-in particular, it stops a reviewer from inheriting the author's justification for
-a decision it is supposed to judge independently.
-
-The file hand-off *is* the mechanism. Passing state on disk rather than in
-conversation is what makes the freshness rule checkable and portable: an agent
-either read `plan.md` or it did not.
+Every step runs in a new agent session, inheriting no transcript. Its only inputs
+are the repository and the files named above, so a reviewer cannot inherit the
+author's justification for a decision it is meant to judge. The file hand-off is
+the mechanism: an agent either read `plan.md` or it did not.
 
 ## Artifacts
 
-All loop state lives in `.agent-work/`, which is gitignored — it is scratch, not
-deliverable, and must never appear in a commit.
+All loop state lives in `.agent-work/`, which is gitignored. It is scratch and
+must never appear in a commit.
 
 ```
 .agent-work/
@@ -41,8 +36,6 @@ deliverable, and must never appear in a commit.
 ```
 
 ## Severities
-
-Reviews classify every finding. The severity decides whether the loop continues.
 
 | severity | meaning |
 | --- | --- |
@@ -72,29 +65,27 @@ Reviews classify every finding. The severity decides whether the loop continues.
                           restart at coffea-planning
 ```
 
-**There is no iteration cap.** A loop exits on its exit condition, not on a
-count. If rounds stop making progress — the same finding returns unchanged twice
-— say so plainly and hand back to the human rather than looping again.
+There is no iteration cap; a loop exits on its exit condition, not on a count. If
+the same finding returns unchanged twice, say so and hand back to the human
+rather than looping again.
+
+A clean implementation review is not a substitute for the author reading their
+own diff before opening a PR.
 
 ## Capability tiers
 
-Steps differ in how much reasoning they need, and changes differ in how much care
-they are worth. Skills refer to capability tiers, never to a named model:
+Skills name a tier, never a model:
 
 - **C1** — strongest available reasoning
 - **C2** — strong general purpose
 - **C3** — fast and cheap
 
-Fidelity scales the tier to the blast radius of the change: `critical` (core
-correctness paths) pins every step to C1; `standard` uses the per-step defaults
-each skill states; `economy` (docs, isolated tests) drops one tier where the skill
-allows it.
+Fidelity scales the tier to the blast radius: `critical` (core correctness paths)
+pins every step to C1, `standard` uses the per-step defaults, `economy` (docs,
+isolated tests) drops one tier where the skill allows it.
 
-If a review rejects the same artifact twice at a tier, **redo it one tier
-stronger** rather than attempting a third time at the same tier. Looping a model
-that cannot do the task is the most expensive way to fail.
+If a review rejects the same artifact twice at a tier, redo it one tier stronger
+rather than trying a third time at the same one.
 
-> The mapping from C1/C2/C3 to concrete models is intentionally not here: it is
-> the fastest-rotting part and is specific to whichever tool is driving. Each
-> harness supplies its own mapping (for Claude Code, `CLAUDE.md`). **This mapping
-> is not yet agreed — see the skills pull request discussion.**
+The mapping from tiers to concrete models belongs to whichever harness is driving,
+not here: it is the fastest-rotting part of this document.
