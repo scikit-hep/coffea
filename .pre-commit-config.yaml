@@ -16,13 +16,6 @@ repos:
   hooks:
   - id: black
 
-- repo: https://github.com/PyCQA/isort
-  rev: 9.0.0a3
-  hooks:
-  - id: isort
-    language_version: python3
-    args: ["--profile", "black", "--filter-files"]
-
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v6.0.0
   hooks:
@@ -48,14 +41,13 @@ repos:
   - id: setup-cfg-fmt
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.15.20
+  rev: v0.16.2
   hooks:
-  - id: ruff
+  - id: ruff-check
     args: [--fix, --show-fixes]
 
-
 - repo: https://github.com/codespell-project/codespell
-  rev: v2.4.2
+  rev: v2.4.3
   hooks:
   - id: codespell
     args: ["--skip=*.ipynb,*.svg","-L HEP,hist,Hist,nd,SubJet,subjet,Subjet,PTD,ptd,fPt,fpt,Ser,ser,hda"]

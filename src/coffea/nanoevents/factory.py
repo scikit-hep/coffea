@@ -459,6 +459,8 @@ class NanoEventsFactory:
             file_handle=file_handle,
             use_ak_forth=use_ak_forth,
             virtual=mode == "virtual",
+            decompression_executor=decompression_executor,
+            interpretation_executor=interpretation_executor,
             preloaded_arrays=preloaded_arrays,
             buffer_cache=buffer_cache,
         )
