@@ -96,18 +96,18 @@ jobs:
         PYTHON_VERSION: ${{ matrix.python-version }}
       run: |
         if [ "$PYTHON_VERSION" = "3.14t" ]; then
-          uv pip install --group dev '.[caches,parsl,dask,dask-awkward]'
+          uv pip install --group test '.[caches,parsl,dask,dask-awkward]'
         else
-          uv pip install --group dev '.[caches,parsl,dask,dask-awkward,triton]'
+          uv pip install --group test '.[caches,parsl,dask,dask-awkward,triton]'
         fi
     - name: Install coffea and dependencies (macOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        uv pip install --group dev '.[caches,dask,dask-awkward]'
+        uv pip install --group test '.[caches,dask,dask-awkward]'
     - name: Install coffea and dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install --group dev '.[caches,dask,dask-awkward]'
+        uv pip install --group test '.[caches,dask,dask-awkward]'
     - name: Start triton server with example model
       if: startsWith( matrix.os, 'ubuntu' ) && matrix.python-version != '3.14t'
       run: |
@@ -124,6 +124,10 @@ jobs:
     - name: Install pandoc
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       uses: r-lib/actions/setup-pandoc@d3c5be51b12e724e68f33216ca3c148b66d5f0b6 # v2.12.1
+    - name: Install documentation dependencies
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
+      run: |
+        uv pip install --group docs
     - name: Build documentation
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       run: |
@@ -177,18 +181,18 @@ jobs:
         PYTHON_VERSION: ${{ matrix.python-version }}
       run: |
         if [ "$PYTHON_VERSION" = "3.14t" ]; then
-          uv pip install --group dev '.[caches,parsl,dask,dask-awkward]'
+          uv pip install --group test '.[caches,parsl,dask,dask-awkward]'
         else
-          uv pip install --group dev '.[caches,parsl,dask,dask-awkward,triton]'
+          uv pip install --group test '.[caches,parsl,dask,dask-awkward,triton]'
         fi
     - name: Install coffea and dependencies (macOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        uv pip install --group dev '.[caches,dask,dask-awkward]'
+        uv pip install --group test '.[caches,dask,dask-awkward]'
     - name: Install coffea and dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install --group dev '.[caches,dask,dask-awkward]'
+        uv pip install --group test '.[caches,dask,dask-awkward]'
     - name: Start triton server with example model
       if: startsWith( matrix.os, 'ubuntu' ) && matrix.python-version != '3.14t'
       run: |
@@ -223,7 +227,7 @@ jobs:
         cache-environment: true
     - name: Install coffea (no dask at all)
       run: |
-        uv pip install --group dev '.[caches,parsl,triton]'
+        uv pip install --group test '.[caches,parsl,triton]'
     - name: Test with pytest (no dask)
       run: |
         python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "not dask_client" -n 4
@@ -276,7 +280,7 @@ jobs:
         python -m pytest tests/test_taskvine_virtual.py
 
   pass:
-    name: All CI jobs passed
+    name: Pass
     if: always()
     needs: [pre-commit, dist, test, test-dask-client, test-no-dask, test-vine]
     runs-on: ubuntu-latest

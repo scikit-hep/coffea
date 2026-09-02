@@ -270,7 +270,9 @@ to make a new kernel available that uses this environment.
    git clone https://github.com/scikit-hep/coffea
    ```
 
-2. Install with development dependencies:
+2. Install with development dependencies. These live in a
+   [dependency group](https://packaging.python.org/en/latest/specifications/dependency-groups/),
+   so `pip install --group` requires pip 25.1 or newer:
 
    ```bash
    cd coffea

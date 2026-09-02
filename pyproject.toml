@@ -105,6 +105,7 @@ caches = [
 
 [dependency-groups]
 test = [
+  "pyinstrument",
   "pytest",
   "pytest-xdist",
   "pytest-cov",
@@ -115,19 +116,16 @@ test = [
 docs = [
   "ipython",
   "myst-nb",
-  "nbsphinx",
   "pydata-sphinx-theme",
   "sphinx<8",
   "sphinx-autobuild>=2024.10.03",
   "sphinx-automodapi",
   "sphinx-copybutton>=0.3.2",
-  "sphinx-rtd-theme",
 ]
 dev = [
   { include-group = "docs" },
   { include-group = "test" },
   "pre-commit",
-  "pyinstrument",
 ]
 
 [tool.hatch]
