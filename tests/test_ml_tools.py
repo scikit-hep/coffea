@@ -4,7 +4,6 @@ import awkward as ak
 import numpy as np
 import pytest
 
-# Columns the jet wrappers below are expected to touch.
 EXPECTED_JET_COLUMNS = {
     "eta",
     "phi",
@@ -19,16 +18,11 @@ XGBOOST_FEATURES = [f"feat{i}" for i in range(16)]
 
 
 def _dask_awkward():
-    """dask_awkward, skipping the calling test when it is not installed.
-
-    Imported per test rather than at module scope so the eager tests run in an
-    installation without dask_awkward.
-    """
+    """Per-test import, so the eager tests run without dask_awkward installed."""
     return pytest.importorskip("dask_awkward")
 
 
 def prepare_jets_array(njets):
-    # Creating jagged Jet-with-constituent array
     NFEAT = 100
     jets = ak.zip(
         {
@@ -103,14 +97,13 @@ def common_prepare_awkward(jets):
 
 def _make_triton_wrapper():
     pytest.importorskip("tritonclient")
+    # Set by CI jobs that could not start a server; a server that did start is
+    # still expected to answer, so this does not mask real failures.
     if os.environ.get("TRITON_UNAVAILABLE") == "1":
-        # Set by CI when the server image could not be pulled; a server that did
-        # start is still expected to answer, so this does not mask real failures.
-        pytest.skip("triton inference server image unavailable")
+        pytest.skip("no triton inference server available")
 
     from coffea.ml_tools.triton_wrapper import triton_wrapper
 
-    # Defining custom wrapper function with awkward padding requirements.
     class triton_wrapper_test(triton_wrapper):
         def prepare_awkward(self, output_list, jets):
             return [], {
@@ -126,7 +119,7 @@ def _make_triton_wrapper():
     )
 
 
-def test_triton_ak(tmp_path):
+def test_triton_ak():
     tw = _make_triton_wrapper()
     ak_jets = prepare_jets_array(njets=256)
 
@@ -134,7 +127,6 @@ def test_triton_ak(tmp_path):
     for k in ak_res.keys():
         assert len(ak_res[k]) == len(ak_jets)
 
-    # Length 0 tests
     ak_res = tw(["output"], ak_jets[ak_jets.eta < 0])
     for k in ak_res.keys():
         assert len(ak_res[k]) == 0
@@ -181,12 +173,11 @@ def _make_torch_wrapper(**kwargs):
     return torch_wrapper_test("tests/samples/pn_demo.pt", **kwargs)
 
 
-def test_torch_ak(tmp_path):
+def test_torch_ak():
     tw = _make_torch_wrapper()
     ak_jets = prepare_jets_array(njets=256)
     assert len(tw(ak_jets)) == len(ak_jets)
 
-    # Length-0 testing
     tw = _make_torch_wrapper(expected_output_shape=(None,))
     ak_jets = prepare_jets_array(njets=256)
     ak_jets = ak_jets[ak_jets.eta < -100]  # Mimicking a low efficiency selection
@@ -272,19 +263,16 @@ def _make_tf_length0_wrapper():
     )
 
 
-def test_tensorflow_ak(tmp_path):
+def test_tensorflow_ak():
     tfw = _make_tf_wrapper()
     ak_jets = prepare_jets_array(njets=256)
     assert len(tfw(ak_jets)) == len(ak_jets)
 
     tfw_length0_tester = _make_tf_length0_wrapper()
-
-    # Making an explicit shape
     arr = ak.from_numpy(np.random.random(size=(10, 64, 18)))
     assert len(tfw_length0_tester(arr)) == 10
-    # Reducing the length 0
     arr = ak.from_numpy(np.zeros(shape=(0, 64, 18)))
-    tfw_length0_tester(arr)
+    assert len(tfw_length0_tester(arr)) == 0
 
 
 @pytest.mark.dask_client
@@ -340,7 +328,7 @@ def _xgboost_events(nevents=1_000):
     )
 
 
-def test_xgboost_ak(tmp_path):
+def test_xgboost_ak():
     xgb_wrap = _make_xgboost_wrapper()
     ak_events = _xgboost_events()
 
@@ -371,3 +359,4 @@ def test_xgboost_dak(tmp_path, dask_client):
     # Length 0 testing, xgboost always handles 0-length arrays elegantly
     ak_res = xgb_wrap(ak_events[ak_events.feat0 < 0])
     dak_res = xgb_wrap(dak_events[dak_events.feat0 < 0])
+    assert len(ak_res) == 0 and len(dak_res.compute()) == 0
