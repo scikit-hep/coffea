@@ -45,7 +45,7 @@ repos:
   rev: 57b21406f092110c18776e39b0bda50d37c945c8  # frozen: v2.4.3
   hooks:
   - id: codespell
-    args: ["--skip=*.ipynb,*.svg","-L HEP,hist,Hist,nd,SubJet,subjet,Subjet,PTD,ptd,fPt,fpt,Ser,ser,hda"]
+    args: ["--skip=*.ipynb,*.svg,src/coffea/nanoevents/assets/edm4hep_v*.yaml","-L HEP,hist,Hist,nd,SubJet,subjet,Subjet,PTD,ptd,fPt,fpt,Ser,ser,hda"]
 
 - repo: https://github.com/pre-commit/pygrep-hooks
   rev: 3a6eb0fadf60b3cccfd80bad9dbb6fae7e47b316  # frozen: v1.10.0

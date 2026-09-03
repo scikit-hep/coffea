@@ -377,6 +377,15 @@ class _DaskProperty(property):
         self._dask_get = _make_dask_descriptor(func)
         return self
 
+    def __reduce__(self):
+        # property offers no reduction of its own (fget/fset/fdel live in C
+        # slots), so behavior classes carrying one cannot be pickled by value.
+        return (
+            type(self),
+            (self.fget, self.fset, self.fdel),
+            {"__doc__": self.__doc__, "_dask_get": self._dask_get},
+        )
+
 
 def _adapt_naive_dask_get(func):
     def wrapper(self, dask_array, *args, **kwargs):
