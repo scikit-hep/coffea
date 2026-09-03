@@ -1226,7 +1226,7 @@ def test_genvistau_addition_propagates_charge():
     gm = gvt[common][:, 0] + mu[common][:, 0]
     assert "charge" in gm.fields
 
-
+@pytest.mark.xfail(reason="Candidate subtraction now yeilds a LorentzVector (charge subtraction only makes sense if you're talking about a composite candidate, consider subtracting an electron from a proton)")
 @pytest.mark.parametrize(
     "name,kin1,kin2",
     [
