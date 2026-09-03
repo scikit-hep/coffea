@@ -50,4 +50,4 @@ repos:
   rev: v2.4.3
   hooks:
   - id: codespell
-    args: ["--skip=*.ipynb,*.svg","-L HEP,hist,Hist,nd,SubJet,subjet,Subjet,PTD,ptd,fPt,fpt,Ser,ser,hda"]
+    args: ["--skip=*.ipynb,*.svg,src/coffea/nanoevents/assets/edm4hep_v*.yaml","-L HEP,hist,Hist,nd,SubJet,subjet,Subjet,PTD,ptd,fPt,fpt,Ser,ser,hda"]

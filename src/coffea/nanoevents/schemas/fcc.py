@@ -647,6 +647,8 @@ class FCCSchema_edm4hep1(EDM4HEPSchema):
     For more info, check coffea.nanoevents.schemas.EDM4HEPSchema
     """
 
+    edm4hep_version = "00-99-01"
+
     # By default, the schema does not copy the links to their target datatype collections
     # This is due to the fact that we may many collections with the same datatype
     # and not all of the collections are compatible to be copied
