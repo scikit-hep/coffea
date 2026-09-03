@@ -1,3 +1,5 @@
+import queue
+import threading
 from abc import abstractmethod
 from collections.abc import Mapping
 from functools import partial
@@ -50,6 +52,14 @@ class BaseSourceMapping(Mapping):
         self._buffer_cache = buffer_cache
         self.setup()
 
+        # The following is for threaded-prefetching:
+        # avoid duplicate fetching
+        self._prefetching_events: dict[str, threading.Event] = {}
+        self._prefetching_lock = threading.Lock()
+
+        # background prefetch queue
+        self._prefetch_queue = queue.Queue()
+
     def setup(self):
         if self._cache is None:
             self._cache = LRUCache(1)
@@ -94,9 +104,30 @@ class BaseSourceMapping(Mapping):
         return uuid, treepath, start, stop, partition, nodes
 
     def __getitem__(self, key):
-        def _getitem(key):
-            if self._buffer_cache is not None and key in self._buffer_cache:
+        if self._virtual:
+            return partial(self._getitem, key)
+        return self._getitem(key)
+
+    def _getitem(self, key):
+        if self._buffer_cache is not None and key in self._buffer_cache:
+            return self._buffer_cache[key]
+
+        # Deduplicate loads
+        with self._prefetching_lock:
+            event = self._prefetching_events.get(key)
+            if event is None:
+                event = threading.Event()
+                self._prefetching_events[key] = event
+                is_loader = True
+            else:
+                is_loader = False
+
+        if not is_loader:
+            event.wait()
+            if self._buffer_cache is not None:
                 return self._buffer_cache[key]
+
+        try:
             uuid, treepath, start, stop, partition, nodes = self.interpret_key(key)
             if self._debug:
                 print(
@@ -166,10 +197,9 @@ class BaseSourceMapping(Mapping):
             if self._buffer_cache is not None:
                 self._buffer_cache[key] = out
             return out
-
-        if self._virtual:
-            return partial(_getitem, key)
-        return _getitem(key)
+        finally:
+            with self._prefetching_lock:
+                self._prefetching_events.pop(key).set()
 
     @abstractmethod
     def __len__(self):
