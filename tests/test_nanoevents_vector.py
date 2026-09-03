@@ -1226,7 +1226,7 @@ def test_genvistau_addition_propagates_charge():
     gm = gvt[common][:, 0] + mu[common][:, 0]
     assert "charge" in gm.fields
 
-@pytest.mark.xfail(reason="Candidate subtraction now yeilds a LorentzVector (charge subtraction only makes sense if you're talking about a composite candidate, consider subtracting an electron from a proton)")
+
 @pytest.mark.parametrize(
     "name,kin1,kin2",
     [
@@ -1248,8 +1248,12 @@ def test_genvistau_addition_propagates_charge():
         ("Muon", None, None),
     ],
 )
-def test_candidate_subtraction_differences_charge(name, kin1, kin2):
-    """Candidate subtraction keeps and negates the ``charge`` field."""
+def test_candidate_subtraction_demotes_to_lorentz_vector(name, kin1, kin2):
+    """Candidate subtraction works and yields a plain LorentzVector.
+
+    Differencing charges is only meaningful for a composite candidate, so
+    subtraction drops the field rather than guessing.
+    """
     from coffea.nanoevents.methods import candidate
 
     if name == "Muon":
@@ -1276,8 +1280,8 @@ def test_candidate_subtraction_differences_charge(name, kin1, kin2):
             behavior=candidate.behavior,
         )
     diff = a - b
-    assert "charge" in diff.fields
-    assert ak.all(diff.charge == a.charge - b.charge)
+    assert diff.layout.parameter("__record__") == "LorentzVector"
+    assert diff.fields == ["x", "y", "z", "t"]
     for c in ("x", "y", "z", "t"):
         assert_allclose(
             ak.to_list(getattr(diff, c)),
