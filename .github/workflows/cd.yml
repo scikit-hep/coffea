@@ -39,7 +39,6 @@ jobs:
     permissions:
       id-token: write # trusted publishing to PyPI
       attestations: write # record build provenance for the sdist and the wheel
-      contents: read # gh attestation verify reads this repository
 
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -54,18 +53,6 @@ jobs:
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: "dist/coffea-*"
-
-      - name: Verify sdist artifact attestation
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPOSITORY: ${{ github.repository }}
-        run: gh attestation verify dist/coffea-*.tar.gz --repo "$REPOSITORY"
-
-      - name: Verify wheel artifact attestation
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPOSITORY: ${{ github.repository }}
-        run: gh attestation verify dist/coffea-*.whl --repo "$REPOSITORY"
 
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
