@@ -177,13 +177,16 @@ def get_dataset_files_replicas(
     Returns
     -------
         files : list
-            Depending on ``mode``. For ``"full"`` this is the list of replicas per file;
-            for ``"first"`` it contains only the first replica per file.
+            Depending on ``mode``. For ``"full"`` this is the list of replicas per file,
+            with one (possibly empty) entry per file in the dataset; for ``"first"`` it
+            contains only the first replica per file, and with ``partial_allowed=True``
+            files without a viable replica are omitted, so it can be shorter than the
+            dataset's file list.
 
         sites : list
             Depending on ``mode``. For ``"full"`` this is the list of sites where each
             file replica is available; for ``"first"`` it contains the site of the first
-            replica.
+            replica. It is aligned with ``files`` and follows the same length caveat.
 
         sites_counts : dict
             Metadata counting the coverage of the dataset by site.
@@ -274,8 +277,9 @@ def get_dataset_files_replicas(
                 outfiles.append(outfile)
                 outsites.append(outsite)
             elif mode == "first":
-                outfiles.append(outfile[0])
-                outsites.append(outsite[0])
+                if outfile:
+                    outfiles.append(outfile[0])
+                    outsites.append(outsite[0])
             else:
                 raise NotImplementedError(f"Mode {mode} not yet implemented!")
 
@@ -287,7 +291,7 @@ def get_dataset_files_replicas(
                 sites_counts[site] += 1
     elif mode == "first":
         for site_by_file in outsites:
-            sites_counts[site] += 1
+            sites_counts[site_by_file] += 1
 
     return outfiles, outsites, sites_counts
 

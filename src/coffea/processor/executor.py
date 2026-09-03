@@ -16,7 +16,7 @@ from collections.abc import (
     Mapping,
     MutableMapping,
 )
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from functools import partial
 from io import BytesIO
@@ -386,54 +386,6 @@ def _good_future(future: Awaitable) -> bool:
     return future.done() and not future.cancelled() and future.exception() is None
 
 
-def _futures_handler(futures, timeout):
-    """Essentially the same as concurrent.futures.as_completed
-    but makes sure not to hold references to futures any longer than strictly necessary,
-    which is important if the future holds a large result.
-    """
-    futures = set(futures)
-    try:
-        while futures:
-            try:
-                done, futures = concurrent.futures.wait(
-                    futures,
-                    timeout=timeout,
-                    return_when=concurrent.futures.FIRST_COMPLETED,
-                )
-                if len(done) == 0:
-                    warnings.warn(
-                        f"No finished jobs after {timeout}s, stopping remaining {len(futures)} jobs early"
-                    )
-                    break
-                while done:
-                    try:
-                        yield done.pop().result()
-                    except concurrent.futures.CancelledError:
-                        pass
-            except KeyboardInterrupt as e:
-                for job in futures:
-                    try:
-                        job.cancel()
-                        # this is not implemented with parsl AppFutures
-                    except NotImplementedError:
-                        raise e from None
-                running = sum(job.running() for job in futures)
-                warnings.warn(
-                    f"Early stop: cancelled {len(futures) - running} jobs, will wait for {running} running jobs to complete"
-                )
-    finally:
-        running = sum(job.running() for job in futures)
-        if running:
-            warnings.warn(
-                f"Cancelling {running} running jobs (likely due to an exception)"
-            )
-        try:
-            while futures:
-                futures.pop().cancel()
-        except NotImplementedError:
-            pass
-
-
 @dataclass
 class ExecutorBase:
     # shared by all executors
@@ -456,7 +408,11 @@ class ExecutorBase:
     def copy(self, **kwargs):
         tmp = self.__dict__.copy()
         tmp.update(kwargs)
-        return type(self)(**tmp)
+        with warnings.catch_warnings():
+            # cloning an executor the user already built is not a second
+            # occasion to deprecate its arguments
+            warnings.simplefilter("ignore", DeprecationWarning)
+            return type(self)(**tmp)
 
 
 def _watcher(
@@ -496,17 +452,18 @@ def _watcher(
                     )
             else:  # Merge within process
                 batch = FH.fetch(len(FH.completed))
-                merged = _compress(
-                    accumulate(
-                        progress.track(
-                            map(_decompress, (c for c in batch)),
-                            task_id=p_idm,
-                            total=progress._tasks[p_idm].total + len(batch),
+                if batch:
+                    merged = _compress(
+                        accumulate(
+                            progress.track(
+                                map(_decompress, (c for c in batch)),
+                                task_id=p_idm,
+                                total=progress._tasks[p_idm].total + len(batch),
+                            ),
+                            _decompress(merged),
                         ),
-                        _decompress(merged),
-                    ),
-                    executor.compression,
-                )
+                        executor.compression,
+                    )
         # Add checkpointing
 
         if executor.merging:
@@ -648,12 +605,15 @@ class FuturesExecutor(ExecutorBase):
             Minimum number of items to merge in one job. Also pass via ``merging(..., X, ...)``
         maxred : int, optional
             maximum number of items to merge in one job. Also pass via ``merging(..., ..., X)``
-        mergepool : concurrent.futures.Executor class or instance | int, optional
+        mergepool : concurrent.futures.Executor class or instance | int | bool, optional
             Supply an additional executor to process merge jobs independently.
-            An ``int`` will be interpreted as ``ProcessPoolExecutor(max_workers=int)``.
+            An ``int`` will be interpreted as ``ProcessPoolExecutor(max_workers=int)``,
+            and ``True`` as ``ProcessPoolExecutor(max_workers=workers)``.
+            ``None`` (default) or ``False`` merges in the main pool.
+            A class is instantiated with ``max_workers=workers``; an instance is used
+            as given and is left to the caller to shut down.
         tailtimeout : int, optional
-            Timeout requirement on job tails. Cancel all remaining jobs if none have finished
-            in the timeout window.
+            Deprecated and ignored; it never had an effect and will be removed in a future release.
         retries : int, optional
             Number of retries for failed tasks (default: 3)
 
@@ -678,6 +638,12 @@ class FuturesExecutor(ExecutorBase):
     retries: int = 3
 
     def __post_init__(self):
+        if self.tailtimeout is not None:
+            warnings.warn(
+                "tailtimeout has never had an effect and is deprecated; it will be removed in a future release",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if not (
             isinstance(self.merging, bool)
             or (isinstance(self.merging, tuple) and len(self.merging) == 3)
@@ -732,20 +698,31 @@ class FuturesExecutor(ExecutorBase):
                     raise e from None
 
         if isinstance(self.pool, concurrent.futures.Executor):
-            return _processwith(pool=self.pool, mergepool=self.mergepool)
+            with ExitStack() as stack:
+                mergepoolinstance = self._resolve_mergepool(stack)
+                return _processwith(pool=self.pool, mergepool=mergepoolinstance)
         else:
             # assume its a class then
             with ExitStack() as stack:
                 poolinstance = stack.enter_context(self.pool(max_workers=self.workers))
-                if self.mergepool is not None:
-                    if isinstance(self.mergepool, int):
-                        self.mergepool = concurrent.futures.ProcessPoolExecutor(
-                            max_workers=self.mergepool
-                        )
-                    mergepoolinstance = stack.enter_context(self.mergepool)
-                else:
-                    mergepoolinstance = None
+                mergepoolinstance = self._resolve_mergepool(stack)
                 return _processwith(pool=poolinstance, mergepool=mergepoolinstance)
+
+    def _resolve_mergepool(self, stack):
+        mp = self.mergepool
+        if mp is None or mp is False:
+            return None
+        if mp is True:
+            return stack.enter_context(
+                concurrent.futures.ProcessPoolExecutor(max_workers=self.workers)
+            )
+        if isinstance(mp, int):
+            return stack.enter_context(
+                concurrent.futures.ProcessPoolExecutor(max_workers=mp)
+            )
+        if isinstance(mp, concurrent.futures.Executor):
+            return mp
+        return stack.enter_context(mp(max_workers=self.workers))
 
 
 @dataclass
@@ -972,8 +949,7 @@ class ParslExecutor(ExecutorBase):
             Labels of the executors (from dfk.config.executors) that will process main jobs.
             Default is 'all'. Recommended is ``['merges']``, while passing ``label='merges'`` to the executor dedicated towards merge jobs.
         tailtimeout : int, optional
-            Timeout requirement on job tails. Cancel all remaining jobs if none have finished
-            in the timeout window.
+            Deprecated and ignored; it never had an effect and will be removed in a future release.
         retries : int, optional
             Number of retries for failed tasks (default: 3)
 
@@ -994,6 +970,12 @@ class ParslExecutor(ExecutorBase):
     retries: int = 3
 
     def __post_init__(self):
+        if self.tailtimeout is not None:
+            warnings.warn(
+                "tailtimeout has never had an effect and is deprecated; it will be removed in a future release",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if not (
             isinstance(self.merging, bool)
             or (isinstance(self.merging, tuple) and len(self.merging) == 3)
@@ -1280,6 +1262,15 @@ class Runner:
         else:
             return False
 
+    @property
+    def _allowed_exceptions(self) -> tuple[type[BaseException], ...]:
+        """The exception types ``skipbadfiles`` permits us to swallow."""
+        if self.skipbadfiles is True:
+            return (OSError,)
+        if not self.skipbadfiles:
+            return ()
+        return self.skipbadfiles
+
     @staticmethod
     def get_cache(cachestrategy):
         cache = None
@@ -1316,25 +1307,21 @@ class Runner:
             try:
                 return func(*args, **kwargs)
             except Exception as e:
+                if retries == retry_count:
+                    chain = _exception_chain(e)
+                    if skipbadfiles and any(isinstance(c, skipbadfiles) for c in chain):
+                        if use_result_type:
+                            # surface the exception instead of silently skipping
+                            # so the Runner can wrap it as Err
+                            raise e
+                        warnings.warn(
+                            f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}"
+                        )
+                        break
+                    raise e
                 warnings.warn(
                     f"Performed attempt {retry_count + 1} out of {retries + 1}"
                 )
-                chain = _exception_chain(e)
-                if (
-                    skipbadfiles
-                    and (retries == retry_count)
-                    and any(isinstance(c, skipbadfiles) for c in chain)
-                ):
-                    if use_result_type:
-                        # surface the exception instead of silently skipping
-                        # so the Runner can wrap it as Err
-                        raise e
-                    warnings.warn(
-                        f"Skipping bad file after {retry_count + 1} attempts. The last exception was: {str(e)}"
-                    )
-                    break
-                if not skipbadfiles or (retries == retry_count):
-                    raise e
             retry_count += 1
 
     @staticmethod
@@ -1398,6 +1385,8 @@ class Runner:
         uproot_options: dict,
         item: FileMeta,
     ) -> Accumulatable:
+        uproot_options = dict(uproot_options)
+        xrootdtimeout = uproot_options.pop("timeout", xrootdtimeout)
         with uproot.open(
             {item.filename: None}, timeout=xrootdtimeout, **uproot_options
         ) as file:
@@ -1455,8 +1444,6 @@ class Runner:
                 "unit": "file",
                 "compression": None,
             }
-            if isinstance(self.pre_executor, (FuturesExecutor, ParslExecutor)):
-                pre_arg_override.update({"tailtimeout": None})
             if isinstance(self.pre_executor, (DaskExecutor)):
                 self.pre_executor.heavy_input = None
                 pre_arg_override.update({"worker_affinity": False})
@@ -1491,8 +1478,6 @@ class Runner:
                 "unit": "file",
                 "compression": None,
             }
-            if isinstance(self.pre_executor, (FuturesExecutor, ParslExecutor)):
-                pre_arg_override.update({"tailtimeout": None})
             if isinstance(self.pre_executor, (DaskExecutor)):
                 self.pre_executor.heavy_input = None
                 pre_arg_override.update({"worker_affinity": False})
@@ -1529,6 +1514,22 @@ class Runner:
                     f"Metadata for file {filemeta.filename} could not be accessed."
                 )
         return final_fileset
+
+    def _limit_preprocess_files(self, fileset):
+        if self.maxchunks is None or self.skipbadfiles:
+            # the premise below only holds for files that open, so with
+            # skipbadfiles a head of unreadable files would eat the budget
+            return fileset
+        # each file yields at least one chunk, so at most maxchunks files per
+        # dataset need opening to satisfy maxchunks chunks
+        seen = defaultdict(int)
+        limited = []
+        for filemeta in fileset:
+            if seen[filemeta.dataset] >= self.maxchunks:
+                continue
+            limited.append(filemeta)
+            seen[filemeta.dataset] += 1
+        return limited
 
     def _trace_preload(
         self,
@@ -1630,11 +1631,11 @@ class Runner:
         checkpointer: CheckpointerABC,
         cache_function: Callable[[], MutableMapping],
     ) -> dict:
-        if "timeout" in uproot_options:
-            xrootdtimeout = uproot_options["timeout"]
+        uproot_options = dict(uproot_options)
+        xrootdtimeout = uproot_options.pop("timeout", xrootdtimeout)
         if processor_instance == "heavy":
             item, processor_instance = item
-        if not isinstance(processor_instance, ProcessorABC) or not callable(
+        if not isinstance(processor_instance, ProcessorABC) and not callable(
             processor_instance
         ):
             processor_instance = cloudpickle.loads(lz4f.decompress(processor_instance))
@@ -1803,6 +1804,13 @@ class Runner:
                 When ``use_result_type=True``, returns ``Ok(output)`` or ``Err(exception)``.
                 When ``use_result_type=False`` (default), returns the output directly and raises on error.
                 When ``savemetrics=True``, the output value is ``(output, metrics)``.
+
+        Raises
+        ------
+            Exception
+                Any failure a recoverable executor captured that is outside the
+                ``skipbadfiles`` set, with the partial accumulator attached as
+                its ``partial_output`` attribute.
         """
         if uproot_options is None:
             uproot_options = {}
@@ -1828,15 +1836,9 @@ class Runner:
             else:
                 out = wrapped_out["out"]
             if exception != 0:
-                # From a recoverable executor: preserve the partial accumulator
-                # alongside the captured exception, but only if it matches the
-                # user's allowed set (walking the chain to stay consistent with
-                # ``automatic_retries``); otherwise re-raise so unexpected
-                # failures surface as actual bugs.
-                allowed = (OSError,) if self.skipbadfiles is True else self.skipbadfiles
-                if any(isinstance(c, allowed) for c in _exception_chain(exception)):
-                    return Err(exception, value=out)
-                raise exception
+                # a recoverable executor captured an allowed failure; anything
+                # outside the allowed set was already re-raised by ``_run``
+                return Err(exception, value=out)
             return Ok(out)
         wrapped_out = self.run(
             fileset=fileset,
@@ -1915,31 +1917,36 @@ class Runner:
             )
         if uproot_options is None:
             uproot_options = {}
-        if self.format == "root":
-            fileset = list(self._normalize_fileset(fileset, treename))
-            for filemeta in fileset:
-                filemeta.maybe_populate(self.metadata_cache)
-
-            self._preprocess_fileset_root(fileset, uproot_options=uproot_options)
-            fileset = self._filter_badfiles(fileset)
-
-            if trace is not None:
-                if isinstance(processor_instance, ProcessorABC):
-                    process_fn = processor_instance.process
-                else:
-                    process_fn = processor_instance
-                self._trace_preload(fileset, trace, process_fn, uproot_options)
-        elif self.format == "parquet":
-            fileset = list(self._normalize_fileset(fileset, treename))
-            if any(filemeta.preload is not None for filemeta in fileset):
-                raise NotImplementedError(
-                    "fileset-level 'preload' is not supported for parquet input"
+        with self._auto_dask_client():
+            if self.format == "root":
+                fileset = self._limit_preprocess_files(
+                    list(self._normalize_fileset(fileset, treename))
                 )
-            for filemeta in fileset:
-                filemeta.maybe_populate(self.metadata_cache)
+                for filemeta in fileset:
+                    filemeta.maybe_populate(self.metadata_cache)
 
-            self._preprocess_fileset_parquet(fileset)
-            fileset = self._filter_badfiles(fileset)
+                self._preprocess_fileset_root(fileset, uproot_options=uproot_options)
+                fileset = self._filter_badfiles(fileset)
+
+                if trace is not None:
+                    if isinstance(processor_instance, ProcessorABC):
+                        process_fn = processor_instance.process
+                    else:
+                        process_fn = processor_instance
+                    self._trace_preload(fileset, trace, process_fn, uproot_options)
+            elif self.format == "parquet":
+                fileset = self._limit_preprocess_files(
+                    list(self._normalize_fileset(fileset, treename))
+                )
+                if any(filemeta.preload is not None for filemeta in fileset):
+                    raise NotImplementedError(
+                        "fileset-level 'preload' is not supported for parquet input"
+                    )
+                for filemeta in fileset:
+                    filemeta.maybe_populate(self.metadata_cache)
+
+                self._preprocess_fileset_parquet(fileset)
+                fileset = self._filter_badfiles(fileset)
 
         return self._chunk_generator(fileset, treename)
 
@@ -1997,6 +2004,13 @@ class Runner:
                 raw output dict and exceptions propagate. See ``__call__`` for
                 the user-facing output with ``savemetrics`` / ``use_dataframes``
                 extraction applied.
+
+        Raises
+        ------
+            Exception
+                Any failure a recoverable executor captured that is outside the
+                ``skipbadfiles`` set, with the partial accumulator attached as
+                its ``partial_output`` attribute.
         """
         if not self.use_result_type:
             return self._run(
@@ -2022,12 +2036,73 @@ class Runner:
             # Match against the full exception chain to stay consistent with
             # ``automatic_retries`` — a wrapped exception whose ``__cause__``
             # matches ``skipbadfiles`` should still surface as ``Err``.
-            allowed = (OSError,) if self.skipbadfiles is True else self.skipbadfiles
-            if any(isinstance(c, allowed) for c in _exception_chain(e)):
+            if any(
+                isinstance(c, self._allowed_exceptions) for c in _exception_chain(e)
+            ):
                 return Err(e)
             raise
 
+    @contextmanager
+    def _auto_dask_client(self):
+        if self.use_dataframes:
+            # the lazy dd.DataFrame handed back to the caller outlives this call
+            # and needs a live client, so leave DaskExecutor to make and keep one
+            yield None
+            return
+        auto = []
+        if isinstance(self.executor, DaskExecutor) and self.executor.client is None:
+            auto.append(self.executor)
+        if (
+            self.pre_executor is not self.executor
+            and isinstance(self.pre_executor, DaskExecutor)
+            and self.pre_executor.client is None
+        ):
+            auto.append(self.pre_executor)
+        if not auto:
+            yield None
+            return
+        client = _import_distributed().client.Client(threads_per_worker=1)
+        for ex in auto:
+            ex.client = client
+        try:
+            yield client
+        finally:
+            for ex in auto:
+                ex.client = None
+            client.close()
+
     def _run(
+        self,
+        fileset: dict | str | list[WorkItem] | Generator,
+        processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
+        *,
+        treename: str | None = None,
+        uproot_options: dict | None = {},
+        iteritems_options: dict | None = {},
+        trace: Callable | None = None,
+    ) -> Accumulatable:
+        with self._auto_dask_client():
+            out = self._run_impl(
+                fileset,
+                processor_instance,
+                treename=treename,
+                uproot_options=uproot_options,
+                iteritems_options=iteritems_options,
+                trace=trace,
+            )
+        if self.use_dataframes:
+            return out
+        exception = out.get("exception", 0)
+        if exception != 0 and not any(
+            isinstance(c, self._allowed_exceptions) for c in _exception_chain(exception)
+        ):
+            # a recoverable executor captured this; the caller still gets the
+            # work that did complete, per the recoverable contract
+            exception.partial_output = out["out"]
+            raise exception
+        return out
+
+    def _run_impl(
         self,
         fileset: dict | str | list[WorkItem] | Generator,
         processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],

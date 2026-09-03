@@ -9,7 +9,6 @@ import numpy as np
 class ShapeDTypeStruct:
     dtype: np.dtype
     shape: tuple[int, ...]
-    strides: tuple[int, ...]
     compressed: bool
 
 
@@ -24,14 +23,11 @@ class Codec(tp.Protocol):
 
 class NoCompressionCodec(Codec):
     def encode(self, arr: np.ndarray) -> tuple[ByteBuffer, ShapeDTypeStruct]:
-        struct = ShapeDTypeStruct(
-            dtype=arr.dtype, shape=arr.shape, strides=arr.strides, compressed=False
-        )
-        return arr.tobytes(), struct
+        struct = ShapeDTypeStruct(dtype=arr.dtype, shape=arr.shape, compressed=False)
+        return np.ascontiguousarray(arr).tobytes(), struct
 
     def decode(self, buffer: ByteBuffer, struct: ShapeDTypeStruct) -> np.ndarray:
-        arr = np.frombuffer(buffer, struct.dtype)
-        return np.lib.stride_tricks.as_strided(arr, struct.shape, struct.strides)
+        return np.frombuffer(buffer, struct.dtype).reshape(struct.shape)
 
 
 class NumCodecsWrapper:
@@ -41,25 +37,17 @@ class NumCodecsWrapper:
         self._codec = codec
 
     def encode(self, arr: np.ndarray) -> tuple[ByteBuffer, ShapeDTypeStruct]:
-        if arr.nbytes > 16:
-            encoded = self._codec.encode(arr.tobytes())
-            struct = ShapeDTypeStruct(
-                dtype=arr.dtype, shape=arr.shape, strides=arr.strides, compressed=True
-            )
-        else:
-            encoded = arr.tobytes()
-            struct = ShapeDTypeStruct(
-                dtype=arr.dtype, shape=arr.shape, strides=arr.strides, compressed=False
-            )
-        return encoded, struct
+        raw = np.ascontiguousarray(arr).tobytes()
+        compressed = arr.nbytes > 16
+        struct = ShapeDTypeStruct(
+            dtype=arr.dtype, shape=arr.shape, compressed=compressed
+        )
+        return (self._codec.encode(raw) if compressed else raw), struct
 
     def decode(self, buffer: ByteBuffer, struct: ShapeDTypeStruct) -> np.ndarray:
         if struct.compressed:
-            decoded = self._codec.decode(buffer)
-        else:
-            decoded = buffer
-        arr = np.frombuffer(decoded, struct.dtype)
-        return np.lib.stride_tricks.as_strided(arr, struct.shape, struct.strides)
+            buffer = self._codec.decode(buffer)
+        return np.frombuffer(buffer, struct.dtype).reshape(struct.shape)
 
 
 ByteBufferCache: tp.TypeAlias = MutableMapping[tp.Hashable, ByteBuffer]
@@ -205,26 +193,22 @@ def BufferCache(
             f"cache must be an instance of MutableMapping, got {type(cache)}"
         )
 
-    if codec is not None:
-        try:
-            import numcodecs
-        except ModuleNotFoundError as err:
-            raise ModuleNotFoundError("""to use BufferCache, you must install numcodecs:
+    if codec is None:
+        return cache
 
-pip install numcodecs
+    try:
+        import numcodecs
+    except ModuleNotFoundError:
+        numcodecs = None
 
-or
+    if numcodecs is not None and isinstance(codec, numcodecs.abc.Codec):
+        codec = NumCodecsWrapper(codec=codec)
+    elif not isinstance(codec, Codec):
+        raise TypeError(
+            "codec must be an instance of a Codec subclass "
+            "(e.g. NoCompressionCodec) or of numcodecs.abc.Codec "
+            "(install with: pip install numcodecs), got "
+            f"{type(codec)}"
+        )
 
-conda install -c conda-forge numcodecs""") from err
-
-        # auto-wrap for numcodecs.abc.Codec
-        if isinstance(codec, numcodecs.abc.Codec):
-            codec = NumCodecsWrapper(codec=codec)
-
-        # at this point we expect a proper Codec instance
-        if not isinstance(codec, Codec):
-            raise TypeError(f"codec must be an instance of Codec, got {type(codec)}")
-
-        return CodecAwareCache(cache=cache, codec=codec)
-
-    return cache
+    return CodecAwareCache(cache=cache, codec=codec)

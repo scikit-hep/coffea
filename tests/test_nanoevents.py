@@ -458,6 +458,35 @@ def test_file_handle_from_path(tests_directory, mode):
 
 
 @pytest.mark.parametrize("mode", ["eager", "virtual"])
+def test_factory_pickle_preserves_mode(tests_directory, mode):
+    import pickle
+
+    path = f"{tests_directory}/samples/nano_dy.root:Events"
+    factory = NanoEventsFactory.from_root(
+        path,
+        schemaclass=NanoAODSchema,
+        mode=mode,
+    )
+
+    unpickled = pickle.loads(pickle.dumps(factory))
+    assert unpickled._mode == mode
+    assert unpickled.events() is not None
+
+
+def test_factory_legacy_pickle_defaults_to_virtual(tests_directory):
+    """A pickle predating the "mode" key must restore from_root's default mode."""
+    path = f"{tests_directory}/samples/nano_dy.root:Events"
+    factory = NanoEventsFactory.from_root(path, schemaclass=NanoAODSchema)
+
+    legacy = factory.__getstate__()
+    del legacy["mode"]
+    restored = NanoEventsFactory.__new__(NanoEventsFactory)
+    restored.__setstate__(legacy)
+
+    assert restored._mode == "virtual"
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
 def test_file_handle_from_directory(tests_directory, mode):
     """Test that file_handle is available when passing ReadOnlyDirectory."""
     filepath = f"{tests_directory}/samples/nano_dy.root"

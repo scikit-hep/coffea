@@ -34,8 +34,11 @@ class _AwkwardRewrapFn:
 
 
 def rand_gauss(item):
+    np_item = awkward.typetracer.length_one_if_typetracer(item).to_numpy()
     seeds = (
-        awkward.typetracer.length_one_if_typetracer(item).to_numpy()[[0, -1]].view("i4")
+        np_item[[0, -1]].view("i4")
+        if len(np_item)
+        else numpy.zeros(2, dtype=numpy.int32)
     )
     randomstate = numpy.random.Generator(numpy.random.PCG64(seeds))
 
@@ -148,20 +151,25 @@ class CorrectedJetsFactory:
         # from PhysicsTools/PatUtils/interface/SmearedJetProducerT.h#L283
         self.forceStochastic = False
 
-        if "ptRaw" not in name_map or name_map["ptRaw"] is None:
+        name_map = dict(name_map)
+
+        self.treat_pt_as_raw = "ptRaw" not in name_map or name_map["ptRaw"] is None
+        if self.treat_pt_as_raw:
             warnings.warn(
                 "There is no name mapping for ptRaw,"
                 " CorrectedJets will assume that <object>.pt is raw pt!"
             )
             name_map["ptRaw"] = name_map["JetPt"] + "_raw"
-        self.treat_pt_as_raw = "ptRaw" not in name_map
 
-        if "massRaw" not in name_map or name_map["massRaw"] is None:
+        self.treat_mass_as_raw = (
+            "massRaw" not in name_map or name_map["massRaw"] is None
+        )
+        if self.treat_mass_as_raw:
             warnings.warn(
                 "There is no name mapping for massRaw,"
-                " CorrectedJets will assume that <object>.mass is raw pt!"
+                " CorrectedJets will assume that <object>.mass is raw mass!"
             )
-            name_map["ptRaw"] = name_map["JetMass"] + "_raw"
+            name_map["massRaw"] = name_map["JetMass"] + "_raw"
 
         total_signature = set()
         for part in _stack_parts:
@@ -226,7 +234,7 @@ class CorrectedJetsFactory:
         fields = awkward.fields(jets)
         if len(fields) == 0:
             raise Exception(
-                "Empty record, please pass a jet object with at least {self.real_sig} defined!"
+                f"Empty record, please pass a jet object with at least {self.real_sig} defined!"
             )
         out = awkward.flatten(jets)
         wrap = partial(
@@ -246,6 +254,7 @@ class CorrectedJetsFactory:
         # take care of nominal JEC (no JER if available)
         if self.treat_pt_as_raw:
             out_dict[self.name_map["ptRaw"]] = out_dict[self.name_map["JetPt"]]
+        if self.treat_mass_as_raw:
             out_dict[self.name_map["massRaw"]] = out_dict[self.name_map["JetMass"]]
 
         jec_name_map = dict(self.name_map)
@@ -484,7 +493,7 @@ class CorrectedJetsFactory:
                     label=f"{name}",
                 )
 
-        out_parms = out.layout.parameters
+        out_parms = dict(out.layout.parameters)
         out_parms["corrected"] = True
         out = awkward.zip(
             out_dict, depth_limit=1, parameters=out_parms, behavior=out.behavior
