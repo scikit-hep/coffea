@@ -83,8 +83,10 @@ dask = [
   "bokeh!=3.0.*,>=2.4.2",
 ]
 dask-awkward = [
+  "coffea[dask]",
   "dask-awkward>=2025.9.0",
   "dask-histogram>=2025.2.0",
+  "bokeh<3.10",
 ]
 parsl = [
   "parsl>=2024.12.09"
