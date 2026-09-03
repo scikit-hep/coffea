@@ -44,9 +44,8 @@ class Candidate(vector.LorentzVector):
                 "y": self.y - other.y,
                 "z": self.z - other.z,
                 "t": self.t - other.t,
-                "charge": self.charge - other.charge,
             },
-            with_name="Candidate",
+            with_name="LorentzVector", # subtraction only makes sense for raw Lorentz vectors
             behavior=self.behavior,
         )
 
