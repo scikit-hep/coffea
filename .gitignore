@@ -116,3 +116,6 @@ dask-worker-space/
 src/coffea/_version.py
 
 .DS_Store
+
+# Don't track lock files
+uv.lock

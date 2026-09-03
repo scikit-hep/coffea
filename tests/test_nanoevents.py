@@ -1,6 +1,7 @@
 import inspect
 import os
 import re
+import sys
 from functools import partial
 from pathlib import Path
 
@@ -314,6 +315,36 @@ def test_read_from_uri(tests_directory, suffix):
             events = factory.events()
             assert len(events) == 40
             mock_fsspec_open.assert_called_once()
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
+@pytest.mark.parametrize("input_kind", ["str", "path", "parquetfile", "fileobj"])
+def test_from_parquet_input_types(tests_directory, input_kind, mode):
+    """Every documented input type yields the same events as the str path."""
+    path_str = f"{tests_directory}/samples/nano_dy.parquet"
+
+    def make_events(file):
+        return NanoEventsFactory.from_parquet(
+            file, schemaclass=NanoAODSchema, mode=mode
+        ).events()
+
+    ref_pt = ak.to_list(make_events(path_str).Muon.pt)
+
+    if input_kind == "fileobj":
+        with open(path_str, "rb") as fh:
+            events = make_events(fh)
+            if mode == "virtual":
+                events = ak.materialize(events)
+    else:
+        file = {
+            "str": path_str,
+            "path": Path(path_str),
+            "parquetfile": pq.ParquetFile(path_str),
+        }[input_kind]
+        events = make_events(file)
+
+    assert len(events) == 40
+    assert ak.to_list(events.Muon.pt) == ref_pt
 
 
 @pytest.mark.parametrize("suffix", suffixes)
@@ -810,3 +841,31 @@ def test_union_form_genuinely_missing_branch_dask(tmp_path, dask_client):
         ).events()
         with pytest.raises(KeyError):
             events["flag"].compute()
+
+
+def _all_schemas():
+    from coffea.nanoevents import schemas
+
+    return [
+        getattr(schemas, name)
+        for name in schemas.__all__
+        if hasattr(getattr(schemas, name), "behavior")
+    ]
+
+
+@pytest.mark.parametrize("schemaclass", _all_schemas(), ids=lambda c: c.__name__)
+def test_schema_behavior_survives_pickling(schemaclass):
+    """Behavior dicts are shipped to distributed workers, and their classes must
+    go by reference -- a shadowed class silently falls back to pickling by value.
+    """
+    cloudpickle = pytest.importorskip("cloudpickle")
+
+    behavior = schemaclass.behavior()
+    cloudpickle.loads(cloudpickle.dumps(behavior))
+
+    for key, value in behavior.items():
+        if isinstance(value, type):
+            module = sys.modules[value.__module__]
+            assert (
+                getattr(module, value.__qualname__, None) is value
+            ), f"behavior[{key!r}] is not {value.__module__}.{value.__qualname__}"

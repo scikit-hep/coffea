@@ -65,3 +65,36 @@ def test_loadsave(compression, tmp_path):
     assert newoutput["x"]["y"] == 1
     assert newoutput["x"]["z"] == 2
     assert newoutput["a"]["b"] == 3
+
+
+def test_dask_property_is_picklable():
+    cloudpickle = pytest.importorskip("cloudpickle")
+
+    from coffea.util import dask_property
+
+    # defined in a function body, so cloudpickle has to pickle it by value
+    class Thing:
+        def __init__(self, x):
+            self.x = x
+
+        @dask_property
+        def doubled(self):
+            """twice x"""
+            return 2 * self.x
+
+        @doubled.dask
+        def doubled(self, dask_array):
+            return 20 * dask_array.x
+
+        @dask_property(no_dispatch=True)
+        def tripled(self):
+            return 3 * self.x
+
+    unpickled = cloudpickle.loads(cloudpickle.dumps(Thing))
+
+    assert unpickled(1).doubled == 2
+    assert unpickled(1).tripled == 3
+    doubled = unpickled.__dict__["doubled"]
+    assert doubled.__doc__ == "twice x"
+    assert doubled._dask_get(unpickled(1), unpickled, Thing(3)) == 60
+    assert unpickled.__dict__["tripled"]._dask_get(unpickled(2), unpickled, None) == 6
