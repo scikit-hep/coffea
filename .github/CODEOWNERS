@@ -3,10 +3,10 @@
 # files" in ARCHITECTURE.md. GitHub reads this file from the base branch, so a PR
 # cannot grant itself ownership by editing it.
 
-/AGENTS.md                                   @lgray @NJManganelli @nsmith- @ikrommyd
-/CLAUDE.md                                   @lgray @NJManganelli @nsmith- @ikrommyd
-/ARCHITECTURE.md                             @lgray @NJManganelli @nsmith- @ikrommyd
-/docs/agents/                                @lgray @NJManganelli @nsmith- @ikrommyd
-/.claude/                                    @lgray @NJManganelli @nsmith- @ikrommyd
-/.github/CODEOWNERS                          @lgray @NJManganelli @nsmith- @ikrommyd
-/.github/workflows/agent-file-guard.yml      @lgray @NJManganelli @nsmith- @ikrommyd
+/AGENTS.md                                   @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/CLAUDE.md                                   @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/ARCHITECTURE.md                             @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/docs/agents/                                @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/.claude/                                    @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/.github/CODEOWNERS                          @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/.github/workflows/agent-file-guard.yml      @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
