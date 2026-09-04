@@ -130,9 +130,7 @@ jobs:
         uv pip install --group docs
     - name: Build documentation
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
-      run: |
-        cd docs && make html
-        touch build/html/.nojekyll
+      run: make -C docs html
 
   test-dask-client:
     runs-on: ${{ matrix.os }}

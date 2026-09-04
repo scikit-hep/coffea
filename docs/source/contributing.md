@@ -63,7 +63,10 @@ ask for help.
 
   ```bash
   pushd docs
-  make html
+  make -j html
+  # the `-j` option requests to use all of the processors on your machine
+  # to make the build faster, you can limit to N processors using -jN or
+  # one processor by omitting the `-j` option
   popd
   ```
 
@@ -77,6 +80,8 @@ ask for help.
   system package as well (e.g. `sudo apt install graphviz` on Debian variants).
 - The `make watch` command uses `sphinx-autobuild` to re-build the pages as
   you change the source files which can be helpful depending on your workflow.
+  It spawns a simple local HTTP server as well which reloads the site after
+  the re-build is completed.
 
 ## Release cadence
 

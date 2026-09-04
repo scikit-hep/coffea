@@ -1,11 +1,15 @@
 .. image:: https://raw.githubusercontent.com/scikit-hep/coffea/refs/heads/master/docs/source/logo/coffea_logo.svg
     :align: center
     :width: 250px
-    :alt: logo
+    :alt: logo using common acroynym "coffea"
 
+..
+  future dev note: The doc site makes a copy of this README and inserts it into
+  the main intro page. Since the main intro page includes a top-level section
+  (underlined by `=`), we start sections here with a second-level section (`-`).
 
-coffea - Columnar Object Framework For Effective Analysis
-=========================================================
+Columnar Object Framework For Effective Analysis
+------------------------------------------------
 
 .. image:: https://zenodo.org/badge/159673139.svg
    :target: https://zenodo.org/badge/latestdoi/159673139
@@ -31,11 +35,7 @@ coffea - Columnar Object Framework For Effective Analysis
 .. image:: https://static.mybinder.org/badge_logo.svg
    :target: https://mybinder.org/v2/gh/scikit-hep/coffea/master?filepath=binder/
 
-.. inclusion-marker-1-do-not-remove
-
 Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis.
-
-.. inclusion-marker-1-5-do-not-remove
 
 coffea is a prototype package for pulling together all the typical needs
 of a high-energy collider physics (HEP) experiment analysis using the scientific
@@ -60,10 +60,8 @@ and is currently a prototype. We welcome input to improve its quality as we prog
 a sensible refactorization into the scientific python ecosystem and a first release. Please
 feel free to contribute at our `GitHub repo <https://github.com/scikit-hep/coffea>`_!
 
-.. inclusion-marker-2-do-not-remove
-
 Installation
-============
+^^^^^^^^^^^^
 
 Install coffea like any other Python package:
 
@@ -71,11 +69,11 @@ Install coffea like any other Python package:
 
     pip install coffea
 
-or similar (use ``sudo``, ``--user``, ``virtualenv``, or pip-in-conda if you wish).
+or similar for your environment tooling (e.g. ``uv pip install coffea`` or ``pixi add coffea``).
 For more details, see the `Installing coffea <https://coffea-hep.readthedocs.io/en/latest/getting_started/installation.html>`_ section of the documentation.
 
 Strict dependencies
-===================
+^^^^^^^^^^^^^^^^^^^
 
 - `Python <https://docs.python-guide.org/starting/installation/>`__ (3.9+)
 
@@ -89,14 +87,12 @@ The following are installed automatically when you install coffea with pip:
 - `matplotlib <https://matplotlib.org/>`__ as a plotting backend;
 - and other utility packages, as enumerated in ``pyproject.toml``.
 
-.. inclusion-marker-3-do-not-remove
-
 Documentation
-=============
+^^^^^^^^^^^^^
 All documentation is hosted at https://coffea-hep.readthedocs.io/en/latest/
 
 Citation
-========
+^^^^^^^^
 If you would like to cite this code in your work, you can use the zenodo DOI indicated in ``CITATION.cff``, or the `latest DOI <https://zenodo.org/badge/latestdoi/159673139>`__. You may also cite the proceedings:
 
 - "N. Smith et al 2020 EPJ Web Conf. 245 06012"
