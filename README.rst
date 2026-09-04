@@ -6,7 +6,7 @@
 ..
   future dev note: The doc site makes a copy of this README and inserts it into
   the main intro page. Since the main intro page includes a top-level section
-  (underlined by `=`), we start sections here with a second-level section (`-`).
+  (underlined by ``=``), we start sections here with a second-level section (``-``).
 
 Columnar Object Framework For Effective Analysis
 ------------------------------------------------
