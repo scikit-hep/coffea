@@ -11,7 +11,6 @@ import awkward
 import cloudpickle
 import fsspec
 import hist
-import numba
 import numpy
 import uproot
 from rich.console import Console
@@ -28,7 +27,6 @@ from rich.progress import (
 
 ak = awkward
 np = numpy
-nb = numba
 
 
 __all__ = [
@@ -73,20 +71,6 @@ def save(output, filename, compression="lz4"):
     """
     with fsspec.open(filename, "wb", compression=compression) as fout:
         cloudpickle.dump(output, fout)
-
-
-def _hex(string):
-    try:
-        return string.hex()
-    except AttributeError:
-        return "".join(f"{ord(c):02x}" for c in string)
-
-
-def _ascii(maybebytes):
-    try:
-        return maybebytes.decode("ascii")
-    except AttributeError:
-        return maybebytes
 
 
 def _hash(items):
@@ -376,6 +360,15 @@ class _DaskProperty(property):
         assert self._dask_get is None
         self._dask_get = _make_dask_descriptor(func)
         return self
+
+    def __reduce__(self):
+        # property offers no reduction of its own (fget/fset/fdel live in C
+        # slots), so behavior classes carrying one cannot be pickled by value.
+        return (
+            type(self),
+            (self.fget, self.fset, self.fdel),
+            {"__doc__": self.__doc__, "_dask_get": self._dask_get},
+        )
 
 
 def _adapt_naive_dask_get(func):

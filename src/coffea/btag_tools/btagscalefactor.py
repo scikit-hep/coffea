@@ -145,33 +145,44 @@ class BTagScaleFactor:
                 edges_discr[:-1],
                 indexing="ij",
             )
-            mapping = numpy.full(bin_low_edges[0].shape, -1)
+            fbins = numpy.array([b[0] for b in allbins])
+            eta_lo = numpy.array([b[1][0] for b in allbins])
+            eta_hi = numpy.array([b[1][1] for b in allbins])
+            pt_lo = numpy.array([b[2][0] for b in allbins])
+            pt_hi = numpy.array([b[2][1] for b in allbins])
+            discr_lo = numpy.array([b[3][0] for b in allbins])
+            discr_hi = numpy.array([b[3][1] for b in allbins])
 
-            def findbin(flavor, eta, pt, discr):
-                btvflavor = self._flavor2btvflavor[flavor]
-                for i, (fbin, ebin, pbin, dbin) in enumerate(allbins):
-                    if (
-                        btvflavor == fbin
-                        and ebin[0] <= eta < ebin[1]
-                        and pbin[0] <= pt < pbin[1]
-                        and dbin[0] <= discr < dbin[1]
-                    ):
-                        return i
-                if eta < 0:
-                    # maybe in this region we have only abseta
-                    for i, (fbin, ebin, pbin, dbin) in enumerate(allbins):
-                        if (
-                            btvflavor == fbin
-                            and -ebin[1] <= eta < -ebin[0]
-                            and pbin[0] <= pt < pbin[1]
-                            and dbin[0] <= discr < dbin[1]
-                        ):
-                            return i
-                return -1
+            eta_cell = bin_low_edges[1].reshape(-1, 1)
+            pt_cell = bin_low_edges[2].reshape(-1, 1)
+            discr_cell = bin_low_edges[3].reshape(-1, 1)
+            flavor_cell = bin_low_edges[0].reshape(-1)
+            btvflavor_cell = numpy.full(flavor_cell.shape, -1, dtype=fbins.dtype)
+            for flav, btv in self._flavor2btvflavor.items():
+                btvflavor_cell[flavor_cell == flav] = btv
+            assert not numpy.any(
+                btvflavor_cell == -1
+            ), "jet flavor with no BTV equivalent in _flavor2btvflavor"
+            btvflavor_cell = btvflavor_cell.reshape(-1, 1)
 
-            for idx, _ in numpy.ndenumerate(mapping):
-                flavor, eta, pt, discr = (x[idx] for x in bin_low_edges)
-                mapping[idx] = findbin(flavor, eta, pt, discr)
+            base_match = (
+                (btvflavor_cell == fbins)
+                & (pt_lo <= pt_cell)
+                & (pt_cell < pt_hi)
+                & (discr_lo <= discr_cell)
+                & (discr_cell < discr_hi)
+            )
+            match = base_match & (eta_lo <= eta_cell) & (eta_cell < eta_hi)
+            found = match.any(axis=1)
+            result = numpy.where(found, match.argmax(axis=1), -1)
+
+            # maybe in this region we have only abseta
+            abseta_match = base_match & (-eta_hi <= eta_cell) & (eta_cell < -eta_lo)
+            fallback = (~found) & (eta_cell[:, 0] < 0)
+            fallback &= abseta_match.any(axis=1)
+            result[fallback] = abseta_match.argmax(axis=1)[fallback]
+
+            mapping = result.reshape(bin_low_edges[0].shape)
 
             if self.workingpoint == BTagScaleFactor.RESHAPE:
                 self._corrections[syst] = dense_mapped_lookup(

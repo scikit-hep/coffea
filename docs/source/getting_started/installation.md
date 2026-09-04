@@ -279,6 +279,9 @@ to make a new kernel available that uses this environment.
    pip install --editable .[dev,dask]
    ```
 
+   If you use [`uv`](https://docs.astral.sh/uv/) to manage your python environments, you can also simply run
+   `uv sync` to install the development dependencies.
+
 3. Develop a cool new feature or fix some bugs
 
 4. Lint source, run tests, and build documentation:

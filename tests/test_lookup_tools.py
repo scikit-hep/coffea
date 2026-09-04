@@ -19,6 +19,7 @@ except ImportError:
 from dummy_distributions import dummy_jagged_eta_pt
 
 from coffea import lookup_tools
+from coffea.lookup_tools.json_converters import convert_histo_json_file
 from coffea.nanoevents import NanoEventsFactory
 from coffea.util import numpy as np
 
@@ -271,6 +272,45 @@ def test_histo_json_scalefactors():
     print(sf_err_out)
 
 
+def test_histo_json_scalefactors_multi():
+    # dirA/histA has {value, error}, dirB/histB has {value, weight}
+    out = convert_histo_json_file("tests/samples/multihist_WH_out.histo.json")
+    keys = {name for (name, _kind) in out.keys()}
+    assert keys == {
+        "dirA/histA_value",
+        "dirA/histA_error",
+        "dirB/histB_value",
+        "dirB/histB_weight",
+    }
+
+    assert list(out[("dirA/histA_value", "dense_lookup")][0]) == [1.0, 2.0]
+    assert list(out[("dirA/histA_error", "dense_lookup")][0]) == [
+        pytest.approx(0.1),
+        pytest.approx(0.2),
+    ]
+    assert list(out[("dirB/histB_value", "dense_lookup")][0]) == [5.0, 6.0]
+    assert list(out[("dirB/histB_weight", "dense_lookup")][0]) == [9.0, 8.0]
+
+    extractor = lookup_tools.extractor()
+    extractor.add_weight_sets(["testMulti * tests/samples/multihist_WH_out.histo.json"])
+    extractor.finalize()
+    evaluator = extractor.make_evaluator()
+
+    x = ak.Array([0.5, 1.5])
+    assert list(evaluator["testMultidirA/histA_value"](x)) == [1.0, 2.0]
+    assert list(evaluator["testMultidirB/histB_weight"](x)) == [9.0, 8.0]
+
+
+def test_histo_json_scalefactors_multi_subset():
+    # the last histogram's value names are a subset of an earlier one's
+    out = convert_histo_json_file("tests/samples/multihist_subset_WH_out.histo.json")
+    assert {name for (name, _kind) in out.keys()} == {
+        "dirA/histA_value",
+        "dirA/histA_error",
+        "dirB/histB_value",
+    }
+
+
 def test_jec_txt_scalefactors():
     extractor = lookup_tools.extractor()
     extractor.add_weight_sets(
@@ -383,6 +423,41 @@ def test_jec_txt_effareas():
     ph_out = evaluator["photon_id_EA_Pho"](test_eta)
     print(ph_out)
     print(evaluator["photon_id_EA_Pho"])
+
+
+def test_effective_area_2d_unsupported():
+    from coffea.lookup_tools.txt_converters import convert_effective_area_file
+
+    wrapped = convert_effective_area_file("tests/samples/photon_id.ea.txt")
+    values, dims = wrapped[("photon_id_EA_Pho", "dense_lookup")]
+    assert np.allclose(dims, [0.0, 1.0, 1.479, 2.0, 2.2, 2.3, 2.4, 2.5])
+    assert np.allclose(values, [0.1210, 0.1107, 0.0699, 0.1056, 0.1457, 0.1719, 0.1998])
+
+    with pytest.raises(NotImplementedError):
+        convert_effective_area_file("tests/samples/photon_id_2d.ea.txt")
+
+
+def test_pileup_json_wildcard():
+    ext = lookup_tools.extractor()
+    ext.add_weight_sets(["* * tests/samples/testpu.pileup.json"])
+    ext.finalize()
+    ev = ext.make_evaluator()
+    out = ev["pileup"](np.array([2]), np.array([1]))
+    assert list(out) == [12.0]
+
+
+def test_pileup_json_named_no_nametable_corruption():
+    ext = lookup_tools.extractor()
+    ext.add_weight_sets(
+        [
+            "photon_id_EA_Pho photon_id_EA_Pho tests/samples/photon_id.ea.txt",
+            "pu pileup tests/samples/testpu.pileup.json",
+        ]
+    )
+    ext.finalize()
+    ev = ext.make_evaluator()
+    out = ev["pu"](np.array([1, 1, 2]), np.array([1, 2, 1]))
+    assert list(out) == [25.0, 30.0, 12.0]
 
 
 def test_rochester(tests_directory):

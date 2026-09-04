@@ -58,6 +58,40 @@ def test_lumidata():
     assert len(results["index"][lumidata]) == len(results["index"][lumidata_pickle])
 
 
+@pytest.mark.parametrize("order", ["eager_first", "dask_first"])
+@pytest.mark.parametrize("dtype", ["u4", "i8", "f8"])
+def test_lumidata_eager_dask_order_and_dtype(order, dtype):
+    dak = pytest.importorskip("dask_awkward")
+    import dask
+
+    lumidata = LumiData("tests/samples/lumi_small.csv")
+
+    base = np.zeros((10, 2), dtype="u4")
+    base[:, 0] = lumidata._lumidata[0:10, 0]
+    base[:, 1] = lumidata._lumidata[0:10, 1]
+
+    baseline = LumiData("tests/samples/lumi_small.csv").get_lumi(base)
+
+    eager_input = base.astype(dtype)
+    dask_input = dak.from_awkward(ak.Array(base), 3)
+
+    def run_eager():
+        return lumidata.get_lumi(eager_input)
+
+    def run_dask():
+        return dask.compute(lumidata.get_lumi(dask_input))[0]
+
+    if order == "eager_first":
+        eager_result = run_eager()
+        dask_result = run_dask()
+    else:
+        dask_result = run_dask()
+        eager_result = run_eager()
+
+    assert eager_result == baseline
+    assert dask_result == baseline
+
+
 @pytest.mark.dask_client
 @pytest.mark.network
 @pytest.mark.parametrize(
