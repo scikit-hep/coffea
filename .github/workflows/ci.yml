@@ -25,7 +25,8 @@ jobs:
   pre-commit:
     name: pre-commit
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      contents: read # zizmor's online audits query the GitHub API
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -34,13 +35,14 @@ jobs:
       with:
         python-version: "3.14"
     - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+      env:
+        GH_TOKEN: ${{ github.token }} # enables zizmor's online audits (pre-commit.ci runs offline)
       with:
         extra_args: --hook-stage manual --all-files
 
   dist:
     name: Build and inspect the distributions
     runs-on: ubuntu-latest
-    permissions: {}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -51,7 +53,6 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     needs: pre-commit
-    permissions: {}
     defaults:
       run:
         shell: bash -el {0}
@@ -135,7 +136,6 @@ jobs:
   test-dask-client:
     runs-on: ${{ matrix.os }}
     needs: pre-commit
-    permissions: {}
     defaults:
       run:
         shell: bash -el {0}
@@ -202,7 +202,6 @@ jobs:
   test-no-dask:
     runs-on: ubuntu-latest
     needs: pre-commit
-    permissions: {}
     defaults:
       run:
         shell: bash -el {0}
@@ -239,7 +238,6 @@ jobs:
   test-vine:
     runs-on: ubuntu-latest
     needs: pre-commit
-    permissions: {}
     defaults:
       run:
         shell: bash -el {0}
@@ -282,7 +280,6 @@ jobs:
     if: always()
     needs: [pre-commit, dist, test, test-dask-client, test-no-dask, test-vine]
     runs-on: ubuntu-latest
-    permissions: {}
     steps:
       - uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
         with:
