@@ -3,15 +3,24 @@ name: Update EDM4hep schema
 on:
   workflow_dispatch: {}
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   update-schema:
+    name: Update bundled EDM4hep schemas
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # create-pull-request pushes the schema update branch
+      pull-requests: write # create-pull-request opens the schema pull request
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # create-pull-request authenticates with its own token input
+          persist-credentials: false
       - name: Fetch every EDM4hep release yaml not yet bundled
         run: |
           # v00-99 is bundled as 00-99-00; older releases are unsupported
@@ -25,7 +34,7 @@ jobs:
             curl -fsSL -o "$f" "https://raw.githubusercontent.com/key4hep/EDM4hep/${tag}/edm4hep.yaml"
             echo "added $f"
           done
-      - uses: peter-evans/create-pull-request@v7
+      - uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7.0.11
         with:
           branch: update-edm4hep-schemas
           commit-message: "feat: bundle new EDM4hep schema versions"
