@@ -93,4 +93,4 @@ def register_columncache(client):
     for p in client.run(lambda: set(get_worker().plugins)).values():
         plugins |= p
     if ColumnCache.name not in plugins:
-        client.register_worker_plugin(ColumnCache())
+        client.register_plugin(ColumnCache())

@@ -255,12 +255,14 @@ class NanoEventsFactory:
             "schema": self._schema,
             "mapping": self._mapping,
             "partition_key": self._partition_key,
+            "mode": self._mode,
         }
 
     def __setstate__(self, state):
         self._schema = state["schema"]
         self._mapping = state["mapping"]
         self._partition_key = state["partition_key"]
+        self._mode = state.get("mode", "virtual")
         self._events = lambda: None
         self._mapping_accepts_form_mapping = None
 
@@ -475,7 +477,6 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            buffer_cache,
             schemaclass,
             metadata,
             mode=mode,
@@ -500,7 +501,7 @@ class NanoEventsFactory:
 
         Parameters
         ----------
-            file : str or pathlib.Path or pyarrow.NativeFile or io.IOBase
+            file : str or pathlib.Path or io.IOBase or pyarrow.NativeFile or pyarrow.parquet.ParquetFile
                 The filename or already opened file using e.g. ``pyarrow.NativeFile()``.
             mode : {"eager", "virtual", "dask"}, default "virtual"
                 Backend to use when interpreting parquet data.
@@ -575,6 +576,8 @@ class NanoEventsFactory:
             warnings.warn(
                 f"{schemaclass} is not dask capable despite allowing dask, generating non-dask nanoevents"
             )
+        # only the str branch opens an fsspec handle for the shim to close
+        fs_file = None
         if isinstance(file, ftypes):
             table_file = pyarrow.parquet.ParquetFile(file, **parquet_options)
         elif isinstance(file, str):
@@ -622,7 +625,6 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            buffer_cache,
             schemaclass,
             metadata,
             mode,
@@ -690,7 +692,11 @@ class NanoEventsFactory:
         )
         uuidpfn = {uuid: array_source}
         mapping = PreloadedSourceMapping(
-            PreloadedOpener(uuidpfn), entry_start, entry_stop, access_log=access_log
+            PreloadedOpener(uuidpfn),
+            entry_start,
+            entry_stop,
+            access_log=access_log,
+            buffer_cache=buffer_cache,
         )
         mapping.preload_column_source(partition_key[0], partition_key[1], array_source)
 
@@ -700,7 +706,6 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            buffer_cache,
             schemaclass,
             metadata,
             mode="eager",
@@ -712,7 +717,6 @@ class NanoEventsFactory:
         mapping,
         partition_key,
         base_form,
-        buffer_cache,
         schemaclass,
         metadata,
         mode,
@@ -727,9 +731,6 @@ class NanoEventsFactory:
                 Basic information about the column source, uuid, paths.
             base_form : dict
                 The awkward form describing the nanoevents interpretation of the mapped file.
-            buffer_cache : dict
-                A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
-                using globally-unique keys.
             schemaclass : BaseSchema
                 A schema class deriving from `BaseSchema` and implementing the desired view of the file
             metadata : dict

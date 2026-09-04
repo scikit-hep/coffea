@@ -270,14 +270,19 @@ to make a new kernel available that uses this environment.
    git clone https://github.com/scikit-hep/coffea
    ```
 
-2. Install with development dependencies:
+2. Install with development dependencies. These live in a
+   [dependency group](https://packaging.python.org/en/latest/specifications/dependency-groups/),
+   so `pip install --group` requires pip 25.1 or newer:
 
    ```bash
    cd coffea
-   pip install --editable .[dev]
+   pip install --editable . --group dev
    # or if you need to work on the executors, e.g. dask,
-   pip install --editable .[dev,dask]
+   pip install --editable '.[dask]' --group dev
    ```
+
+   If you use [`uv`](https://docs.astral.sh/uv/) to manage your python environments, you can also simply run
+   `uv sync` to install the development dependencies.
 
 3. Develop a cool new feature or fix some bugs
 

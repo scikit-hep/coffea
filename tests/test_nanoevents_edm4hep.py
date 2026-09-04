@@ -1,8 +1,13 @@
+import copy
 import os
+import pickle
 
+import awkward as ak
 import pytest
 
 from coffea.nanoevents import EDM4HEPSchema, NanoEventsFactory
+from coffea.nanoevents.assets import edm4hep_ver, versions
+from coffea.nanoevents.schemas.edm4hep import parse_yaml
 
 # Basic Tests
 
@@ -11,7 +16,7 @@ def _events(**kwargs):
     # Original sample generated from key4hep workflow
     path = os.path.abspath("tests/samples/edm4hep.root")
     factory = NanoEventsFactory.from_root(
-        {path: "events"}, schemaclass=EDM4HEPSchema, **kwargs
+        {path: "events"}, schemaclass=EDM4HEPSchema.version("00.99.01"), **kwargs
     )
     return factory.events()
 
@@ -327,3 +332,111 @@ def test_Relations(eager_events, delayed_events, field):
             elif d_fin.layout.branch_depth[1] == 3:
                 mixin = d_fin.layout.content.content.content.parameter("__record__")
                 assert target_name.startswith(mixin)
+
+
+def test_edm4hep_lookup_one_to_many_relation():
+    import copy
+
+    from coffea.nanoevents.assets import edm4hep_ver
+    from coffea.nanoevents.schemas.edm4hep import parse_yaml
+
+    schema = EDM4HEPSchema.__new__(EDM4HEPSchema)
+    schema.edm4hep = edm4hep_ver["00-99-01"]()
+    schema.parsed_edm4hep = parse_yaml(schema.edm4hep, copy.deepcopy(schema.edm4hep))
+    schema._datatype_mixins = {"MCParticleCollection": "MCParticle"}
+    assert (
+        schema._lookup_branch("MCParticleCollection", "daughters", key="type")
+        == "edm4hep::MCParticle"
+    )
+
+
+def test_edm4hep_yaml_cache_is_readonly():
+    # The parsed edm4hep yaml is loaded once and shared across all schema
+    # builds; a build must therefore treat it as read-only. Guards against
+    # reintroducing per-build mutation of the shared cache.
+    import copy
+
+    from coffea.nanoevents.schemas import edm4hep as edm4hep_module
+
+    version = EDM4HEPSchema.edm4hep_version
+    raw, parsed = edm4hep_module.load_edm4hep(version)
+    raw_snapshot = copy.deepcopy(raw)
+    parsed_snapshot = copy.deepcopy(parsed)
+
+    # A full schema build exercises every path that reads the cached dicts.
+    _events(
+        mode="eager",
+        iteritems_options={"filter_name": "/^(?!.*(PARAMETERS|_.*Map))/"},
+    )
+
+    raw_after, parsed_after = edm4hep_module.load_edm4hep(version)
+    # Caching is active: the same objects are handed to every build ...
+    assert raw_after is raw
+    assert parsed_after is parsed
+    # ... and the build did not mutate them.
+    assert raw_after == raw_snapshot
+    assert parsed_after == parsed_snapshot
+
+
+def test_version_selection():
+    assert EDM4HEPSchema.version("latest").edm4hep_version == versions[-1]
+    assert EDM4HEPSchema.version("00.99.01") is EDM4HEPSchema.version("00-99-01")
+    with pytest.raises(ValueError):
+        EDM4HEPSchema.version("99.99.99")
+
+
+@pytest.mark.parametrize("ver", versions)
+def test_bundled_version_parses(ver):
+    schema = EDM4HEPSchema.version(ver)
+    assert schema.edm4hep_version == ver
+    assert pickle.loads(pickle.dumps(schema)) is schema
+
+    loaded = edm4hep_ver[ver]()
+    parsed = parse_yaml(loaded, copy.deepcopy(loaded))
+    assert "edm4hep::MCParticle" in parsed["datatypes"]
+    if ver >= "00-99":
+        link = parsed["datatypes"]["edm4hep::RecoMCParticleLink"]
+        assert "weight" in link["Members"]
+        assert link["OneToOneRelations"]["from"]["target"] == "ReconstructedParticle"
+        assert link["OneToOneRelations"]["to"]["target"] == "MCParticle"
+
+
+# EDM4hep's own example files (backwards-compat inputs and a CI artifact)
+version_samples = {
+    "00.99.02": "edm4hep_example_v00-99-02_podio_v01-03.root",
+    "00.99.03": "edm4hep_example_v00-99-03_podio_v01-06.root",
+    "00.99.04": "edm4hep_example_v00-99-04_podio_v01-06.root",
+    "01.01": "edm4hep_example_v01-01_podio_v01-07.root",
+}
+
+
+@pytest.mark.parametrize("mode", ["eager", "dask"])
+@pytest.mark.parametrize("ver,fname", version_samples.items())
+def test_upstream_example_file(ver, fname, mode):
+    if mode == "dask":
+        pytest.importorskip("dask_awkward")
+    filters = {"filter_name": "/^(?!.*(PARAMETERS|_.*Map))/"}
+    kwargs = (
+        {"iteritems_options": filters}
+        if mode == "eager"
+        else {"uproot_options": filters}
+    )
+    events = NanoEventsFactory.from_root(
+        {os.path.abspath(f"tests/samples/{fname}"): "events"},
+        schemaclass=EDM4HEPSchema.version(ver),
+        mode=mode,
+        **kwargs,
+    ).events()
+
+    link = events.RecoMCParticleLinkCollection
+    assert link.fields == [
+        "Link_from_ReconstructedParticleCollection",
+        "Link_to_MCParticleCollection",
+        "weight",
+    ]
+    to = link.Link_to_MCParticleCollection
+    assert to.fields == ["index", "collectionID", "index_Global"]
+    in_range = ak.all(to.index < ak.num(events.MCParticleCollection))
+    if mode == "dask":
+        in_range = in_range.compute()
+    assert in_range

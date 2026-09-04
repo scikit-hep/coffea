@@ -404,7 +404,7 @@ class FCCSchema(BaseSchema):
                     output[record_name] = zip_forms(
                         sort_dict(contents),
                         record_name,
-                        self._datatype_mixins.get(record_name, "NanoCollection"),
+                        self.mixins_dictionary.get(record_name, "NanoCollection"),
                     )
             # If a branch is non-empty and is one of its kind (i.e. has no other associated branch)
             # call it a singleton and assign it directly to the output
@@ -647,6 +647,8 @@ class FCCSchema_edm4hep1(EDM4HEPSchema):
     For more info, check coffea.nanoevents.schemas.EDM4HEPSchema
     """
 
+    edm4hep_version = "00-99-01"
+
     # By default, the schema does not copy the links to their target datatype collections
     # This is due to the fact that we may many collections with the same datatype
     # and not all of the collections are compatible to be copied
@@ -712,4 +714,7 @@ class FCC:
         elif version == "edm4hep1":
             return FCCSchema_edm4hep1
         else:
-            pass
+            raise ValueError(
+                f"Invalid FCC schema version {version!r}. "
+                "Valid versions: 'latest', 'pre-edm4hep1', 'edm4hep1'."
+            )
