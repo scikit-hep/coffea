@@ -23,6 +23,8 @@ repos:
   - id: check-merge-conflict
   - id: check-symlinks
   - id: check-yaml
+    # upstream EDM4hep model files; prek's YAML parser rejects their multiline scalars
+    exclude: ^src/coffea/nanoevents/assets/edm4hep_v.*\.yaml$
   - id: debug-statements
   - id: end-of-file-fixer
   - id: mixed-line-ending
