@@ -77,7 +77,7 @@ jobs:
               '⚠️ **This PR modifies files that govern AI-agent behavior.**',
               '',
               'Changed:',
-              ...hits.map((h) => `- \`${h}\``),
+              ...hits.map((h) => `- \`${h.split('`').join('')}\``),
               '',
               'These files are a supply-chain surface (see *Provenance & protection of agent ' +
                 'files* in `ARCHITECTURE.md`). A maintainer code owner must review the change ' +
