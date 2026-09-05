@@ -778,7 +778,7 @@ def get_index_ranges(begin, end):
     )
     ranges = get_index_ranges_kernel(begin_end, awkward.ArrayBuilder()).snapshot()
 
-    if awkward.sum(ranges) == 0:  # empty ranges, return a twice nested empty array
+    if awkward.count(ranges, axis=None) == 0:  # no entries, twice nested empty array
         ranges = begin_end[begin_end < 0]
     return ranges
 
@@ -923,48 +923,6 @@ def begin_end_mapping_nested_target_form(begin_form, end_form, target_form):
 
 
 # begin_end_mapping_with_xyzrecord
-@numba.njit
-def get_array_from_indices_xyzrecord_target_kernel(indices, target, builder):
-    for ev in range(len(indices)):
-        builder.begin_list()
-        for j in range(len(indices[ev])):
-            builder.begin_list()
-            for k in indices[ev][j]:
-                builder.begin_record()
-                builder.field("x").real(target[ev][k]["x"])
-                builder.field("y").real(target[ev][k]["y"])
-                builder.field("z").real(target[ev][k]["z"])
-                builder.end_record()
-            builder.end_list()
-        builder.end_list()
-    return builder
-
-
-def get_array_from_indices_xyzrecord_target(indices, target):
-    return get_array_from_indices_xyzrecord_target_kernel(
-        indices, target, awkward.ArrayBuilder()
-    ).snapshot()
-
-
-def begin_end_mapping_with_xyzrecord(stack):
-    target = stack.pop()
-    end = stack.pop()
-    begin = stack.pop()
-    indices, o1, o2 = get_index_ranges(begin, end)
-
-    if len(target.fields) == 0:  # Target is a ListOffset type
-        raise RuntimeError("Target is a ListOffset.")
-    else:  # Target is a Record type
-        if awkward.sum(awkward.num(target, axis=1)) == 0:  # Empty Target
-            out = indices[indices < 0]  # return an empty array
-        else:
-            if awkward.sum(awkward.num(indices, axis=1)) == 0:  # Empty Indices
-                out = indices[indices < 0]  # return an empty array
-            else:  # The usual case when both of the indices and target are non-empty
-                out = get_array_from_indices_xyzrecord_target(indices, target)
-    stack.append(out)
-
-
 def begin_end_mapping_with_xyzrecord_form(begin_form, end_form, target_form):
     if not begin_form["class"].startswith("ListOffset"):
         raise RuntimeError

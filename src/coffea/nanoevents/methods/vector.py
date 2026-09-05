@@ -637,33 +637,37 @@ class PtEtaPhiMLorentzVector(LorentzVector):
     def multiply(self, other):
         """Multiply this vector by a scalar elementwise using ``x``, ``y``, ``z``, and ``t`` components
 
-        In reality, this directly adjusts ``pt``, ``eta``, ``phi`` and ``mass`` for performance
+        For a non-negative scalar this directly adjusts ``pt``, ``eta``, ``phi`` and ``mass``
+        for performance and returns a `PtEtaPhiMLorentzVector`. Any other multiplier
+        (negative, or an array whose sign is not known ahead of time) returns a cartesian
+        `LorentzVector`, since (pt, eta, phi, mass) cannot represent ``t < 0``.
         """
-        absother = abs(other)
+        if isinstance(other, numbers.Real) and other >= 0:
+            return awkward.zip(
+                {
+                    "pt": self.pt * other,
+                    "eta": self.eta,
+                    "phi": self.phi,
+                    "mass": self.mass * other,
+                },
+                with_name="PtEtaPhiMLorentzVector",
+                behavior=self.behavior,
+            )
         return awkward.zip(
             {
-                "pt": self.pt * absother,
-                "eta": self.eta * numpy.sign(other),
-                "phi": self.phi % (2 * numpy.pi) - (numpy.pi * (other < 0)),
-                "mass": self.mass * absother,
+                "x": self.x * other,
+                "y": self.y * other,
+                "z": self.z * other,
+                "t": self.t * other,
             },
-            with_name="PtEtaPhiMLorentzVector",
+            with_name="LorentzVector",
             behavior=self.behavior,
         )
 
     @awkward.mixin_class_method(numpy.negative)
     def negative(self):
         """Returns the negative of the vector"""
-        return awkward.zip(
-            {
-                "pt": self.pt,
-                "eta": -self.eta,
-                "phi": self.phi % (2 * numpy.pi) - numpy.pi,
-                "mass": self.mass,
-            },
-            with_name="PtEtaPhiMLorentzVector",
-            behavior=self.behavior,
-        )
+        return self.multiply(-1)
 
     @awkward.mixin_class_method(numpy.divide, {numbers.Number})
     def divide(self, other):

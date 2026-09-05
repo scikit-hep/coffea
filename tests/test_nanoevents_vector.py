@@ -1228,6 +1228,189 @@ def test_genvistau_addition_propagates_charge():
 
 
 @pytest.mark.parametrize(
+    "name,kin1,kin2",
+    [
+        (
+            "Candidate",
+            {"x": 1.0, "y": 2.0, "z": 3.0, "t": 10.0},
+            {"x": 0.5, "y": 1.0, "z": 1.5, "t": 4.0},
+        ),
+        (
+            "PtEtaPhiMCandidate",
+            {"pt": 10.0, "eta": 0.5, "phi": 0.1, "mass": 1.0},
+            {"pt": 5.0, "eta": -0.2, "phi": 1.0, "mass": 0.5},
+        ),
+        (
+            "PtEtaPhiECandidate",
+            {"pt": 10.0, "eta": 0.5, "phi": 0.1, "energy": 20.0},
+            {"pt": 5.0, "eta": -0.2, "phi": 1.0, "energy": 8.0},
+        ),
+        ("Muon", None, None),
+    ],
+)
+def test_candidate_subtraction_demotes_to_lorentz_vector(name, kin1, kin2):
+    """Candidate subtraction works and yields a plain LorentzVector.
+
+    Differencing charges is only meaningful for a composite candidate, so
+    subtraction drops the field rather than guessing.
+    """
+    from coffea.nanoevents.methods import candidate
+
+    if name == "Muon":
+        from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+
+        NanoAODSchema.warn_missing_crossrefs = False
+        events = NanoEventsFactory.from_root(
+            {"tests/samples/nano_dy.root": "Events"},
+            schemaclass=NanoAODSchema,
+            mode="eager",
+        ).events()
+        mu = events.Muon[ak.num(events.Muon) >= 2]
+        assert len(mu) > 0
+        a, b = mu[:, 0], mu[:, 1]
+    else:
+        a = ak.zip(
+            {**{k: [v] for k, v in kin1.items()}, "charge": [1]},
+            with_name=name,
+            behavior=candidate.behavior,
+        )
+        b = ak.zip(
+            {**{k: [v] for k, v in kin2.items()}, "charge": [-1]},
+            with_name=name,
+            behavior=candidate.behavior,
+        )
+    diff = a - b
+    assert diff.layout.parameter("__record__") == "LorentzVector"
+    assert diff.fields == ["x", "y", "z", "t"]
+    for c in ("x", "y", "z", "t"):
+        assert_allclose(
+            ak.to_list(getattr(diff, c)),
+            ak.to_list(getattr(a, c) - getattr(b, c)),
+            atol=ATOL,
+        )
+
+
+@pytest.mark.parametrize(
+    "name,kin,components,cartesian_name",
+    [
+        ("TwoVector", {"x": [1.0, 2.0], "y": [3.0, -4.0]}, ("x", "y"), "TwoVector"),
+        (
+            "PolarTwoVector",
+            {"rho": [1.0, 2.0], "phi": [0.3, 2.5]},
+            ("x", "y"),
+            "TwoVector",
+        ),
+        (
+            "ThreeVector",
+            {"x": [1.0, 2.0], "y": [3.0, -4.0], "z": [5.0, 6.0]},
+            ("x", "y", "z"),
+            "ThreeVector",
+        ),
+        (
+            "SphericalThreeVector",
+            {"rho": [1.0, 2.0], "theta": [0.4, 2.0], "phi": [0.3, 2.5]},
+            ("x", "y", "z"),
+            "ThreeVector",
+        ),
+        (
+            "LorentzVector",
+            {"x": [1.0, 2.0], "y": [3.0, -4.0], "z": [5.0, 6.0], "t": [10.0, 20.0]},
+            ("x", "y", "z", "t"),
+            "LorentzVector",
+        ),
+        (
+            "PtEtaPhiMLorentzVector",
+            {
+                "pt": [1.0, 2.0],
+                "eta": [1.2, -0.8],
+                "phi": [0.3, 2.5],
+                "mass": [3.0, 4.0],
+            },
+            ("x", "y", "z", "t"),
+            "LorentzVector",
+        ),
+        (
+            "PtEtaPhiELorentzVector",
+            {
+                "pt": [1.0, 2.0],
+                "eta": [1.2, -0.8],
+                "phi": [0.3, 2.5],
+                "energy": [10.0, 20.0],
+            },
+            ("x", "y", "z", "t"),
+            "LorentzVector",
+        ),
+    ],
+)
+def test_array_factor_matches_cartesian(name, kin, components, cartesian_name):
+    """Scaling by an array of mixed sign agrees with scaling the cartesian vector."""
+    a = ak.zip(kin, with_name=name, behavior=vector.behavior)
+    cart = ak.zip(
+        {c: getattr(a, c) for c in components},
+        with_name=cartesian_name,
+        behavior=vector.behavior,
+    )
+    factor = ak.Array([2.0, -3.0])
+    one = factor[1:]
+    for scaled, ref in (
+        (a * factor, cart * factor),
+        (a / factor, cart / factor),
+        (a[:1] * one, cart[:1] * one),
+    ):
+        for c in components:
+            assert_allclose(
+                ak.to_list(getattr(scaled, c)), ak.to_list(getattr(ref, c)), atol=ATOL
+            )
+
+
+def test_ptetaphim_array_factor_dask():
+    dask_awkward = pytest.importorskip("dask_awkward")
+
+    a = ak.zip(
+        {"pt": [1.0, 2.0], "eta": [1.2, -0.8], "phi": [0.3, 2.5], "mass": [3.0, 4.0]},
+        with_name="PtEtaPhiMLorentzVector",
+        behavior=vector.behavior,
+    )
+    factor = ak.Array([2.0, -3.0])
+    dak_a = dask_awkward.from_awkward(a, 1)
+    dak_factor = dask_awkward.from_awkward(factor, 1)
+    for scaled, ref in (
+        (dak_a * dak_factor, a * factor),
+        (dak_a / dak_factor, a / factor),
+    ):
+        for c in ("x", "y", "z", "t"):
+            assert_allclose(
+                ak.to_list(getattr(scaled, c).compute()),
+                ak.to_list(getattr(ref, c)),
+                atol=ATOL,
+            )
+
+
+@pytest.mark.parametrize(
+    "name,temporal",
+    [("PtEtaPhiMLorentzVector", "mass"), ("PtEtaPhiELorentzVector", "energy")],
+)
+def test_polar_lorentz_negative_scalar_matches_cartesian(name, temporal):
+    """The time component transforms consistently with the Cartesian components
+    under negative scaling."""
+    a = ak.zip(
+        {"pt": [1.0, 2.0], "eta": [1.2, -0.8], "phi": [0.3, 2.5], temporal: [3.0, 4.0]},
+        with_name=name,
+        behavior=vector.behavior,
+    )
+    cart = ak.zip(
+        {"x": a.x, "y": a.y, "z": a.z, "t": a.t},
+        with_name="LorentzVector",
+        behavior=vector.behavior,
+    )
+    for scaled, ref in ((a * (-2), cart * (-2)), (-a, -cart), (a / (-2), cart / (-2))):
+        for c in ("x", "y", "z", "t"):
+            assert_allclose(
+                ak.to_list(getattr(scaled, c)), ak.to_list(getattr(ref, c)), atol=ATOL
+            )
+
+
+@pytest.mark.parametrize(
     "name,fields,behavior",
     [
         ("TwoVector", ["x", "y"], "vector"),

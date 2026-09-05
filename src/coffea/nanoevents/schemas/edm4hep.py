@@ -1,9 +1,10 @@
 import copy
 import re
 import warnings
+from functools import lru_cache
 
 from coffea.nanoevents import transforms
-from coffea.nanoevents.assets import edm4hep_ver
+from coffea.nanoevents.assets import edm4hep_ver, versions
 from coffea.nanoevents.methods import vector
 from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
 from coffea.nanoevents.util import concat
@@ -57,10 +58,32 @@ def parse_Members_and_Relations(Members_and_Relation_List, target_text=False):
     return parsed
 
 
+def _synthesize_link_datatypes(loaded_dict):
+    """edm4hep >= 00-99-02 defines links in a 'links' section; rebuild them in the
+    datatype shape (float weight + from/to relations) the rest of the parser expects."""
+    synthesized = {}
+    for link_name, link_def in loaded_dict.get("links", {}).items():
+        from_type = link_def["From"]
+        to_type = link_def["To"]
+        synthesized[link_name] = {
+            "Description": link_def.get("Description", ""),
+            "Members": ["float weight  // weight of this link"],
+            "OneToOneRelations": [
+                f"{from_type}  from  // reference to the source object of this link",
+                f"{to_type}  to  // reference to the target object of this link",
+            ],
+        }
+    return synthesized
+
+
 def parse_yaml(loaded_dict, parsed_dict):
     """The loaded yaml needs to processed further to create a favourable structure.
     Mainly, the Members and Relations need to be parsed
     """
+    links = _synthesize_link_datatypes(loaded_dict)
+    loaded_dict = {**loaded_dict, "datatypes": {**loaded_dict["datatypes"], **links}}
+    parsed_dict["datatypes"].update(copy.deepcopy(links))
+
     for key in loaded_dict.keys():
         if not isinstance(loaded_dict[key], dict):
             continue
@@ -98,15 +121,26 @@ def sort_dict(d):
     return {k: d[k] for k in sorted(d)}
 
 
+@lru_cache(maxsize=None)
+def load_edm4hep(version):
+    """Load and parse the edm4hep yaml for a version, caching the result.
+
+    The returned ``(raw, parsed)`` dicts are treated as read-only by the schema,
+    so a single parse is shared across all schema builds for a given version.
+    """
+    raw = edm4hep_ver[version]()
+    return raw, parse_yaml(raw, copy.deepcopy(raw))
+
+
 class EDM4HEPSchema(BaseSchema):
     """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.99.01
+    EDM4HEPSchema for the newest bundled edm4hep.yaml version; use
+    ``EDM4HEPSchema.version(...)`` to pick an older one.
     """
 
     __dask_capable__ = True
 
-    # Latest (default) edm4hep_version
-    edm4hep_version = "00-99-01"
+    edm4hep_version = versions[-1]
 
     # EDM4HEP components mixins
     _components_mixins = {
@@ -156,8 +190,7 @@ class EDM4HEPSchema(BaseSchema):
         super().__init__(base_form)
 
         # Detect Collection Datatypes and create a datatype mixin
-        self.edm4hep = edm4hep_ver[self.edm4hep_version]()
-        self.parsed_edm4hep = parse_yaml(self.edm4hep, copy.deepcopy(self.edm4hep))
+        self.edm4hep, self.parsed_edm4hep = load_edm4hep(self.edm4hep_version)
         self._create_mixin(base_form)
 
         self._form["fields"], self._form["contents"] = self._build_collections(
@@ -171,31 +204,16 @@ class EDM4HEPSchema(BaseSchema):
         Parameters
         ----------
             ver : str, optional
-                Version of edm4hep.yaml. Allowed values:
-
-                - "latest" (default): corresponds to 00.99.01 version of edm4hep.yaml
-                - "00.99.01": corresponds to 00.99.01 version of edm4hep.yaml
-                - "00.99.00": corresponds to 00.99.00 version of edm4hep.yaml
-                - "00.10.05": corresponds to 00.10.05 version of edm4hep.yaml
-                - "00.10.04": corresponds to 00.10.04 version of edm4hep.yaml
-                - "00.10.03": corresponds to 00.10.03 version of edm4hep.yaml
-                - "00.10.02": corresponds to 00.10.02 version of edm4hep.yaml
-                - "00.10.01": corresponds to 00.10.01 version of edm4hep.yaml
+                Version of edm4hep.yaml, written either as "00.99.04" or "00-99-04".
+                "latest" (default) selects the newest bundled version. The available
+                versions are listed in ``coffea.nanoevents.assets.versions``.
         """
-        version_match = {
-            "latest": EDM4HEPSchema,
-            "00.99.01": EDM4HEPSchema,
-            "00.99.00": EDM4HEPSchema_v00_99_00,
-            "00.10.05": EDM4HEPSchema_v00_10_05,
-            "00.10.04": EDM4HEPSchema_v00_10_04,
-            "00.10.03": EDM4HEPSchema_v00_10_03,
-            "00.10.02": EDM4HEPSchema_v00_10_02,
-            "00.10.01": EDM4HEPSchema_v00_10_01,
-        }
-        schema = version_match.get(ver, None)
+        if ver == "latest":
+            return EDM4HEPSchema
+        schema = _versioned_schemas.get(ver.replace(".", "-"), None)
         if schema is None:
             raise ValueError(
-                f"The given version {ver} is not found. Available versions are : {', '.join(version_match.keys())} ."
+                f"The given version {ver} is not found. Available versions are : {', '.join(versions)} ."
             )
         return schema
 
@@ -218,6 +236,7 @@ class EDM4HEPSchema(BaseSchema):
             for collection_name in self._form["fields"]
             if _all_collections.match(collection_name)
         }
+        self._all_collections = all_collections
         collections = {
             collection_name
             for collection_name in all_collections
@@ -236,6 +255,10 @@ class EDM4HEPSchema(BaseSchema):
                 mixins[name] = datatype.split("::")[-1][:-1]
             else:
                 mixins[name] = datatype
+
+            # podio::LinkData carries no link type; recover it from the collection name
+            if mixins[name] == "LinkData" and name.endswith("Collection"):
+                mixins[name] = name[: -len("Collection")]
 
         mixins_dictionary = {**mixins, **self.extra_mixins}
         self._datatype_mixins = mixins_dictionary
@@ -260,12 +283,12 @@ class EDM4HEPSchema(BaseSchema):
 
         for var, branch_list in inverted_dict.items():
             assign_name = var.split("@")[0]
-            type_name = var.split("@")[1].split("::")[1]
-            mixin = self._components_mixins.get(type_name, None)
             if assign_name == "momentum":
                 continue  # Used to create 4 vector for the whole collection, later.
             if var.split("@")[1] == "unknown":
-                continue
+                continue  # not in this edm4hep version
+            type_name = var.split("@")[1].split("::")[1]
+            mixin = self._components_mixins.get(type_name, None)
 
             to_zip_raw = {
                 item["branch_subvar"]: branch_forms.pop(item["name"])
@@ -304,7 +327,7 @@ class EDM4HEPSchema(BaseSchema):
         Members = collection_edm4hep.get("Members", {})
         VectorMembers = collection_edm4hep.get("VectorMembers", {})
         OneToOneRelations = collection_edm4hep.get("OneToOneRelations", {})
-        OneToManyRelations = collection_edm4hep.get("OneToOneRelations", {})
+        OneToManyRelations = collection_edm4hep.get("OneToManyRelations", {})
         composite_dict = {
             **Members,
             **VectorMembers,
@@ -1045,13 +1068,9 @@ class EDM4HEPSchema(BaseSchema):
         Builds all the collections with the necessary behaviors defined in the mixins dictionary
         """
         branch_forms = {k: v for k, v in zip(field_names, input_contents)}
-        # All collection names
+        # All collection names (computed once in _create_mixin from the same fields)
         # Example: ReconstructedParticles or _ReconstructedParticle_clusters, etc
-        all_collections = {
-            collection_name.split("/")[0]
-            for collection_name in field_names
-            if _all_collections.match(collection_name)
-        }
+        all_collections = self._all_collections
 
         output = {}
         branch_forms = self._doc_strings(branch_forms, all_collections)
@@ -1092,49 +1111,18 @@ class EDM4HEPSchema(BaseSchema):
         )
 
 
-class EDM4HEPSchema_v00_99_00(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.99.00
+def _versioned_schema(ver):
+    name = "EDM4HEPSchema_v" + ver.replace("-", "_")
+    doc = f"""Schema-builder for EDM4HEP root file structure.
+    EDM4HEPSchema for edm4hep version {ver.replace("-", ".")}
     """
-
-    edm4hep_version = "00-99-00"
-
-
-class EDM4HEPSchema_v00_10_05(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.10.05
-    """
-
-    edm4hep_version = "00-10-05"
+    return type(
+        name,
+        (EDM4HEPSchema,),
+        {"edm4hep_version": ver, "__doc__": doc, "__module__": __name__},
+    )
 
 
-class EDM4HEPSchema_v00_10_04(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.10.04
-    """
-
-    edm4hep_version = "00-10-04"
-
-
-class EDM4HEPSchema_v00_10_03(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.10.03
-    """
-
-    edm4hep_version = "00-10-03"
-
-
-class EDM4HEPSchema_v00_10_02(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.10.02
-    """
-
-    edm4hep_version = "00-10-02"
-
-
-class EDM4HEPSchema_v00_10_01(EDM4HEPSchema):
-    """Schema-builder for EDM4HEP root file structure.
-    EDM4HEPSchema for edm4hep version 00.10.01
-    """
-
-    edm4hep_version = "00-10-01"
+# Module globals keep EDM4HEPSchema_v* importable by name and picklable by reference.
+_versioned_schemas = {ver: _versioned_schema(ver) for ver in versions}
+globals().update({s.__name__: s for s in _versioned_schemas.values()})

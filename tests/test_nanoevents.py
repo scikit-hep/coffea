@@ -1,6 +1,7 @@
 import inspect
 import os
 import re
+import sys
 from functools import partial
 from pathlib import Path
 
@@ -457,6 +458,35 @@ def test_file_handle_from_path(tests_directory, mode):
 
 
 @pytest.mark.parametrize("mode", ["eager", "virtual"])
+def test_factory_pickle_preserves_mode(tests_directory, mode):
+    import pickle
+
+    path = f"{tests_directory}/samples/nano_dy.root:Events"
+    factory = NanoEventsFactory.from_root(
+        path,
+        schemaclass=NanoAODSchema,
+        mode=mode,
+    )
+
+    unpickled = pickle.loads(pickle.dumps(factory))
+    assert unpickled._mode == mode
+    assert unpickled.events() is not None
+
+
+def test_factory_legacy_pickle_defaults_to_virtual(tests_directory):
+    """A pickle predating the "mode" key must restore from_root's default mode."""
+    path = f"{tests_directory}/samples/nano_dy.root:Events"
+    factory = NanoEventsFactory.from_root(path, schemaclass=NanoAODSchema)
+
+    legacy = factory.__getstate__()
+    del legacy["mode"]
+    restored = NanoEventsFactory.__new__(NanoEventsFactory)
+    restored.__setstate__(legacy)
+
+    assert restored._mode == "virtual"
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
 def test_file_handle_from_directory(tests_directory, mode):
     """Test that file_handle is available when passing ReadOnlyDirectory."""
     filepath = f"{tests_directory}/samples/nano_dy.root"
@@ -811,3 +841,31 @@ def test_union_form_genuinely_missing_branch_dask(tmp_path, dask_client):
         ).events()
         with pytest.raises(KeyError):
             events["flag"].compute()
+
+
+def _all_schemas():
+    from coffea.nanoevents import schemas
+
+    return [
+        getattr(schemas, name)
+        for name in schemas.__all__
+        if hasattr(getattr(schemas, name), "behavior")
+    ]
+
+
+@pytest.mark.parametrize("schemaclass", _all_schemas(), ids=lambda c: c.__name__)
+def test_schema_behavior_survives_pickling(schemaclass):
+    """Behavior dicts are shipped to distributed workers, and their classes must
+    go by reference -- a shadowed class silently falls back to pickling by value.
+    """
+    cloudpickle = pytest.importorskip("cloudpickle")
+
+    behavior = schemaclass.behavior()
+    cloudpickle.loads(cloudpickle.dumps(behavior))
+
+    for key, value in behavior.items():
+        if isinstance(value, type):
+            module = sys.modules[value.__module__]
+            assert (
+                getattr(module, value.__qualname__, None) is value
+            ), f"behavior[{key!r}] is not {value.__module__}.{value.__qualname__}"
