@@ -11,8 +11,7 @@ asking you anything. Protocol and severities: `.claude/skills/README.md`.
 ## Inputs
 
 - the task, and the fidelity level the driver passed
-- `.agent-work/plan-review-NN.md`, the highest-numbered one, if any
-- `.agent-work/blocked.md`, if implementation fell back to planning
+- the latest `.agent-work/plan-review-NN.md` and `.agent-work/blocked.md`, if any
 - *Fidelity buckets* in `.claude/skills/coffea-change/SKILL.md`
 
 Fresh session: read `AGENTS.md`, the `ARCHITECTURE.md` section for the subsystem
