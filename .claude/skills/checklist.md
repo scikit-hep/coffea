@@ -18,8 +18,7 @@ Omit the block for the first review of a kind.
 - **Tests that cannot fail** — pass against the unchanged behavior. HIGH.
 - **Undeclared deviation** — the diff or plan does something not sanctioned and
   not recorded. HIGH.
-- **Hard rules** — the `AGENTS.md` rules: setitem field assignment, no Python
-  loop over `axis=0` outside numba, guarded dask imports.
+- **Hard rules** — every rule under *Hard rules* in `AGENTS.md`.
 - **Scope creep** — steps or hunks beyond the goal, abstractions with one caller.
 - **Comment bloat** — restated code, narrated history, issue numbers.
 - **Weakened checks** — a loosened tolerance, softened assertion, added skip.

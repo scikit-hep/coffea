@@ -15,8 +15,7 @@ asking you anything. Protocol and severities: `.claude/skills/README.md`.
 - `.agent-work/blocked.md`, if implementation fell back to planning
 - *Fidelity buckets* in `.claude/skills/coffea-change/SKILL.md`
 
-Fresh session: read `AGENTS.md`, the `ARCHITECTURE.md` section for the subsystem
-(`grep -n '^#'`), the code you will change and its tests. State what you assumed.
+Fresh session: read `AGENTS.md`, the `ARCHITECTURE.md` section for the subsystem, the code you will change and its tests. State what you assumed.
 
 ## The plan
 
@@ -34,7 +33,8 @@ touch. This line, not the driver's guess, decides who runs every later step. The
 ## Revising
 
 Address every finding: apply it, or record one line in the plan saying why not.
-On the folding round (only LOW and NIT found) apply exactly those findings and
-stop; any other edit re-enters review. If `blocked.md` exists, the previous plan
-failed in contact with the code: change the approach. Smallest change that works,
-no adjacent cleanup; the `AGENTS.md` hard rules bind the plan as much as the code.
+On the folding round (only LOW and NIT found) apply those findings; if any other
+edit was needed, end `plan.md` with the line `folding: exceeded` so it is
+reviewed again. If `blocked.md` exists, the previous plan failed in contact with
+the code: change the approach, then delete it. Smallest change that works, no
+adjacent cleanup; the `AGENTS.md` hard rules bind the plan as much as the code.

@@ -31,8 +31,9 @@ direction.
 | `economy` | C2 | C2 | C3 | C2 |
 
 C1 is the strongest reasoning available, C2 strong general purpose, C3 fast and
-cheap. The concrete models are in `.claude/agents/coffea-c1.md`, `coffea-c2.md`
-and `coffea-c3.md`, the only files that name one. A harness offering a model
+cheap. The concrete models are in `.claude/agents/coffea-c1.md`,
+`.claude/agents/coffea-c2.md` and `.claude/agents/coffea-c3.md`, the only files
+that name one. A harness offering a model
 above C1's may pass it for `critical` steps.
 
 ## Sequence
@@ -43,23 +44,26 @@ paste the task or the artifact names. In Claude Code: the Agent tool with
 `Read .claude/skills/<skill>/SKILL.md and follow it. Inputs: ...`; one
 sub-agent per step, never reused.
 
-1. `coffea-planning` with the task and the guessed level.
+1. `coffea-planning` with the task and the fidelity level: the guess on the
+   first pass, `plan.md`'s `fidelity:` line thereafter.
 2. If planning ran at C2 and `grep -m1 '^fidelity:' .agent-work/plan.md` names a
    level whose planning tier is C1, re-run step 1 at C1 with that level.
 3. `coffea-planning-review`. `BLOCKING`: back to step 1 with the review.
-   `CLEAN`: one folding round of `coffea-planning`, then step 4.
+   `CLEAN`: one folding round of `coffea-planning`; if `plan.md` now ends with
+   `folding: exceeded`, back to step 3, else step 4.
 4. `coffea-implementation`.
-5. If `.agent-work/blocked.md` exists: remove every other file in `.agent-work/`
-   and go to step 1.
+5. If `.agent-work/blocked.md` exists: remove every other file in `.agent-work/`,
+   confirm `git status --porcelain` is empty (else `git checkout -- .`), and go
+   to step 1. Planning deletes `blocked.md` once it has read it.
 6. `coffea-implementation-review`. `BLOCKING`: back to step 4. `CLEAN`: done.
 
 ## Stop rule
 
-A review whose *Previous findings* block has a `REPEAT` line carrying CRITICAL,
-HIGH or MEDIUM stops the loop. If the rejected step ran below C1, redo that one
-step at the next tier up, later steps keeping their table tiers. If it ran at
-C1, or the redo also returns `REPEAT`, stop and hand to the human with the
-review file.
+A `BLOCKING` review whose *Previous findings* block has a `REPEAT` line carrying
+CRITICAL, HIGH or MEDIUM stops the loop. If `.agent-work/escalated.md` does not
+name the rejected step and that step ran below C1: write `<step> C<n>` to
+`escalated.md`, redo that one step at the next tier up, later steps keeping
+their table tiers. Otherwise stop and hand to the human with the review file.
 
 ## Done
 

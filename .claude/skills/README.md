@@ -3,13 +3,13 @@
 Five skills take a change from idea to merge-ready through two review loops:
 planning to planning-review until the plan holds up, then implementation to
 implementation-review until the code does. `coffea-change` drives the sequence
-and picks who runs each step; the other four are the steps. They are plain
-markdown naming no model or vendor; any agent that can read and edit files and
-run tests can follow them. Reviewers also read `checklist.md`.
+and picks who runs each step; the other four are the steps, plain markdown
+naming no model or vendor (`coffea-change` names one harness, in *Sequence*
+only). Reviewers also read `.claude/skills/checklist.md`.
 
 | skill | reads | writes |
 | --- | --- | --- |
-| `coffea-change` | the task | nothing; it sequences the others |
+| `coffea-change` | the task; `plan.md` | nothing; it sequences the others and clears `.agent-work/` after a block |
 | `coffea-planning` | task; fidelity; latest `plan-review-NN.md`; `blocked.md` if present | `plan.md` |
 | `coffea-planning-review` | `plan.md`; previous `plan-review-NN.md` | `plan-review-NN.md` |
 | `coffea-implementation` | final `plan.md`; latest `impl-review-NN.md` | code, tests, `impl-notes.md` |
@@ -32,6 +32,7 @@ All loop state lives in `.agent-work/`, gitignored scratch that never appears in
   impl-notes.md         # what was built, and any deviation from the plan
   impl-review-01.md     # one file per implementation-review round, numbered
   blocked.md            # only when implementation hits an unrecoverable problem
+  escalated.md          # only when coffea-change has redone a step one tier up
 ```
 
 ## Severities
@@ -54,14 +55,12 @@ All loop state lives in `.agent-work/`, gitignored scratch that never appears in
         │  one folding round: absorb the remaining LOW/NIT into the plan
         v
   coffea-implementation ──> coffea-implementation-review ──┐
-        ^                            │                     │
-        └────────────────────────────┘  while any CRITICAL/HIGH/MEDIUM
-                                     │
-                          unrecoverable problem
-                                     │
-                                     v
-                            write blocked.md,
-                          restart at coffea-planning
+        │       ^                                          │
+        │       └──────────────────────────────────────────┘  while any CRITICAL/HIGH/MEDIUM
+        │
+        │  unrecoverable problem: write blocked.md
+        v
+  restart at coffea-planning
 ```
 
 No iteration cap: a loop exits on its exit condition. `coffea-change` holds the
@@ -70,9 +69,9 @@ stop rule for a finding that returns unchanged.
 ## Verification scope
 
 Per round: `pre-commit run --files <touched paths>` (prek is a drop-in) and the
-test modules mirroring the touched code. The full `pytest` runs once per
-candidate `CLEAN`, by the reviewer; a failure there is BLOCKING with the failing
-test named. Reviewers take the diff as
+test modules mirroring the touched code. The full `pytest` and
+`pre-commit run --all-files` run once per candidate `CLEAN`, by the reviewer; a
+failure there is BLOCKING with the failing test named. Reviewers take the diff as
 `git diff "$(git merge-base origin/master HEAD)"`, which ignores staging.
 
 ## Showing a test discriminates
