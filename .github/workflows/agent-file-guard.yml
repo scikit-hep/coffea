@@ -19,12 +19,10 @@ on:
       - 'docs/agents/**'
       - '.claude/**'
       - '.github/CODEOWNERS'
+      - '.github/zizmor.yml'
       - '.github/workflows/agent-file-guard.yml'
 
-permissions:
-  contents: read
-  issues: write          # create the label
-  pull-requests: write   # apply the label, post the comment
+permissions: {}
 
 concurrency:
   group: agent-file-guard-${{ github.event.pull_request.number }}
@@ -34,14 +32,17 @@ jobs:
   flag:
     name: flag agent-file changes
     runs-on: ubuntu-latest
+    permissions:
+      issues: write          # create the label
+      pull-requests: write   # apply the label, post the comment
     steps:
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
             const { owner, repo } = context.repo;
             const pull_number = context.payload.pull_request.number;
 
-            const guardedExact = ['AGENTS.md', 'CLAUDE.md', 'ARCHITECTURE.md', '.github/CODEOWNERS'];
+            const guardedExact = ['AGENTS.md', 'CLAUDE.md', 'ARCHITECTURE.md', '.github/CODEOWNERS', '.github/zizmor.yml'];
             const guardedPrefixes = ['docs/agents/', '.claude/', '.github/workflows/agent-file-guard.yml'];
 
             const files = await github.paginate(github.rest.pulls.listFiles, {

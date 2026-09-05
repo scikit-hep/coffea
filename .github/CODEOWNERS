@@ -9,4 +9,5 @@
 /docs/agents/                                @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
 /.claude/                                    @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
 /.github/CODEOWNERS                          @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/.github/zizmor.yml                          @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
 /.github/workflows/agent-file-guard.yml      @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
