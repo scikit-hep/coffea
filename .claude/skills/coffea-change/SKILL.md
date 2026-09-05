@@ -51,9 +51,9 @@ sub-agent per step, never reused.
    `CLEAN`: one folding round of `coffea-planning`; if `plan.md` now ends with
    `folding: exceeded`, delete that line and go back to step 3, else step 4.
 4. `coffea-implementation`.
-5. If `.agent-work/blocked.md` exists: remove every other file in `.agent-work/`;
-   if `git status --porcelain` is not empty, stop and hand to the human; else go
-   to step 1. Planning deletes `blocked.md` once it has read it.
+5. If `.agent-work/blocked.md` exists: if `git status --porcelain` is not empty,
+   stop and hand to the human; else remove every other file in `.agent-work/` and
+   go to step 1. Planning deletes `blocked.md` once it has read it.
 6. `coffea-implementation-review`. `BLOCKING`: back to step 4. `CLEAN`: done.
 
 ## Stop rule
