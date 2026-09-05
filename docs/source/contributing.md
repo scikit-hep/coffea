@@ -63,7 +63,10 @@ ask for help.
 
   ```bash
   pushd docs
-  make html
+  make -j html
+  # the `-j` option requests to use all of the processors on your machine
+  # to make the build faster, you can limit to N processors using -jN or
+  # one processor by omitting the `-j` option
   popd
   ```
 
@@ -71,12 +74,14 @@ ask for help.
   your pull request.
 - Parts of the documentation reference optional sub-components of coffea,
   so you may want to install all of the optional components in order to
-  mimic the complete documentation site. `pip install -e .[dev,caches,dask,dask-awkward,rucio]`
+  mimic the complete documentation site. `pip install -e '.[caches,dask,dask-awkward,rucio]' --group dev`
 - Additionally, parts of the documentation use `graphviz` to construct
   class inheritance trees. If you want to view those, install the `graphviz`
   system package as well (e.g. `sudo apt install graphviz` on Debian variants).
 - The `make watch` command uses `sphinx-autobuild` to re-build the pages as
   you change the source files which can be helpful depending on your workflow.
+  It spawns a simple local HTTP server as well which reloads the site after
+  the re-build is completed.
 
 ## Release cadence
 

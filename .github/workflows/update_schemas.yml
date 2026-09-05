@@ -1,0 +1,42 @@
+name: Update EDM4hep schema
+
+on:
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  update-schema:
+    name: Update bundled EDM4hep schemas
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create-pull-request pushes the schema update branch
+      pull-requests: write # create-pull-request opens the schema pull request
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # create-pull-request authenticates with its own token input
+          persist-credentials: false
+      - name: Fetch every EDM4hep release yaml not yet bundled
+        run: |
+          # v00-99 is bundled as 00-99-00; older releases are unsupported
+          for tag in $(git ls-remote --tags --refs https://github.com/key4hep/EDM4hep \
+                       | sed 's|.*refs/tags/||' | grep -E '^v[0-9]{2}-[0-9]{2}(-[0-9]{2})?$'); do
+            ver=${tag#v}
+            [[ "$ver" < "00-99" ]] && continue
+            [[ "$ver" == "00-99" ]] && ver=00-99-00
+            f=src/coffea/nanoevents/assets/edm4hep_v${ver}.yaml
+            [[ -f "$f" ]] && continue
+            curl -fsSL -o "$f" "https://raw.githubusercontent.com/key4hep/EDM4hep/${tag}/edm4hep.yaml"
+            echo "added $f"
+          done
+      - uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          branch: update-edm4hep-schemas
+          commit-message: "feat: bundle new EDM4hep schema versions"
+          title: "feat: bundle new EDM4hep schema versions"
+          body: "edm4hep.yaml of EDM4hep releases not yet bundled; the newest becomes the `EDM4HEPSchema` default."

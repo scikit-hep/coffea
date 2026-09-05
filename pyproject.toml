@@ -58,6 +58,7 @@ dependencies = [
   "lz4",
   "cloudpickle>=1.2.3",
   "toml>=0.10.2",
+  "pyyaml",
   "mplhep>=0.1.18",
   "packaging",
   "pandas",
@@ -83,8 +84,10 @@ dask = [
   "bokeh!=3.0.*,>=2.4.2",
 ]
 dask-awkward = [
+  "coffea[dask]",
   "dask-awkward>=2025.9.0",
   "dask-histogram>=2025.2.0",
+  "bokeh<3.10",
 ]
 parsl = [
   "parsl>=2024.12.09"
@@ -102,30 +105,31 @@ caches = [
   "numcodecs>=0.13.1",
   "zict>=3.0.0",
 ]
-dev = [
-  "pre-commit",
-  "flake8",
-  "black",
+
+[dependency-groups]
+test = [
+  "pyinstrument",
   "pytest",
   "pytest-xdist",
   "pytest-cov",
   "pytest-mpl",
   "pytest-asyncio",
   "pytest-mock",
-  "sphinx<8",
-  "nbsphinx",
-  "sphinx-rtd-theme",
-  "sphinx-automodapi",
-  "sphinx-copybutton>=0.3.2",
-  "pyinstrument",
+]
+docs = [
   "ipython",
   "myst-nb",
   "pydata-sphinx-theme",
-  "sphinx-autobuild>=2024.10.03"
+  "sphinx<8",
+  "sphinx-autobuild>=2024.10.03",
+  "sphinx-automodapi",
+  "sphinx-copybutton>=0.3.2",
 ]
-
-[dependency-groups]
-dev = ["coffea[dev]"]
+dev = [
+  { include-group = "docs" },
+  { include-group = "test" },
+  "pre-commit",
+]
 
 [tool.hatch]
 version.source = "vcs"
@@ -137,7 +141,10 @@ testpaths = ["tests"]
 addopts = [
   "-rfesxX",
   "-v",
+  "--strict-config",
+  "--strict-markers",
 ]
+xfail_strict = true
 log_level = "INFO"
 markers = [
   "dask_client: test requires a live distributed.Client (uses the shared session cluster)",
@@ -146,6 +153,15 @@ markers = [
 filterwarnings = [
   "ignore:There is no current event loop",
 ]
+
+[tool.check-wheel-contents]
+# Some EDM4hep schema versions are byte-identical to their predecessor; shipping
+# each one under its own version name is intentional.
+ignore = ["W002"]
+
+[tool.uv]
+# Supply-chain cooldown: ignore releases published in the last week.
+exclude-newer = "7 days"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]

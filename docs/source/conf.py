@@ -100,7 +100,9 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "awkward": ("https://awkward-array.org/doc/main/", None),
+    "distributed": ("https://distributed.dask.org/en/latest/", None),
     "dask-awkward": ("https://dask-awkward.readthedocs.io/en/stable/", None),
+    "vector": ("https://vector.readthedocs.io/en/latest/", None),
 }
 
 napoleon_preprocess_types = True
