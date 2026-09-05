@@ -1,64 +1,40 @@
 ---
 name: coffea-planning
-description: Write or revise the implementation plan for a coffea change, in .agent-work/plan.md. Use at the start of a multi-step change, and again after each planning review. Default capability tier C1.
+description: Write or revise the implementation plan for a coffea change in .agent-work/plan.md. Use at the start of a multi-step change and after each planning review.
 ---
 
 # Planning
 
 Produce `.agent-work/plan.md`: the plan a separate agent will implement without
-asking you anything. Protocol, severities and tiers: `.claude/skills/README.md`.
-
-**Default tier C1** — planning errors propagate into every later step. `economy`
-fidelity may drop to C2.
+asking you anything. Protocol and severities: `.claude/skills/README.md`.
 
 ## Inputs
 
-- the task
+- the task, and the fidelity level the driver passed
 - `.agent-work/plan-review-NN.md`, the highest-numbered one, if any
 - `.agent-work/blocked.md`, if implementation fell back to planning
+- *Fidelity buckets* in `.claude/skills/coffea-change/SKILL.md`
 
-You are in a fresh session. Read the repository yourself.
-
-## Before writing
-
-Read `AGENTS.md` and the one `ARCHITECTURE.md` section covering the subsystem you
-are changing (`grep -n '^#' ARCHITECTURE.md` for the table of contents). Then read
-the code you intend to change and the tests that already cover it. A plan written
-from file names alone will not survive review.
-
-State what you verified and what you assumed. A flagged assumption is a finding
-the reviewer can check; a hidden one is a bug.
+Fresh session: read `AGENTS.md`, the `ARCHITECTURE.md` section for the subsystem
+(`grep -n '^#'`), the code you will change and its tests. State what you assumed.
 
 ## The plan
 
-Write `.agent-work/plan.md` containing:
+Line 1: `fidelity: <level>`, the highest bucket of any path the change will
+touch. This line, not the driver's guess, decides who runs every later step. Then:
 
-1. **Goal** — one paragraph. What changes for a user of coffea, and what does not.
-2. **Current behavior** — what the code does today, with `path:line` references
-   you have actually read.
-3. **Steps** — ordered, each independently implementable and each naming the files
-   it touches. A step a reviewer cannot check is too vague.
-4. **Tests** — for every behavior change, the mirrored test under `tests/` that
-   will prove it and what it asserts. Name the discriminating case: a test that
-   passes against the unchanged code is worthless.
-5. **Risks and assumptions** — what could be wrong, what you could not verify,
-   what would make you abandon this approach.
+1. **Goal** — one paragraph: what changes for a user of coffea, and what does not.
+2. **Current behavior** — what the code does today, with `path:line` you have read.
+3. **Steps** — ordered, independently implementable, each naming its files.
+4. **Tests** — per behavior change, the mirrored test under `tests/` and what it
+   asserts; name the case that fails against the unchanged code.
+5. **Risks and assumptions** — what could be wrong, what you could not verify.
 6. **Out of scope** — what you are deliberately not doing.
 
 ## Revising
 
-Address every finding in the review: apply it, or record one line in the plan
-saying why not. Silently dropping a finding restarts the loop for no reason.
-
-On the folding round — invoked when the review found only LOW and NIT — absorb
-those and stop. Do not reopen settled decisions.
-
-If `blocked.md` exists, the previous plan failed in contact with the code. Treat
-its account as evidence and change the approach rather than restating it.
-
-## Constraints
-
-- Smallest change that works. No abstraction for hypothetical needs, no adjacent
-  cleanup, no feature flags unless asked.
-- The `AGENTS.md` hard rules bind the plan as much as the code.
-- Prefer editing existing modules to adding new ones.
+Address every finding: apply it, or record one line in the plan saying why not.
+On the folding round (only LOW and NIT found) apply exactly those findings and
+stop; any other edit re-enters review. If `blocked.md` exists, the previous plan
+failed in contact with the code: change the approach. Smallest change that works,
+no adjacent cleanup; the `AGENTS.md` hard rules bind the plan as much as the code.

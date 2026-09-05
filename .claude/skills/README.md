@@ -1,30 +1,29 @@
 # Review-loop skills
 
-Four skills that take a change from idea to merged-ready through two review
-loops: planning to planning-review until the plan holds up, then implementation
-to implementation-review until the code does.
-
-They are plain markdown and name no model or vendor. Any agent that can read
-files, edit files and run tests can follow them.
+Five skills take a change from idea to merge-ready through two review loops:
+planning to planning-review until the plan holds up, then implementation to
+implementation-review until the code does. `coffea-change` drives the sequence
+and picks who runs each step; the other four are the steps. They are plain
+markdown naming no model or vendor; any agent that can read and edit files and
+run tests can follow them. Reviewers also read `checklist.md`.
 
 | skill | reads | writes |
 | --- | --- | --- |
-| `coffea-planning` | task; latest `plan-review-NN.md`; `blocked.md` if present | `plan.md` |
-| `coffea-planning-review` | `plan.md` | `plan-review-NN.md` |
+| `coffea-change` | the task | nothing; it sequences the others |
+| `coffea-planning` | task; fidelity; latest `plan-review-NN.md`; `blocked.md` if present | `plan.md` |
+| `coffea-planning-review` | `plan.md`; previous `plan-review-NN.md` | `plan-review-NN.md` |
 | `coffea-implementation` | final `plan.md`; latest `impl-review-NN.md` | code, tests, `impl-notes.md` |
-| `coffea-implementation-review` | `plan.md`, `impl-notes.md`, the diff | `impl-review-NN.md` |
+| `coffea-implementation-review` | `plan.md`, `impl-notes.md`, the diff; previous `impl-review-NN.md` | `impl-review-NN.md` |
 
 ## Fresh context per step
 
 Every step runs in a new agent session, inheriting no transcript. Its only inputs
 are the repository and the files named above, so a reviewer cannot inherit the
-author's justification for a decision it is meant to judge. The file hand-off is
-the mechanism: an agent either read `plan.md` or it did not.
+author's justification for a decision it is meant to judge.
 
 ## Artifacts
 
-All loop state lives in `.agent-work/`, which is gitignored. It is scratch and
-must never appear in a commit.
+All loop state lives in `.agent-work/`, gitignored scratch that never appears in a commit.
 
 ```
 .agent-work/
@@ -65,27 +64,27 @@ must never appear in a commit.
                           restart at coffea-planning
 ```
 
-There is no iteration cap; a loop exits on its exit condition, not on a count. If
-the same finding returns unchanged twice, say so and hand back to the human
-rather than looping again.
+No iteration cap: a loop exits on its exit condition. `coffea-change` holds the
+stop rule for a finding that returns unchanged.
 
-A clean implementation review is not a substitute for the author reading their
-own diff before opening a PR.
+## Verification scope
 
-## Capability tiers
+Per round: `pre-commit run --files <touched paths>` (prek is a drop-in) and the
+test modules mirroring the touched code. The full `pytest` runs once per
+candidate `CLEAN`, by the reviewer; a failure there is BLOCKING with the failing
+test named. Reviewers take the diff as
+`git diff "$(git merge-base origin/master HEAD)"`, which ignores staging.
 
-Skills name a tier, never a model:
+## Showing a test discriminates
 
-- **C1** — strongest available reasoning
-- **C2** — strong general purpose
-- **C3** — fast and cheap
+A test proves a change only if it fails without it. Evidence, per test:
+```
+base=$(git merge-base origin/master HEAD)
+git add -A
+git show "$base:<path>" > <path>   # each source file the test exercises;
+                                    # rm <path> if it does not exist at base
+pytest <test id>                    # expect failure or a collection error
+git checkout -- <path>              # restore the index copy
+```
 
-Fidelity scales the tier to the blast radius: `critical` (core correctness paths)
-pins every step to C1, `standard` uses the per-step defaults, `economy` (docs,
-isolated tests) drops one tier where the skill allows it.
-
-If a review rejects the same artifact twice at a tier, redo it one tier stronger
-rather than trying a third time at the same one.
-
-The mapping from tiers to concrete models belongs to whichever harness is driving,
-not here: it is the fastest-rotting part of this document.
+A test whose only subject is a new module records `no baseline` instead.

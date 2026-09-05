@@ -1,72 +1,40 @@
 ---
 name: coffea-implementation-review
-description: Adversarially review the implemented diff against .agent-work/plan.md and write findings to .agent-work/impl-review-NN.md. Use after each implementation round, until no CRITICAL, HIGH or MEDIUM findings remain. Default capability tier C1.
+description: Adversarially review the implemented diff against .agent-work/plan.md and write findings to .agent-work/impl-review-NN.md. Use after each implementation round until no CRITICAL, HIGH or MEDIUM remain.
 ---
 
 # Implementation review
 
-Review the diff that was actually produced against the plan that was agreed.
-Protocol, severities and tiers: `.claude/skills/README.md`.
-
-**Default tier C1** — the last automated check before a human reads the change.
-`economy` fidelity may drop to C2 for docs-only diffs.
+Review the diff that was produced against the plan that was agreed. Protocol,
+verification scope and recipe: `.claude/skills/README.md`; hunt list, format and
+verdict: `.claude/skills/checklist.md`.
 
 ## Inputs
 
-- the working diff (`git diff` against the merge base)
+- the diff: `git diff "$(git merge-base origin/master HEAD)"`
 - `.agent-work/plan.md` and `.agent-work/impl-notes.md`
+- the previous `.agent-work/impl-review-NN.md`, if any
 
 Fresh session: judge the diff, not the explanation of it. Where `impl-notes.md`
-and the diff disagree, the diff is the truth.
+and the diff disagree, the diff is the truth. A hunk can be correct in isolation
+and wrong in place: open the files around each change, what else calls this,
+what invariant the old code held, what the mirrored test actually asserts.
 
-## Read the diff in place
+## Test evidence
 
-A hunk can be correct in isolation and wrong in place. Open the files around each
-change: what else calls this, what invariant the old code held, what the mirrored
-test actually asserts.
-
-## What to hunt for
-
-- **Silent wrongness** — wrong results with no error raised. The dominant risk in
-  coffea: a dropped field, a variation computed from the wrong baseline, a mask on
-  the wrong axis, a schema that truncates a name. CRITICAL.
-- **Tests that cannot fail** — a test exists but would pass against the unchanged
-  behavior, so the change is untested in substance. HIGH.
-- **Undeclared deviation from the plan** — the diff does something the plan did
-  not sanction and `impl-notes.md` does not mention. HIGH: it never went through
-  planning review.
-- **Hard-rule violations** — attribute field assignment, a Python loop over
-  `axis=0` outside numba, an unguarded dask import.
-- **Scope creep** — changes unrelated to the goal, including drive-by cleanup.
-- **Comment bloat** — paragraphs restating the code, narration of the bug that was
-  fixed, issue or PR numbers.
-- **Weakened checks** — a loosened tolerance, a softened assertion, a skip added to
-  make a test pass.
-
-## Output
-
-Write `.agent-work/impl-review-NN.md`, numbering from `01`, most severe first:
-
-```
-### [SEVERITY] short claim
-where:   path:line in the diff
-why:     the concrete failure — inputs or state, and the wrong result produced
-fix:     what would resolve it
-```
-
-End with one verdict line, either:
-
-```
-VERDICT: BLOCKING (n CRITICAL, n HIGH, n MEDIUM)
-VERDICT: CLEAN (only LOW/NIT, or none)
-```
-
-`CLEAN` ends the loop. Remaining LOW and NIT findings are either applied or
-recorded in `impl-notes.md` with a one-line reason.
-
-Do not fix what you find. A reviewer that edits the code has stopped reviewing it.
+Re-run every `fails without the fix` line in `impl-notes.md` with the README
+recipe. A missing line for a new or changed test, or one that does not
+reproduce, is HIGH.
 
 ## Before returning CLEAN
 
-Confirm `pre-commit run --all-files` and `pytest` pass on the current tree. A
-verdict asserted without running them is not a verdict.
+Run the full `pytest` and `pre-commit run --all-files` yourself on the current
+tree; a failure is BLOCKING with the failing test named, and a verdict asserted
+without running them is not a verdict.
+
+## Output
+
+`.agent-work/impl-review-NN.md`, numbered from `01`: the *Previous findings*
+block, findings in the checklist format, one verdict line. `CLEAN` ends the
+loop; remaining LOW and NIT are applied or recorded in `impl-notes.md` with a
+reason.

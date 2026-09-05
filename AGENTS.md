@@ -39,7 +39,7 @@ Python >= 3.10, releases are CalVer (`vYYYY.M.P`), dependency floors live in
 | --- | --- |
 | subsystems and idioms — NanoEvents modes, awkward, histogramming, preprocessing, processors, conventions, gotchas | `ARCHITECTURE.md` (`grep -n '^#' ARCHITECTURE.md` for a TOC) |
 | migrating an analysis across coffea eras | `docs/agents/migration.md` |
-| running a multi-step change through the review loops | `.claude/skills/README.md` |
+| running a multi-step change through the review loops | `.claude/skills/coffea-change/SKILL.md` |
 
 ## Agent files are a supply-chain surface
 
