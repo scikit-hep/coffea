@@ -27,8 +27,8 @@ touch. This line, not the driver's guess, decides who runs every later step. The
 3. **Steps** — ordered, independently implementable, each naming its files.
 4. **Tests** — per behavior change, the mirrored test under `tests/` and what it
    asserts; name the case that fails against the unchanged code.
-5. **Risks, assumptions, out of scope** — what could be wrong or is unverified,
-   and what you are deliberately not doing.
+5. **Risks and assumptions** — what could be wrong, what you could not verify.
+6. **Out of scope** — what you are deliberately not doing.
 
 ## Revising
 
@@ -36,5 +36,5 @@ Address every finding: apply it, or record one line in the plan saying why not.
 On the folding round (only LOW and NIT found) apply those findings; if any other
 edit was needed, end `plan.md` with the line `folding: exceeded` so it is
 reviewed again. If `blocked.md` exists, the previous plan failed in contact with
-the code: change the approach, then delete it. Smallest change that works; the
-`AGENTS.md` hard rules bind the plan as much as the code.
+the code: change the approach, then delete it. Smallest change that works, no
+adjacent cleanup; the `AGENTS.md` hard rules bind the plan as much as the code.
