@@ -211,6 +211,8 @@ ordinary docs.
 - `.github/workflows/agent-file-guard.yml` labels and comments on any PR touching
   these paths, so the change is visible before review. It reads only the
   changed-file list and never executes PR content.
+- `CLAUDE.md` is a Claude Code import of `AGENTS.md`; every other harness reads
+  `AGENTS.md` directly.
 - Review such a change as a behavior change: be suspicious of edits that weaken
   review or validation, add instructions to run commands or exfiltrate data,
   disable these protections, or broaden what an agent is told it may do.
