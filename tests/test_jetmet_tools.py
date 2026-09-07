@@ -1804,7 +1804,7 @@ def _independent_type1_delta(
     phi_noMuRaw = muon_subtr_dphi + phi
     pt_L1 = pt_noMuRaw * f_L1
     pt_L1L2L3 = pt_noMuRaw * f_L1L2L3
-    mask = (pt_L1L2L3 > 15.0) & em_pass
+    mask = (pt_L1L2L3 > 15.0) & (abs(eta) < 5.2) & em_pass
     diff = ak.where(mask, pt_L1L2L3 - pt_L1, 0.0)
     return (
         ak.sum(diff * np.cos(phi_noMuRaw), axis=1),
@@ -1882,7 +1882,8 @@ def test_corrected_met_type1_closure():
     )
 
 
-def test_corrected_met_type1_correctionlib():
+@pytest.mark.parametrize("is_t1_smeared_met", [False, True])
+def test_corrected_met_type1_correctionlib(is_t1_smeared_met):
     """correctionlib JECs match the .txt correctors for Type-1 MET. Note the
     lookup: L1L2L3Res is a compound correction, L1FastJet a regular one."""
     correctionlib = pytest.importorskip("correctionlib")
@@ -1902,7 +1903,12 @@ def test_corrected_met_type1_correctionlib():
     )
 
     def build(jec_L1, jec_L1L2L3):
-        factory = CorrectedMETFactory(name_map, jec_L1L2L3=jec_L1L2L3, jec_L1=jec_L1)
+        factory = CorrectedMETFactory(
+            name_map,
+            jec_L1L2L3=jec_L1L2L3,
+            jec_L1=jec_L1,
+            is_t1_smeared_met=is_t1_smeared_met,
+        )
         return factory.build(
             pfmet, corrected_jets, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets
         )
@@ -1921,20 +1927,33 @@ def test_corrected_met_type1_correctionlib():
         CorrectionLibJEC(cset.compound[f"{_SUMMER22_TAG}_L1L2L3Res_{_SUMMER22_JT}"]),
     )
 
-    # Nominal agreement
-    assert ak.all(np.isclose(met_txt.pt, met_cl.pt, rtol=1e-4, atol=1e-3))
-    assert ak.all(np.isclose(met_txt.phi, met_cl.phi, rtol=1e-4, atol=1e-3))
+    def assert_variation_close(txt, cl, label):
+        assert ak.all(np.isclose(txt.pt, cl.pt, rtol=1e-4, atol=1e-3)), (
+            f"{label}.pt mismatch between txt and correctionlib"
+        )
+        assert ak.all(np.isclose(txt.phi, cl.phi, rtol=1e-4, atol=1e-3)), (
+            f"{label}.phi mismatch between txt and correctionlib"
+        )
 
-    # Systematic variations agree too
-    jes_jer_fields = [f for f in ak.fields(met_txt) if f.startswith(("JER", "JES"))]
-    assert len(jes_jer_fields) > 0
-    for unc in jes_jer_fields:
-        assert ak.all(
-            np.isclose(met_txt[unc].up.pt, met_cl[unc].up.pt, rtol=1e-4, atol=1e-3)
-        ), f"{unc}.up mismatch between txt and correctionlib"
-        assert ak.all(
-            np.isclose(met_txt[unc].down.pt, met_cl[unc].down.pt, rtol=1e-4, atol=1e-3)
-        ), f"{unc}.down mismatch between txt and correctionlib"
+    # Nominal and Cartesian unclustered-energy agreement
+    assert_variation_close(met_txt, met_cl, "nominal")
+    for direction in ("up", "down"):
+        assert_variation_close(
+            met_txt.MET_UnclusteredEnergy[direction],
+            met_cl.MET_UnclusteredEnergy[direction],
+            f"MET_UnclusteredEnergy.{direction}",
+        )
+
+    # JER branches supplied by CorrectedJetsFactory agree in both components.
+    jer_fields = [f for f in ak.fields(met_txt) if f.startswith("JER")]
+    assert jer_fields
+    for unc in jer_fields:
+        for direction in ("up", "down"):
+            assert_variation_close(
+                met_txt[unc][direction],
+                met_cl[unc][direction],
+                f"{unc}.{direction}",
+            )
 
 
 def test_corrected_met_type1_autoderive_raw_pt():
@@ -1973,64 +1992,231 @@ def test_corrected_met_type1_autoderive_raw_pt():
         )
 
 
-def test_corrected_met_type1_hardcoded():
-    """Verify Type-1 corrected MET (both .txt and correctionlib) matches hardcoded expectations for the first 5 events."""
-    correctionlib = pytest.importorskip("correctionlib")
-    from coffea.jetmet_tools import (
-        CorrectedMETFactory,
-        CorrectionLibJEC,
-        FactorizedJetCorrector,
+class _ConstantCorrector:
+    """Minimal corrector with the interface used by CorrectedMETFactory."""
+
+    signature = ["JetPt"]
+
+    def __init__(self, value):
+        self.value = value
+
+    def getCorrection(self, **kwargs):
+        return ak.ones_like(kwargs["JetPt"]) * self.value
+
+
+def _type1_test_name_map():
+    return {
+        "METpt": "pt",
+        "METphi": "phi",
+        "JetPt": "pt",
+        "JetPhi": "phi",
+        "JetEta": "eta",
+        "JetA": "area",
+        "ptRaw": "pt_raw",
+        "UnClusteredEnergyDeltaX": "MetUnclustEnUpDeltaX",
+        "UnClusteredEnergyDeltaY": "MetUnclustEnUpDeltaY",
+        "RawMETpt": "pt",
+        "RawMETphi": "phi",
+        "JetMuonSubtrFactor": "muonSubtrFactor",
+        "JetMuonSubtrDeltaPhi": "muonSubtrDeltaPhi",
+        "JetChEmEF": "chEmEF",
+        "JetNeEmEF": "neEmEF",
+        "CorrT1JetPt": "rawPt",
+        "CorrT1JetPhi": "phi",
+        "CorrT1JetEta": "eta",
+        "CorrT1JetArea": "area",
+        "CorrT1JetMuonSubtrFactor": "muonSubtrFactor",
+        "CorrT1JetMuonSubtrDeltaPhi": "muonSubtrDeltaPhi",
+        "CorrT1JetEmEF": "EmEF",
+        "CorrT1JetJERSmearFactor": "jerSmearFactor",
+    }
+
+
+def _type1_test_met(size, dx=0.0, dy=0.0):
+    met = ak.Array(
+        {
+            "pt": np.full(size, 100.0),
+            "phi": np.zeros(size),
+            "MetUnclustEnUpDeltaX": np.full(size, dx),
+            "MetUnclustEnUpDeltaY": np.full(size, dy),
+        }
     )
+    raw_met = ak.Array({"pt": np.full(size, 100.0), "phi": np.zeros(size)})
+    return met, raw_met
+
+
+def _type1_test_jet(raw_pt, *, eta=0.0, phi=0.0, muon=0.0, dphi=0.0, em=0.0):
+    return {
+        "pt_raw": raw_pt,
+        "pt": 2.0 * raw_pt,
+        "eta": eta,
+        "phi": phi,
+        "area": 1.0,
+        "muonSubtrFactor": muon,
+        "muonSubtrDeltaPhi": dphi,
+        "chEmEF": em,
+        "neEmEF": 0.0,
+    }
+
+
+def _type1_test_corrt1_jet(raw_pt, *, eta=0.0, phi=0.0, muon=0.0, dphi=0.0, em=0.0):
+    return {
+        "rawPt": raw_pt,
+        "eta": eta,
+        "phi": phi,
+        "area": 1.0,
+        "muonSubtrFactor": muon,
+        "muonSubtrDeltaPhi": dphi,
+        "EmEF": em,
+    }
+
+
+def test_corrected_met_type1_hardcoded():
+    """Check Type-1 recipe arithmetic."""
+    from coffea.jetmet_tools import CorrectedMETFactory
+
+    name_map = _type1_test_name_map()
+    factory = CorrectedMETFactory(
+        name_map,
+        jec_L1=_ConstantCorrector(1.0),
+        jec_L1L2L3=_ConstantCorrector(2.0),
+    )
+
+    # Each event isolates one component:
+    jets = ak.Array(
+        [
+            [_type1_test_jet(20.0)],  # Jet-only
+            [],  # CorrT1-only
+            [_type1_test_jet(20.0)],  # Combined
+            [_type1_test_jet(7.5)],  # corrected pT = 15: rejected
+            [_type1_test_jet(20.0, eta=5.2)],  # eta boundary: rejected
+            [_type1_test_jet(20.0, em=0.9)],  # EM boundary: rejected
+            [_type1_test_jet(8.0)],  # corrected pT = 16: accepted
+            [_type1_test_jet(20.0, muon=0.25, dphi=np.pi / 2.0)],  # Muon subtraction
+            [],
+            [],
+            [],
+            [],
+        ]
+    )
+    corrt1jets = ak.Array(
+        [
+            [],
+            [_type1_test_corrt1_jet(10.0)],
+            [_type1_test_corrt1_jet(10.0)],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [_type1_test_corrt1_jet(7.5)],  # corrected pT = 15: rejected
+            [_type1_test_corrt1_jet(10.0, eta=5.2)],  # eta boundary: rejected
+            [_type1_test_corrt1_jet(10.0, em=0.9)],  # EM boundary: rejected
+            [_type1_test_corrt1_jet(8.0)],  # corrected pT = 16: accepted
+        ]
+    )
+    met, raw_met = _type1_test_met(len(jets))
+    corrected = factory.build(met, jets, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets)
+
+    assert np.allclose(corrected.pt[:7], [80.0, 90.0, 70.0, 100.0, 100.0, 100.0, 92.0])
+    assert np.allclose(corrected.phi[:7], 0.0, atol=1e-12)
+    assert np.isclose(corrected.pt[7], np.hypot(100.0, 15.0))
+    assert np.isclose(corrected.phi[7], np.arctan2(-15.0, 100.0))
+    assert np.allclose(corrected.pt[8:12], [100.0, 100.0, 100.0, 92.0])
+    assert np.allclose(corrected.phi[8:12], 0.0, atol=1e-12)
+
+    # The smeared event checks nominal JER, JER up/down on both collections,
+    # JES on both collections, the nominal-JER reference, and a
+    # two-dimensional unclustered-energy displacement.
+    jet = _type1_test_jet(20.0)
+    jet.update(
+        {
+            "pt": 44.0,
+            "pt_jec": 40.0,
+            "jet_energy_resolution_correction": 1.1,
+            "JER": {"up": {"pt": 48.0}, "down": {"pt": 36.0}},
+            "JES_Total": {"up": {"pt": 44.0}, "down": {"pt": 44.0}},
+        }
+    )
+    corrt1jet = _type1_test_corrt1_jet(10.0)
+    corrt1jet.update(
+        {
+            "jerSmearFactor": 1.1,
+            "JER": {
+                "up": {"jerSmearFactor": 1.2},
+                "down": {"jerSmearFactor": 0.9},
+            },
+        }
+    )
+    met, raw_met = _type1_test_met(1, dx=2.0, dy=3.0)
+    smeared = CorrectedMETFactory(
+        name_map,
+        jec_L1=_ConstantCorrector(1.0),
+        jec_L1L2L3=_ConstantCorrector(2.0),
+        jes_uncertainties={"JES_Total": _ConstantCorrector(0.1)},
+        is_t1_smeared_met=True,
+    ).build(
+        met,
+        ak.Array([[jet]]),
+        in_RawMET=raw_met,
+        in_CorrT1METJets=ak.Array([[corrt1jet]]),
+    )
+
+    assert np.isclose(smeared.pt[0], 64.0)
+    assert np.isclose(smeared.phi[0], 0.0)
+    assert np.isclose(smeared.JER.up.pt[0], 58.0)
+    assert np.isclose(smeared.JER.down.pt[0], 76.0)
+    assert np.isclose(smeared.JES_Total.up.pt[0], 58.0)
+    assert np.isclose(smeared.JES_Total.down.pt[0], 70.0)
+    assert np.isclose(smeared.MET_UnclusteredEnergy.up.pt[0], np.hypot(66.0, 3.0))
+    assert np.isclose(smeared.MET_UnclusteredEnergy.up.phi[0], np.arctan2(3.0, 66.0))
+    assert np.isclose(smeared.MET_UnclusteredEnergy.down.pt[0], np.hypot(62.0, 3.0))
+    assert np.isclose(smeared.MET_UnclusteredEnergy.down.phi[0], np.arctan2(-3.0, 62.0))
+
+
+def test_corrected_met_type1_correctionlib_total_jes():
+    """Tests correctionlib Total-JES Type-1 corrections"""
+    correctionlib = pytest.importorskip("correctionlib")
+    from coffea.jetmet_tools import CorrectedMETFactory, CorrectionLibJEC
 
     s = _build_type1_summer22_inputs()
-    ev, name_map = s["evaluator"], s["name_map"]
-    corrected_jets, pfmet, raw_met, corrt1jets = (
-        s["corrected_jets"],
-        s["pfmet"],
-        s["raw_met"],
-        s["corrt1jets"],
+    name_map = s["name_map"]
+    corrected_jets = s["corrected_jets"]
+    nominal_variants = ak.zip(
+        {"up": corrected_jets, "down": corrected_jets},
+        depth_limit=1,
+        with_name="JetSystematic",
     )
+    corrected_jets = ak.with_field(corrected_jets, nominal_variants, "JES_Total")
 
-    # .txt-based
-    jec_L1_txt = FactorizedJetCorrector(
-        **{_SUMMER22_LEVELS[0]: ev[_SUMMER22_LEVELS[0]]}
-    )
-    jec_L1L2L3_txt = FactorizedJetCorrector(
-        **{name: ev[name] for name in _SUMMER22_LEVELS}
-    )
-    met_txt = CorrectedMETFactory(
-        name_map, jec_L1L2L3=jec_L1L2L3_txt, jec_L1=jec_L1_txt
-    ).build(pfmet, corrected_jets, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets)
-
-    # correctionlib-based
     cset = correctionlib.CorrectionSet.from_file(
         "tests/samples/jet_jerc_Summer22_V3.json.gz"
     )
-    jec_L1_cl = CorrectionLibJEC(cset[f"{_SUMMER22_TAG}_L1FastJet_{_SUMMER22_JT}"])
-    jec_L1L2L3_cl = CorrectionLibJEC(
+    jec_L1 = CorrectionLibJEC(cset[f"{_SUMMER22_TAG}_L1FastJet_{_SUMMER22_JT}"])
+    jec_L1L2L3 = CorrectionLibJEC(
         cset.compound[f"{_SUMMER22_TAG}_L1L2L3Res_{_SUMMER22_JT}"]
     )
-    met_cl = CorrectedMETFactory(
-        name_map, jec_L1L2L3=jec_L1L2L3_cl, jec_L1=jec_L1_cl
-    ).build(pfmet, corrected_jets, in_RawMET=raw_met, in_CorrT1METJets=corrt1jets)
+    total_jes = CorrectionLibJEC(cset[f"{_SUMMER22_TAG}_Total_{_SUMMER22_JT}"])
+    corrected_met = CorrectedMETFactory(
+        name_map,
+        jec_L1L2L3=jec_L1L2L3,
+        jec_L1=jec_L1,
+        jes_uncertainties={"JES_Total": total_jes},
+    ).build(
+        s["pfmet"],
+        corrected_jets,
+        in_RawMET=s["raw_met"],
+        in_CorrT1METJets=s["corrt1jets"],
+    )
 
-    # Expected values for first 5 events
-    expected_pt = [
-        56.71658517976303,
-        65.9617027504427,
-        36.44936318875199,
-        29.049212550884096,
-        38.90181763646251,
-    ]
-    expected_phi = [
-        2.529857014684793,
-        -1.0578153037237557,
-        0.10473577139427523,
-        -2.6176013801134985,
-        -2.7193310575000793,
-    ]
-
-    assert np.allclose(met_txt.pt[:5], expected_pt, rtol=1e-5)
-    assert np.allclose(met_txt.phi[:5], expected_phi, rtol=1e-5)
-    assert np.allclose(met_cl.pt[:5], expected_pt, rtol=1e-5)
-    assert np.allclose(met_cl.phi[:5], expected_phi, rtol=1e-5)
+    assert "JES_Total" in ak.fields(corrected_met)
+    assert ak.fields(corrected_met.JES_Total) == ["up", "down"]
+    for direction in ("up", "down"):
+        variation = corrected_met.JES_Total[direction]
+        assert "pt" in ak.fields(variation)
+        assert "phi" in ak.fields(variation)
+        assert ak.all(np.isfinite(variation.pt))
+        assert ak.all(np.isfinite(variation.phi))
+    assert not ak.all(corrected_met.JES_Total.up.pt == corrected_met.pt)
+    assert not ak.all(corrected_met.JES_Total.down.pt == corrected_met.pt)
+    assert not ak.all(corrected_met.JES_Total.up.pt == corrected_met.JES_Total.down.pt)
