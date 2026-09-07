@@ -122,8 +122,12 @@ def _compute_jec_factors(jets, name_map, jec_L1, jec_L1L2L3):
             for k in corrector.signature
         }
 
-    factor_L1 = jec_L1.getCorrection(**jec_inputs(jec_L1))
-    factor_L1L2L3 = jec_L1L2L3.getCorrection(**jec_inputs(jec_L1L2L3))
+    factor_L1 = awkward.values_astype(
+        jec_L1.getCorrection(**jec_inputs(jec_L1)), numpy.float32
+    )
+    factor_L1L2L3 = awkward.values_astype(
+        jec_L1L2L3.getCorrection(**jec_inputs(jec_L1L2L3)), numpy.float32
+    )
 
     return factor_L1, factor_L1L2L3
 
@@ -150,8 +154,12 @@ def _compute_corrt1_jec_factors(corrt1jets, name_map, jec_L1, jec_L1L2L3):
             k: corrt1jets[name_map[key_remap.get(k, k)]] for k in corrector.signature
         }
 
-    factor_L1 = jec_L1.getCorrection(**jec_inputs(jec_L1))
-    factor_L1L2L3 = jec_L1L2L3.getCorrection(**jec_inputs(jec_L1L2L3))
+    factor_L1 = awkward.values_astype(
+        jec_L1.getCorrection(**jec_inputs(jec_L1)), numpy.float32
+    )
+    factor_L1L2L3 = awkward.values_astype(
+        jec_L1L2L3.getCorrection(**jec_inputs(jec_L1L2L3)), numpy.float32
+    )
 
     return factor_L1, factor_L1L2L3
 
@@ -173,7 +181,8 @@ def _compute_jet_type1_deltas_with_factors(
     factor_L1, factor_L1L2L3 : awkward.Array
         Pre-computed JEC factors (jagged, matching jets shape).
     pt_scale_factor : awkward.Array or None
-        If provided, multiply pt_noMuL1L2L3 by this factor (for JES/JER variations).
+        If provided, scale the full L1L2L3-corrected jet pT (for JES/JER
+        variations). The nominal no-muon pT is still used for jet selection.
     """
     # Step 1: muon-subtracted raw pT and phi
     jet_pt_raw = jets[name_map["ptRaw"]]
@@ -181,24 +190,35 @@ def _compute_jet_type1_deltas_with_factors(
     muon_substr_dphi = jets[name_map["JetMuonSubtrDeltaPhi"]]
     jet_phi = jets[name_map["JetPhi"]]
 
-    pt_noMuRaw = jet_pt_raw * (1.0 - muon_substr_factor)
+    # Match types to CMSJMECalculators
+    pt_noMuRaw = awkward.values_astype(
+        jet_pt_raw * (1.0 - muon_substr_factor), numpy.float64
+    )
+    muon_pt = awkward.values_astype(jet_pt_raw * muon_substr_factor, numpy.float64)
     phi_noMuRaw = muon_substr_dphi + jet_phi
 
     # Step 2: apply pre-computed JEC factors
     pt_noMuL1 = pt_noMuRaw * factor_L1
     pt_noMuL1L2L3 = pt_noMuRaw * factor_L1L2L3
 
-    # Apply variation scale factor if provided
-    if pt_scale_factor is not None:
-        pt_noMuL1L2L3 = pt_noMuL1L2L3 * pt_scale_factor
-
     # Step 3: selection cuts
     chEmEF = jets[name_map["JetChEmEF"]]
     neEmEF = jets[name_map["JetNeEmEF"]]
-    mask = (pt_noMuL1L2L3 > 15.0) & ((chEmEF + neEmEF) < 0.9)
+    mask = (
+        (pt_noMuL1L2L3 > 15.0)
+        & (numpy.abs(jets[name_map["JetEta"]]) < 5.2)  # JERC tutorial adds this
+        & ((chEmEF + neEmEF) < 0.9)
+    )
 
     # Step 4: vectorial sum of (pt_noMuL1L2L3 - pt_noMuL1) for selected jets
-    diff_pt = awkward.where(mask, pt_noMuL1L2L3 - pt_noMuL1, 0.0)
+    if pt_scale_factor is None:
+        diff_pt = pt_noMuL1L2L3 - pt_noMuL1
+    else:
+        pt_L1 = pt_noMuL1 + muon_pt
+        pt_L1L2L3 = pt_noMuL1L2L3 + muon_pt
+        diff_pt = pt_L1L2L3 * pt_scale_factor - pt_L1
+
+    diff_pt = awkward.where(mask, diff_pt, 0.0)
     delta_px = awkward.sum(diff_pt * numpy.cos(phi_noMuRaw), axis=1)
     delta_py = awkward.sum(diff_pt * numpy.sin(phi_noMuRaw), axis=1)
 
@@ -206,7 +226,7 @@ def _compute_jet_type1_deltas_with_factors(
 
 
 def _compute_corrt1_type1_deltas_with_factors(
-    corrt1jets, name_map, factor_L1, factor_L1L2L3
+    corrt1jets, name_map, factor_L1, factor_L1L2L3, pt_scale_factor=None
 ):
     """Compute per-jet Type-1 MET correction deltas for CorrT1METJet using pre-computed JEC factors.
 
@@ -218,8 +238,12 @@ def _compute_corrt1_type1_deltas_with_factors(
     muon_substr_dphi = corrt1jets[name_map["CorrT1JetMuonSubtrDeltaPhi"]]
     jet_phi = corrt1jets[name_map["CorrT1JetPhi"]]
 
-    pt_noMuRaw = raw_pt * (1.0 - muon_substr_factor)
+    # Match types to CMSJMECalculators
+    pt_noMuRaw = awkward.values_astype(
+        raw_pt * (1.0 - muon_substr_factor), numpy.float64
+    )
     phi_noMuRaw = muon_substr_dphi + jet_phi
+    muon_pt = awkward.values_astype(raw_pt * muon_substr_factor, numpy.float64)
 
     # Step 2: apply pre-computed JEC factors
     pt_noMuL1 = pt_noMuRaw * factor_L1
@@ -227,14 +251,133 @@ def _compute_corrt1_type1_deltas_with_factors(
 
     # Step 3: selection cuts
     emEF = corrt1jets[name_map["CorrT1JetEmEF"]]
-    mask = (pt_noMuL1L2L3 > 15.0) & (emEF < 0.9)
+    mask = (
+        (pt_noMuL1L2L3 > 15.0)
+        & (numpy.abs(corrt1jets[name_map["CorrT1JetEta"]]) < 5.2)
+        & (emEF < 0.9)
+    )
 
     # Step 4: vectorial sum
-    diff_pt = awkward.where(mask, pt_noMuL1L2L3 - pt_noMuL1, 0.0)
+    if pt_scale_factor is None:
+        diff_pt = pt_noMuL1L2L3 - pt_noMuL1
+    else:
+        pt_L1 = pt_noMuL1 + muon_pt
+        pt_L1L2L3 = pt_noMuL1L2L3 + muon_pt
+        diff_pt = pt_L1L2L3 * pt_scale_factor - pt_L1
+
+    diff_pt = awkward.where(mask, diff_pt, 0.0)
     delta_px = awkward.sum(diff_pt * numpy.cos(phi_noMuRaw), axis=1)
     delta_py = awkward.sum(diff_pt * numpy.sin(phi_noMuRaw), axis=1)
 
     return awkward.zip({"delta_px": delta_px, "delta_py": delta_py}, depth_limit=1)
+
+
+def _evaluate_jet_jes_uncertainty(jets, name_map, jes_uncertainty, pt_L1L2L3, is_corrt1=False):
+    """Evaluate a JES uncertainty source on CorrT1METJet.
+
+    CMSJMECalculators evaluates JES uncertainty sources at the full corrected jet pT
+    (no-muon corrected pT plus the uncorrected muon component).
+    """
+
+    if is_corrt1:
+        key_remap = {
+            "JetEta": "CorrT1JetEta",
+            "JetA": "CorrT1JetArea",
+        }
+    else:
+        key_remap = {
+            "JetEta": "JetEta",
+            "JetA": "JetA"
+        }
+
+    inputs = {}
+    for key in jes_uncertainty.signature:
+        if key == "JetPt":
+            inputs[key] = pt_L1L2L3
+        else:
+            inputs[key] = jets[name_map[key_remap.get(key, key)]]
+
+    return awkward.values_astype(jes_uncertainty.getCorrection(**inputs), numpy.float32)
+
+
+def _compute_type1_jes_deltas_with_factors(
+    jets,
+    name_map,
+    factor_L1,
+    factor_L1L2L3,
+    jes_uncertainty,
+    nominal_smear_factor=None,
+    *,
+    is_corrt1=False,
+):
+    """Compute Jet or CorrT1METJet Type-1 JES up/down deltas.
+
+    The Type-1 jet selection is made using nominal no-muon L1L2L3 pT.
+    The JES source is then evaluated at the full Type-1 corrected jet pT and
+    applied as ``1 +/- delta``, matching CMSJMECalculators.
+    """
+    if is_corrt1:
+        jet_pt_raw = jets[name_map["CorrT1JetPt"]]
+        muon_subtr_factor = jets[name_map["CorrT1JetMuonSubtrFactor"]]
+        muon_subtr_dphi = jets[name_map["CorrT1JetMuonSubtrDeltaPhi"]]
+        jet_phi = jets[name_map["CorrT1JetPhi"]]
+        jet_eta = jets[name_map["CorrT1JetEta"]]
+        emEF = jets[name_map["CorrT1JetEmEF"]]
+    else:
+        jet_pt_raw = jets[name_map["ptRaw"]]
+        muon_subtr_factor = jets[name_map["JetMuonSubtrFactor"]]
+        muon_subtr_dphi = jets[name_map["JetMuonSubtrDeltaPhi"]]
+        jet_phi = jets[name_map["JetPhi"]]
+        jet_eta = jets[name_map["JetEta"]]
+        emEF = jets[name_map["JetChEmEF"]] + jets[name_map["JetNeEmEF"]]
+
+    # Match types to CMSJMECalculators
+    pt_noMuRaw = awkward.values_astype(
+        jet_pt_raw * (1.0 - muon_subtr_factor), numpy.float64
+    )
+    muon_pt = awkward.values_astype(jet_pt_raw * muon_subtr_factor, numpy.float64)
+    phi_noMuRaw = muon_subtr_dphi + jet_phi
+
+    pt_noMuL1 = pt_noMuRaw * factor_L1
+    pt_noMuL1L2L3 = pt_noMuRaw * factor_L1L2L3
+    pt_L1 = pt_noMuL1 + muon_pt
+    pt_L1L2L3 = pt_noMuL1L2L3 + muon_pt
+
+    mask = (
+        (pt_noMuL1L2L3 > 15.0)
+        & (numpy.abs(jet_eta) < 5.2)
+        & (emEF < 0.9)
+    )
+
+    delta = _evaluate_jet_jes_uncertainty(
+        jets,
+        name_map,
+        jes_uncertainty,
+        pt_L1L2L3,
+        is_corrt1=is_corrt1,
+    )
+
+    if nominal_smear_factor is None:
+        nominal_smear_factor = 1.0
+    # CMSJMECalculators offsets the L1 reference by the nominal JER contribution before
+    # constructing JES branches. JES and JER are additive around the smeared
+    # nominal rather than multiplying the JES delta by the JER factor.
+    pt_L1_reference = pt_L1 + pt_L1L2L3 * (1.0 - nominal_smear_factor)
+    diff_pt_up = awkward.where(mask, pt_L1L2L3 * (1.0 + delta) - pt_L1_reference, 0.0)
+    diff_pt_down = awkward.where(mask, pt_L1L2L3 * (1.0 - delta) - pt_L1_reference, 0.0)
+
+    cos_phi = numpy.cos(phi_noMuRaw)
+    sin_phi = numpy.sin(phi_noMuRaw)
+
+    return awkward.zip(
+        {
+            "up_delta_px": awkward.sum(diff_pt_up * cos_phi, axis=1),
+            "up_delta_py": awkward.sum(diff_pt_up * sin_phi, axis=1),
+            "down_delta_px": awkward.sum(diff_pt_down * cos_phi, axis=1),
+            "down_delta_py": awkward.sum(diff_pt_down * sin_phi, axis=1),
+        },
+        depth_limit=1,
+    )
 
 
 class CorrectedMETFactory:
@@ -271,9 +414,21 @@ class CorrectedMETFactory:
             ``CorrectionLibJEC``.
         jec_L1 : corrector or None
             L1-only JEC corrector. Same interface as ``jec_L1L2L3``.
+        jes_uncertainties : dict[str, corrector] or None
+            Optional mapping from corrected-jet uncertainty field names to
+            JES uncertainty correctors evaluated directly in Type-1 mode.
+        is_t1_smeared_met : bool
+            If true, include nominal and varied JER factors in Type-1 MET.
     """
 
-    def __init__(self, name_map, jec_L1L2L3=None, jec_L1=None):
+    def __init__(
+        self,
+        name_map,
+        jec_L1L2L3=None,
+        jec_L1=None,
+        jes_uncertainties=None,
+        is_t1_smeared_met=False,
+    ):
         # Validate that both or neither JEC corrector is provided
         if (jec_L1L2L3 is None) != (jec_L1 is None):
             raise ValueError(
@@ -283,6 +438,8 @@ class CorrectedMETFactory:
         self.type1_mode = jec_L1L2L3 is not None
         self.jec_L1L2L3 = jec_L1L2L3
         self.jec_L1 = jec_L1
+        self.jes_uncertainties = dict(jes_uncertainties or {})
+        self.is_t1_smeared_met = is_t1_smeared_met
 
         # Always require legacy keys
         for name in [
@@ -519,18 +676,56 @@ class CorrectedMETFactory:
         jet_factor_L1L2L3 = jet_jec.factor_L1L2L3
 
         # --- Compute nominal Jet deltas using pre-computed factors ---
-        def compute_nominal_jet_deltas(jets, f_L1, f_L1L2L3):
-            return _compute_jet_type1_deltas_with_factors(
-                jets, self.name_map, f_L1, f_L1L2L3
+        jet_nominal_smear_factor = None
+        if self.is_t1_smeared_met:
+
+            def get_nominal_jet_smear_factor(jets):
+                if "jet_energy_resolution_correction" in jets.fields:
+                    return jets["jet_energy_resolution_correction"]
+                jec_pt_field = self.name_map["JetPt"] + "_jec"
+                if jec_pt_field not in jets.fields:
+                    raise ValueError(
+                        "Smeared Type-1 MET requires either a "
+                        "jet_energy_resolution_correction or a JEC-only pT field"
+                    )
+                safe_jec_pt = awkward.where(
+                    jets[jec_pt_field] != 0, jets[jec_pt_field], 1.0
+                )
+                return jets[self.name_map["JetPt"]] / safe_jec_pt
+
+            jet_nominal_smear_factor = maybe_map_partitions(
+                get_nominal_jet_smear_factor,
+                corrected_jets,
+                label="type1_nominal_jet_smear_factor",
             )
 
-        jet_deltas = maybe_map_partitions(
-            compute_nominal_jet_deltas,
-            corrected_jets,
-            jet_factor_L1,
-            jet_factor_L1L2L3,
-            label="type1_jet_deltas",
-        )
+        def compute_nominal_jet_deltas(jets, f_L1, f_L1L2L3, smear_factor):
+            return _compute_jet_type1_deltas_with_factors(
+                jets,
+                self.name_map,
+                f_L1,
+                f_L1L2L3,
+                pt_scale_factor=smear_factor,
+            )
+
+        if jet_nominal_smear_factor is None:
+            jet_deltas = maybe_map_partitions(
+                compute_nominal_jet_deltas,
+                corrected_jets,
+                jet_factor_L1,
+                jet_factor_L1L2L3,
+                None,
+                label="type1_jet_deltas",
+            )
+        else:
+            jet_deltas = maybe_map_partitions(
+                compute_nominal_jet_deltas,
+                corrected_jets,
+                jet_factor_L1,
+                jet_factor_L1L2L3,
+                jet_nominal_smear_factor,
+                label="type1_jet_deltas",
+            )
         jet_dpx = jet_deltas.delta_px
         jet_dpy = jet_deltas.delta_py
 
@@ -539,21 +734,64 @@ class CorrectedMETFactory:
         total_dpy = jet_dpy
 
         # --- Compute CorrT1METJet deltas (if provided) ---
+        corrt1_factor_L1 = None
+        corrt1_factor_L1L2L3 = None
         corrt1_dpx = None
         corrt1_dpy = None
+        corrt1_nominal_smear_factor = None
+
         if corrt1jets is not None:
 
-            def compute_corrt1_deltas(ct1jets):
+            def compute_corrt1_jec_factors(ct1jets):
                 f_L1, f_L1L2L3 = _compute_corrt1_jec_factors(
-                    ct1jets, self.name_map, self.jec_L1, self.jec_L1L2L3
+                    ct1jets,
+                    self.name_map,
+                    self.jec_L1,
+                    self.jec_L1L2L3,
                 )
+                return awkward.zip(
+                    {"factor_L1": f_L1, "factor_L1L2L3": f_L1L2L3},
+                    depth_limit=1,
+                )
+
+            corrt1_jec = maybe_map_partitions(
+                compute_corrt1_jec_factors,
+                corrt1jets,
+                label="type1_corrt1_jec_factors",
+            )
+            corrt1_factor_L1 = corrt1_jec.factor_L1
+            corrt1_factor_L1L2L3 = corrt1_jec.factor_L1L2L3
+
+            corrt1_nominal_smear_factor = None
+            if self.is_t1_smeared_met:
+
+                def get_corrt1_nominal_smear_factor(ct1jets):
+                    field = self.name_map.get("CorrT1JetJERSmearFactor")
+                    if field is not None and field in ct1jets.fields:
+                        return ct1jets[field]
+                    return awkward.ones_like(ct1jets[self.name_map["CorrT1JetPt"]])
+
+                corrt1_nominal_smear_factor = maybe_map_partitions(
+                    get_corrt1_nominal_smear_factor,
+                    corrt1jets,
+                    label="type1_corrt1_nominal_smear_factor",
+                )
+
+            def compute_corrt1_deltas(ct1jets, f_L1, f_L1L2L3, smear_factor):
                 return _compute_corrt1_type1_deltas_with_factors(
-                    ct1jets, self.name_map, f_L1, f_L1L2L3
+                    ct1jets,
+                    self.name_map,
+                    f_L1,
+                    f_L1L2L3,
+                    pt_scale_factor=smear_factor,
                 )
 
             corrt1_deltas = maybe_map_partitions(
                 compute_corrt1_deltas,
                 corrt1jets,
+                corrt1_factor_L1,
+                corrt1_factor_L1L2L3,
+                corrt1_nominal_smear_factor,
                 label="type1_corrt1_deltas",
             )
             corrt1_dpx = corrt1_deltas.delta_px
@@ -628,13 +866,102 @@ class CorrectedMETFactory:
         )
 
         # --- JES/JER systematics ---
-        # For each JES/JER source, the varied jet pT comes from corrected_jets[unc].up/down.
-        # We compute the ratio varied_pt / nominal_pt and apply it to pt_noMuL1L2L3.
-        # CorrT1METJet contribution stays nominal.
-        # JEC factors are reused from the nominal computation (no recomputation).
+        # For JES sources with a supplied payload, evaluate the source directly
+        # on both Jet and CorrT1METJet at the Type-1 full corrected pT.  This
+        # matches CMSJMECalculators and avoids importing a scale factor evaluated at the
+        # standard corrected-jet pT, which is not identical when a jet contains
+        # a muon.  JER (and unmapped JES sources) retain the pre-built varied-pT
+        # fallback.
         for unc in filter(
-            lambda x: x.startswith(("JER", "JES")), awkward.fields(corrected_jets)
+            lambda x: x.startswith(("JER", "JES")),
+            awkward.fields(corrected_jets),
         ):
+            corrt1_up_dpx = corrt1_dpx
+            corrt1_up_dpy = corrt1_dpy
+            corrt1_down_dpx = corrt1_dpx
+            corrt1_down_dpy = corrt1_dpy
+
+            if (
+                corrt1jets is not None
+                and unc.startswith("JER")
+                and unc in corrt1jets.fields
+            ):
+                smear_field = self.name_map.get("CorrT1JetJERSmearFactor")
+                if smear_field is not None:
+
+                    def compute_corrt1_jer_variants(
+                        ct1jets, f_L1, f_L1L2L3, scale_up, scale_down
+                    ):
+                        up = _compute_corrt1_type1_deltas_with_factors(
+                            ct1jets,
+                            self.name_map,
+                            f_L1,
+                            f_L1L2L3,
+                            pt_scale_factor=scale_up,
+                        )
+                        down = _compute_corrt1_type1_deltas_with_factors(
+                            ct1jets,
+                            self.name_map,
+                            f_L1,
+                            f_L1L2L3,
+                            pt_scale_factor=scale_down,
+                        )
+                        return awkward.zip(
+                            {
+                                "up_delta_px": up.delta_px,
+                                "up_delta_py": up.delta_py,
+                                "down_delta_px": down.delta_px,
+                                "down_delta_py": down.delta_py,
+                            },
+                            depth_limit=1,
+                        )
+
+                    corrt1_jer = maybe_map_partitions(
+                        compute_corrt1_jer_variants,
+                        corrt1jets,
+                        corrt1_factor_L1,
+                        corrt1_factor_L1L2L3,
+                        corrt1jets[unc].up[smear_field],
+                        corrt1jets[unc].down[smear_field],
+                        label=f"type1_corrt1_{unc}_deltas",
+                    )
+                    corrt1_up_dpx = corrt1_jer.up_delta_px
+                    corrt1_up_dpy = corrt1_jer.up_delta_py
+                    corrt1_down_dpx = corrt1_jer.down_delta_px
+                    corrt1_down_dpy = corrt1_jer.down_delta_py
+
+            jes_uncertainty = self.jes_uncertainties.get(unc)
+            if corrt1jets is not None and jes_uncertainty is not None:
+
+                def compute_corrt1_jes_variants(
+                    ct1jets,
+                    f_L1,
+                    f_L1L2L3,
+                    smear_factor,
+                    _jes=jes_uncertainty,
+                ):
+                    return _compute_type1_jes_deltas_with_factors(
+                        ct1jets,
+                        self.name_map,
+                        f_L1,
+                        f_L1L2L3,
+                        _jes,
+                        nominal_smear_factor=smear_factor,
+                        is_corrt1=True,
+                    )
+
+                corrt1_jes = maybe_map_partitions(
+                    compute_corrt1_jes_variants,
+                    corrt1jets,
+                    corrt1_factor_L1,
+                    corrt1_factor_L1L2L3,
+                    corrt1_nominal_smear_factor,
+                    label=f"type1_corrt1_{unc}_deltas",
+                )
+                corrt1_up_dpx = corrt1_jes.up_delta_px
+                corrt1_up_dpy = corrt1_jes.up_delta_py
+                corrt1_down_dpx = corrt1_jes.down_delta_px
+                corrt1_down_dpy = corrt1_jes.down_delta_py
 
             def build_jes_jer_variant(
                 met_record,
@@ -644,54 +971,73 @@ class CorrectedMETFactory:
                 jets_var_down,
                 f_L1,
                 f_L1L2L3,
-                corrt1_dpx_val,
-                corrt1_dpy_val,
-                _unc=unc,
+                nominal_smear_factor,
+                ct1_up_dpx,
+                ct1_up_dpy,
+                ct1_down_dpx,
+                ct1_down_dpy,
+                _jes_source=jes_uncertainty,
             ):
                 raw_pt = rmet[self.name_map["RawMETpt"]]
                 raw_phi = rmet[self.name_map["RawMETphi"]]
 
-                # Compute scale factors: varied_pt / nominal_pt
-                nominal_pt = jets_nominal[self.name_map["JetPt"]]
-                up_pt = jets_var_up[self.name_map["JetPt"]]
-                down_pt = jets_var_down[self.name_map["JetPt"]]
+                jes_source = _jes_source
 
-                # Protect against division by zero
-                safe_nominal = awkward.where(nominal_pt > 0, nominal_pt, 1.0)
-                scale_up = up_pt / safe_nominal
-                scale_down = down_pt / safe_nominal
-
-                # Recompute Jet deltas with varied scale, reusing JEC factors
-                up_deltas = _compute_jet_type1_deltas_with_factors(
-                    jets_nominal,
-                    self.name_map,
-                    f_L1,
-                    f_L1L2L3,
-                    pt_scale_factor=scale_up,
-                )
-                down_deltas = _compute_jet_type1_deltas_with_factors(
-                    jets_nominal,
-                    self.name_map,
-                    f_L1,
-                    f_L1L2L3,
-                    pt_scale_factor=scale_down,
-                )
-                up_jet_dpx = up_deltas.delta_px
-                up_jet_dpy = up_deltas.delta_py
-                down_jet_dpx = down_deltas.delta_px
-                down_jet_dpy = down_deltas.delta_py
-
-                # Add CorrT1 nominal contribution (stays constant)
-                if corrt1_dpx_val is not None:
-                    up_total_dpx = up_jet_dpx + corrt1_dpx_val
-                    up_total_dpy = up_jet_dpy + corrt1_dpy_val
-                    down_total_dpx = down_jet_dpx + corrt1_dpx_val
-                    down_total_dpy = down_jet_dpy + corrt1_dpy_val
+                if jes_source is not None:
+                    # Exact CMSJMECalculators JES propagation for ordinary jets.
+                    jet_jes = _compute_type1_jes_deltas_with_factors(
+                        jets_nominal,
+                        self.name_map,
+                        f_L1,
+                        f_L1L2L3,
+                        jes_source,
+                        nominal_smear_factor=nominal_smear_factor,
+                    )
+                    up_total_dpx = jet_jes.up_delta_px
+                    up_total_dpy = jet_jes.up_delta_py
+                    down_total_dpx = jet_jes.down_delta_px
+                    down_total_dpy = jet_jes.down_delta_py
                 else:
-                    up_total_dpx = up_jet_dpx
-                    up_total_dpy = up_jet_dpy
-                    down_total_dpx = down_jet_dpx
-                    down_total_dpy = down_jet_dpy
+                    # Fallback for JER or JES sources for which no direct
+                    # uncertainty payload was supplied.
+                    nominal_pt = jets_nominal[self.name_map["JetPt"]]
+                    up_pt = jets_var_up[self.name_map["JetPt"]]
+                    down_pt = jets_var_down[self.name_map["JetPt"]]
+
+                    reference_pt = nominal_pt
+                    if self.is_t1_smeared_met:
+                        jec_pt_field = self.name_map["JetPt"] + "_jec"
+                        if jec_pt_field in jets_nominal.fields:
+                            reference_pt = jets_nominal[jec_pt_field]
+                    safe_reference = awkward.where(reference_pt != 0, reference_pt, 1.0)
+                    scale_up = up_pt / safe_reference
+                    scale_down = down_pt / safe_reference
+
+                    up_deltas = _compute_jet_type1_deltas_with_factors(
+                        jets_nominal,
+                        self.name_map,
+                        f_L1,
+                        f_L1L2L3,
+                        pt_scale_factor=scale_up,
+                    )
+                    down_deltas = _compute_jet_type1_deltas_with_factors(
+                        jets_nominal,
+                        self.name_map,
+                        f_L1,
+                        f_L1L2L3,
+                        pt_scale_factor=scale_down,
+                    )
+
+                    up_total_dpx = up_deltas.delta_px
+                    up_total_dpy = up_deltas.delta_py
+                    down_total_dpx = down_deltas.delta_px
+                    down_total_dpy = down_deltas.delta_py
+
+                if ct1_up_dpx is not None:
+                    up_total_dpx = up_total_dpx + ct1_up_dpx
+                    up_total_dpy = up_total_dpy + ct1_up_dpy
+                    down_total_dpx = down_total_dpx + ct1_down_dpx
+                    down_total_dpy = down_total_dpy + ct1_down_dpy
 
                 var_up = corrected_type1_met(
                     raw_pt, raw_phi, up_total_dpx, up_total_dpy
@@ -725,8 +1071,11 @@ class CorrectedMETFactory:
                 corrected_jets[unc].down,
                 jet_factor_L1,
                 jet_factor_L1L2L3,
-                corrt1_dpx,
-                corrt1_dpy,
+                jet_nominal_smear_factor,
+                corrt1_up_dpx,
+                corrt1_up_dpy,
+                corrt1_down_dpx,
+                corrt1_down_dpy,
                 label=f"type1_{unc}_met",
             )
 
