@@ -272,7 +272,9 @@ def _compute_corrt1_type1_deltas_with_factors(
     return awkward.zip({"delta_px": delta_px, "delta_py": delta_py}, depth_limit=1)
 
 
-def _evaluate_jet_jes_uncertainty(jets, name_map, jes_uncertainty, pt_L1L2L3, is_corrt1=False):
+def _evaluate_jet_jes_uncertainty(
+    jets, name_map, jes_uncertainty, pt_L1L2L3, is_corrt1=False
+):
     """Evaluate a JES uncertainty source on CorrT1METJet.
 
     CMSJMECalculators evaluates JES uncertainty sources at the full corrected jet pT
@@ -285,10 +287,7 @@ def _evaluate_jet_jes_uncertainty(jets, name_map, jes_uncertainty, pt_L1L2L3, is
             "JetA": "CorrT1JetArea",
         }
     else:
-        key_remap = {
-            "JetEta": "JetEta",
-            "JetA": "JetA"
-        }
+        key_remap = {"JetEta": "JetEta", "JetA": "JetA"}
 
     inputs = {}
     for key in jes_uncertainty.signature:
@@ -343,11 +342,7 @@ def _compute_type1_jes_deltas_with_factors(
     pt_L1 = pt_noMuL1 + muon_pt
     pt_L1L2L3 = pt_noMuL1L2L3 + muon_pt
 
-    mask = (
-        (pt_noMuL1L2L3 > 15.0)
-        & (numpy.abs(jet_eta) < 5.2)
-        & (emEF < 0.9)
-    )
+    mask = (pt_noMuL1L2L3 > 15.0) & (numpy.abs(jet_eta) < 5.2) & (emEF < 0.9)
 
     delta = _evaluate_jet_jes_uncertainty(
         jets,

@@ -1928,12 +1928,12 @@ def test_corrected_met_type1_correctionlib(is_t1_smeared_met):
     )
 
     def assert_variation_close(txt, cl, label):
-        assert ak.all(np.isclose(txt.pt, cl.pt, rtol=1e-4, atol=1e-3)), (
-            f"{label}.pt mismatch between txt and correctionlib"
-        )
-        assert ak.all(np.isclose(txt.phi, cl.phi, rtol=1e-4, atol=1e-3)), (
-            f"{label}.phi mismatch between txt and correctionlib"
-        )
+        assert ak.all(
+            np.isclose(txt.pt, cl.pt, rtol=1e-4, atol=1e-3)
+        ), f"{label}.pt mismatch between txt and correctionlib"
+        assert ak.all(
+            np.isclose(txt.phi, cl.phi, rtol=1e-4, atol=1e-3)
+        ), f"{label}.phi mismatch between txt and correctionlib"
 
     # Nominal and Cartesian unclustered-energy agreement
     assert_variation_close(met_txt, met_cl, "nominal")
