@@ -19,7 +19,8 @@ from coffea.nanoevents.mapping import (
     TrivialUprootOpener,
     UprootSourceMapping,
 )
-from coffea.nanoevents.schemas import BaseSchema, NanoAODSchema
+from coffea.nanoevents.schemas import BaseSchema, EDM4HEPSchema, NanoAODSchema
+from coffea.nanoevents.schemas.edm4hep import podio_collection_types
 from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
 from coffea.util import _import_dask_awkward, _is_interpretable
 
@@ -106,9 +107,29 @@ class _OnlySliceableAs:
         return self._array
 
 
+def _reads_podio_metadata(schemaclass):
+    return isinstance(schemaclass, type) and issubclass(schemaclass, EDM4HEPSchema)
+
+
+def _first_file_podio_collection_types(files, uproot_options):
+    """podio collection types of the first file of a uproot.dask files specification."""
+    if isinstance(files, uproot.behaviors.TBranch.HasBranches):
+        return podio_collection_types(files)
+    path, objpath = uproot._util.regularize_files(
+        files, steps_allowed=True, **uproot_options
+    )[0][:2]
+    with uproot.open(path, **uproot_options) as directory:
+        return podio_collection_types(directory[objpath])
+
+
 class _map_schema_uproot(_map_schema_base):
     def __init__(
-        self, schemaclass=BaseSchema, metadata=None, behavior=None, version=None
+        self,
+        schemaclass=BaseSchema,
+        metadata=None,
+        behavior=None,
+        version=None,
+        base_form_extras=None,
     ):
         super().__init__(
             schemaclass=schemaclass,
@@ -116,6 +137,8 @@ class _map_schema_uproot(_map_schema_base):
             behavior=behavior,
             version=version,
         )
+        # file-level information the schema needs beyond the form (dask mode has no tree)
+        self.base_form_extras = base_form_extras or {}
 
     def __call__(self, form):
         from coffea.nanoevents.mapping.uproot import _lazify_form
@@ -142,6 +165,7 @@ class _map_schema_uproot(_map_schema_base):
         typenames = form.parameters.get("typenames")
         if typenames is not None:
             lform["typenames"] = typenames
+        lform.update(self.base_form_extras)
 
         return (
             awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form),
@@ -358,13 +382,6 @@ class NanoEventsFactory:
             and not isinstance(schemaclass, FunctionType)
             and schemaclass.__dask_capable__
         ):
-            map_schema = _map_schema_uproot(
-                schemaclass=schemaclass,
-                behavior=dict(schemaclass.behavior()),
-                metadata=metadata,
-                version="latest",
-            )
-
             to_open = file
             if isinstance(file, uproot.reading.ReadOnlyDirectory):
                 if treepath is uproot._util.unset:
@@ -372,6 +389,19 @@ class NanoEventsFactory:
                         "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
                     )
                 to_open = file[treepath]
+
+            base_form_extras = {}
+            if known_base_form is None and _reads_podio_metadata(schemaclass):
+                base_form_extras["podio_collection_types"] = (
+                    _first_file_podio_collection_types(to_open, uproot_options)
+                )
+            map_schema = _map_schema_uproot(
+                schemaclass=schemaclass,
+                behavior=dict(schemaclass.behavior()),
+                metadata=metadata,
+                version="latest",
+                base_form_extras=base_form_extras,
+            )
             opener = partial(
                 uproot.dask,
                 to_open,
@@ -472,6 +502,8 @@ class NanoEventsFactory:
             tree, iteritems_options=iteritems_options
         )
         base_form["typenames"] = typenames
+        if _reads_podio_metadata(schemaclass):
+            base_form["podio_collection_types"] = podio_collection_types(tree)
 
         return cls._from_mapping(
             mapping,

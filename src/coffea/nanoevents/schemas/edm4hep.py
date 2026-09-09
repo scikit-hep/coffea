@@ -76,6 +76,39 @@ def _synthesize_link_datatypes(loaded_dict):
     return synthesized
 
 
+_link_collection = re.compile(r"podio::LinkCollection<(.+),(.+)>")
+
+
+def podio_collection_types(tree):
+    """Map collection name to podio dataType from the file's ``podio_metadata`` tree.
+
+    Returns None when the file has no metadata or predates the named leaf layout
+    (podio < 1.3 writes positional ``_0.._3`` leaves).
+    """
+    directory = tree.file.root_directory
+    if "podio_metadata" not in directory:
+        return None
+    metadata = directory["podio_metadata"]
+    branch = f"{tree.name}___CollectionTypeInfo"
+    if branch not in metadata or f"{branch}.name" not in metadata[branch]:
+        return None
+    names, datatypes = f"{branch}.name", f"{branch}.dataType"
+    info = metadata[branch].arrays([names, datatypes], library="ak")[0]
+    return dict(zip(info[names].tolist(), info[datatypes].tolist()))
+
+
+def _relation_branches(branch_forms, collection, member):
+    """Pop the leaves of the ``_{collection}_{member}`` relation or vector-member
+    branch, keyed ``member.leaf``. The top-level name is matched exactly because
+    collection names may themselves contain underscores (``SiTracks_Refitted``)."""
+    top = f"_{collection}_{member}"
+    return {
+        name.split("/")[1][len(collection) + 2 :]: branch_forms.pop(name)
+        for name in list(branch_forms)
+        if "/" in name and name.split("/")[0] == top
+    }
+
+
 def parse_yaml(loaded_dict, parsed_dict):
     """The loaded yaml needs to processed further to create a favourable structure.
     Mainly, the Members and Relations need to be parsed
@@ -136,6 +169,8 @@ class EDM4HEPSchema(BaseSchema):
     """Schema-builder for EDM4HEP root file structure.
     EDM4HEPSchema for the newest bundled edm4hep.yaml version; use
     ``EDM4HEPSchema.version(...)`` to pick an older one.
+    Generic podio links (``vector<podio::LinkData>``) are typed from the file's
+    ``podio_metadata``; ``extra_mixins`` overrides the link type of a collection.
     """
 
     __dask_capable__ = True
@@ -243,6 +278,13 @@ class EDM4HEPSchema(BaseSchema):
             if not collection_name.startswith("_")
         }
 
+        # podio >= 1.3 stores generic links as vector<podio::LinkData>; the (From, To)
+        # pair naming the link datatype lives only in podio_metadata
+        link_types = {
+            (link["From"], link["To"]): name.split("::")[-1]
+            for name, link in self.edm4hep.get("links", {}).items()
+        }
+        podio_types = base_form.get("podio_collection_types") or {}
         mixins = {}
         for name in collections:
             datatype = typenames.get(name, "edm4hep_nanocollection")
@@ -256,11 +298,26 @@ class EDM4HEPSchema(BaseSchema):
             else:
                 mixins[name] = datatype
 
-            # podio::LinkData carries no link type; recover it from the collection name
-            if mixins[name] == "LinkData" and name.endswith("Collection"):
-                mixins[name] = name[: -len("Collection")]
+            if mixins[name] == "LinkData":
+                endpoints = _link_collection.match(podio_types.get(name, ""))
+                stem = name[: -len("Collection")] if name.endswith("Collection") else ""
+                if endpoints and endpoints.groups() in link_types:
+                    mixins[name] = link_types[endpoints.groups()]
+                elif "edm4hep::" + stem in self.parsed_edm4hep["datatypes"]:
+                    mixins[name] = stem
 
         mixins_dictionary = {**mixins, **self.extra_mixins}
+        unresolved = sorted(n for n, m in mixins_dictionary.items() if m == "LinkData")
+        if unresolved:
+            raise RuntimeError(
+                f"Cannot determine the link type of {unresolved}: they are stored as "
+                "podio::LinkData and the file's podio_metadata did not name their From/To "
+                "types (podio >= 1.3 writes them; in dask mode they are read from the "
+                "first file unless known_base_form is given). Read with mode='eager' or "
+                "'virtual', or subclass EDM4HEPSchema with "
+                "extra_mixins = {<collection>: <link datatype>} using the names in "
+                "load_edm4hep(version)[0]['links']."
+            )
         self._datatype_mixins = mixins_dictionary
 
     def _zip_components(self, collection_name, component_branches, branch_forms):
@@ -318,8 +375,15 @@ class EDM4HEPSchema(BaseSchema):
         """
         datatype = self._datatype_mixins.get(collection_name, None)
         if collection_name.startswith("_"):
-            col_name = collection_name[1:].split("_")[0]
-            subcol_name = collection_name[1:].split("_")[-1]
+            # _{collection}_{member}: the collection may contain underscores, so take
+            # the longest known collection; no yaml member name contains one
+            stem = collection_name[1:]
+            col_name = max(
+                (c for c in self._all_collections if stem.startswith(c + "_")),
+                key=len,
+                default=stem.split("_")[0],
+            )
+            subcol_name = stem[len(col_name) + 1 :]
             datatype = self._datatype_mixins.get(col_name, None)
         if datatype is None:
             raise FileNotFoundError(f"No datatype found for {collection_name}!")
@@ -444,12 +508,7 @@ class EDM4HEPSchema(BaseSchema):
             if vec_members is None:
                 continue
             for member in vec_members.keys():
-                target_contents = {
-                    name.split("/")[1][1:].split("_")[1]: branch_forms.pop(name)
-                    for name in fieldnames
-                    if name.startswith(f"_{collection}_{member}")
-                    and (len(name.split("/")) > 1)
-                }
+                target_contents = _relation_branches(branch_forms, collection, member)
                 begin_form = branch_var[member + "_begin"]
                 branch_forms.pop(f"{collection}/{collection}.{member}_begin")
                 end_form = branch_var[member + "_end"]
@@ -516,7 +575,6 @@ class EDM4HEPSchema(BaseSchema):
 
     def _process_OneToOneRelations(self, branch_forms, all_collections):
         """Process all the One to One relations"""
-        fieldnames = list(branch_forms.keys())
 
         for collection in all_collections:
             if collection.startswith("_"):
@@ -532,12 +590,7 @@ class EDM4HEPSchema(BaseSchema):
             for member in OneToOneRelations.keys():
                 if member in ["from", "to"]:
                     continue  # Skip Link Collections
-                target_contents = {
-                    name.split("/")[1][1:].split("_")[-1]: branch_forms.pop(name)
-                    for name in fieldnames
-                    if name.startswith(f"_{collection}_{member}")
-                    and (len(name.split("/")) > 1)
-                }
+                target_contents = _relation_branches(branch_forms, collection, member)
 
                 vars = list(target_contents.keys())
                 if not OneToOneRelations[member]["type"].startswith("edm4hep::"):
@@ -631,12 +684,7 @@ class EDM4HEPSchema(BaseSchema):
             for member in OneToManyRelations.keys():
                 if member in ["from", "to"]:
                     continue  # Skip Link Collections
-                target_contents = {
-                    name.split("/")[1][1:].split("_")[-1]: branch_forms.pop(name)
-                    for name in fieldnames
-                    if name.startswith(f"_{collection}_{member}")
-                    and (len(name.split("/")) > 1)
-                }
+                target_contents = _relation_branches(branch_forms, collection, member)
 
                 begin_form = branch_var[member + "_begin"]
                 end_form = branch_var[member + "_end"]
@@ -761,7 +809,6 @@ class EDM4HEPSchema(BaseSchema):
         then use _datatype_priority dictionary to copy the links
         to the desired targets
         """
-        fieldnames = list(branch_forms.keys())
 
         for collection in all_collections:
             if collection.startswith("_"):
@@ -783,12 +830,9 @@ class EDM4HEPSchema(BaseSchema):
             dict_docs_of_branches = {}
             for member in OneToOneRelations.keys():
                 if member in ["from", "to"]:
-                    target_contents = {
-                        name.split("/")[1][1:].split("_")[1]: branch_forms.pop(name)
-                        for name in fieldnames
-                        if name.startswith(f"_{collection}_{member}")
-                        and (len(name.split("/")) > 1)
-                    }
+                    target_contents = _relation_branches(
+                        branch_forms, collection, member
+                    )
 
                     vars = list(target_contents.keys())
                     if not OneToOneRelations[member]["type"].startswith("edm4hep::"):
