@@ -10,11 +10,10 @@ build:
   apt_packages:
     - graphviz
   jobs:
-    post_install:
+    install:
       - echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
       - python -m pip install --upgrade "pip>=25.1"
       - PIP_CONSTRAINT="$(pwd)/ruciospark_constraints.txt" python -m pip install --group docs . rucio-clients
-    pre_build:
-      - cd docs && sphinx-autogen source/api_reference.md -t source/_templates -o source/modules && cd ../
-sphinx:
-  configuration: docs/source/conf.py
+    build:
+      html:
+        - make -C docs/ html
