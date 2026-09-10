@@ -14,6 +14,8 @@ build:
       - echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
       - python -m pip install --upgrade "pip>=25.1"
       - PIP_CONSTRAINT="$(pwd)/ruciospark_constraints.txt" python -m pip install --group docs . rucio-clients
+      - sphinx-build --version
+      - sphinx-autogen --version
     build:
       html:
         - make -C docs/ html
