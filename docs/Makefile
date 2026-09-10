@@ -12,15 +12,20 @@ _NJOBS_REQ = $(patsubst -j%,%,$(_PARALLEL_JOBS_FLAG))
 # otherwise use default of 1
 NJOBS = $(if $(_PARALLEL_JOBS_FLAG),$(or $(_NJOBS_REQ),$(_NPROC)),1)
 
+# the output directory where the 'html' subdiretory stores the generated site
+# by default it is 'build' but can be overridden by READTHEDOCS_OUTPUT environment
+# variable which is what is done when readthedocs is generating the site
+OUTPUT_DIR=$(or $(READTHEDOCS_OUTPUT),build)
+
 # build options
 # 	source              : directory containing source files
-# 	build/html          : output directory to write files into
+# 	$(OUTPUT_DIR)/html  : output directory to write files into
 # 												extra sub-directory to keep jupyter-cache within build but outside site
 #   --builder html      : choose to build the html target
-# 	--warning-file FILE : dump warnings into build/warnings.txt for later review
+# 	--warning-file FILE : dump warnings into $(OUTPUT_DIR)/warnings.txt for later review
 # 	--nitpicky          : warn on every missing link
 # 	--jobs NJOBS        : number of parallel jobs to spawn
-OPTIONS=source build/html --builder html --warning-file build/warnings.txt --nitpicky --jobs $(NJOBS)
+OPTIONS=source $(OUTPUT_DIR)/html --builder html --warning-file $(OUTPUT_DIR)/warnings.txt --nitpicky --jobs $(NJOBS)
 
 html: source/modules
 	sphinx-build $(OPTIONS)
