@@ -124,6 +124,9 @@ docs = [
   "sphinx-autobuild>=2024.10.03",
   "sphinx-automodapi",
   "sphinx-copybutton>=0.3.2",
+  # include optional dependencies that are necessary
+  # to build complete set of documentation
+  "coffea[dask,dask-awkward,rucio,caches]"
 ]
 dev = [
   { include-group = "docs" },

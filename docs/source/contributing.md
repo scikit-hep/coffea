@@ -57,6 +57,9 @@ ask for help.
 
 ## Documentation contributions
 
+- Install the documentation group of dependencies `pip install --group docs -e .`
+  which includes some optional dependencies that need to be imported in order
+  to fully build the documentation site.
 - Source files live in `docs/source`. Edit Markdown (MyST) or notebook files as
   needed.
 - Build the documentation locally with:
@@ -72,9 +75,6 @@ ask for help.
 
 - Preview the generated HTML at `docs/build/html/index.html` before opening
   your pull request.
-- Parts of the documentation reference optional sub-components of coffea,
-  so you may want to install all of the optional components in order to
-  mimic the complete documentation site. `pip install -e '.[caches,dask,dask-awkward,rucio]' --group dev`
 - Additionally, parts of the documentation use `graphviz` to construct
   class inheritance trees. If you want to view those, install the `graphviz`
   system package as well (e.g. `sudo apt install graphviz` on Debian variants).
