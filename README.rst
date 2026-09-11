@@ -2,6 +2,7 @@
     :align: center
     :width: 250px
     :alt: logo using common acroynym "coffea"
+    :class: dark-light
 
 ..
   future dev note: The doc site makes a copy of this README and inserts it into
