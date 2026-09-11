@@ -13,7 +13,7 @@ build:
     install:
       - echo "setuptools!=78.0.1" >> ruciospark_constraints.txt
       - pip install --upgrade "pip>=25.1"
-      - PIP_CONSTRAINT="$(pwd)/ruciospark_constraints.txt" pip install --group docs --extra dask --extra dask-awkward --extra rucio --extra caches .
+      - PIP_CONSTRAINT="$(pwd)/ruciospark_constraints.txt" pip install --group docs ".[dask,dask-awkward,rucio,caches]"
       - printenv PATH
       - sphinx-build --version
       - sphinx-autogen --version
