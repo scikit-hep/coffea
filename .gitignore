@@ -119,3 +119,6 @@ src/coffea/_version.py
 
 # Don't track lock files
 uv.lock
+
+# Review-loop scratch; see .claude/skills/README.md
+.agent-work/
