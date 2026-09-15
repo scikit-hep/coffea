@@ -22,6 +22,7 @@ imported explicitly.
     :toctree: modules
     :caption: Available by Default
     :template: automodapi_templ.rst
+    :recursive:
 
     coffea.analysis_tools
     coffea.btag_tools
@@ -53,6 +54,7 @@ must be explicitly imported.
     :toctree: modules
     :caption: Need to Manually Import
     :template: automodapi_templ.rst
+    :recursive:
 
     coffea.dataset_tools.dataset_query
     coffea.dataset_tools.rucio_utils
