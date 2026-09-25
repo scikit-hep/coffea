@@ -55,6 +55,7 @@ must be explicitly imported.
     :template: automodapi_templ.rst
 
     coffea.dataset_tools.dataset_query
+    coffea.dataset_tools.forms
     coffea.dataset_tools.rucio_utils
     coffea.processor.dask
 ```
