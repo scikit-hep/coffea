@@ -1,0 +1,8 @@
+rules:
+  superfluous-actions:
+    ignore:
+      # zizmor suggests replacing create-pull-request with `gh pr create`. Doing
+      # that by hand means reimplementing no-change detection, branch reuse,
+      # create-or-update of the pull request, and reopening it once the previous
+      # one is merged. The action is pinned to a SHA, so keep it.
+      - update_schemas.yml

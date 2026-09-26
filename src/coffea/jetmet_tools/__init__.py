@@ -6,6 +6,13 @@ corrections and uncertainties on columnar data.
 
 from .CorrectedJetsFactory import CorrectedJetsFactory
 from .CorrectedMETFactory import CorrectedMETFactory
+from .correctionlib_adapters import (
+    CorrectionLibJEC,
+    CorrectionLibJECStack,
+    CorrectionLibJER,
+    CorrectionLibJERSF,
+    CorrectionLibJUNC,
+)
 from .FactorizedJetCorrector import FactorizedJetCorrector
 from .JECStack import JECStack
 from .JetCorrectionUncertainty import JetCorrectionUncertainty
@@ -20,4 +27,9 @@ __all__ = [
     "JECStack",
     "CorrectedJetsFactory",
     "CorrectedMETFactory",
+    "CorrectionLibJEC",
+    "CorrectionLibJER",
+    "CorrectionLibJERSF",
+    "CorrectionLibJUNC",
+    "CorrectionLibJECStack",
 ]

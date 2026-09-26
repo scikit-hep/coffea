@@ -1,7 +1,6 @@
 comment: off
 
 codecov:
-  token: 045255bb-e0d8-4c5d-b413-9c33128a03a4
   notify:
     require_ci_to_pass: yes
 

@@ -9,23 +9,30 @@ from coffea.processor import (
     not pytest.importorskip("ndcctools.taskvine", reason="TaskVine not available"),
     reason="TaskVine not available",
 )
-def test_taskvine_executor_with_virtual_arrays():
+def test_taskvine_executor_with_virtual_arrays(monkeypatch, tmp_path):
     """Test TaskVineExecutor with virtual arrays (lazy loading) and eager evaluation"""
     import os.path as osp
 
     from coffea.nanoevents import schemas
     from coffea.processor.test_items import NanoEventsProcessor
 
+    # Resolve sample paths before changing directory
+    nano_dy = osp.abspath("tests/samples/nano_dy.root")
+    nano_dimuon = osp.abspath("tests/samples/nano_dimuon.root")
+
+    # Change to tmp_path so vine-factory-* and vine-run-info/ are created there
+    monkeypatch.chdir(tmp_path)
+
     # Use the same filelist as in local executors test
     filelist = {
         "ZJets": {
             "treename": "Events",
-            "files": [osp.abspath("tests/samples/nano_dy.root")],
+            "files": [nano_dy],
             "metadata": {"checkusermeta": True, "someusermeta": "hello"},
         },
         "Data": {
             "treename": "Events",
-            "files": [osp.abspath("tests/samples/nano_dimuon.root")],
+            "files": [nano_dimuon],
             "metadata": {"checkusermeta": True, "someusermeta2": "world"},
         },
     }

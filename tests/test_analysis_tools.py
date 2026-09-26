@@ -1,3 +1,4 @@
+import contextlib
 import os
 import tempfile
 
@@ -8,6 +9,31 @@ import uproot
 from dummy_distributions import dummy_jagged_eta_pt
 
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+
+try:
+    import dask
+
+    def _dask_cfg(opt):
+        return dask.config.set({"awkward.optimization.enabled": opt})
+
+    def _compute(value):
+        return dask.compute(value)[0]
+
+except ImportError:
+
+    def _dask_cfg(opt):
+        return contextlib.nullcontext()
+
+    def _compute(value):
+        return value
+
+
+try:
+    import dask_awkward  # noqa: F401
+
+    _dak_available = True
+except ImportError:
+    _dak_available = False
 
 fname = "tests/samples/nano_dy.root"
 eagerevents = NanoEventsFactory.from_root(
@@ -22,13 +48,17 @@ virtualevents = NanoEventsFactory.from_root(
     metadata={"dataset": "DYJets"},
     mode="virtual",
 ).events()
-dakevents = NanoEventsFactory.from_root(
-    {os.path.abspath(fname): "Events"},
-    schemaclass=NanoAODSchema,
-    metadata={"dataset": "DYJets"},
-    mode="dask",
-).events()
-uprootevents = uproot.dask({fname: "Events"})
+if _dak_available:
+    dakevents = NanoEventsFactory.from_root(
+        {os.path.abspath(fname): "Events"},
+        schemaclass=NanoAODSchema,
+        metadata={"dataset": "DYJets"},
+        mode="dask",
+    ).events()
+    uprootevents = uproot.dask({fname: "Events"})
+else:
+    dakevents = None
+    uprootevents = None
 
 
 def test_weights():
@@ -91,9 +121,9 @@ def test_weights():
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_weights_dak(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     import dask
     import dask.array as da
-    import dask_awkward as dak
 
     from coffea.analysis_tools import Weights
 
@@ -210,9 +240,9 @@ def test_weights_multivariation():
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_weights_multivariation_dak(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     import dask
     import dask.array as da
-    import dask_awkward as dak
 
     from coffea.analysis_tools import Weights
 
@@ -340,9 +370,9 @@ def test_weights_partial():
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_weights_partial_dak(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     import dask
     import dask.array as da
-    import dask_awkward as dak
 
     from coffea.analysis_tools import Weights
 
@@ -414,8 +444,9 @@ def test_weights_partial_dak(optimization_enabled):
 @pytest.mark.parametrize("dtype", ["uint16", "uint32", "uint64"])
 def test_packed_selection_basic(dtype):
     import awkward as ak
+
+    dak = pytest.importorskip("dask_awkward")
     import dask.array as da
-    import dask_awkward as dak
 
     from coffea.analysis_tools import PackedSelection
 
@@ -1045,9 +1076,10 @@ def test_packed_selection_cutflow_extended(weighted, commonmasked, withcategoric
 @pytest.mark.parametrize("dtype", ["uint16", "uint32", "uint64"])
 def test_packed_selection_basic_dak(optimization_enabled, dtype):
     import awkward as ak
+
+    dak = pytest.importorskip("dask_awkward")
     import dask
     import dask.array as da
-    import dask_awkward as dak
 
     from coffea.analysis_tools import PackedSelection
 
@@ -1152,7 +1184,19 @@ def test_packed_selection_basic_dak(optimization_enabled, dtype):
             sel.add("dask_array", daskarray)
 
 
-@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "eager",
+        "virtual",
+        pytest.param(
+            "dask",
+            marks=pytest.mark.skipif(
+                not _dak_available, reason="dask-awkward not installed"
+            ),
+        ),
+    ],
+)
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 @pytest.mark.parametrize("weighted", [True, False])
 @pytest.mark.parametrize("commonmasked", [True, False])
@@ -1161,7 +1205,6 @@ def test_packed_selection_nminusone_extended_by_mode(
     mode, optimization_enabled, weighted, commonmasked, withcategorical
 ):
     import awkward as ak
-    import dask
 
     from coffea.analysis_tools import PackedSelection, Weights
 
@@ -1183,7 +1226,7 @@ def test_packed_selection_nminusone_extended_by_mode(
 
     selection = PackedSelection()
 
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         twoelectron = ak.num(events.Electron) == 2
         nomuon = ak.num(events.Muon) == 0
         leadpt20 = ak.any(events.Electron.pt >= 20.0, axis=1) | ak.any(
@@ -1338,7 +1381,7 @@ def test_packed_selection_nminusone_extended_by_mode(
             "h_fill_arrays": h_fill_arrays,
             "h_fill_weights": h_fill_weights,
         }
-        computed = dask.compute(to_compute)[0]
+        computed = _compute(to_compute)
         computed_nev = computed["nev"]
         computed_masks = computed["masks"]
         computed_r_commonmask = computed["r_commonmask"]
@@ -1505,7 +1548,19 @@ def test_packed_selection_nminusone_extended_by_mode(
                 assert np.all(np.isclose(counts[1:-1], c))
 
 
-@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "eager",
+        "virtual",
+        pytest.param(
+            "dask",
+            marks=pytest.mark.skipif(
+                not _dak_available, reason="dask-awkward not installed"
+            ),
+        ),
+    ],
+)
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 @pytest.mark.parametrize("weighted", [True, False])
 @pytest.mark.parametrize("commonmasked", [True, False])
@@ -1513,9 +1568,7 @@ def test_packed_selection_nminusone_extended_by_mode(
 def test_packed_selection_cutflow_extended_by_mode(
     mode, optimization_enabled, weighted, commonmasked, withcategorical
 ):
-
     import awkward as ak
-    import dask
 
     from coffea.analysis_tools import PackedSelection, Weights
 
@@ -1536,7 +1589,7 @@ def test_packed_selection_cutflow_extended_by_mode(
         raise ValueError(f"Mode {mode} not recognized")
     selection = PackedSelection()
 
-    with dask.config.set({"awkward.optimization.enabled": optimization_enabled}):
+    with _dask_cfg(optimization_enabled):
         twoelectron = ak.num(events.Electron) == 2
         nomuon = ak.num(events.Muon) == 0
         leadpt20 = ak.any(events.Electron.pt >= 20.0, axis=1) | ak.any(
@@ -1735,7 +1788,7 @@ def test_packed_selection_cutflow_extended_by_mode(
             "hcutflows_fill_weights": hcutflows_fill_weights,
         }
 
-        computed = dask.compute(to_compute)[0]
+        computed = _compute(to_compute)
         computed_nevonecut = computed["nevonecut"]
         computed_nevcutflow = computed["nevcutflow"]
         computed_masksonecut = computed["masksonecut"]
@@ -1963,8 +2016,8 @@ def test_packed_selection_cutflow_extended_by_mode(
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_packed_selection_nminusone_dak_uproot_only(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     import dask
-    import dask_awkward as dak
 
     from coffea.analysis_tools import PackedSelection
 
@@ -2092,8 +2145,8 @@ def test_packed_selection_nminusone_dak_uproot_only(optimization_enabled):
 
 @pytest.mark.parametrize("optimization_enabled", [True, False])
 def test_packed_selection_cutflow_dak_uproot_only(optimization_enabled):
+    dak = pytest.importorskip("dask_awkward")
     import dask
-    import dask_awkward as dak
 
     from coffea.analysis_tools import PackedSelection
 
@@ -2222,3 +2275,137 @@ def test_packed_selection_cutflow_dak_uproot_only(optimization_enabled):
                 counts[-2] += counts[-1]
                 c, e = np.histogram(dak.flatten(array[truth]).compute(), bins=edges)
                 assert np.all(np.isclose(counts[1:-1], c))
+
+
+def test_weight_statistics_add_returns_object():
+    from coffea.analysis_tools import WeightStatistics
+
+    a = WeightStatistics(sumw=1.0, sumw2=1.0, minw=0.5, maxw=2.0, n=3)
+    b = WeightStatistics(sumw=2.0, sumw2=4.0, minw=0.1, maxw=3.0, n=5)
+
+    c = a + b
+    assert isinstance(c, WeightStatistics)
+    assert (c.sumw, c.sumw2, c.n, c.minw, c.maxw) == (3.0, 5.0, 8, 0.1, 3.0)
+    assert a.sumw == 1.0 and a.n == 3  # operand untouched by __add__
+
+    acc = WeightStatistics()
+    for _ in range(3):
+        acc += b  # must not rebind to None
+    assert isinstance(acc, WeightStatistics)
+    assert acc.n == 15 and acc.sumw == 6.0
+
+
+def test_weights_multivariation_dak_option_fill():
+    dak = pytest.importorskip("dask_awkward")
+    import awkward as ak
+
+    from coffea.analysis_tools import Weights
+
+    weight = dak.from_awkward(ak.Array([1.0, None, 2.0, 3.0]), npartitions=1)
+    weights = Weights(None)
+    weights.add_multivariation(
+        "test", weight, modifierNames=[], weightsUp=[], weightsDown=[]
+    )
+    result = weights.weight().compute()
+    assert not ak.any(ak.is_none(result))  # option filled with 1.0, like eager path
+    assert ak.to_list(result) == [1.0, 1.0, 2.0, 3.0]
+
+
+@pytest.mark.parametrize("mode", ["eager", "delayed"])
+def test_weights_modifier_suffix_and_multivariation(mode):
+    from coffea.analysis_tools import Weights
+
+    if mode == "delayed":
+        dak = pytest.importorskip("dask_awkward")
+        import dask.array as da
+
+        def arr(x):
+            return dak.from_dask_array(da.from_array(np.asarray(x, dtype=float)))
+
+        def get(x):
+            return np.asarray(x.compute())
+
+        size = None
+    else:
+
+        def arr(x):
+            return np.asarray(x, dtype=float)
+
+        def get(x):
+            return np.asarray(x)
+
+        size = 4
+
+    central = arr([1.0, 1.0, 1.0, 1.0])
+    up = arr([1.25, 1.25, 1.25, 1.25])
+    down = arr([0.8, 0.8, 0.8, 0.8])
+
+    weights = Weights(size, storeIndividual=True)
+    weights.add_multivariation(
+        "test", central, modifierNames=["A"], weightsUp=[up], weightsDown=[down]
+    )
+    # weight names carrying 'Up'/'Down' mid-string must survive suffix handling
+    weights.add("myUpdate", central, weightUp=up)
+    weights.add("Downstream", central, weightUp=up)
+
+    # bug 41: multivariation modifiers must be recognized by partial_weight
+    assert np.allclose(
+        get(weights.partial_weight(include=["test"], modifier="test_AUp")), 1.25
+    )
+    assert np.allclose(
+        get(weights.partial_weight(include=["test"], modifier="test_ADown")), 0.8
+    )
+
+    # bug 46: 'Up' inside a weight name must not be stripped mid-string
+    assert np.allclose(
+        get(weights.partial_weight(include=["myUpdate"], modifier="myUpdateUp")), 1.25
+    )
+
+    # bug 46: auto-derived Down for names containing 'Up'/'Down' fragments
+    assert np.allclose(get(weights.weight("myUpdateDown")), 0.8)
+    assert np.allclose(get(weights.weight("DownstreamDown")), 0.8)
+    assert weights.variations == {
+        "test_AUp",
+        "test_ADown",
+        "myUpdateUp",
+        "myUpdateDown",
+        "DownstreamUp",
+        "DownstreamDown",
+    }
+
+    # modifier of an excluded weight is still rejected
+    with pytest.raises(ValueError, match="not in the list of included weights"):
+        weights.partial_weight(include=["myUpdate"], modifier="test_AUp")
+
+
+def test_weights_partial_weight_prefix_collision():
+    from coffea.analysis_tools import Weights
+
+    central = np.ones(4)
+    up = np.full(4, 1.25)
+
+    weights = Weights(4, storeIndividual=True)
+    weights.add("btagSF", central)
+    weights.add("btagSF_bc", central, weightUp=up)
+
+    # "btagSF" is a '_'-prefix of "btagSF_bc" but does not own its modifier
+    with pytest.raises(ValueError, match="not in the list of included weights"):
+        weights.partial_weight(include=["btagSF"], modifier="btagSF_bcUp")
+    assert np.allclose(
+        weights.partial_weight(include=["btagSF_bc"], modifier="btagSF_bcUp"), 1.25
+    )
+
+
+def test_packed_selection_require_returns_independent_copy():
+    from coffea.analysis_tools import PackedSelection
+
+    selection = PackedSelection()
+    selection.add("c1", np.array([True, True, False, False]))
+    selection.add("c2", np.array([True, False, True, False]))
+
+    mask = selection.all("c1")
+    original = mask.copy()
+    mask &= np.array([False, False, False, False])  # in-place mutation by caller
+
+    assert np.array_equal(selection.all("c1"), original)  # cache not corrupted
+    assert selection.all("c1") is not selection.all("c1")  # independent copies

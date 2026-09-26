@@ -1,9 +1,10 @@
 import os
 
-import hist.dask as hda
 import pytest
 
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+
+hda = pytest.importorskip("hist.dask")
 
 
 def histogram_common():

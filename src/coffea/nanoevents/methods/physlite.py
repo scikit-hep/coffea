@@ -3,11 +3,10 @@
 from numbers import Number
 
 import awkward
-import dask_awkward
 import numpy
-from dask_awkward import dask_property
 
 from coffea.nanoevents.methods import base, vector
+from coffea.util import _import_dask_awkward, _isinstance, dask_property
 
 behavior = {}
 behavior.update(base.behavior)
@@ -37,8 +36,8 @@ _hash_to_target_name = {
 
 def _element_link(target_collection, eventindex, index, key):
     # check to make sure both the target_collection and the eventindex are both dask-awkward arrays or both awkward arrays
-    if isinstance(target_collection, dask_awkward.Array) != isinstance(
-        eventindex, dask_awkward.Array
+    if _isinstance(target_collection, "dask_awkward.lib.core.Array") != _isinstance(
+        eventindex, "dask_awkward.lib.core.Array"
     ):
         raise ValueError(
             "element linking must be done on two dask_awkward arrays or two awkward arrays not a mix of the two"
@@ -101,9 +100,10 @@ def _element_link_multiple(events, obj, link_field, with_name=None):
 
 
 def _get_target_offsets(load_column, event_index):
-    if isinstance(load_column, dask_awkward.Array) and isinstance(
-        event_index, dask_awkward.Array
+    if _isinstance(load_column, "dask_awkward.lib.core.Array") and _isinstance(
+        event_index, "dask_awkward.lib.core.Array"
     ):
+        dask_awkward = _import_dask_awkward()
         # wrap in map_partitions if dask arrays
         return dask_awkward.map_partitions(
             _get_target_offsets, load_column, event_index, label="get_target_offsets"

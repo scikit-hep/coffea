@@ -2,7 +2,10 @@ import numpy as np
 
 _old_style_where = False
 try:
-    from scipy._lib.array_api_extra import apply_where
+    try:
+        from scipy._lib.array_api_extra import apply_where
+    except ImportError as _:
+        from scipy._external.array_api_extra import apply_where
     from scipy.stats._continuous_distns import (
         _norm_cdf,
         _norm_pdf_C,

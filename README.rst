@@ -1,11 +1,16 @@
-.. image:: docs/source/logo/coffea_logo.svg
+.. image:: https://raw.githubusercontent.com/scikit-hep/coffea/refs/heads/master/docs/source/logo/coffea_logo.svg
     :align: center
     :width: 250px
-    :alt: logo
+    :alt: logo using common acroynym "coffea"
+    :class: dark-light
 
+..
+  future dev note: The doc site makes a copy of this README and inserts it into
+  the main intro page. Since the main intro page includes a top-level section
+  (underlined by ``=``), we start sections here with a second-level section (``-``).
 
-coffea - Columnar Object Framework For Effective Analysis
-=========================================================
+Columnar Object Framework For Effective Analysis
+------------------------------------------------
 
 .. image:: https://zenodo.org/badge/159673139.svg
    :target: https://zenodo.org/badge/latestdoi/159673139
@@ -14,10 +19,10 @@ coffea - Columnar Object Framework For Effective Analysis
     :target: https://github.com/scikit-hep/coffea/actions?query=workflow%3ACI%2FCD+event%3Aschedule+branch%3Amaster
 
 .. image:: https://codecov.io/gh/scikit-hep/coffea/branch/master/graph/badge.svg?event=schedule
-    :target: https://codecov.io/gh/scikit-hep/coffea
+    :target: https://app.codecov.io/gh/scikit-hep/coffea
 
 .. image:: https://badge.fury.io/py/coffea.svg
-    :target: https://badge.fury.io/py/coffea
+    :target: https://pypi.org/project/coffea
 
 .. image:: https://img.shields.io/pypi/dm/coffea.svg
     :target: https://img.shields.io/pypi/dm/coffea
@@ -28,19 +33,15 @@ coffea - Columnar Object Framework For Effective Analysis
 .. image:: https://badges.gitter.im/scikit-hep/coffea.svg
     :target: https://matrix.to/#/#coffea-hep_community:gitter.im
 
-.. image:: https://mybinder.org/badge_logo.svg
+.. image:: https://static.mybinder.org/badge_logo.svg
    :target: https://mybinder.org/v2/gh/scikit-hep/coffea/master?filepath=binder/
-
-.. inclusion-marker-1-do-not-remove
 
 Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis.
 
-.. inclusion-marker-1-5-do-not-remove
-
 coffea is a prototype package for pulling together all the typical needs
 of a high-energy collider physics (HEP) experiment analysis using the scientific
-python ecosystem. It makes use of `uproot <https://github.com/scikit-hep/uproot4>`_
-and `awkward-array <https://github.com/scikit-hep/awkward-1.0>`_ to provide an
+Python ecosystem. It makes use of `uproot <https://github.com/scikit-hep/uproot5>`_
+and `awkward-array <https://github.com/scikit-hep/awkward>`_ to provide an
 array-based syntax for manipulating HEP event data in an efficient and numpythonic
 way. There are sub-packages that implement histogramming, plotting, and look-up
 table functionalities that are needed to convey scientific insight, apply transformations
@@ -49,21 +50,19 @@ to data, and correct for discrepancies in Monte Carlo simulations compared to da
 coffea also supplies facilities for horizontally scaling an analysis in order to reduce
 time-to-insight in a way that is largely independent of the resource the analysis
 is being executed on. By making use of modern *big-data* technologies like
-`parsl <https://github.com/Parsl/parsl>`_, `Dask <https://dask.org>`_ ,
+`parsl <https://github.com/Parsl/parsl>`_, `Dask <https://www.dask.org/>`_ ,
 and `TaskVine <https://ccl.cse.nd.edu/software/taskvine>`_,
 it is possible with coffea to scale a HEP analysis from a testing
 on a laptop to: a large multi-core server, computing clusters, and super-computers without
 the need to alter or otherwise adapt the analysis code itself.
 
-coffea is a HEP community project collaborating with `iris-hep <http://iris-hep.org/>`_
+coffea is a HEP community project collaborating with `iris-hep <https://iris-hep.org/>`_
 and is currently a prototype. We welcome input to improve its quality as we progress towards
 a sensible refactorization into the scientific python ecosystem and a first release. Please
-feel free to contribute at our `github repo <https://github.com/scikit-hep/coffea>`_!
-
-.. inclusion-marker-2-do-not-remove
+feel free to contribute at our `GitHub repo <https://github.com/scikit-hep/coffea>`_!
 
 Installation
-============
+^^^^^^^^^^^^
 
 Install coffea like any other Python package:
 
@@ -71,13 +70,13 @@ Install coffea like any other Python package:
 
     pip install coffea
 
-or similar (use ``sudo``, ``--user``, ``virtualenv``, or pip-in-conda if you wish).
-For more details, see the `Installing coffea <https://coffea-hep.readthedocs.io/en/latest/installation.html>`_ section of the documentation.
+or similar for your environment tooling (e.g. ``uv pip install coffea`` or ``pixi add coffea``).
+For more details, see the `Installing coffea <https://coffea-hep.readthedocs.io/en/latest/getting_started/installation.html>`_ section of the documentation.
 
 Strict dependencies
-===================
+^^^^^^^^^^^^^^^^^^^
 
-- `Python <http://docs.python-guide.org/en/latest/starting/installation/>`__ (3.9+)
+- `Python <https://docs.python-guide.org/starting/installation/>`__ (3.9+)
 
 The following are installed automatically when you install coffea with pip:
 
@@ -85,18 +84,16 @@ The following are installed automatically when you install coffea with pip:
 - `uproot <https://github.com/scikit-hep/uproot5>`__ for interacting with ROOT files and handling their data transparently;
 - `awkward-array <https://github.com/scikit-hep/awkward>`__ to manipulate complex-structured columnar data, such as jagged arrays;
 - `numba <https://numba.pydata.org/>`__ just-in-time compilation of python functions;
-- `scipy <https://scipy.org/scipylib/index.html>`__ for many statistical functions;
+- `scipy <https://docs.scipy.org/doc/scipy/>`__ for many statistical functions;
 - `matplotlib <https://matplotlib.org/>`__ as a plotting backend;
 - and other utility packages, as enumerated in ``pyproject.toml``.
 
-.. inclusion-marker-3-do-not-remove
-
 Documentation
-=============
-All documentation is hosted at https://coffea-hep.readthedocs.io/
+^^^^^^^^^^^^^
+All documentation is hosted at https://coffea-hep.readthedocs.io/en/latest/
 
 Citation
-========
+^^^^^^^^
 If you would like to cite this code in your work, you can use the zenodo DOI indicated in ``CITATION.cff``, or the `latest DOI <https://zenodo.org/badge/latestdoi/159673139>`__. You may also cite the proceedings:
 
 - "N. Smith et al 2020 EPJ Web Conf. 245 06012"

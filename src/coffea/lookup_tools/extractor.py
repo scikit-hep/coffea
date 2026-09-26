@@ -130,8 +130,6 @@ class extractor:
             else:
                 weights, thetype = self.extract_from_file(thefile, name)
                 self.add_weight_set(local_name, thetype, weights)
-                if thetype == "json_lookup":
-                    self._names[local_name] = 0
 
     def import_file(self, thefile):
         """

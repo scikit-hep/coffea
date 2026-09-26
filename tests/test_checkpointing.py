@@ -5,6 +5,7 @@ from pathlib import Path
 import awkward as ak
 import fsspec
 import numpy as np
+import pytest
 
 from coffea import processor
 from coffea.nanoevents import schemas
@@ -31,32 +32,34 @@ class UnstableNanoEventsProcessor(processor.ProcessorABC):
         return accumulator
 
 
-def test_checkpointing():
+@pytest.mark.parametrize("filetype", ["root", "parquet"])
+def test_checkpointing(filetype):
+    suffix = ".root" if filetype == "root" else ".parquet"
     filelist = {
         "ZJets": {
             "treename": "Events",
-            "files": [osp.abspath("tests/samples/nano_dy.root")],
+            "files": [osp.abspath(f"tests/samples/nano_dy{suffix}")],
         },
         "Data": {
             "treename": "Events",
-            "files": [osp.abspath("tests/samples/nano_dimuon.root")],
+            "files": [osp.abspath(f"tests/samples/nano_dimuon{suffix}")],
         },
     }
 
     executor = processor.IterativeExecutor()
 
-    checkpoint_dir = str(Path(__file__).parent / "test_checkpointing")
+    checkpoint_dir = str(Path(__file__).parent / f"test_checkpointing_{filetype}")
     # checkpoint_dir = "root://cmseos.fnal.gov//store/user/ikrommyd/test"
     checkpointer = processor.SimpleCheckpointer(checkpoint_dir)
     run = processor.Runner(
         executor=executor,
         schema=schemas.NanoAODSchema,
         chunksize=10,
-        format="root",
+        format=filetype,
         checkpointer=checkpointer,
     )
     # use the chunk generator to not re-run the preprocessing step
-    chunks = list(run.preprocess(filelist, "Events"))
+    chunks = list(run.preprocess(filelist, treename="Events"))
 
     def chunk_gen():
         yield from chunks
@@ -71,7 +74,7 @@ def test_checkpointing():
         fs.invalidate_cache()
         ntries += 1
         try:
-            out = run(chunk_gen(), UnstableNanoEventsProcessor(), "Events")
+            out = run(chunk_gen(), UnstableNanoEventsProcessor(), treename="Events")
         except Exception:
             print(f"Run failed, trying again, try number {ntries}...")
             continue

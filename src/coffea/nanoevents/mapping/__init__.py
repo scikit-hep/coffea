@@ -1,3 +1,7 @@
+from .buffer_cache import (
+    BufferCache,
+    NoCompressionCodec,
+)
 from .parquet import ParquetSourceMapping, TrivialParquetOpener
 from .preloaded import (
     PreloadedOpener,
@@ -7,6 +11,8 @@ from .preloaded import (
 from .uproot import TrivialUprootOpener, UprootSourceMapping
 
 __all__ = [
+    "BufferCache",
+    "NoCompressionCodec",
     "TrivialUprootOpener",
     "UprootSourceMapping",
     "TrivialParquetOpener",

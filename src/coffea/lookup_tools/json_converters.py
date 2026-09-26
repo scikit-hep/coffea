@@ -73,7 +73,7 @@ def convert_histo_json_file(filename):
     for name, axes in names_and_axes.items():
         theshape = tuple([axes[axis].size - 1 for axis in names_and_orders[name]])
         valsdict = {}
-        for vname in names_and_valnames[histname]:
+        for vname in names_and_valnames[name]:
             valsdict[vname] = numpy.zeros(shape=theshape).flatten()
         flatidx = numpy.arange(numpy.zeros(shape=theshape).size)
         binidx = numpy.unravel_index(flatidx, shape=theshape)

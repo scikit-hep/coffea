@@ -16,7 +16,7 @@ Each executor implements the same interface and is consumed by {class}`coffea.pr
 - `IterativeExecutor`: the simplest option for debugging and unit tests; executes chunks in one thread.
 - `FuturesExecutor`: uses `concurrent.futures` pools to fan out work across local CPU cores.
 - `DaskExecutor`: connects to a [Dask Distributed](https://distributed.dask.org/en/latest/) cluster for interactive or batch workloads.
-- `ParslExecutor`: targets HPC facilities via [Parsl](http://parsl-project.org/).
+- `ParslExecutor`: targets HPC facilities via [Parsl](https://parsl-project.org/).
 - `TaskVineExecutor`: dispatches work to opportunistic and heterogeneous resources managed by [TaskVine](https://cctools.readthedocs.io/en/latest/taskvine/).
 
 All executors accept the same arguments when invoked by {class}`~coffea.processor.Runner`, making it easy to prototype locally and scale out later. The snippets below assume that `fileset` and `my_processor`
@@ -177,3 +177,7 @@ cluster_result = cluster_runner(fileset, processor_instance=my_processor)
 - Use `processor.SimpleCheckpointer` with the `checkpointer` argument when running long jobs so partially completed chunks persist across restarts.
 - When using `DaskExecutor`, call `client.upload_file` or package your environment so workers have the same code version as the driver.
 - Disable compression (`compression=None`) only if the accumulator payloads are small; otherwise LZ4 saves network transfer time on distributed backends.
+- When running code inside coffea, prefer `coffea_console.print(...)` over the
+  built-in `print(...)`, and do not create a second `rich.console.Console`.
+  Import it with `from coffea.util import coffea_console` to keep output on the
+  same console used by coffea's progress display.

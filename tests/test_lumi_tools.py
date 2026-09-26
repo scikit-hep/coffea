@@ -1,10 +1,7 @@
 import awkward as ak
 import cloudpickle
-import dask
-import dask_awkward as dak
 import numpy as np
 import pytest
-from dask.distributed import Client
 
 from coffea.lumi_tools import LumiData, LumiList, LumiMask
 from coffea.nanoevents import NanoEventsFactory
@@ -61,6 +58,40 @@ def test_lumidata():
     assert len(results["index"][lumidata]) == len(results["index"][lumidata_pickle])
 
 
+@pytest.mark.parametrize("order", ["eager_first", "dask_first"])
+@pytest.mark.parametrize("dtype", ["u4", "i8", "f8"])
+def test_lumidata_eager_dask_order_and_dtype(order, dtype):
+    dak = pytest.importorskip("dask_awkward")
+    import dask
+
+    lumidata = LumiData("tests/samples/lumi_small.csv")
+
+    base = np.zeros((10, 2), dtype="u4")
+    base[:, 0] = lumidata._lumidata[0:10, 0]
+    base[:, 1] = lumidata._lumidata[0:10, 1]
+
+    baseline = LumiData("tests/samples/lumi_small.csv").get_lumi(base)
+
+    eager_input = base.astype(dtype)
+    dask_input = dak.from_awkward(ak.Array(base), 3)
+
+    def run_eager():
+        return lumidata.get_lumi(eager_input)
+
+    def run_dask():
+        return dask.compute(lumidata.get_lumi(dask_input))[0]
+
+    if order == "eager_first":
+        eager_result = run_eager()
+        dask_result = run_dask()
+    else:
+        dask_result = run_dask()
+        eager_result = run_eager()
+
+    assert eager_result == baseline
+    assert dask_result == baseline
+
+
 @pytest.mark.dask_client
 @pytest.mark.network
 @pytest.mark.parametrize(
@@ -70,8 +101,10 @@ def test_lumidata():
         "https://raw.githubusercontent.com/scikit-hep/coffea/master/tests/samples/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt",
     ],
 )
-def test_lumimask(jsonfile):
-    client = Client()
+def test_lumimask(jsonfile, dask_client):
+    dak = pytest.importorskip("dask_awkward")
+
+    client = dask_client
 
     lumimask = LumiMask(jsonfile)
 
@@ -108,8 +141,6 @@ def test_lumimask(jsonfile):
         == lumimask_pickle(runs, lumis)
     )
 
-    client.close()
-
 
 def test_lumilist():
     lumidata = LumiData("tests/samples/lumi_small.csv")
@@ -140,6 +171,9 @@ def test_lumilist():
 
 
 def test_lumilist_dask():
+    dak = pytest.importorskip("dask_awkward")
+    import dask
+
     lumidata = LumiData("tests/samples/lumi_small.csv")
 
     runslumis1 = np.zeros((10, 2), dtype=np.uint32)
@@ -167,8 +201,11 @@ def test_lumilist_dask():
 
 
 @pytest.mark.dask_client
-def test_lumilist_client_fromfile():
-    with Client() as _:
+def test_lumilist_client_fromfile(dask_client):
+    dak = pytest.importorskip("dask_awkward")  # noqa: F841
+    import dask
+
+    with dask_client.as_current() as _:
         events = NanoEventsFactory.from_root(
             {"tests/samples/nano_dy.root": "Events"},
             mode="dask",
@@ -182,7 +219,9 @@ def test_lumilist_client_fromfile():
 
 
 @pytest.mark.dask_client
-def test_1259_avoid_pickle_numba_dict():
+def test_1259_avoid_pickle_numba_dict(dask_client):
+    dak = pytest.importorskip("dask_awkward")
+    import dask
 
     runs_eager = ak.Array([368229, 368229, 368229, 368229])
     runs = dak.from_awkward(runs_eager, 2)
@@ -198,7 +237,7 @@ def test_1259_avoid_pickle_numba_dict():
 
     noclient_output = dask.compute(count_lumi(runs, lumis))[0]
 
-    with Client() as _:
+    with dask_client.as_current() as _:
         output = count_lumi(runs, lumis)
         client_output = dask.compute(output)[0]
 

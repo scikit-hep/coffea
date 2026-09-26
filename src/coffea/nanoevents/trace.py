@@ -23,7 +23,11 @@ def _make_typetracer(
         form=events.attrs["@form"],
         buffer_key=events.attrs["@buffer_key"],
         behavior=events.behavior,
-        attrs=events.attrs.copy(),
+        attrs=(
+            events.attrs
+            if isinstance(events.attrs, ak._attrs.Attrs)
+            else events.attrs.copy()
+        ),
         highlevel=True,
     )
     tracer.attrs["@original_array"] = tracer
@@ -79,7 +83,11 @@ def _make_length_zero_one_tracer(
         allow_noncanonical_form=False,
         highlevel=True,
         behavior=events.behavior,
-        attrs=events.attrs.copy(),
+        attrs=(
+            events.attrs
+            if isinstance(events.attrs, ak._attrs.Attrs)
+            else events.attrs.copy()
+        ),
     )
     array.attrs["@original_array"] = array
 
@@ -89,11 +97,16 @@ def _make_length_zero_one_tracer(
 def _form_keys_to_columns(touched: list) -> frozenset[str]:
     # translate the touched buffer keys to branch names
     keys = set()
-    # each buffer key encodes the necessary branches through a "!load" instruction in the coffea DSL
+    # each buffer key encodes the necessary branches through a "!load" instruction in the coffea DSL.
+    # Branches that may be missing in some files carry a "!loadallowmissing" token instead of a
+    # plain "!load" (generated in nanoevents/mapping/uproot.py), so match with startswith("!load")
+    # to stay consistent with nanoevents/mapping/base.py.
     for _buffer_key in touched:
         elements = unquote(_buffer_key.split("/")[-1]).split(",")
         keys |= {
-            elements[idx - 1] for idx, instr in enumerate(elements) if instr == "!load"
+            elements[idx - 1]
+            for idx, instr in enumerate(elements)
+            if instr.startswith("!load")
         }
     return frozenset(keys)
 
@@ -126,7 +139,7 @@ def _attempt_tracing(fun: Callable, tracer: ak.Array, throw: bool) -> None:
 
 
 def trace_with_typetracer(
-    fun: Callable, events: ak.Array, throw: bool = True
+    fun: Callable, events: ak.Array, throw: bool = False
 ) -> frozenset[str]:
     """
     Trace the execution of a function on NanoEvents using Awkward's typetracer to determine which buffers are touched.
@@ -154,7 +167,7 @@ def trace_with_typetracer(
 
 
 def trace_with_length_zero_array(
-    fun: Callable, events: ak.Array, throw: bool = True
+    fun: Callable, events: ak.Array, throw: bool = False
 ) -> frozenset[str]:
     """
     Trace the execution of a function on NanoEvents using a length-zero array to determine which buffers are touched.
@@ -182,7 +195,7 @@ def trace_with_length_zero_array(
 
 
 def trace_with_length_one_array(
-    fun: Callable, events: ak.Array, throw: bool = True
+    fun: Callable, events: ak.Array, throw: bool = False
 ) -> frozenset[str]:
     """
     Trace the execution of a function on NanoEvents using a length-one array to determine which buffers are touched.
@@ -234,7 +247,7 @@ def trace(fun: Callable, events: ak.Array) -> frozenset[str]:
     touched = set()
 
     try:
-        touched |= trace_with_typetracer(fun, events)
+        touched |= trace_with_typetracer(fun, events, throw=True)
         return frozenset(touched)
     except Exception as e1:
         warnings.warn(
@@ -243,7 +256,7 @@ def trace(fun: Callable, events: ak.Array) -> frozenset[str]:
             stacklevel=2,
         )
     try:
-        touched |= trace_with_length_zero_array(fun, events)
+        touched |= trace_with_length_zero_array(fun, events, throw=True)
         return frozenset(touched)
     except Exception as e2:
         warnings.warn(
@@ -252,7 +265,7 @@ def trace(fun: Callable, events: ak.Array) -> frozenset[str]:
             stacklevel=2,
         )
     try:
-        touched |= trace_with_length_one_array(fun, events)
+        touched |= trace_with_length_one_array(fun, events, throw=True)
         return frozenset(touched)
     except Exception as e3:
         warnings.warn(

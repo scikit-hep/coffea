@@ -20,7 +20,7 @@ experience level.
    you created in the previous step.
 
 If you are new to contributing on GitHub, the
-[GitHub quickstart guide](https://docs.github.com/get-started/quickstart/set-up-git)
+[GitHub quickstart guide](https://docs.github.com/en/get-started/git-basics/set-up-git)
 walks through the basics of configuring git, forking, and cloning a project.
 
 ## Reporting issues and asking questions
@@ -57,18 +57,31 @@ ask for help.
 
 ## Documentation contributions
 
+- Install the documentation group of dependencies `pip install --group docs -e .`
+  which includes some optional dependencies that need to be imported in order
+  to fully build the documentation site.
 - Source files live in `docs/source`. Edit Markdown (MyST) or notebook files as
   needed.
 - Build the documentation locally with:
 
   ```bash
   pushd docs
-  make html
+  make -j html
+  # the `-j` option requests to use all of the processors on your machine
+  # to make the build faster, you can limit to N processors using -jN or
+  # one processor by omitting the `-j` option
   popd
   ```
 
 - Preview the generated HTML at `docs/build/html/index.html` before opening
   your pull request.
+- Additionally, parts of the documentation use `graphviz` to construct
+  class inheritance trees. If you want to view those, install the `graphviz`
+  system package as well (e.g. `sudo apt install graphviz` on Debian variants).
+- The `make watch` command uses `sphinx-autobuild` to re-build the pages as
+  you change the source files which can be helpful depending on your workflow.
+  It spawns a simple local HTTP server as well which reloads the site after
+  the re-build is completed.
 
 ## Release cadence
 

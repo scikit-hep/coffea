@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Callable, Hashable
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, Union
 
-import dask.base
-import dask_awkward
+if TYPE_CHECKING:
+    import dask.base
+    import dask_awkward
 
 from coffea.dataset_tools.filespec import (
     DataGroupSpec,
@@ -14,18 +15,17 @@ from coffea.dataset_tools.filespec import (
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 from coffea.processor import ProcessorABC
 
-DaskOutputBaseType = Union[
-    dask.base.DaskMethodsMixin,
-    dict[Hashable, dask.base.DaskMethodsMixin],
-    set[dask.base.DaskMethodsMixin],
-    list[dask.base.DaskMethodsMixin],
-    tuple[dask.base.DaskMethodsMixin],
-]
-
-# NOTE TO USERS: You can use nested python containers as arguments to dask.compute!
-DaskOutputType = Union[DaskOutputBaseType, tuple[DaskOutputBaseType, ...]]
-
-GenericHEPAnalysis = Callable[[dask_awkward.Array], DaskOutputType]
+if TYPE_CHECKING:
+    DaskOutputBaseType = Union[
+        dask.base.DaskMethodsMixin,
+        dict[Hashable, dask.base.DaskMethodsMixin],
+        set[dask.base.DaskMethodsMixin],
+        list[dask.base.DaskMethodsMixin],
+        tuple[dask.base.DaskMethodsMixin],
+    ]
+    # NOTE TO USERS: You can use nested python containers as arguments to dask.compute!
+    DaskOutputType = Union[DaskOutputBaseType, tuple[DaskOutputBaseType, ...]]
+    GenericHEPAnalysis = Callable[[dask_awkward.Array], DaskOutputType]
 
 
 def apply_to_dataset(
@@ -42,7 +42,7 @@ def apply_to_dataset(
     ----------
         data_manipulation : ProcessorABC or GenericHEPAnalysis
             The user analysis code to run on the input dataset
-        dataset: DatasetSpec | dict
+        dataset : DatasetSpec | dict
             The data to be acted upon by the data manipulation passed in.
         schemaclass : BaseSchema, default NanoAODSchema
             The nanoevents schema to interpret the input dataset with.
@@ -101,7 +101,7 @@ def apply_to_fileset(
     ----------
         data_manipulation : ProcessorABC or GenericHEPAnalysis
             The user analysis code to run on the input dataset
-        fileset: DataGroupSpec | dict
+        fileset : DataGroupSpec | dict
             The data to be acted upon by the data manipulation passed in. Metadata within the fileset should be dask-serializable.
         schemaclass : BaseSchema, default NanoAODSchema
             The nanoevents schema to interpret the input dataset with.

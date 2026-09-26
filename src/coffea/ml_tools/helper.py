@@ -2,10 +2,9 @@ import abc
 import warnings
 
 import awkward
-import dask
-import dask_awkward
 import numpy
-from dask.base import unpack_collections
+
+from coffea.util import _import_dask, _import_dask_awkward, _isinstance
 
 
 class nonserializable_attribute:
@@ -206,13 +205,15 @@ class numpy_call_wrapper(abc.ABC):
     def get_awkward_lib(self, *args, **kwargs):
         all_args = [*args, *kwargs.values()]
         has_ak = any(isinstance(arg, awkward.Array) for arg in all_args)
-        has_dak = any(isinstance(arg, dask_awkward.Array) for arg in all_args)
+        has_dak = any(
+            _isinstance(arg, "dask_awkward.lib.core.Array") for arg in all_args
+        )
         if has_ak and has_dak:
             raise RuntimeError("Cannot mix awkward and dask_awkward in calculations")
         elif has_ak:
             return awkward
         elif has_dak:
-            return dask_awkward
+            return _import_dask_awkward()
         else:
             return None
 
@@ -252,6 +253,10 @@ class numpy_call_wrapper(abc.ABC):
         return to be singular awkward array, we provide the additional format
         converters to translate numpy_calls that returns container of arrays.
         """
+        dask = _import_dask()
+        unpack_collections = dask.base.unpack_collections
+
+        dask_awkward = _import_dask_awkward()
 
         def pack_ret_array(ret):
             """
@@ -304,7 +309,7 @@ class numpy_call_wrapper(abc.ABC):
                 for x in args:
                     if isinstance(x, awkward.Array):
                         return awkward.backend(x)
-                    elif isinstance(x, dask_awkward.Array):
+                    elif _isinstance(x, "dask_awkward.lib.core.Array"):
                         return awkward.backend(x)
                 return None
 
@@ -375,7 +380,7 @@ class numpy_call_wrapper(abc.ABC):
 
         if array_lib is awkward:
             return self._call_awkward(*args, **kwargs)
-        elif array_lib is dask_awkward:
+        elif array_lib is not None:
             return self._call_dask(*args, **kwargs)
         else:
             return self._call_numpy(*args, **kwargs)

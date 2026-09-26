@@ -9,17 +9,12 @@ from collections import namedtuple
 from functools import lru_cache
 
 import awkward
-import dask.array
-import dask_awkward
 import hist
-import hist.dask
 import numpy
-from dask_awkward.lib.core import compatible_partitions
-from dask_awkward.utils import IncompatiblePartitions
 
 import coffea.processor
 import coffea.util
-from coffea.util import coffea_console
+from coffea.util import _import_dask, _import_dask_awkward, _isinstance, coffea_console
 
 __all__ = [
     "WeightStatistics",
@@ -43,26 +38,21 @@ _rcol = {
 }
 
 
-def _generate_slices(array_length, max_elements=128):
-    """Generate slices to split an array into chunks of at most `max_elements` elements
+def _get_hist_class(delayed_mode):
+    if delayed_mode:
+        try:
+            from hist.dask import Hist as DaskHist
+        except (ImportError, ModuleNotFoundError) as err:
+            raise ImportError("""to use this feature, you must install dask-histogram:
 
-    Parameters
-    ----------
-    array_length : int
-        The length of the array to split
-    max_elements : int, optional
-        The maximum number of elements in each chunk. Default is 128.
+pip install dask-histogram
 
-    Returns
-    -------
-    slices : list of slice objects
-        A list of slice objects to iterate over and split the array into chunks with at most `max_elements` elements per slice
-    """
-    slices = []
-    for start in range(0, array_length, max_elements):
-        end = min(start + max_elements, array_length)
-        slices.append(slice(start, end))
-    return slices
+or
+
+conda install -c conda-forge dask-histogram""") from err
+
+        return DaskHist
+    return hist.Hist
 
 
 def boolean_masks_to_categorical_integers(
@@ -175,10 +165,12 @@ class WeightStatistics:
 
     def __add__(self, other):
         temp = WeightStatistics(self.sumw, self.sumw2, self.minw, self.maxw, self.n)
-        return temp.add(other)
+        temp.add(other)
+        return temp
 
     def __iadd__(self, other):
-        return self.add(other)
+        self.add(other)
+        return self
 
 
 class Weights:
@@ -254,6 +246,8 @@ class Weights:
 
     def __add_delayed(self, name, weight, weightUp, weightDown, shift):
         """Add a new weight with delayed calculation"""
+        dask_awkward = _import_dask_awkward()
+
         if isinstance(dask_awkward.type(weight), awkward.types.OptionType):
             # TODO what to do with option-type? is it representative of unknown weight
             # and we default to one or is it an invalid weight and we should never use this
@@ -310,8 +304,9 @@ class Weights:
             self._weight, numpy.ndarray
         ):
             self.__add_eager(name, weight, weightUp, weightDown, shift)
-        elif isinstance(weight, dask_awkward.Array) and isinstance(
-            self._weight, (dask_awkward.Array, type(None))
+        elif _isinstance(weight, "dask_awkward.lib.core.Array") and (
+            _isinstance(self._weight, "dask_awkward.lib.core.Array")
+            or self._weight is None
         ):
             self.__add_delayed(name, weight, weightUp, weightDown, shift)
         else:
@@ -377,7 +372,9 @@ class Weights:
         self, name, weight, modifierNames, weightsUp, weightsDown, shift=False
     ):
         """Add a new weight with multiple variations in delayed mode"""
-        if isinstance(weight, awkward.types.OptionType):
+        dask_awkward = _import_dask_awkward()
+
+        if isinstance(dask_awkward.type(weight), awkward.types.OptionType):
             # TODO what to do with option-type? is it representative of unknown weight
             # and we default to one or is it an invalid weight and we should never use this
             # event in the first place (0) ?
@@ -424,7 +421,7 @@ class Weights:
                 name of correction
             weight : numpy.ndarray
                 the nominal event weight associated with the correction
-            modifierNames: list of str
+            modifierNames : list of str
                 list of modifiers for each set of weights variation
             weightsUp : list of numpy.ndarray
                 weight with correction uncertainty shifted up (if available)
@@ -451,8 +448,9 @@ class Weights:
             self.__add_multivariation_eager(
                 name, weight, modifierNames, weightsUp, weightsDown, shift
             )
-        elif isinstance(weight, dask_awkward.Array) and isinstance(
-            self._weight, (dask_awkward.Array, type(None))
+        elif _isinstance(weight, "dask_awkward.lib.core.Array") and (
+            _isinstance(self._weight, "dask_awkward.lib.core.Array")
+            or self._weight is None
         ):
             self.__add_multivariation_delayed(
                 name, weight, modifierNames, weightsUp, weightsDown, shift
@@ -483,6 +481,8 @@ class Weights:
 
     def __add_variation_delayed(self, name, weight, weightUp, weightDown, shift):
         """Helper function to add a delayed-calculation weight variation."""
+        dask_awkward = _import_dask_awkward()
+
         if weightUp is not None:
             weightUp = coffea.util._ensure_flat(weightUp, allow_missing=True)
             if isinstance(dask_awkward.type(weightUp), awkward.types.OptionType):
@@ -528,7 +528,7 @@ class Weights:
         """
         if isinstance(weight, numpy.ndarray):
             self.__add_variation_eager(name, weight, weightUp, weightDown, shift)
-        elif isinstance(weight, dask_awkward.Array):
+        elif _isinstance(weight, "dask_awkward.lib.core.Array"):
             self.__add_variation_delayed(name, weight, weightUp, weightDown, shift)
 
     def weight(self, modifier=None):
@@ -547,8 +547,8 @@ class Weights:
         """
         if modifier is None:
             return self._weight
-        elif "Down" in modifier and modifier not in self._modifiers:
-            return self._weight / self._modifiers[modifier.replace("Down", "Up")]
+        elif modifier.endswith("Down") and modifier not in self._modifiers:
+            return self._weight / self._modifiers[modifier[:-4] + "Up"]
         return self._weight * self._modifiers[modifier]
 
     def partial_weight(self, include=[], exclude=[], modifier=None):
@@ -599,7 +599,8 @@ class Weights:
         w = None
         if isinstance(self._weight, numpy.ndarray):
             w = numpy.ones(self._weight.size)
-        elif isinstance(self._weight, dask_awkward.Array):
+        elif _isinstance(self._weight, "dask_awkward.lib.core.Array"):
+            dask_awkward = _import_dask_awkward()
             w = dask_awkward.ones_like(self._weight)
 
         for name in names:
@@ -607,12 +608,24 @@ class Weights:
 
         if modifier is None:
             return w
-        elif modifier.replace("Down", "").replace("Up", "") not in names:
+        base = (
+            modifier[:-4]
+            if modifier.endswith("Down")
+            else modifier[:-2] if modifier.endswith("Up") else modifier
+        )
+        # a multivariation modifier is named "<weight>_<variation>"; the longest
+        # matching weight name is the one that owns it
+        owner = max(
+            (n for n in self._weights if base == n or base.startswith(n + "_")),
+            key=len,
+            default=None,
+        )
+        if owner not in names:
             raise ValueError(
                 f"Modifier {modifier} is not in the list of included weights"
             )
-        elif "Down" in modifier and modifier not in self._modifiers:
-            return w / self._modifiers[modifier.replace("Down", "Up")]
+        if modifier.endswith("Down") and modifier not in self._modifiers:
+            return w / self._modifiers[modifier[:-4] + "Up"]
         return w * self._modifiers[modifier]
 
     @property
@@ -621,7 +634,8 @@ class Weights:
         keys = set(self._modifiers.keys())
         # add any missing 'Down' variation
         for k in self._modifiers.keys():
-            keys.add(k.replace("Up", "Down"))
+            if k.endswith("Up"):
+                keys.add(k[:-2] + "Down")
         return keys
 
 
@@ -647,6 +661,7 @@ class NminusOneToNpz:
         weights=None,
         weightsmodifier=None,
         includeweights=None,
+        delayed_mode=False,
     ):
         self._file = file
         self._labels = labels
@@ -659,6 +674,7 @@ class NminusOneToNpz:
         self._weightsmodifier = weightsmodifier
         self._commonmasked = self.commonmask is not None
         self._weighted = self._wgtev is not None
+        self._delayed_mode = delayed_mode
 
     def __repr__(self):
         return f"NminusOneToNpz(file={self._file}), labels={self._labels}, commonmasked={self._commonmasked}, weighted={self._weighted}, weightsmodifier={self._weightsmodifier})"
@@ -696,23 +712,31 @@ class NminusOneToNpz:
         return self._weightsmodifier
 
     def compute(self):
-        (
-            self._nev,
-            self._commonmask,
-            self._wgtev,
-            self._masks,
-            self._weights_wmodifier,
-        ) = dask.compute(
-            self._nev,
-            self._commonmask,
-            self._wgtev,
-            self._masks,
+        if self._delayed_mode:
+            dask = _import_dask()
             (
+                self._nev,
+                self._commonmask,
+                self._wgtev,
+                self._masks,
+                self._weights_wmodifier,
+            ) = dask.compute(
+                self._nev,
+                self._commonmask,
+                self._wgtev,
+                self._masks,
+                (
+                    self._weights.weight(self._weightsmodifier)
+                    if self._weights is not None
+                    else None
+                ),
+            )
+        else:
+            self._weights_wmodifier = (
                 self._weights.weight(self._weightsmodifier)
                 if self._weights is not None
                 else None
-            ),
-        )
+            )
         self._nev = list(self._nev)
         self._masks = list(self._masks)
         self._commonmask = list(self._commonmask) if self._commonmasked else None
@@ -759,6 +783,7 @@ class CutflowToNpz:
         weights=None,
         weightsmodifier=None,
         includeweights=None,
+        delayed_mode=False,
     ):
         self._file = file
         self._labels = labels
@@ -776,6 +801,7 @@ class CutflowToNpz:
         self._weighted = (self._wgtevonecut is not None) and (
             self._wgtevcutflow is not None
         )
+        self._delayed_mode = delayed_mode
 
     def __repr__(self):
         return f"CutflowToNpz(file={self._file}), labels={self._labels}, commonmasked={self._commonmasked}, weighted={self._weighted}, weightsmodifier={self._weightsmodifier})"
@@ -827,29 +853,37 @@ class CutflowToNpz:
     def compute(self):
         # Weights has no compute method, ergo it will pass through uncomputed, i.e. as a delayed object
         # self._weights = list(self._weights) if isinstance(self._weights, (tuple, list)) else self._weights
-        (
-            self._nevonecut,
-            self._nevcutflow,
-            self._commonmask,
-            self._wgtevonecut,
-            self._wgtevcutflow,
-            self._masksonecut,
-            self._maskscutflow,
-            self._weights_wmodifier,
-        ) = dask.compute(
-            self._nevonecut,
-            self._nevcutflow,
-            self._commonmask,
-            self._wgtevonecut,
-            self._wgtevcutflow,
-            self._masksonecut,
-            self._maskscutflow,
+        if self._delayed_mode:
+            dask = _import_dask()
             (
+                self._nevonecut,
+                self._nevcutflow,
+                self._commonmask,
+                self._wgtevonecut,
+                self._wgtevcutflow,
+                self._masksonecut,
+                self._maskscutflow,
+                self._weights_wmodifier,
+            ) = dask.compute(
+                self._nevonecut,
+                self._nevcutflow,
+                self._commonmask,
+                self._wgtevonecut,
+                self._wgtevcutflow,
+                self._masksonecut,
+                self._maskscutflow,
+                (
+                    self._weights.weight(self._weightsmodifier)
+                    if self._weights is not None
+                    else None
+                ),
+            )
+        else:
+            self._weights_wmodifier = (
                 self._weights.weight(self._weightsmodifier)
                 if self._weights is not None
                 else None
-            ),
-        )
+            )
         self._nevonecut = list(self._nevonecut)
         self._nevcutflow = list(self._nevcutflow)
         self._masksonecut = list(self._masksonecut)
@@ -1030,6 +1064,7 @@ class NminusOne:
             weights,
             weightsmodifier,
             includeweights=includeweights,
+            delayed_mode=self._delayed_mode,
         )
         if compute:
             out.compute()
@@ -1059,6 +1094,8 @@ class NminusOne:
                 )
 
         if self._delayed_mode:
+            dask = _import_dask()
+
             warnings.warn(
                 "Printing the N-1 selection statistics is going to compute dask_awkward objects."
             )
@@ -1131,7 +1168,7 @@ class NminusOne:
                 raise ValueError(
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
-        Hist = hist.Hist if not self._delayed_mode else hist.dask.Hist
+        Hist = _get_hist_class(self._delayed_mode)
         labels = ["initial"] + [f"N - {i}" for i in self._names] + ["N"]
         axes = [hist.axis.Integer(0, len(labels), name="nminusone", label="N-1")]
         if do_categorical:
@@ -1144,20 +1181,14 @@ class NminusOne:
         if do_weighted:
             axes.append(hist.storage.Weight())
         if not self._delayed_mode and not do_categorical:
-            if categorical is not None:
-                raise NotImplementedError(
-                    "yieldhist is not implemented for non-delayed mode (v1) with categorical"
-                )
             h = hist.Hist(*axes)
             weighttofill = self._wgtev if do_weighted else self._nev
             if do_scaled:
                 weighttofill = [wgt * scale for wgt in weighttofill]
             h.fill(numpy.arange(len(labels), dtype=int), weight=weighttofill)
         elif self._delayed_mode and not do_categorical:
-            if categorical is not None:
-                raise NotImplementedError(
-                    "yieldhist is not implemented for non-delayed mode (v1) with categorical"
-                )
+            dask_awkward = _import_dask_awkward()
+
             h = Hist(*axes)
 
             for i, mask in enumerate(self._masks, 1):
@@ -1260,7 +1291,7 @@ class NminusOne:
             weighted : bool, optional
                 Whether to fill the histograms with weights. Default is None, which applies the weights
                 if the nminusone was instantiated with weights and unweighted distributions otherwise.
-            scale: float, optional
+            scale : float, optional
                 A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
             categorical : dict, optional
                 A dictionary with the following keys:
@@ -1294,12 +1325,16 @@ class NminusOne:
                 raise ValueError(
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
-        Hist = hist.dask.Hist if self._delayed_mode else hist.Hist
+        Hist = _get_hist_class(self._delayed_mode)
         if do_categorical:
             catax = categorical.get("axis")
             catvar = categorical.get("values")
             catlabels = categorical.get("labels")
         if self._delayed_mode:
+            dask_awkward = _import_dask_awkward()
+            compatible_partitions = dask_awkward.lib.core.compatible_partitions
+            IncompatiblePartitions = dask_awkward.lib.core.IncompatiblePartitions
+
             for name, var in vars.items():
                 if not compatible_partitions(var, self._masks[0]):
                     raise IncompatiblePartitions("plot_vars", var, self._masks[0])
@@ -1464,7 +1499,7 @@ class Cutflow:
                 maskscutflow : list of boolean numpy.ndarray or dask_awkward.lib.core.Array objects
                     The boolean mask vectors of which events pass the cumulative cutflow a list of materialized or delayed boolean arrays
 
-            result: ExtendedCutflowResult
+            result : ExtendedCutflowResult
                 A namedtuple with the CutflowResult properties and additionally the following:
 
                 commonmask : boolean numpy.ndarray or dask_awkward.lib.core.Array object, or None if no common mask was provided
@@ -1598,6 +1633,7 @@ class Cutflow:
             weights,
             weightsmodifier,
             includeweights=includeweights,
+            delayed_mode=self._delayed_mode,
         )
         if compute:
             out.compute()
@@ -1627,6 +1663,8 @@ class Cutflow:
                 )
 
         if self._delayed_mode:
+            dask = _import_dask()
+
             warnings.warn(
                 "Printing the cutflow statistics is going to compute dask_awkward objects."
             )
@@ -1671,7 +1709,7 @@ class Cutflow:
             weighted : bool, optional
                 Whether to fill the histograms with weights. Default is None, which applies the weights
                 if the cutflow was instantiated with weights and unweighted statistics otherwise.
-            scale: float, optional
+            scale : float, optional
                 A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
             categorical : dict, optional
                 A dictionary with the following keys:
@@ -1706,7 +1744,7 @@ class Cutflow:
                 raise ValueError(
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
-        Hist = hist.Hist if not self._delayed_mode else hist.dask.Hist
+        Hist = _get_hist_class(self._delayed_mode)
         labels = ["initial"] + list(self._names)
         axes = [hist.axis.Integer(0, len(labels), name="onecut")]
         if do_categorical:
@@ -1719,10 +1757,6 @@ class Cutflow:
         if do_weighted:
             axes.append(hist.storage.Weight())
         if not self._delayed_mode and not do_categorical:
-            if categorical is not None:
-                raise NotImplementedError(
-                    "yieldhist is not implemented for non-delayed mode (v1) with categorical"
-                )
             honecut = hist.Hist(*axes)
             hcutflow = honecut.copy()
             hcutflow.axes.name = ("cutflow",)
@@ -1734,11 +1768,9 @@ class Cutflow:
             honecut.fill(numpy.arange(len(labels), dtype=int), weight=weightonecut)
             hcutflow.fill(numpy.arange(len(labels), dtype=int), weight=weightcutflow)
         elif self._delayed_mode and not do_categorical:
-            if categorical is not None:
-                raise NotImplementedError(
-                    "yieldhist is not implemented for non-delayed mode (v1) with categorical"
-                )
-            honecut = hist.dask.Hist(*axes)
+            dask_awkward = _import_dask_awkward()
+
+            honecut = Hist(*axes)
             hcutflow = honecut.copy()
             hcutflow.axes.name = ("cutflow",)
 
@@ -1888,7 +1920,7 @@ class Cutflow:
             weighted : bool, optional
                 Whether to fill the histograms with weights. Default is None, which applies the weights
                 if the cutflow was instantiated with weights and unweighted distributions otherwise.
-            scale: float, optional
+            scale : float, optional
                 A scalar value by which all weights will be scaled, works with both weighted and unweighted methods.
             categorical : dict, optional
                 A dictionary with the following keys:
@@ -1925,12 +1957,16 @@ class Cutflow:
                 raise ValueError(
                     f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
                 )
-        Hist = hist.dask.Hist if self._delayed_mode else hist.Hist
+        Hist = _get_hist_class(self._delayed_mode)
         if do_categorical:
             catax = categorical.get("axis")
             catvar = categorical.get("values")
             catlabels = categorical.get("labels")
         if self._delayed_mode:
+            dask_awkward = _import_dask_awkward()
+            compatible_partitions = dask_awkward.lib.core.compatible_partitions
+            IncompatiblePartitions = dask_awkward.lib.core.IncompatiblePartitions
+
             for name, var in vars.items():
                 if not compatible_partitions(var, self._masksonecut[0]):
                     raise IncompatiblePartitions("plot_vars", var, self._masksonecut[0])
@@ -2107,7 +2143,7 @@ class PackedSelection:
             bool
                 True if the PackedSelection is in delayed mode.
         """
-        if isinstance(self._data, dask_awkward.Array):
+        if _isinstance(self._data, "dask_awkward.lib.core.Array"):
             return True
         elif isinstance(self._data, numpy.ndarray):
             return False
@@ -2131,6 +2167,8 @@ class PackedSelection:
 
     def __add_delayed(self, name, selection, fill_value):
         """Add a new delayed boolean array"""
+        dask_awkward = _import_dask_awkward()
+
         selection = coffea.util._ensure_flat(selection, allow_missing=True)
         sel_type = dask_awkward.type(selection)
         if isinstance(sel_type, awkward.types.OptionType):
@@ -2140,7 +2178,10 @@ class PackedSelection:
             raise ValueError(f"Expected a boolean array, received {sel_type.primitive}")
         if len(self._names) == 0:
             self._data = dask_awkward.zeros_like(selection, dtype=self._dtype)
-        if isinstance(selection, dask_awkward.Array) and not self.delayed_mode:
+        if (
+            _isinstance(selection, "dask_awkward.lib.core.Array")
+            and not self.delayed_mode
+        ):
             raise ValueError(
                 f"New selection '{name}' is not eager while PackedSelection is!"
             )
@@ -2204,14 +2245,14 @@ class PackedSelection:
         """
         if name in self._names:
             raise ValueError(f"Selection '{name}' already exists")
-        if isinstance(selection, dask.array.Array):
+        if _isinstance(selection, "dask.array.core.Array"):
             raise ValueError(
                 "Dask arrays are not supported, please convert them to dask_awkward.Array by using dask_awkward.from_dask_array()"
             )
         selection = coffea.util._ensure_flat(selection, allow_missing=True)
         if isinstance(selection, numpy.ndarray):
             self.__add_eager(name, selection, fill_value)
-        elif isinstance(selection, dask_awkward.Array):
+        elif _isinstance(selection, "dask_awkward.lib.core.Array"):
             self.__add_delayed(name, selection, fill_value)
 
     def add_multiple(self, selections, fill_value=False):
@@ -2227,7 +2268,6 @@ class PackedSelection:
         for name, selection in selections.items():
             self.add(name, selection, fill_value)
 
-    @lru_cache
     def require(self, **names):
         """Return a mask vector corresponding to specific requirements
 
@@ -2254,6 +2294,12 @@ class PackedSelection:
         returns a boolean array where an entry is True if the corresponding entries
         ``cut1 == True``, ``cut2 == False``, and ``cut3`` arbitrary.
         """
+        # copy so a caller mutating the returned mask cannot corrupt the shared cache
+        result = self._require(**names)
+        return result.copy() if isinstance(result, numpy.ndarray) else result
+
+    @lru_cache
+    def _require(self, **names):
         for cut, v in names.items():
             if not isinstance(cut, str) or cut not in self._names:
                 raise ValueError(
@@ -2386,6 +2432,8 @@ class PackedSelection:
                 wgtev.extend([numpy.sum(wgt) for wgt in wgts])
 
         else:
+            dask_awkward = _import_dask_awkward()
+
             nev = [
                 (
                     dask_awkward.sum(commonmask)
@@ -2495,6 +2543,8 @@ class PackedSelection:
                 wgtevcutflow.extend([numpy.sum(wgt2) for wgt2 in weightscutflow])
 
         else:
+            dask_awkward = _import_dask_awkward()
+
             nevonecut = [
                 (
                     dask_awkward.sum(commonmask)

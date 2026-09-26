@@ -6,3 +6,31 @@ import pytest
 @pytest.fixture(scope="module")
 def tests_directory() -> str:
     return os.path.dirname(os.path.realpath(__file__))
+
+
+@pytest.fixture(scope="session")
+def _dask_session_client():
+    """Shared session cluster; ``set_as_default=False`` keeps it from becoming the
+    process-wide default scheduler."""
+    distributed = pytest.importorskip("distributed")
+
+    with distributed.Client(
+        n_workers=1,
+        threads_per_worker=2,
+        processes=True,
+        dashboard_address=None,
+        set_as_default=False,
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+def dask_client(_dask_session_client):
+    """Route dask computations through the shared cluster for this test only."""
+    import dask
+
+    # dask.config.set routes a bare .compute() (via dask.base.get_scheduler);
+    # as_current() covers code that resolves the client via get_client()/default_client.
+    with dask.config.set(scheduler=_dask_session_client.get):
+        with _dask_session_client.as_current():
+            yield _dask_session_client

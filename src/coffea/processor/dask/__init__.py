@@ -1,13 +1,21 @@
+"""helpers for tuning dask behavior for coffea"""
+
 import os
 from collections.abc import MutableMapping
 from threading import Lock
 
-import blosc2
-from distributed import WorkerPlugin, get_worker
 from zict import LRU, Buffer, File, Func
+
+from coffea.util import _import_distributed
+
+_distributed = _import_distributed()
+WorkerPlugin = _distributed.WorkerPlugin
+get_worker = _distributed.get_worker
 
 
 class ColumnCache(WorkerPlugin, MutableMapping):
+    """dask worker plugin to cache columns of data"""
+
     name = "columncache"
 
     def __init__(self, maxmem=5e8, maxcompressed=2e9, maxdisk=1e10):
@@ -16,6 +24,17 @@ class ColumnCache(WorkerPlugin, MutableMapping):
         self._maxdisk = maxdisk
 
     def setup(self, worker):
+        try:
+            import blosc2
+        except ModuleNotFoundError as err:
+            raise ModuleNotFoundError("""to use ColumnCache, you must install blosc2:
+
+pip install blosc2
+
+or
+
+conda install -c conda-forge python-blosc2""") from err
+
         self.cache = Buffer(
             fast={},
             slow=Func(
@@ -74,4 +93,4 @@ def register_columncache(client):
     for p in client.run(lambda: set(get_worker().plugins)).values():
         plugins |= p
     if ColumnCache.name not in plugins:
-        client.register_worker_plugin(ColumnCache())
+        client.register_plugin(ColumnCache())

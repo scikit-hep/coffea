@@ -45,10 +45,7 @@ classifiers = [
 ]
 dependencies = [
   "awkward>=2.8.11",
-  "uproot>=5.6.0",
-  "dask[array]>=2024.3.0",
-  "dask-awkward>=2025.9.0",
-  "dask-histogram>=2025.2.0",
+  "uproot>=5.7.0",
   "loky>=3.5.6",
   "vector>=1.4.1,!=1.6.0",
   "correctionlib>=2.6.0",
@@ -61,6 +58,7 @@ dependencies = [
   "lz4",
   "cloudpickle>=1.2.3",
   "toml>=0.10.2",
+  "pyyaml",
   "mplhep>=0.1.18",
   "packaging",
   "pandas",
@@ -81,9 +79,15 @@ Homepage = "https://github.com/coffeateam/coffea"
 
 [project.optional-dependencies]
 dask = [
+  "dask[dataframe]>=2024.3.0",
   "distributed>=2024.3.0",
   "bokeh!=3.0.*,>=2.4.2",
-  "blosc2",
+]
+dask-awkward = [
+  "coffea[dask]",
+  "dask-awkward>=2025.9.0",
+  "dask-histogram>=2025.2.0",
+  "bokeh<3.10",
 ]
 parsl = [
   "parsl>=2024.12.09"
@@ -97,29 +101,38 @@ xrootd = [
 triton = [
   "tritonclient[grpc,http]>=2.56.0",
 ]
-dev = [
-  "pre-commit",
-  "flake8",
-  "black",
+caches = [
+  "numcodecs>=0.13.1",
+  "zict>=3.0.0",
+]
+
+[dependency-groups]
+test = [
+  "pyinstrument",
   "pytest",
+  "pytest-xdist",
   "pytest-cov",
   "pytest-mpl",
   "pytest-asyncio",
   "pytest-mock",
-  "sphinx<8",
-  "nbsphinx",
-  "sphinx-rtd-theme",
-  "sphinx-automodapi",
-  "sphinx-copybutton>=0.3.2",
-  "pyinstrument",
+]
+docs = [
   "ipython",
-  "distributed>=2023.4.0",
   "myst-nb",
   "pydata-sphinx-theme",
+  "sphinx<8",
+  "sphinx-autobuild>=2024.10.03",
+  "sphinx-automodapi",
+  "sphinx-copybutton>=0.3.2",
+  # include optional dependencies that are necessary
+  # to build complete set of documentation
+  "coffea[dask,dask-awkward,rucio,caches]"
 ]
-
-#[project.entry-points."dask.sizeof"]
-#coffea = "coffea.sizeof:register"
+dev = [
+  { include-group = "docs" },
+  { include-group = "test" },
+  "pre-commit",
+]
 
 [tool.hatch]
 version.source = "vcs"
@@ -131,11 +144,27 @@ testpaths = ["tests"]
 addopts = [
   "-rfesxX",
   "-v",
+  "--strict-config",
+  "--strict-markers",
 ]
+xfail_strict = true
 log_level = "INFO"
+markers = [
+  "dask_client: test requires a live distributed.Client (uses the shared session cluster)",
+  "network: test reaches out to the network",
+]
 filterwarnings = [
   "ignore:There is no current event loop",
 ]
 
-[tool.ruff]
-line-length = 160
+[tool.check-wheel-contents]
+# Some EDM4hep schema versions are byte-identical to their predecessor; shipping
+# each one under its own version name is intentional.
+ignore = ["W002"]
+
+[tool.uv]
+# Supply-chain cooldown: ignore releases published in the last week.
+exclude-newer = "7 days"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

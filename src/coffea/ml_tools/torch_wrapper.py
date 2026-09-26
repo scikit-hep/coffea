@@ -37,7 +37,7 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
     converted via a to_awkward().to_numpy() call.
 
     [1]
-    https://pytorch.org/tutorials/beginner/saving_loading_models.html#export-load-model-in-torchscript-format
+    https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference
 
     Parameters
     ----------
@@ -115,7 +115,7 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
                 torch.from_numpy(arr)
                 if arr.flags["WRITEABLE"]
                 else torch.from_numpy(numpy.copy(arr))
-            )
+            ).to(self.device)
             for arr in args
         ]
         kwargs = {
@@ -123,8 +123,8 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
                 torch.from_numpy(arr)
                 if arr.flags["WRITEABLE"]
                 else torch.from_numpy(numpy.copy(arr))
-            )
+            ).to(self.device)
             for key, arr in kwargs.items()
         }
         with torch.no_grad():
-            return self.model(*args, **kwargs).detach().numpy()
+            return self.model(*args, **kwargs).detach().cpu().numpy()

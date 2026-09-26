@@ -463,6 +463,12 @@ def convert_effective_area_file(eaFilePath):
 
     # setup the file format
     nBinnedVars = int(layout[0])
+    # the flattening below assumes a single binned variable; a 2D file would be
+    # silently reduced to the wrong values, so refuse it instead
+    if nBinnedVars > 1:
+        raise NotImplementedError(
+            f"N-dimensional effective-area files are not supported: {eaFilePath}"
+        )
     nEvalVars = int(layout[nBinnedVars + 1])
 
     minMax = ["Min", "Max"]
@@ -485,49 +491,13 @@ def convert_effective_area_file(eaFilePath):
         encoding="ascii",
     )
 
-    bins = {}
-    offset_col = 0
-    offset_name = 1
-    bin_order = []
-    for i in range(nBinnedVars):
-        binMins = None
-        binMaxs = None
-        if i == 0:
-            binMins = numpy.unique(pars[columns[0]])
-            binMaxs = numpy.unique(pars[columns[1]])
-            bins[layout[i + offset_name]] = numpy.union1d(binMins, binMaxs)
-        else:
-            counts = numpy.zeros(0, dtype=numpy.int)
-            allBins = numpy.zeros(0, dtype=numpy.double)
-            for binMin in bins[bin_order[0]][:-1]:
-                binMins = numpy.unique(
-                    pars[numpy.where(pars[columns[0]] == binMin)][
-                        columns[i + offset_col]
-                    ]
-                )
-                binMaxs = numpy.unique(
-                    pars[numpy.where(pars[columns[0]] == binMin)][
-                        columns[i + offset_col + 1]
-                    ]
-                )
-                theBins = numpy.union1d(binMins, binMaxs)
-                allBins = numpy.append(allBins, theBins)
-                counts = numpy.append(counts, theBins.size)
-            bins[layout[i + offset_name]] = awkward.to_packed(
-                awkward.unflatten(allBins, counts)
-            )
-        bin_order.append(layout[i + offset_name])
-        offset_col += 1
+    dims = numpy.union1d(numpy.unique(pars[columns[0]]), numpy.unique(pars[columns[1]]))
 
-    # again this is only for one dimension of binning, fight me
-    # we can figure out a 2D EA when we get there
-    offset_name += 1
     wrapped_up = {}
     lookup_type = "dense_lookup"
-    dims = bins[layout[1]]
     for i in range(nEvalVars):
-        ea_name = "_".join([name, columns[offset_name + i]])
-        values = pars[columns[offset_name + i]]
+        ea_name = "_".join([name, columns[2 + i]])
+        values = pars[columns[2 + i]]
         wrapped_up[(ea_name, lookup_type)] = (values, dims)
 
     return wrapped_up

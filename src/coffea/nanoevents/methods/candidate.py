@@ -12,8 +12,6 @@ from coffea.nanoevents.methods import vector
 
 behavior = dict(vector.behavior)
 
-behavior.update(awkward._util.copy_behaviors("LorentzVector", "Candidate", behavior))
-
 
 @awkward.mixin_class(behavior)
 class Candidate(vector.LorentzVector):
@@ -37,6 +35,20 @@ class Candidate(vector.LorentzVector):
             behavior=self.behavior,
         )
 
+    @awkward.mixin_class_method(numpy.subtract, {"Candidate"})
+    def subtract(self, other):
+        """Subtract a candidate from another elementwise using ``x``, ``y``, ``z``, ``t``, and ``charge`` components"""
+        return awkward.zip(
+            {
+                "x": self.x - other.x,
+                "y": self.y - other.y,
+                "z": self.z - other.z,
+                "t": self.t - other.t,
+            },
+            with_name="LorentzVector",  # subtraction only makes sense for raw Lorentz vectors
+            behavior=self.behavior,
+        )
+
     def sum(self, axis=-1):
         """Sum an array of vectors elementwise using ``x``, ``y``, ``z``, ``t``, and ``charge`` components"""
         return awkward.zip(
@@ -51,12 +63,32 @@ class Candidate(vector.LorentzVector):
             behavior=self.behavior,
         )
 
+    def __awkward_validation__(self):
+        if "charge" not in self.fields:
+            raise ValueError(f"{type(self).__name__} requires the 'charge' field")
+        parent = super()
+        if hasattr(parent, "__awkward_validation__"):
+            parent.__awkward_validation__()
+
+
+# Copy the cross-class LorentzVector behaviors (e.g. Candidate + TwoVector) onto
+# Candidate, but only for keys the ``@mixin_class`` decorator has not already
+# registered. This MUST run after the decorator: ``copy_behaviors`` would
+# otherwise pre-register ``(add, Candidate, Candidate)`` -> LorentzVector.add via
+# the ``setdefault`` used by ``mixin_class``, shadowing Candidate's own
+# charge-propagating ``add`` (see scikit-hep/coffea#1578).
+for _key, _value in awkward._util.copy_behaviors(
+    "LorentzVector", "Candidate", behavior
+).items():
+    behavior.setdefault(_key, _value)
+del _key, _value
+
 
 @awkward.mixin_class(behavior)
 class PtEtaPhiMCandidate(Candidate, vector.PtEtaPhiMLorentzVector):
     """A Lorentz vector in eta, mass coordinates with charge
 
-    This mixin class requires the parent class to provide items ``pt``, ``eta``, ``phi``, `mass`, and ``charge``.
+    This mixin class requires the parent class to provide items ``pt``, ``eta``, ``phi``, ``mass``, and ``charge``.
     """
 
     pass
