@@ -1,5 +1,6 @@
 import awkward as ak
 import pytest
+import uproot
 
 from coffea.nanoevents import (
     BaseSchema,
@@ -124,3 +125,45 @@ def test_treemaker_schema(tests_directory, mode):
     assert ak.array_equal(
         rntuple, ttree, dtype_exact=False, check_parameters=False, equal_nan=True
     )
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
+def test_nested_fields_load_leaves(tests_directory, tmp_path, mode):
+    ttree = uproot.open(f"{tests_directory}/samples/nano_dy.root:Events")
+    fields = {
+        "run": ttree["run"].array(),
+        "Muon": ak.zip(
+            {"pt": ttree["Muon_pt"].array(), "eta": ttree["Muon_eta"].array()}
+        ),
+        "HLT": ak.zip(
+            {
+                "IsoMu24": ttree["HLT_IsoMu24"].array(),
+                "Mu50": ttree["HLT_Mu50"].array(),
+            }
+        ),
+    }
+    filename = tmp_path / "nested_rntuple.root"
+    with uproot.recreate(filename) as f:
+        f.mkrntuple("Events", fields)
+
+    events = NanoEventsFactory.from_root(
+        {filename: "Events"},
+        schemaclass=BaseSchema,
+        mode=mode,
+        access_log=(access_log := []),
+    ).events()
+    if mode == "eager":
+        # each leaf is read on its own, never a whole record at once
+        assert {x.branch for x in access_log} == {
+            "run",
+            "Muon.pt",
+            "Muon.eta",
+            "HLT.IsoMu24",
+            "HLT.Mu50",
+        }
+    else:
+        assert access_log == []
+        ak.materialize(events.HLT.IsoMu24)
+        assert {x.branch for x in access_log} == {"HLT.IsoMu24"}
+    for field, array in fields.items():
+        assert ak.array_equal(events[field], array, check_parameters=False)
