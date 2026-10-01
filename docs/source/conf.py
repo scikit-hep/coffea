@@ -54,6 +54,7 @@ extensions = [
     "sphinx_automodapi.automodapi",
     "sphinx_automodapi.smart_resolver",
     "sphinx_copybutton",
+    "sphinx_togglebutton",
     # 'IPython.sphinxext.ipython_console_highlighting',
 ]
 

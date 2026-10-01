@@ -1,0 +1,20 @@
+Author README
+-------------
+
+In order to show the progression of normal development,
+I am keeping all of the intermediary development snippets here.
+In order to run an example snippet to get an output you need to
+symlink the snippet to the actual name being used.
+
+  ln -sf 0-dimuonmass.py dimuonmass.py
+
+Originally, this example was authored with Coffea 2026.9.0 within
+the AlmaLinux 9 image. If you have denv[0] installed,
+
+  denv init coffeateam/coffea-dask-almalinux9:2026.9.0-py3.13
+  # choose which stage to update/run
+  ln -sf 0-dimuonmass.py dimuonmass.py
+  # run and view output
+  denv python3 run-local.py
+
+[0]: https://tomeichlersmith.github.io/denv/
