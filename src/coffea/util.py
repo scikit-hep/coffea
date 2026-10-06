@@ -3,6 +3,7 @@
 import base64
 import gzip
 import hashlib
+import sys
 import warnings
 from functools import partial, update_wrapper
 from typing import Any
@@ -44,6 +45,7 @@ __all__ = [
     "_import_dask",
     "_import_distributed",
     "_import_dask_awkward",
+    "_import_graphed",
 ]
 
 
@@ -131,6 +133,23 @@ or
 conda install -c conda-forge dask-awkward""") from err
 
     return dask_awkward
+
+
+def _import_graphed():
+    try:
+        import graphed
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError(
+            """to use this feature, you must install graphed, which needs Python 3.11 or newer:
+
+pip install coffea[graphed]
+
+or
+
+pip install graphed"""
+        ) from err
+
+    return graphed
 
 
 def _ensure_flat(array, allow_missing=False):
@@ -394,6 +413,9 @@ def dask_property(maybe_func=None, *, no_dispatch=False):
 
 class _DaskMethod:
     _dask_get = None
+    #: the arm below is the eager body itself, taking no deferred array. A _DaskProperty needs no
+    #: such marker: its two arms coincide, and a deferred dispatch reaches the same body either way.
+    _no_dispatch = False
 
     def __init__(self, impl):
         self._impl = impl
@@ -422,6 +444,7 @@ class _DaskMethod:
 def dask_method(maybe_func=None, *, no_dispatch=False):
     def dask_method_wrapper(func):
         method = _DaskMethod(func)
+        method._no_dispatch = no_dispatch
         f = method.dask(_adapt_naive_dask_get(func)) if no_dispatch else method
         return update_wrapper(f, func)
 
@@ -432,6 +455,18 @@ def dask_method(maybe_func=None, *, no_dispatch=False):
 
 
 def maybe_map_partitions(func, *args, **kwargs):
+    # A graphed array is not a dask collection and has no partitions to map over: unguarded, the
+    # call below silently returns None (or runs func eagerly where dask is absent). Looked up in
+    # sys.modules so that importing coffea never imports graphed.
+    graphed = sys.modules.get("graphed")
+    if graphed is not None and any(
+        isinstance(arg, graphed.Array) for arg in (*args, *kwargs.values())
+    ):
+        raise NotImplementedError(
+            "maybe_map_partitions has no graphed arm; record the operation on the graph "
+            "instead, with graphed.apply or graphed.awkward.gak"
+        )
+
     _MP_ONLY = {
         "label",
         "token",
