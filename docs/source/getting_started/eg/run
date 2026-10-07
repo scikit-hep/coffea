@@ -1,0 +1,7 @@
+#!/bin/sh
+set -o nounset
+set -o errexit
+apptainer exec \
+	-B ${PWD},${HOME},/uscms_data,/uscmst1b_scratch,/cvmfs/grid.cern.ch/etc/grid-security:/etc/grid-security,/cvmfs/cms.cern.ch \
+	/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2026.9.0-py3.13 \
+	${@}

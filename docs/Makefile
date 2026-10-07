@@ -46,8 +46,9 @@ clean:
 # this is only helpful when doing a lot of writing within the source/ directory.
 # since updates to the docstrings need to pass through sphinx-autogen
 # before getting to sphinx-build, they do not get picked up in the auto-build
-# --ignore : glob expression to ignore files, ignoring emacs and vim buffer files
+# --ignore : glob expression to ignore files, ignoring __pycache__ files
+# --re-ignore : regex expression to ignore files, ignoring emacs and vim buffer files
 watch:
-	sphinx-autobuild --ignore "*.swp" --ignore "~*" $(OPTIONS)
+	sphinx-autobuild --watch ../src --ignore "../src/**__pycache__**" --re-ignore "[~\.]?.*\.sw(p|x)" $(OPTIONS)
 
 .PHONY: clean
