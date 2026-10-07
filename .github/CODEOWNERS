@@ -1,0 +1,13 @@
+# Files that govern AI-agent behavior. A change to any of them is a behavior
+# change and needs a maintainer review; see "Provenance & protection of agent
+# files" in ARCHITECTURE.md. GitHub reads this file from the base branch, so a PR
+# cannot grant itself ownership by editing it.
+
+/AGENTS.md                                   @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/CLAUDE.md                                   @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/ARCHITECTURE.md                             @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/docs/agents/                                @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/.claude/                                    @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/.github/CODEOWNERS                          @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/.github/zizmor.yml                          @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
+/.github/workflows/agent-file-guard.yml      @lgray @NJManganelli @nsmith- @ikrommyd @andrzejnovak
