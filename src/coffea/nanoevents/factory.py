@@ -466,7 +466,12 @@ class NanoEventsFactory:
         if preload is not None:
             if not callable(preload):
                 _preload_names = frozenset(preload)
-                preload = lambda b: b.name in _preload_names  # noqa: E731
+
+                def preload(b):
+                    if isinstance(b, uproot.behaviors.RNTuple.HasFields):
+                        return b.path in _preload_names
+                    return b.name in _preload_names
+
             preloaded_arrays = tree.arrays(
                 filter_branch=preload,
                 entry_start=entry_start,

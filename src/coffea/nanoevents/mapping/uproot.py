@@ -43,11 +43,19 @@ def _rntuple_first_leaf_path(form, path):
             return path
 
 
-def _rntuple_reload(prefix, path, new_path):
-    # load new_path instead of path, followed by the same transforms
-    head = f"{path},!load"
-    assert prefix.startswith(head)
-    return f"{new_path},!load" + prefix[len(head) :]
+def _preloaded(preloaded_arrays, path, start, stop):
+    # RNTuple preloads are keyed by top-level field, so walk down to the subfield
+    if preloaded_arrays is None:
+        return None
+    top, *subfields = path.split(".")
+    if top not in preloaded_arrays:
+        return None
+    array = preloaded_arrays[top][start:stop]
+    for field in subfields:
+        if field not in awkward.fields(array):
+            return None
+        array = array[field]
+    return array
 
 
 def _lazify_form(form, prefix, docstr=None, typestr=None, path=None):
@@ -69,7 +77,7 @@ def _lazify_form(form, prefix, docstr=None, typestr=None, path=None):
         else:
             # the offsets are the same for all leaves, so any one of them is enough
             leaf_path = _rntuple_first_leaf_path(form, path)
-            form["form_key"] = quote(_rntuple_reload(prefix, path, leaf_path))
+            form["form_key"] = quote(leaf_path + prefix[len(path) :])
         form["content"] = _lazify_form(
             form["content"],
             prefix + ",!content",
@@ -133,7 +141,7 @@ def _lazify_form(form, prefix, docstr=None, typestr=None, path=None):
                 newcontents.append(
                     _lazify_form(
                         value,
-                        _rntuple_reload(prefix, path, subfield_path),
+                        subfield_path + prefix[len(path) :],
                         path=subfield_path,
                     )
                 )
@@ -213,7 +221,8 @@ class UprootSourceMapping(BaseSourceMapping):
                 continue
             if not _is_interpretable(branch):
                 continue
-            if isinstance(branch, uproot.behaviors.RNTuple.HasFields):
+            is_rntuple = isinstance(branch, uproot.behaviors.RNTuple.HasFields)
+            if is_rntuple:
                 form = branch.to_akform()[0].contents[0]
             else:
                 form = branch.interpretation.awkward_form(None)
@@ -229,17 +238,9 @@ class UprootSourceMapping(BaseSourceMapping):
                 form = _lazify_form(
                     form,
                     f"{key},!load",
-                    docstr=(
-                        branch.description
-                        if isinstance(branch, uproot.behaviors.RNTuple.HasFields)
-                        else branch.title
-                    ),
+                    docstr=branch.description if is_rntuple else branch.title,
                     typestr=branch.typename,
-                    path=(
-                        key
-                        if isinstance(branch, uproot.behaviors.RNTuple.HasFields)
-                        else None
-                    ),
+                    path=key if is_rntuple else None,
                 )
             except CannotBeNanoEvents as ex:
                 warnings.warn(
@@ -290,13 +291,16 @@ class UprootSourceMapping(BaseSourceMapping):
                 "Received columnhandle of None when missing column in file is not allowed!"
             )
 
-        if (
-            self.preloaded_arrays is not None
-            and columnhandle.name in self.preloaded_arrays
-        ):
-            the_array = self.preloaded_arrays[columnhandle.name][start:stop]
-        else:
-            if isinstance(columnhandle, uproot.behaviors.RNTuple.HasFields):
+        is_rntuple = isinstance(columnhandle, uproot.behaviors.RNTuple.HasFields)
+        the_array = _preloaded(
+            self.preloaded_arrays,
+            # a subfield's name is only its last component; its path is unique
+            columnhandle.path if is_rntuple else columnhandle.name,
+            start,
+            stop,
+        )
+        if the_array is None:
+            if is_rntuple:
                 the_array = columnhandle.array(
                     entry_start=start,
                     entry_stop=stop,

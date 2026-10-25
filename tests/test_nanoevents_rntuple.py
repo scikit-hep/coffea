@@ -146,11 +146,12 @@ def test_nested_fields_load_leaves(tests_directory, tmp_path, mode):
     with uproot.recreate(filename) as f:
         f.mkrntuple("Events", fields)
 
+    access_log = []
     events = NanoEventsFactory.from_root(
         {filename: "Events"},
         schemaclass=BaseSchema,
         mode=mode,
-        access_log=(access_log := []),
+        access_log=access_log,
     ).events()
     if mode == "eager":
         # each leaf is read on its own, never a whole record at once
@@ -167,3 +168,46 @@ def test_nested_fields_load_leaves(tests_directory, tmp_path, mode):
         assert {x.branch for x in access_log} == {"HLT.IsoMu24"}
     for field, array in fields.items():
         assert ak.array_equal(events[field], array, check_parameters=False)
+
+
+@pytest.mark.parametrize(
+    "preload, from_file",
+    [
+        (["pt"], {"Muon.pt", "Muon.eta"}),
+        (["Muon.pt"], {"pt", "Muon.eta"}),
+        (["Muon"], {"pt"}),
+    ],
+)
+@pytest.mark.parametrize("mode", ["eager", "virtual"])
+def test_preload_selects_and_finds_fields_by_path(
+    tmp_path, monkeypatch, mode, preload, from_file
+):
+    fields = {
+        "pt": ak.Array([[10.0, 20.0], [30.0], [], [40.0]]),
+        "Muon": ak.zip(
+            {
+                "pt": ak.Array([[1.0, 2.0], [3.0], [], [4.0]]),
+                "eta": ak.Array([[5.0, 6.0], [7.0], [], [8.0]]),
+            }
+        ),
+    }
+    filename = tmp_path / "preload_rntuple.root"
+    with uproot.recreate(filename) as f:
+        f.mkrntuple("Events", fields)
+
+    read = []
+    real_array = uproot.models.RNTuple.RField.array
+
+    def logged_array(field, *args, **kwargs):
+        read.append(field.path)
+        return real_array(field, *args, **kwargs)
+
+    monkeypatch.setattr(uproot.models.RNTuple.RField, "array", logged_array)
+    events = NanoEventsFactory.from_root(
+        {filename: "Events"}, schemaclass=BaseSchema, mode=mode, preload=preload
+    ).events()
+    for field, array in fields.items():
+        assert ak.array_equal(
+            ak.materialize(events[field]), array, check_parameters=False
+        )
+    assert set(read) == from_file
