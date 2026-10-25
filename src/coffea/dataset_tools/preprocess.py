@@ -33,11 +33,11 @@ from coffea.dataset_tools.filespec import (
     ModelFactory,
 )
 from coffea.dataset_tools.preprocess_backends import (
+    _DASK_BACKEND_HINT,
     DaskBackend,
     PreprocessBackend,
     PreprocessJob,
     _resolve_backend,
-    print_dask_backend_fallback_hint,
 )
 from coffea.util import (
     _import_dask,
@@ -50,9 +50,8 @@ from coffea.util import (
 def _validate_step_size(step_size: int | None) -> None:
     """Reject a non-positive ``step_size`` at the public entrypoints.
 
-    ``step_size`` is the number of entries per step; ``None`` means "one step per file". A value
-    < 1 is meaningless and would otherwise surface as a bare ``ZeroDivisionError`` from
-    ``_even_steps`` deep inside a worker (or dask graph).
+    ``step_size`` is the number of entries per step; ``None`` means "one step per file". Values
+    below 1 raise a ValueError that names the argument.
     """
     if step_size is not None and step_size < 1:
         raise ValueError(
@@ -477,9 +476,11 @@ def _run_preprocess_jobs(
     # about dask, so the hint is limited to the dask backend's submit().
     try:
         preprocess_task = backend_obj.submit(jobs)
-    except ModuleNotFoundError:
+    except ModuleNotFoundError as err:
         if isinstance(backend_obj, DaskBackend):
-            print_dask_backend_fallback_hint()
+            raise ModuleNotFoundError(
+                f"{err}\n{_DASK_BACKEND_HINT}", name=err.name
+            ) from err
         raise
     return preprocess_task.result()
 
@@ -952,20 +953,46 @@ def preprocess_root(
 
 def preprocess_rntuple(
     datagroupspec: DataGroupSpec,
-    **kwargs,
+    step_size: None | int = None,
+    align_clusters: bool = False,
+    recalculate_steps: bool = False,
+    files_per_batch: int = 1,
+    skip_bad_files: bool = False,
+    file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
+    save_form: bool = True,
+    scheduler: object = None,
+    uproot_options: dict = {},
+    step_size_safety_factor: float = 0.5,
+    allow_empty_datasets: bool = False,
+    backend: str | PreprocessBackend | None = None,
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Preprocess datasets of ROOT files containing RNTuples, determining the steps for each file.
 
-    Alias for :func:`preprocess_root` with ``require_rntuple=True``: every dataset must be
-    ROOT-format (parquet datasets raise a ValueError) and every object must be an RNTuple
-    (a TTree raises a ValueError inside the worker, subject to ``skip_bad_files``/
-    ``file_exceptions``). ``preprocess`` and ``preprocess_root`` already auto-detect and handle
-    RNTuples transparently, so this function is for RNTuple-only workflows that want the
-    stricter contract. All other arguments are forwarded to :func:`preprocess_root`.
+    :func:`preprocess_root` with ``require_rntuple=True``: every dataset must be ROOT-format
+    (parquet datasets raise a ValueError) and every object must be an RNTuple (a TTree raises a
+    ValueError inside the worker, subject to ``skip_bad_files``/``file_exceptions``).
+    ``preprocess`` and ``preprocess_root`` already auto-detect and handle RNTuples, so this
+    function is for RNTuple-only workflows that want the stricter contract. The arguments are
+    those of :func:`preprocess_root`; ``align_clusters`` aligns steps to RNTuple cluster
+    boundaries.
     """
-    kwargs["require_rntuple"] = True
-    return preprocess_root(datagroupspec, **kwargs)
+    return preprocess_root(
+        datagroupspec,
+        step_size=step_size,
+        align_clusters=align_clusters,
+        recalculate_steps=recalculate_steps,
+        files_per_batch=files_per_batch,
+        skip_bad_files=skip_bad_files,
+        file_exceptions=file_exceptions,
+        save_form=save_form,
+        scheduler=scheduler,
+        uproot_options=uproot_options,
+        step_size_safety_factor=step_size_safety_factor,
+        allow_empty_datasets=allow_empty_datasets,
+        backend=backend,
+        require_rntuple=True,
+    )
 
 
 def preprocess_parquet(
