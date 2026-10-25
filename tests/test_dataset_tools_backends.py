@@ -245,46 +245,29 @@ def test_dask_matches_dask_free(tmp_path):
 
 
 # --------------------------------------------------------------------------------------
-# dask-unavailable fallback hint
+# dask-unavailable hint
 # --------------------------------------------------------------------------------------
 
 
-def test_dask_import_failure_prints_hint(tmp_path, monkeypatch):
-    """When the default dask backend can't import dask, a hint about the dask-free
-    backends is emitted before the ModuleNotFoundError propagates."""
-    import importlib
-
-    backends_mod = importlib.import_module("coffea.dataset_tools.preprocess_backends")
-    # the package re-exports the `preprocess` function, shadowing the submodule attribute,
-    # so fetch the module object explicitly rather than via attribute access
-    preprocess_mod = importlib.import_module("coffea.dataset_tools.preprocess")
+def test_dask_import_failure_names_dask_free_backends(tmp_path, monkeypatch):
+    """When the dask backend cannot import dask, the ModuleNotFoundError it raises names the
+    dask-free backends and keeps the original error as its cause."""
 
     def _boom():
-        raise ModuleNotFoundError("no dask here")
+        raise ModuleNotFoundError("no dask here", name="dask")
 
     monkeypatch.setattr(backends_mod, "_import_dask", _boom)
-
-    called = {"hint": False}
-    orig_hint = preprocess_mod.print_dask_backend_fallback_hint
-
-    def _hint():
-        called["hint"] = True
-        orig_hint()
-
-    monkeypatch.setattr(preprocess_mod, "print_dask_backend_fallback_hint", _hint)
-
     dgs = _multi_file_fileset(tmp_path)
-    with pytest.raises(ModuleNotFoundError):
+    with pytest.raises(ModuleNotFoundError, match="backend='iterative'") as excinfo:
         preprocess(dgs, step_size=7, save_form=True, backend="dask")
-    assert called["hint"] is True
+    assert "no dask here" in str(excinfo.value)
+    assert excinfo.value.name == "dask"
+    assert isinstance(excinfo.value.__cause__, ModuleNotFoundError)
 
 
-def test_worker_modulenotfound_does_not_trigger_dask_hint(tmp_path, monkeypatch):
-    """A ModuleNotFoundError raised by a worker during compute (surfaced in Task.result())
-    must NOT print the 'dask could not be imported' hint -- only a failure to import dask in
-    submit() should."""
-    import importlib
-
+def test_worker_modulenotfound_has_no_dask_hint(tmp_path, monkeypatch):
+    """A ModuleNotFoundError raised by a worker (surfacing from Task.result()) propagates
+    unchanged; only a failure inside the dask backend's submit() gets the hint."""
     preprocess_mod = importlib.import_module("coffea.dataset_tools.preprocess")
 
     class _RaisingTask:
@@ -295,25 +278,17 @@ def test_worker_modulenotfound_does_not_trigger_dask_hint(tmp_path, monkeypatch)
         def submit(self, jobs):  # submit succeeds; the error is deferred to result()
             return _RaisingTask()
 
-    called = {"hint": False}
-    monkeypatch.setattr(
-        preprocess_mod,
-        "print_dask_backend_fallback_hint",
-        lambda: called.__setitem__("hint", True),
-    )
     monkeypatch.setattr(
         preprocess_mod, "_resolve_backend", lambda b, s=None: _FakeDaskBackend()
     )
-
     dgs = _multi_file_fileset(tmp_path)
-    with pytest.raises(ModuleNotFoundError, match="missing xrootd"):
+    with pytest.raises(ModuleNotFoundError, match="missing xrootd") as excinfo:
         preprocess(dgs, step_size=7, save_form=True, backend="dask")
-    assert called["hint"] is False
+    assert "backend='iterative'" not in str(excinfo.value)
 
 
-def test_empty_parquet_file_does_not_crash(tmp_path):
-    """A 0-row parquet file must yield steps=[[0, 0]] instead of a ZeroDivisionError,
-    mirroring the ROOT get_steps num_entries==0 guard."""
+def test_empty_parquet_file_has_one_empty_step(tmp_path):
+    """A 0-row parquet file gets steps [[0, 0]], as an empty ROOT file does."""
     from coffea.dataset_tools import preprocess_parquet
 
     path = tmp_path / "empty.parquet"
@@ -327,17 +302,6 @@ def test_empty_parquet_file_does_not_crash(tmp_path):
     fs = next(iter(updated["E"].files.values()))
     assert fs.num_entries == 0
     assert fs.steps == [[0, 0]]
-
-
-def test_fallback_hint_mentions_backends(capsys):
-    from coffea.dataset_tools.preprocess_backends import (
-        print_dask_backend_fallback_hint,
-    )
-
-    print_dask_backend_fallback_hint()
-    out = capsys.readouterr().out
-    assert "iterative" in out
-    assert "futures" in out
 
 
 def _sample_trees():
@@ -445,8 +409,7 @@ def test_form_extraction_falls_back_to_uproot_dask(sample, is_rntuple, monkeypat
 
 
 def test_step_size_zero_or_negative_raises(tmp_path):
-    """step_size < 1 is rejected with a clear ValueError at the entrypoint rather than a bare
-    ZeroDivisionError from deep inside a worker."""
+    """step_size < 1 is rejected with a ValueError naming the argument at the entrypoint."""
     dgs = _multi_file_fileset(tmp_path)
     for bad in (0, -5):
         with pytest.raises(ValueError, match="step_size must be a positive integer"):
@@ -581,7 +544,7 @@ def test_preprocess_rntuple_rejects_parquet(tmp_path):
 
 def test_workers_validate_step_size():
     """get_steps and get_parquet_form_uuid_steps reject step_size < 1 directly, including
-    negative values (which would otherwise silently produce a single step per file)."""
+    negative values."""
     from coffea.dataset_tools.preprocess import get_parquet_form_uuid_steps, get_steps
 
     normed = awkward.Array(
@@ -712,3 +675,76 @@ def test_legacy_default_backend_runs_without_dask(tmp_path, monkeypatch):
     monkeypatch.setattr(backends_mod, "_import_dask", _no_dask)
     available, _ = preprocess_legacy(_legacy_fileset(tmp_path), step_size=7)
     assert len(available["ZJets"]["files"]) == 2
+
+
+# --------------------------------------------------------------------------------------
+# RNTuple cluster alignment, process pool, preprocess_rntuple signature
+# --------------------------------------------------------------------------------------
+
+
+def _multi_cluster_rntuple(path):
+    """Write a 40-entry RNTuple whose clusters start at entries 0, 7, 18, 23 and 36."""
+    import numpy as np
+    import uproot
+
+    start = 0
+    with uproot.recreate(path) as f:
+        ntuple = None
+        for n in (7, 11, 5, 13, 4):
+            chunk = awkward.Array({"x": np.arange(start, start + n, dtype=np.float64)})
+            if ntuple is None:
+                ntuple = f.mkrntuple("ntuple", chunk)
+            else:
+                ntuple.extend(chunk)
+            start += n
+    return str(path)
+
+
+def test_rntuple_steps_align_to_cluster_boundaries(tmp_path):
+    from coffea.dataset_tools import preprocess_rntuple
+
+    path = _multi_cluster_rntuple(tmp_path / "clusters.root")
+    dgs = DataGroupSpec({"R": {"files": {path: "ntuple"}}})
+
+    def steps(**kwargs):
+        available, _ = preprocess_rntuple(
+            dgs, save_form=False, backend="iterative", **kwargs
+        )
+        return available["R"].files[path].steps
+
+    assert steps(step_size=20, align_clusters=True) == [[0, 23], [23, 40]]
+    assert steps(step_size=20, align_clusters=False) == [[0, 20], [20, 40]]
+    with pytest.warns(UserWarning, match="larger than target"):
+        assert steps(step_size=10, align_clusters=True) == [[0, 18], [18, 36], [36, 40]]
+
+
+def test_process_pool_matches_iterative():
+    """FuturesBackend with a process pool gives the same specs as the iterative backend for
+    TTree, RNTuple and parquet datasets."""
+    dgs = DataGroupSpec(
+        {
+            "ttree": {"files": {"tests/samples/nano_dy.root": "Events"}},
+            "rntuple": {"files": {"tests/samples/nano_dy_rntuple.root": "Events"}},
+            "parquet": {"files": {"tests/samples/nano_dy.parquet": None}},
+        }
+    )
+    a_proc, u_proc = preprocess(
+        dgs,
+        step_size=15,
+        save_form=True,
+        backend=FuturesBackend(workers=2, use_processes=True),
+    )
+    a_iter, u_iter = preprocess(dgs, step_size=15, save_form=True, backend="iterative")
+    assert a_proc == a_iter
+    assert u_proc == u_iter
+
+
+def test_preprocess_rntuple_takes_preprocess_root_arguments():
+    """preprocess_rntuple has preprocess_root's parameters, minus require_rntuple."""
+    import inspect
+
+    from coffea.dataset_tools import preprocess_rntuple, preprocess_root
+
+    root = dict(inspect.signature(preprocess_root).parameters)
+    del root["require_rntuple"]
+    assert dict(inspect.signature(preprocess_rntuple).parameters) == root

@@ -52,7 +52,7 @@ from typing import ClassVar, Protocol, runtime_checkable
 
 import awkward
 
-from coffea.util import _import_dask, _import_dask_awkward, coffea_console
+from coffea.util import _import_dask, _import_dask_awkward
 
 __all__ = [
     "PreprocessJob",
@@ -368,8 +368,7 @@ class DaskBackend(PreprocessBackend):
 
     def _build_collection(self, name: str, job: PreprocessJob, dask, dask_awkward):
         ak_norm_files = job.array
-        # guard files_per_batch<1 so the dask backend matches the iterative/futures batching
-        # (which clamp via max(1, files_per_batch)) instead of dividing by zero
+        # files_per_batch below 1 is treated as 1, as in _iter_batches
         files_per_batch = max(1, job.files_per_batch)
         dak_norm_files = dask_awkward.from_awkward(
             ak_norm_files, math.ceil(len(ak_norm_files) / files_per_batch)
@@ -494,15 +493,8 @@ def _resolve_backend(
     return replace(backend, **{field: scheduler})
 
 
-def print_dask_backend_fallback_hint() -> None:
-    """Print (via ``coffea_console``) a hint that dask-free backends exist.
-
-    Called when the default dask backend fails because dask / dask-awkward are not importable.
-    """
-    coffea_console.print(
-        "[bold red]The dask preprocessing backend is unavailable because dask / dask-awkward "
-        "could not be imported.[/bold red]\n"
-        "Preprocessing can run without dask for parquet and ROOT input: pass "
-        "[bold]backend='iterative'[/bold] (single process) or [bold]backend='futures'[/bold] "
-        "(thread pool) to preprocess() and the format-specific preprocess_* functions."
-    )
+_DASK_BACKEND_HINT = (
+    "The dask preprocessing backend needs dask and dask-awkward. Preprocessing runs without "
+    "them for parquet and ROOT input with backend='iterative' (single process) or "
+    "backend='futures' (thread pool)."
+)
