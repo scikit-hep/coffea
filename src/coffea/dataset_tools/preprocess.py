@@ -17,10 +17,6 @@ import uproot
 from uproot._util import no_filter
 
 try:
-    # Private uproot helpers that uproot.dask uses to build a tree's base form: the key
-    # normalization for grouped (AsGrouped) branches and the form builder itself. Calling them
-    # builds the same form without dask. If a uproot release moves or renames either one, both
-    # are unset and form extraction goes through uproot.dask instead (_dask_form_json).
     from uproot._dask import _get_ttree_form as _uproot_get_ttree_form
     from uproot._dask import _normalize_grouped_keys as _uproot_normalize_grouped_keys
 except Exception:  # pragma: no cover - depends on uproot internals
@@ -470,10 +466,6 @@ def _run_preprocess_jobs(
 ) -> dict[str, awkward.Array]:
     """Run ``jobs`` on the selected backend and return ``{dataset_name: processed records}``."""
     backend_obj = _resolve_backend(backend, scheduler)
-    # DaskBackend.submit imports dask, so a ModuleNotFoundError raised there means the dask stack
-    # is missing and the dask-free backends are worth pointing at. Worker import errors surface
-    # from result() (from submit() for the iterative backend, which runs eagerly) and are not
-    # about dask, so the hint is limited to the dask backend's submit().
     try:
         preprocess_task = backend_obj.submit(jobs)
     except ModuleNotFoundError as err:
@@ -771,8 +763,6 @@ def get_parquet_form_uuid_steps(
         form_json = None
         form_hash = None
         if save_form:
-            # parquet metadata already carries the form; reading it builds no dask graph,
-            # so (unlike the TTree/RNTuple path) there is no function cache to pop here.
             form = the_file["form"]
             form_str = form.to_json()
 
@@ -783,8 +773,6 @@ def get_parquet_form_uuid_steps(
 
         file_uuid = the_file.get("uuid", None)
 
-        # A 0-row file gets a single trivial step: it has no row groups to align to and no
-        # entries to split into steps.
         if num_entries == 0:
             array.append(
                 {
