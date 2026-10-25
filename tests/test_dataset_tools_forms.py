@@ -438,3 +438,91 @@ def test_genmodel_union_flag_requires_fill_none_for_masking():
     n_raw = int(awkward.num(events[flag], axis=0).compute())
     assert n_fill == 20
     assert n_raw == 40
+
+
+# --------------------------------------------------------------------------------------
+# bitsets and pruning through file addition, group filtering and subtraction
+# --------------------------------------------------------------------------------------
+
+
+def _spec_with_bitsets(form_fields, files):
+    """A DatasetSpec over a flat bool form with ``form_fields``; ``files`` maps a file name to
+    ``(steps, present_fields)``, with ``present_fields=None`` for a file without a bitset.
+    """
+    from coffea.dataset_tools import DatasetSpec
+    from coffea.util import compress_form
+
+    form = awkward.forms.RecordForm(
+        [awkward.forms.NumpyForm("bool") for _ in form_fields], list(form_fields)
+    )
+    file_specs = {}
+    for fname, (steps, present) in files.items():
+        file_specs[fname] = {
+            "object_path": "Events",
+            "steps": steps,
+            "num_entries": 20,
+            "uuid": f"uuid-{fname}",
+        }
+        if present is not None:
+            file_specs[fname]["experimental_field_bitset"] = encode_field_bitset(
+                present, list(form_fields)
+            )
+    return DatasetSpec(
+        files=file_specs, compressed_form=compress_form(form.to_json()), format="root"
+    )
+
+
+def test_file_spec_addition_drops_bitset():
+    """A file spec does not know the form its bitset is encoded against, so adding file specs
+    leaves the result without a bitset."""
+    ds_a = _spec_with_bitsets(["x", "y"], {"f1.root": ([[0, 10]], {"x", "y"})})
+    ds_b = _spec_with_bitsets(["z", "y", "x"], {"f1.root": ([[10, 20]], None)})
+    added = ds_a.files + ds_b.files
+    assert added["f1.root"].steps == [[0, 10], [10, 20]]
+    assert added["f1.root"].experimental_field_bitset is None
+
+
+def test_add_recomputes_bitsets_against_the_union_form():
+    """Dataset addition re-encodes each file's field set against the union form, also when the
+    same file has a bitset on only one side."""
+    ds_a = _spec_with_bitsets(["x", "y"], {"f1.root": ([[0, 10]], {"x", "y"})})
+    ds_b = _spec_with_bitsets(
+        ["z", "y", "x"],
+        {"f1.root": ([[10, 20]], None), "f2.root": ([[0, 20]], {"z", "y"})},
+    )
+    combined = ds_a + ds_b
+    union_fields = list(combined.form.fields)
+    assert union_fields != ["x", "y"]
+    assert decode_field_bitset(
+        combined.files["f1.root"].experimental_field_bitset, union_fields
+    ) == {"x", "y"}
+    assert decode_field_bitset(
+        combined.files["f2.root"].experimental_field_bitset, union_fields
+    ) == {"y", "z"}
+
+
+def test_datagroupspec_filter_files_prunes_union_form(hlt_files):
+    file_a, file_b = hlt_files
+    ds = _preprocessed({file_a: "Events", file_b: "Events"})
+    filtered = DataGroupSpec({"D": ds}).filter_files(filter_name=".*hlt_a.root")
+    assert list(filtered["D"].files) == [file_a]
+    assert set(filtered["D"].form.fields) == {"x", "HLT_a"}
+    assert filtered["D"] == ds.filter_files(filter_name=".*hlt_a.root")
+
+
+def test_subtraction_prunes_union_form(hlt_files):
+    """Subtracting a dataset prunes the union form to the remaining files' fields, for
+    DatasetSpec and DataGroupSpec alike."""
+    file_a, file_b = hlt_files
+    ds_a = _preprocessed({file_a: "Events"})
+    ds_b = _preprocessed({file_b: "Events"})
+
+    remaining = (ds_a + ds_b) - ds_b
+    assert list(remaining.files) == [file_a]
+    assert set(remaining.form.fields) == {"x", "HLT_a"}
+    assert decode_field_bitset(
+        remaining.files[file_a].experimental_field_bitset, list(remaining.form.fields)
+    ) == {"x", "HLT_a"}
+
+    group = DataGroupSpec({"D": ds_a}) + DataGroupSpec({"D": ds_b})
+    assert (group - DataGroupSpec({"D": ds_b}))["D"] == remaining

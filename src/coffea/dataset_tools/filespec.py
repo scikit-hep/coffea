@@ -70,14 +70,9 @@ class GenericFileSpec(BaseModel):
             new_spec["num_entries"] = self.num_entries
         else:
             new_spec["num_entries"] = max(self.num_entries, other.num_entries)
-        if self.experimental_field_bitset is None:
-            new_spec["experimental_field_bitset"] = other.experimental_field_bitset
-        elif other.experimental_field_bitset not in (
-            None,
-            self.experimental_field_bitset,
-        ):
-            # disagreeing bitsets cannot be reconciled without the owning forms
-            new_spec["experimental_field_bitset"] = None
+        # a bitset is encoded against its dataset's form, which a file spec does not know;
+        # DatasetSpec.union_with recomputes the bitsets when datasets are added
+        new_spec["experimental_field_bitset"] = None
         return type(self)(**new_spec)
 
     def __sub__(self, other: GenericFileSpec) -> GenericFileSpec:
@@ -658,7 +653,8 @@ class DatasetSpec(BaseModel):
                     f"Cannot subtract DatasetSpec with different dids: {self.did} and {other.did}"
                 )
         new_spec = self.model_dump()
-        new_spec["files"] = self.files - other.files
+        new_spec["files"] = (self.files - other.files).model_dump()
+        new_spec = self._prune_form_for_files(new_spec)
         return type(self)(**new_spec)
 
     @model_validator(mode="before")
@@ -972,13 +968,18 @@ class DataGroupSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
         filter_name: str | None = None,
         filter_callable: Callable[[FileSpecUnion], bool] | None = None,
     ) -> Self:
-        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_callable)."""
-        spec = self.model_dump()
-        for k, v in self.items():
-            spec[k]["files"] = v.files.filter_files(
-                filter_name=filter_name, filter_callable=filter_callable
-            )
-        return type(self)(**spec)
+        """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_callable).
+
+        Each dataset's saved union form is pruned as in :meth:`DatasetSpec.filter_files`.
+        """
+        return type(self)(
+            {
+                k: v.filter_files(
+                    filter_name=filter_name, filter_callable=filter_callable
+                )
+                for k, v in self.items()
+            }
+        )
 
     def filter_datasets(
         self,
