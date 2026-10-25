@@ -64,25 +64,49 @@ class CorrectionLibJER:
 class CorrectionLibJERSF:
     """Adapter for a JER scale-factor correction from correctionlib.
 
-    The correctionlib correction takes a ``"systematic"`` input that selects
-    between ``"nom"``, ``"up"``, and ``"down"``.  This adapter evaluates all
-    three and stacks them into an ``(N, 3)`` array so that
-    ``CorrectedJetsFactory`` can index as ``jersf[:, variation]``.
+    Two JSON-POG layouts are supported:
+
+    * A single correction with a ``"systematic"`` input that selects between
+      ``"nom"``, ``"up"``, and ``"down"`` (e.g. Run 2 UL, Run 3 2022-2023).
+    * A nominal correction without a ``"systematic"`` input, paired with a
+      separate ``SFUncertainty`` correction giving the absolute uncertainty,
+      so that up/down are ``nom +/- uncertainty`` (e.g. Summer24).
+
+    Either way, this adapter stacks nominal, up, and down into an ``(N, 3)``
+    array so that ``CorrectedJetsFactory`` can index as ``jersf[:, variation]``.
 
     Parameters
     ----------
     correction : correctionlib.Correction
         The JER scale-factor correction.
+    uncertainty : correctionlib.Correction, optional
+        The JER scale-factor uncertainty correction.  Required if, and only
+        if, *correction* has no ``"systematic"`` input.
     """
 
-    def __init__(self, correction):
+    def __init__(self, correction, uncertainty=None):
         self._correction = correction
-        # Signature exposed to the factory excludes "systematic"
-        self._signature = [
+        self._uncertainty = uncertainty
+        self._eval_inputs = [
             inp.name for inp in correction.inputs if inp.name != "systematic"
         ]
-        # Full input names (without "systematic") for the eval function
-        self._eval_inputs = self._signature
+        self._has_systematic = len(self._eval_inputs) != len(correction.inputs)
+        if self._has_systematic and uncertainty is not None:
+            raise ValueError(
+                f"JER scale factor {correction.name!r} has a 'systematic' input; "
+                "a separate uncertainty correction should not be given"
+            )
+        if not self._has_systematic and uncertainty is None:
+            raise ValueError(
+                f"JER scale factor {correction.name!r} has no 'systematic' input "
+                f"(inputs: {[inp.name for inp in correction.inputs]}); "
+                "a separate uncertainty correction is required"
+            )
+        self._unc_inputs = (
+            [] if uncertainty is None else [inp.name for inp in uncertainty.inputs]
+        )
+        # Signature exposed to the factory excludes "systematic"
+        self._signature = list(dict.fromkeys(self._eval_inputs + self._unc_inputs))
 
     @property
     def signature(self):
@@ -90,9 +114,17 @@ class CorrectionLibJERSF:
 
     def getScaleFactor(self, **kwargs):
         args = tuple(kwargs[name] for name in self._eval_inputs)
-        nom = self._correction.evaluate(*args, "nom")
-        up = self._correction.evaluate(*args, "up")
-        down = self._correction.evaluate(*args, "down")
+        if self._has_systematic:
+            nom = self._correction.evaluate(*args, "nom")
+            up = self._correction.evaluate(*args, "up")
+            down = self._correction.evaluate(*args, "down")
+        else:
+            nom = self._correction.evaluate(*args)
+            unc = self._uncertainty.evaluate(
+                *(kwargs[name] for name in self._unc_inputs)
+            )
+            up = nom + unc
+            down = nom - unc
         return awkward.concatenate(
             [nom[:, numpy.newaxis], up[:, numpy.newaxis], down[:, numpy.newaxis]],
             axis=1,
@@ -308,7 +340,17 @@ class CorrectionLibJECStack:
             jer_adapter = CorrectionLibJER(cset[jer_name])
 
             jersf_name = f"{jer_tag}_{data_type}_ScaleFactor_{jet_type}"
-            jersf_adapter = CorrectionLibJERSF(cset[jersf_name])
+            jersf = cset[jersf_name]
+            jersf_unc = None
+            if "systematic" not in [inp.name for inp in jersf.inputs]:
+                jersf_unc_name = f"{jer_tag}_{data_type}_SFUncertainty_{jet_type}"
+                if jersf_unc_name not in cset:
+                    raise ValueError(
+                        f"JER scale factor {jersf_name!r} has no 'systematic' "
+                        f"input and no {jersf_unc_name!r} correction was found"
+                    )
+                jersf_unc = cset[jersf_unc_name]
+            jersf_adapter = CorrectionLibJERSF(jersf, uncertainty=jersf_unc)
 
         return cls(
             jec=jec_adapter,

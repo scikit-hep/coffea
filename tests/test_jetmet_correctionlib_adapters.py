@@ -1,12 +1,15 @@
 """Tests for the correctionlib (JSON-POG) adapter classes.
 
-Two JSON-POG test files are used:
+Three JSON-POG test files are used:
 - ``jet_jerc.json.gz``: hand-crafted dummy corrections with simple constant outputs
   (e.g. JEC returns ``1 + 0.01*JetA``, JER returns flat ``0.1``).  Used for unit
   tests where exact expected values can be asserted.
 - ``jet_jerc_Summer22_V3.json.gz``: real Summer22_V3 corrections.  Used in the
   cross-validation tests (``test_crossval_*``) to verify that correctionlib adapters
   match the txt-based correctors.
+- ``jet_jer_Summer24Prompt24_JRV2.json.gz``: real Summer24 AK4PFPuppi MC JER
+  corrections, whose scale factor has no ``"systematic"`` input and instead
+  comes with a separate ``SFUncertainty`` correction.
 """
 
 import os
@@ -231,6 +234,63 @@ def test_correctionlib_jec_stack_no_jer():
     assert stack.jersf is None
     assert stack.jec is not None
     assert stack.junc is not None
+
+
+SUMMER24_JER_FILE = os.path.join(SAMPLES, "jet_jer_Summer24Prompt24_JRV2.json.gz")
+SUMMER24_JER_TAG = "Summer24Prompt24_JRV2"
+
+
+@pytest.fixture
+def summer24_jer_file(tmp_path):
+    """Dummy JEC/JUNC corrections plus the real Summer24 JER corrections, whose
+    SF has no "systematic" input and whose uncertainty is a separate
+    SFUncertainty correction."""
+    import gzip
+    import json
+
+    with gzip.open(JERC_FILE, "rt") as f:
+        cset = json.load(f)
+    with gzip.open(SUMMER24_JER_FILE, "rt") as f:
+        cset["corrections"] += json.load(f)["corrections"]
+    path = tmp_path / "jet_jerc_summer24.json"
+    path.write_text(json.dumps(cset))
+    return str(path)
+
+
+def test_correctionlib_jersf_separate_uncertainty(summer24_jer_file):
+    from coffea.jetmet_tools import CorrectionLibJECStack
+
+    stack = CorrectionLibJECStack.from_file(
+        summer24_jer_file,
+        jec_tag=JEC_TAG,
+        data_type=DATA_TYPE,
+        jet_type=JET_TYPE,
+        jer_tag=SUMMER24_JER_TAG,
+    )
+    assert stack.jersf.signature == ["JetEta", "JetPt"]
+
+    sf = stack.jersf.getScaleFactor(
+        JetEta=ak.Array([0.3, -1.7, 2.8]), JetPt=ak.Array([50.0, 200.0, 1000.0])
+    )
+    arr = np.asarray(sf)
+    assert arr.shape == (3, 3)
+    nom = np.array([1.130137, 1.106760, 2.737509])
+    unc = np.array([0.048455, 0.074606, 0.122200])
+    np.testing.assert_allclose(arr[:, 0], nom, rtol=1e-6)
+    np.testing.assert_allclose(arr[:, 1], nom + unc, rtol=1e-6)
+    np.testing.assert_allclose(arr[:, 2], nom - unc, rtol=1e-6)
+
+
+def test_correctionlib_jersf_missing_uncertainty():
+    import correctionlib
+
+    from coffea.jetmet_tools import CorrectionLibJERSF
+
+    cset = correctionlib.CorrectionSet.from_file(SUMMER24_JER_FILE)
+    with pytest.raises(ValueError, match="no 'systematic' input"):
+        CorrectionLibJERSF(
+            cset[f"{SUMMER24_JER_TAG}_{DATA_TYPE}_ScaleFactor_{JET_TYPE}"]
+        )
 
 
 # ---------------------------------------------------------------------------
