@@ -1,5 +1,6 @@
 """Tests for the switchable preprocessing backends in coffea.dataset_tools.preprocess_backends."""
 
+import importlib
 import shutil
 
 import awkward
@@ -16,9 +17,11 @@ from coffea.dataset_tools import (
 )
 from coffea.dataset_tools.preprocess_backends import (
     _iter_batches,
-    ordered_concat,
-    resolve_backend,
+    _ordered_concat,
+    _resolve_backend,
 )
+
+backends_mod = importlib.import_module("coffea.dataset_tools.preprocess_backends")
 
 
 def _multi_file_fileset(tmp_path):
@@ -35,7 +38,7 @@ def _multi_file_fileset(tmp_path):
 
 
 # --------------------------------------------------------------------------------------
-# ordered_concat / _iter_batches unit tests
+# _ordered_concat / _iter_batches unit tests
 # --------------------------------------------------------------------------------------
 
 
@@ -43,17 +46,17 @@ def test_ordered_concat_preserves_order():
     a = awkward.Array([1, 2])
     b = awkward.Array([3, 4])
     c = awkward.Array([5])
-    assert ordered_concat([a, b, c]).to_list() == [1, 2, 3, 4, 5]
+    assert _ordered_concat([a, b, c]).to_list() == [1, 2, 3, 4, 5]
 
 
 def test_ordered_concat_drops_none_and_handles_empty():
     a = awkward.Array([1, 2])
-    assert ordered_concat([None, a, None]).to_list() == [1, 2]
+    assert _ordered_concat([None, a, None]).to_list() == [1, 2]
     # single element is returned as-is
-    assert ordered_concat([a]) is a
+    assert _ordered_concat([a]) is a
     # nothing to concatenate
-    assert ordered_concat([]) is None
-    assert ordered_concat([None, None]) is None
+    assert _ordered_concat([]) is None
+    assert _ordered_concat([None, None]) is None
 
 
 def test_iter_batches_slices_in_order():
@@ -70,56 +73,132 @@ def test_iter_batches_empty_yields_once():
 
 
 # --------------------------------------------------------------------------------------
-# resolve_backend
+# _resolve_backend: names, default selection, scheduler handling
 # --------------------------------------------------------------------------------------
 
 
+def _hide_dask(monkeypatch):
+    """Make the default-backend probe see dask and dask-awkward as not installed."""
+    real_find_spec = backends_mod.importlib.util.find_spec
+
+    def find_spec(name, *args, **kwargs):
+        if name in ("dask", "dask_awkward"):
+            return None
+        return real_find_spec(name, *args, **kwargs)
+
+    monkeypatch.setattr(backends_mod.importlib.util, "find_spec", find_spec)
+
+
 def test_resolve_backend_strings():
-    assert isinstance(resolve_backend("dask"), DaskBackend)
-    assert isinstance(resolve_backend(None), DaskBackend)
-    assert isinstance(resolve_backend("iterative"), IterativeBackend)
-    assert isinstance(resolve_backend("futures"), FuturesBackend)
+    assert isinstance(_resolve_backend("dask"), DaskBackend)
+    assert isinstance(_resolve_backend("iterative"), IterativeBackend)
+    assert isinstance(_resolve_backend("futures"), FuturesBackend)
+
+
+def test_resolve_backend_default_is_dask_when_importable():
+    pytest.importorskip("dask")
+    pytest.importorskip("dask_awkward")
+    assert isinstance(_resolve_backend(None), DaskBackend)
+
+
+def test_resolve_backend_default_is_iterative_without_dask(monkeypatch):
+    _hide_dask(monkeypatch)
+    assert isinstance(_resolve_backend(None), IterativeBackend)
+
+
+def test_preprocess_default_backend_runs_without_dask(tmp_path, monkeypatch):
+    """With dask hidden, preprocess without a backend runs the iterative backend; the dask
+    import is made to fail so selecting the dask backend would raise."""
+    _hide_dask(monkeypatch)
+
+    def _no_dask():
+        raise ModuleNotFoundError("no dask here")
+
+    monkeypatch.setattr(backends_mod, "_import_dask", _no_dask)
+    dgs = _multi_file_fileset(tmp_path)
+    a_default, u_default = preprocess(dgs, step_size=7, save_form=True)
+    a_iter, u_iter = preprocess(dgs, step_size=7, save_form=True, backend="iterative")
+    assert a_default == a_iter
+    assert u_default == u_iter
 
 
 def test_resolve_backend_instance_passthrough():
     inst = IterativeBackend()
-    assert resolve_backend(inst) is inst
+    assert _resolve_backend(inst) is inst
 
 
-def test_resolve_backend_unknown_raises():
+def test_resolve_backend_rejects_unknown_selectors():
     with pytest.raises(ValueError, match="Unknown preprocessing backend"):
-        resolve_backend("nonsense")
+        _resolve_backend("nonsense")
+    with pytest.raises(TypeError, match="backend must be"):
+        _resolve_backend(42)
 
 
-def test_resolve_backend_scheduler_warns_for_non_dask_string():
-    with pytest.warns(UserWarning, match="only affects the dask backend"):
-        resolve_backend("iterative", scheduler="synchronous")
-
-
-def test_resolve_backend_scheduler_injected_into_dask_instance(recwarn):
-    """A DaskBackend instance with no scheduler of its own receives the scheduler argument
-    (as a copy; the original instance is not mutated), without warning."""
+def test_resolve_backend_scheduler_sets_dask_scheduler(recwarn):
+    """A DaskBackend receives the scheduler on its scheduler field, as a copy of a passed
+    instance (the original is not mutated), without warning."""
+    assert _resolve_backend("dask", scheduler="synchronous").scheduler == "synchronous"
     inst = DaskBackend(split_every=4)
-    resolved = resolve_backend(inst, scheduler="synchronous")
+    resolved = _resolve_backend(inst, scheduler="synchronous")
     assert resolved.scheduler == "synchronous"
     assert resolved.split_every == 4
     assert inst.scheduler is None
     assert not any("ignored" in str(w.message) for w in recwarn)
 
 
-def test_resolve_backend_scheduler_warns_for_instance():
-    # scheduler cannot be injected into a non-dask instance or a DaskBackend that already
-    # carries its own scheduler, so it warns instead of silently dropping the argument
-    with pytest.warns(UserWarning, match="ignored when a PreprocessBackend instance"):
-        resolve_backend(FuturesBackend(), scheduler="synchronous")
-    with pytest.warns(UserWarning, match="ignored when a PreprocessBackend instance"):
-        inst = DaskBackend(scheduler="threads")
-        assert resolve_backend(inst, scheduler="synchronous") is inst
+def test_resolve_backend_scheduler_sets_futures_pool(recwarn):
+    from concurrent.futures import ThreadPoolExecutor
 
-
-def test_resolve_backend_scheduler_no_warn_for_dask_string(recwarn):
-    resolve_backend("dask", scheduler="synchronous")
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        resolved = _resolve_backend("futures", scheduler=pool)
+        assert resolved.pool is pool
     assert not any("ignored" in str(w.message) for w in recwarn)
+
+
+def test_resolve_backend_futures_rejects_non_executor_scheduler():
+    with pytest.raises(TypeError, match="concurrent.futures.Executor"):
+        _resolve_backend("futures", scheduler="threads")
+
+
+def test_resolve_backend_scheduler_ignored_with_warning():
+    with pytest.warns(UserWarning, match="ignored by IterativeBackend"):
+        _resolve_backend("iterative", scheduler="synchronous")
+    inst = DaskBackend(scheduler="threads")
+    with pytest.warns(UserWarning, match="already sets scheduler='threads'"):
+        assert _resolve_backend(inst, scheduler="synchronous") is inst
+
+
+def test_scheduler_warning_points_at_the_caller(tmp_path):
+    dgs = _multi_file_fileset(tmp_path)
+    with pytest.warns(UserWarning, match="ignored by IterativeBackend") as record:
+        preprocess(
+            dgs, step_size=7, save_form=False, backend="iterative", scheduler="x"
+        )
+    assert all(w.filename == __file__ for w in record if "ignored" in str(w.message))
+
+
+def test_registered_backend_receives_scheduler(tmp_path, monkeypatch):
+    """A backend class registered by name that declares a scheduler_field gets the
+    scheduler argument of preprocess on that field."""
+    from dataclasses import dataclass
+    from typing import ClassVar
+
+    seen = {}
+
+    @dataclass
+    class _RecordingBackend(IterativeBackend):
+        scheduler_field: ClassVar[str | None] = "executor"
+        executor: object = None
+
+        def submit(self, jobs):
+            seen["executor"] = self.executor
+            return super().submit(jobs)
+
+    monkeypatch.setitem(backends_mod._BACKENDS, "recording", _RecordingBackend)
+    marker = object()
+    dgs = _multi_file_fileset(tmp_path)
+    preprocess(dgs, step_size=7, save_form=False, backend="recording", scheduler=marker)
+    assert seen["executor"] is marker
 
 
 # --------------------------------------------------------------------------------------
@@ -223,7 +302,7 @@ def test_worker_modulenotfound_does_not_trigger_dask_hint(tmp_path, monkeypatch)
         lambda: called.__setitem__("hint", True),
     )
     monkeypatch.setattr(
-        preprocess_mod, "resolve_backend", lambda b, s=None: _FakeDaskBackend()
+        preprocess_mod, "_resolve_backend", lambda b, s=None: _FakeDaskBackend()
     )
 
     dgs = _multi_file_fileset(tmp_path)
@@ -369,7 +448,7 @@ def test_futures_default_workers_uses_executor_default():
     """FuturesBackend defaults workers to None, deferring pool sizing to the executor
     (parallel by default), including via the string selector."""
     assert FuturesBackend().workers is None
-    assert resolve_backend("futures").workers is None
+    assert _resolve_backend("futures").workers is None
 
 
 def test_futures_string_backend_matches_iterative(tmp_path):
