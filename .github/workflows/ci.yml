@@ -139,13 +139,13 @@ jobs:
         python -m pytest --cov-report=xml --cov=coffea --ignore=tests/test_taskvine_dask.py --ignore=tests/test_taskvine_virtual.py -m "not dask_client" -n 4
     - name: Upload codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
-      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+      uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
     - name: Install graphviz
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
       uses: ts-graphviz/setup-graphviz@b1de5da23ed0a6d14e0aeee8ed52fdd87af2363c # v2.0.2
     - name: Install pandoc
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
-      uses: r-lib/actions/setup-pandoc@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2.13.0
+      uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
     - name: Install documentation dependencies
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
       run: |
