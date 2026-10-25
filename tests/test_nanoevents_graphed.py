@@ -256,6 +256,15 @@ def test_recorded_form_equals_the_dask_meta_form(tests_directory):
     assert events.session.form(events).tt.layout.form == meta.layout.form
 
 
+def test_an_rntuple_records_without_a_saved_form(tests_directory):
+    # uproot's RNTuple base form carries no __doc__ or typename parameters.
+    path = os.path.join(tests_directory, "samples", "nano_dy_rntuple.root")
+    events = _factory(path, NanoAODSchema, "graphed").events()
+    ttree = _factory(path.replace("_rntuple", ""), NanoAODSchema, "graphed").events()
+    assert sorted(events.fields) == sorted(ttree.fields)
+    assert sorted(events.Muon.fields) == sorted(ttree.Muon.fields)
+
+
 def test_a_string_file_takes_its_tree_from_treepath(tests_directory):
     path = os.path.join(tests_directory, "samples", "nano_dy.root")
     events = NanoEventsFactory.from_root(

@@ -167,15 +167,15 @@ class _map_schema_uproot(_map_schema_base):
             branch_forms[field] = _lazify_form(
                 iform,
                 f"{field},!load",
-                docstr=iform["parameters"]["__doc__"],
-                typestr=iform["parameters"]["typename"],
+                docstr=iform["parameters"].get("__doc__"),
+                typestr=iform["parameters"].get("typename"),
             )
         lform = {
             "class": "RecordArray",
             "contents": [item for item in branch_forms.values()],
             "fields": [key for key in branch_forms.keys()],
             "parameters": {
-                "__doc__": form.parameters["__doc__"],
+                "__doc__": form.parameters.get("__doc__"),
                 "metadata": self.metadata,
             },
             "form_key": None,
