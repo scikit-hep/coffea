@@ -36,8 +36,8 @@ from coffea.dataset_tools.preprocess_backends import (
     DaskBackend,
     PreprocessBackend,
     PreprocessJob,
+    _resolve_backend,
     print_dask_backend_fallback_hint,
-    resolve_backend,
 )
 from coffea.util import (
     _import_dask,
@@ -934,12 +934,12 @@ def preprocess_root(
     skip_bad_files: bool = False,
     file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
     save_form: bool = True,
-    scheduler: None | Callable | str = None,
+    scheduler: object = None,
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
     mode: str = "dask",
-    backend: str | PreprocessBackend = "dask",
+    backend: str | PreprocessBackend | None = None,
     require_rntuple: bool = False,
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
@@ -969,8 +969,10 @@ def preprocess_root(
             What exceptions to catch when skipping bad files.
         save_form : bool, default True
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
-        scheduler : None or Callable or str, default None
-            Specifies the scheduler that dask should use to execute the preprocessing task graph.
+        scheduler : None or str or Callable or concurrent.futures.Executor, default None
+            Set on the backend's ``scheduler_field``: a dask scheduler for the dask backend, a
+            concurrent.futures.Executor (or a callable returning one) for the futures backend.
+            Ignored, with a warning, by the iterative backend.
             In graphed mode, a graphed executor (an object with ``run(plan)``); None means
             ``graphed.core.execution.SequentialRunner``.
         uproot_options : dict, default {}
@@ -984,10 +986,11 @@ def preprocess_root(
         mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
             The output is the same; graphed mode needs neither dask nor dask_awkward.
-        backend : str or PreprocessBackend, default "dask"
-            Execution backend for preprocessing: "dask" (default), "iterative" (immediate,
-            synchronous, dask-free), "futures" (dask-free concurrent.futures thread pool), or a
-            PreprocessBackend instance. The ``scheduler`` argument only affects the dask backend.
+        backend : str or PreprocessBackend or None, default None
+            Execution backend for preprocessing (experimental): "dask", "iterative" (immediate,
+            synchronous, dask-free), "futures" (dask-free concurrent.futures pool), or a
+            PreprocessBackend instance. None selects "dask" when dask and dask-awkward are
+            importable and "iterative" otherwise.
         require_rntuple : bool, default False
             If True, require every dataset to be ROOT-format and every object to be an RNTuple.
             A parquet dataset raises a ValueError; a TTree object raises a ValueError inside the
@@ -1046,12 +1049,12 @@ def preprocess_parquet(
     skip_bad_files: bool = False,
     file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
     save_form: bool = True,
-    scheduler: None | Callable | str = None,
+    scheduler: object = None,
     parquet_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
     mode: str = "dask",
-    backend: str | PreprocessBackend = "dask",
+    backend: str | PreprocessBackend | None = None,
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Given a list of normalized files, determine the form, steps, and add the metadata for each file according to the supplied processing options.
@@ -1073,8 +1076,10 @@ def preprocess_parquet(
             What exceptions to catch when skipping bad files.
         save_form : bool, default True
             Extract the form of each file in each dataset, creating the union of the forms over the dataset.
-        scheduler : None | Callable | str, default None
-            Specifies the scheduler that dask should use to execute the preprocessing task graph.
+        scheduler : None or str or Callable or concurrent.futures.Executor, default None
+            Set on the backend's ``scheduler_field``: a dask scheduler for the dask backend, a
+            concurrent.futures.Executor (or a callable returning one) for the futures backend.
+            Ignored, with a warning, by the iterative backend.
             In graphed mode, a graphed executor (an object with ``run(plan)``); None means
             ``graphed.core.execution.SequentialRunner``.
         parquet_options : dict, default {}
@@ -1088,10 +1093,11 @@ def preprocess_parquet(
         mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
             The output is the same; graphed mode needs neither dask nor dask_awkward.
-        backend : str or PreprocessBackend, default "dask"
-            Execution backend for preprocessing: "dask" (default), "iterative" (immediate,
-            synchronous, dask-free), "futures" (dask-free concurrent.futures thread pool), or a
-            PreprocessBackend instance. The ``scheduler`` argument only affects the dask backend.
+        backend : str or PreprocessBackend or None, default None
+            Execution backend for preprocessing (experimental): "dask", "iterative" (immediate,
+            synchronous, dask-free), "futures" (dask-free concurrent.futures pool), or a
+            PreprocessBackend instance. None selects "dask" when dask and dask-awkward are
+            importable and "iterative" otherwise.
     Returns
     -------
         out_available : DataGroupSpec
@@ -1126,13 +1132,13 @@ def _preprocess_pydantic(
     skip_bad_files: bool = False,
     file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
     save_form: bool = True,
-    scheduler: None | Callable | str = None,
+    scheduler: object = None,
     filetype_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
     mode: str = "dask",
     require_rntuple: bool = False,
-    backend: str | PreprocessBackend = "dask",
+    backend: str | PreprocessBackend | None = None,
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Internal function to preprocess either ROOT or parquet DatasetSpecs in a DataGroupSpec.
@@ -1159,8 +1165,12 @@ def _preprocess_pydantic(
             Exceptions to catch when skip_bad_files is True.
         save_form : bool, default True
             Extract and compute the union form across files in each dataset.
-        scheduler : None or Callable or str, default None
-            Dask scheduler, or graphed executor in graphed mode, to use for preprocessing.
+        scheduler : None or str or Callable or concurrent.futures.Executor, default None
+            Set on the backend's ``scheduler_field``: a dask scheduler for the dask backend, a
+            concurrent.futures.Executor (or a callable returning one) for the futures backend.
+            Ignored, with a warning, by the iterative backend.
+            In graphed mode, a graphed executor (an object with ``run(plan)``); None means
+            ``graphed.core.execution.SequentialRunner``.
         filetype_options : dict, default {}
             Options passed to uproot (for ROOT) or awkward (for parquet) when opening files.
         step_size_safety_factor : float, default 0.5
@@ -1170,11 +1180,11 @@ def _preprocess_pydantic(
         mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
             The output is the same; graphed mode needs neither dask nor dask_awkward.
-        backend : str or PreprocessBackend, default "dask"
-            Execution backend for the per-dataset map-reduce. One of "dask" (default),
-            "iterative" (immediate, synchronous, dask-free), "futures" (a dask-free
-            concurrent.futures thread pool), or a PreprocessBackend instance for full control.
-            ``scheduler`` only affects the dask backend.
+        backend : str or PreprocessBackend or None, default None
+            Execution backend for preprocessing (experimental): "dask", "iterative" (immediate,
+            synchronous, dask-free), "futures" (dask-free concurrent.futures pool), or a
+            PreprocessBackend instance. None selects "dask" when dask and dask-awkward are
+            importable and "iterative" otherwise.
 
     Returns
     -------
@@ -1256,7 +1266,7 @@ def _preprocess_pydantic(
             array=ak_norm_files, map_fn=map_fn, files_per_batch=files_per_batch
         )
 
-    backend_obj = resolve_backend(backend, scheduler)
+    backend_obj = _resolve_backend(backend, scheduler)
     # Only submit() imports dask (for the dask backend); a ModuleNotFoundError here means the
     # dask stack itself is missing, so we can point the user at the dask-free backends. Worker
     # ImportErrors (e.g. a missing codec) surface later in result() and must NOT trigger the
@@ -1398,7 +1408,7 @@ def preprocess(
     skip_bad_files: bool = False,
     file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
     save_form: None | bool = None,
-    scheduler: None | Callable | str = None,
+    scheduler: object = None,
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
@@ -1406,7 +1416,7 @@ def preprocess(
     use_row_groups: bool = False,
     parquet_options: dict = {},
     mode: str = "dask",
-    backend: str | PreprocessBackend = "dask",
+    backend: str | PreprocessBackend | None = None,
 ) -> tuple[DataGroupSpec, DataGroupSpec] | tuple[dict, dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -1437,8 +1447,10 @@ def preprocess(
             Extract the form of each file in each dataset, creating the union of the forms over the dataset.
             When None (the default), the pydantic preprocessing path uses True and the legacy path
             (preprocess_legacy_root=True) uses False, preserving each path's historical default.
-        scheduler : None or Callable or str, default None
-            Specifies the scheduler that dask should use to execute the preprocessing task graph.
+        scheduler : None or str or Callable or concurrent.futures.Executor, default None
+            Set on the backend's ``scheduler_field``: a dask scheduler for the dask backend, a
+            concurrent.futures.Executor (or a callable returning one) for the futures backend.
+            Ignored, with a warning, by the iterative backend.
             In graphed mode, a graphed executor (an object with ``run(plan)``); None means
             ``graphed.core.execution.SequentialRunner``.
         uproot_options : dict, default {}
@@ -1459,11 +1471,11 @@ def preprocess(
         mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
             The output is the same; graphed mode needs neither dask nor dask_awkward.
-        backend : str or PreprocessBackend, default "dask"
-            Execution backend for preprocessing: "dask" (default), "iterative" (immediate,
-            synchronous, dask-free), "futures" (dask-free concurrent.futures thread pool), or a
-            PreprocessBackend instance. The ``scheduler`` argument only affects the dask backend.
-            Ignored when ``preprocess_legacy_root=True`` (the legacy path is always dask-based).
+        backend : str or PreprocessBackend or None, default None
+            Execution backend for preprocessing (experimental): "dask", "iterative" (immediate,
+            synchronous, dask-free), "futures" (dask-free concurrent.futures pool), or a
+            PreprocessBackend instance. None selects "dask" when dask and dask-awkward are
+            importable and "iterative" otherwise.
     Returns
     -------
         out_available : DataGroupSpec | dict
@@ -1528,7 +1540,7 @@ def preprocess(
                 )
         # Resolve the backend once so warnings (e.g. an ignored scheduler) are emitted a single
         # time even for mixed root+parquet filesets, which dispatch to two sub-calls below.
-        backend = resolve_backend(backend, scheduler)
+        backend = _resolve_backend(backend, scheduler)
         scheduler = None
         # split datasetspecs into uproot and parquet files, keeping track of original order
         original_order = list(datasetspecs.keys())
