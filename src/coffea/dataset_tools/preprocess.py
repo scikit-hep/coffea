@@ -6,7 +6,6 @@ import inspect
 import json
 import math
 import warnings
-from collections.abc import Callable
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -560,6 +559,26 @@ def _compute_steps(
     return all_processed_files
 
 
+def _run_preprocess_jobs(
+    jobs: dict[str, PreprocessJob],
+    backend: str | PreprocessBackend | None,
+    scheduler: object,
+) -> dict[str, awkward.Array]:
+    """Run ``jobs`` on the selected backend and return ``{dataset_name: processed records}``."""
+    backend_obj = _resolve_backend(backend, scheduler)
+    # DaskBackend.submit imports dask, so a ModuleNotFoundError raised there means the dask stack
+    # is missing and the dask-free backends are worth pointing at. Worker import errors surface
+    # from result() (from submit() for the iterative backend, which runs eagerly) and are not
+    # about dask, so the hint is limited to the dask backend's submit().
+    try:
+        preprocess_task = backend_obj.submit(jobs)
+    except ModuleNotFoundError:
+        if isinstance(backend_obj, DaskBackend):
+            print_dask_backend_fallback_hint()
+        raise
+    return preprocess_task.result()
+
+
 def preprocess_legacy(
     fileset: dict,
     step_size: None | int = None,
@@ -569,11 +588,12 @@ def preprocess_legacy(
     skip_bad_files: bool = False,
     file_exceptions: Exception | Warning | tuple[Exception | Warning] = (OSError,),
     save_form: bool = False,
-    scheduler: None | Callable | str = None,
+    scheduler: object = None,
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
     mode: str = "dask",
+    backend: str | PreprocessBackend | None = None,
 ) -> tuple[dict, dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -592,15 +612,17 @@ def preprocess_legacy(
             instead of only recalculating the steps if the uuid has changed.
         files_per_batch : int, default 1
             The number of files to preprocess in a single batch.
-            Large values will result in fewer dask tasks but each task will have to do more work.
+            Large values will result in fewer tasks but each task will have to do more work.
         skip_bad_files : bool, default False
             Instead of failing, catch exceptions specified by file_exceptions and return null data.
         file_exceptions : Exception | Warning | tuple[Exception | Warning], default (OSError,)
             What exceptions to catch when skipping bad files.
         save_form : bool, default False
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
-        scheduler : None | Callable | str, default None
-            Specifies the scheduler that dask should use to execute the preprocessing task graph.
+        scheduler : None or str or Callable or concurrent.futures.Executor, default None
+            Set on the backend's ``scheduler_field``: a dask scheduler for the dask backend, a
+            concurrent.futures.Executor (or a callable returning one) for the futures backend.
+            Ignored, with a warning, by the iterative backend.
             In graphed mode, a graphed executor (an object with ``run(plan)``); None means
             ``graphed.core.execution.SequentialRunner``.
         uproot_options : dict, default {}
@@ -614,6 +636,11 @@ def preprocess_legacy(
         mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
             The output is the same; graphed mode needs neither dask nor dask_awkward.
+        backend : str or PreprocessBackend or None, default None
+            Execution backend for preprocessing (experimental): "dask", "iterative" (immediate,
+            synchronous, dask-free), "futures" (dask-free concurrent.futures pool), or a
+            PreprocessBackend instance. None selects "dask" when dask and dask-awkward are
+            importable and "iterative" otherwise.
     Returns
     -------
         out_available : dict
@@ -627,7 +654,7 @@ def preprocess_legacy(
     out_available = copy.deepcopy(fileset)
 
     all_ak_norm_files = {}
-    steps_fns = {}
+    jobs = {}
     for name, info in fileset.items():
         norm_files = _normalize_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
@@ -636,7 +663,8 @@ def preprocess_legacy(
             {field: ak_norm_files[str(ifield)] for ifield, field in enumerate(fields)}
         )
         all_ak_norm_files[name] = ak_norm_files
-        steps_fns[name] = partial(
+
+        map_fn = partial(
             get_steps,
             step_size=step_size,
             align_clusters=align_clusters,
@@ -649,10 +677,11 @@ def preprocess_legacy(
             uproot_options=uproot_options,
             mode=mode,
         )
+        jobs[name] = PreprocessJob(
+            array=ak_norm_files, map_fn=map_fn, files_per_batch=files_per_batch
+        )
 
-    all_processed_files = _compute_steps(
-        all_ak_norm_files, steps_fns, files_per_batch, scheduler, mode
-    )
+    all_processed_files = _run_preprocess_jobs(jobs, backend, scheduler)
 
     for name, processed_files in all_processed_files.items():
 
@@ -704,7 +733,9 @@ def preprocess_legacy(
 
         union_form_jsonstr = _union_form_jsonstr(dataset_forms)
 
-        files_available = {
+        # Skipped files come back as None rows, so outputs are matched to the inputs by
+        # filename, in input order; the backend's reduction order does not matter.
+        available_by_file = {
             item["file"]: {
                 "object_path": item["object_path"],
                 "steps": item["steps"],
@@ -713,18 +744,24 @@ def preprocess_legacy(
             }
             for item in awkward.drop_none(processed_files_without_forms).to_list()
         }
-
-        files_out = {}
-        for proc_item, orig_item in zip(
-            processed_files_without_forms.to_list(), all_ak_norm_files[name].to_list()
-        ):
-            item = orig_item if proc_item is None else proc_item
-            files_out[item["file"]] = {
-                "object_path": item["object_path"],
-                "steps": item["steps"],
-                "num_entries": item["num_entries"],
-                "uuid": item["uuid"],
-            }
+        orig_items = all_ak_norm_files[name].to_list()
+        files_available = {
+            item["file"]: available_by_file[item["file"]]
+            for item in orig_items
+            if item["file"] in available_by_file
+        }
+        files_out = {
+            item["file"]: available_by_file.get(
+                item["file"],
+                {
+                    "object_path": item["object_path"],
+                    "steps": item["steps"],
+                    "num_entries": item["num_entries"],
+                    "uuid": item["uuid"],
+                },
+            )
+            for item in orig_items
+        }
 
         if "files" in out_updated[name]:
             out_updated[name]["files"] = files_out
@@ -1266,18 +1303,7 @@ def _preprocess_pydantic(
             array=ak_norm_files, map_fn=map_fn, files_per_batch=files_per_batch
         )
 
-    backend_obj = _resolve_backend(backend, scheduler)
-    # Only submit() imports dask (for the dask backend); a ModuleNotFoundError here means the
-    # dask stack itself is missing, so we can point the user at the dask-free backends. Worker
-    # ImportErrors (e.g. a missing codec) surface later in result() and must NOT trigger the
-    # dask hint, so result() is called outside this guard.
-    try:
-        preprocess_task = backend_obj.submit(jobs)
-    except ModuleNotFoundError:
-        if isinstance(backend_obj, DaskBackend):
-            print_dask_backend_fallback_hint()
-        raise
-    all_processed_files = preprocess_task.result()
+    all_processed_files = _run_preprocess_jobs(jobs, backend, scheduler)
 
     for name, processed_files in all_processed_files.items():
 
@@ -1511,6 +1537,7 @@ def preprocess(
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
             mode=mode,
+            backend=backend,
         )
     else:
         # the pydantic path historically defaulted to save_form=True
