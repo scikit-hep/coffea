@@ -32,8 +32,8 @@ A ``Backend`` turns a "computable" into a future-like ``Task`` (``result`` / ``p
 
 Ordering is not load-bearing for correctness: the reduction concatenates per-batch results, and
 the concrete backends happen to preserve submission order, but the downstream post-processing
-assembles its outputs *by filename* (see ``_preprocess_pydantic``), so a backend is free to
-reduce in any order.
+(``_preprocess_pydantic`` and ``preprocess_legacy``) matches its outputs to the input files *by
+filename*, so a backend is free to reduce in any order.
 """
 
 from __future__ import annotations

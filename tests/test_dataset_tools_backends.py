@@ -397,7 +397,7 @@ def test_step_size_zero_or_negative_raises(tmp_path):
 
 
 def test_step_size_zero_raises_in_legacy_path():
-    """The legacy path validates step_size too, before importing dask or opening files."""
+    """The legacy path validates step_size too, before opening any file."""
     from coffea.dataset_tools import preprocess_legacy
 
     with pytest.raises(ValueError, match="step_size must be a positive integer"):
@@ -541,3 +541,115 @@ def test_workers_validate_step_size():
             get_steps(normed, step_size=bad)
         with pytest.raises(ValueError, match="step_size must be a positive integer"):
             get_parquet_form_uuid_steps(normed, step_size=bad)
+
+
+# --------------------------------------------------------------------------------------
+# legacy dict path runs on the same backends
+# --------------------------------------------------------------------------------------
+
+
+def _legacy_fileset(tmp_path):
+    src = "tests/samples/nano_dy.root"
+    copy = tmp_path / "nano_dy_copy.root"
+    shutil.copy(src, copy)
+    return {"ZJets": {"files": {src: "Events", str(copy): "Events"}}}
+
+
+def _decoded_forms(out):
+    """Legacy outputs with each dataset's compressed form replaced by its decoded JSON."""
+    from coffea.util import decompress_form
+
+    return {
+        name: {**ds, "form": decompress_form(ds["form"]) if ds["form"] else None}
+        for name, ds in out.items()
+    }
+
+
+def test_legacy_backends_agree(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from coffea.dataset_tools import preprocess_legacy
+
+    fileset = _legacy_fileset(tmp_path)
+    kwargs = dict(step_size=7, save_form=True)
+    a_iter, u_iter = preprocess_legacy(fileset, backend="iterative", **kwargs)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        a_fut, u_fut = preprocess_legacy(
+            fileset, backend="futures", scheduler=pool, **kwargs
+        )
+    assert _decoded_forms(a_fut) == _decoded_forms(a_iter)
+    assert _decoded_forms(u_fut) == _decoded_forms(u_iter)
+    assert a_iter["ZJets"]["form"] is not None
+    if importlib.util.find_spec("dask_awkward") is not None:
+        a_dask, u_dask = preprocess_legacy(
+            fileset, backend="dask", scheduler="synchronous", **kwargs
+        )
+        assert _decoded_forms(a_dask) == _decoded_forms(a_iter)
+        assert _decoded_forms(u_dask) == _decoded_forms(u_iter)
+
+
+class _ReversingBackend(IterativeBackend):
+    """Returns each dataset's batches in reverse order."""
+
+    def submit(self, jobs):
+        return backends_mod._CompletedTask(
+            {
+                name: backends_mod._ordered_concat(
+                    [
+                        job.map_fn(batch)
+                        for batch in backends_mod._iter_batches(
+                            job.array, job.files_per_batch
+                        )
+                    ][::-1]
+                )
+                for name, job in jobs.items()
+            }
+        )
+
+
+def test_legacy_skipped_bad_file_matched_by_filename(tmp_path):
+    """Outputs are matched to input files by name, in input order, whatever order the
+    backend returns the per-file records in."""
+    from coffea.dataset_tools import preprocess_legacy
+
+    good = "tests/samples/nano_dy.root"
+    bad = str(tmp_path / "does_not_exist.root")
+    fileset = {"ZJets": {"files": {bad: "Events", good: "Events"}}}
+    available, updated = preprocess_legacy(
+        fileset, step_size=20, skip_bad_files=True, backend=_ReversingBackend()
+    )
+    assert list(updated["ZJets"]["files"]) == [bad, good]
+    assert updated["ZJets"]["files"][bad]["num_entries"] is None
+    assert updated["ZJets"]["files"][good]["num_entries"] == 40
+    assert list(available["ZJets"]["files"]) == [good]
+
+
+def test_preprocess_legacy_root_uses_the_given_backend(tmp_path):
+    submitted = []
+
+    class _RecordingBackend(IterativeBackend):
+        def submit(self, jobs):
+            submitted.append(sorted(jobs))
+            return super().submit(jobs)
+
+    available, _ = preprocess(
+        _legacy_fileset(tmp_path),
+        step_size=7,
+        preprocess_legacy_root=True,
+        backend=_RecordingBackend(),
+    )
+    assert submitted == [["ZJets"]]
+    assert len(available["ZJets"]["files"]) == 2
+
+
+def test_legacy_default_backend_runs_without_dask(tmp_path, monkeypatch):
+    from coffea.dataset_tools import preprocess_legacy
+
+    _hide_dask(monkeypatch)
+
+    def _no_dask():
+        raise ModuleNotFoundError("no dask here")
+
+    monkeypatch.setattr(backends_mod, "_import_dask", _no_dask)
+    available, _ = preprocess_legacy(_legacy_fileset(tmp_path), step_size=7)
+    assert len(available["ZJets"]["files"]) == 2
