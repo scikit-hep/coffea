@@ -1,18 +1,24 @@
-"""Switchable execution backends for pydantic preprocessing.
+"""Switchable execution backends for preprocessing (experimental; the interface may change).
 
-Preprocessing a :class:`~coffea.dataset_tools.filespec.DataGroupSpec` is, per dataset, an
-ordered map-reduce: a worker (``get_steps`` / ``get_parquet_form_uuid_steps``) is mapped over
-batches of normalized file records and the resulting awkward arrays are concatenated. This
-module factors that map-reduce out from :func:`coffea.dataset_tools.preprocess._preprocess_pydantic`
-behind a small backend interface so the same worker can run on:
+Preprocessing a fileset is, per dataset, an ordered map-reduce: a worker (``get_steps`` /
+``get_parquet_form_uuid_steps``) is mapped over batches of normalized file records and the
+resulting awkward arrays are concatenated. This module factors that map-reduce out of
+:func:`coffea.dataset_tools.preprocess._preprocess_pydantic` and
+:func:`coffea.dataset_tools.preprocess.preprocess_legacy` behind a small backend interface so the
+same worker can run on:
 
-- :class:`DaskBackend` -- the default: ``dask_awkward.map_partitions`` + an
-  ``AwkwardTreeReductionLayer`` + ``dask.compute``. This backend builds and executes a dask
-  task graph to orchestrate the map-reduce.
+- :class:`DaskBackend` -- ``dask_awkward.map_partitions`` + an ``AwkwardTreeReductionLayer`` +
+  ``dask.compute``. This backend builds and executes a dask task graph to orchestrate the
+  map-reduce.
 - :class:`IterativeBackend` -- immediate (synchronous, single process) execution, mirroring
   coffea's ``IterativeExecutor``.
 - :class:`FuturesBackend` -- a :mod:`concurrent.futures` pool, threads by default (preprocessing
   is IO-bound) with an opt-in process pool (mirrors ``FuturesExecutor``).
+
+Without an explicit backend, ``"dask"`` is used when dask and dask-awkward are importable and
+``"iterative"`` otherwise. A ``scheduler`` argument is handed to the backend field named by its
+class's ``scheduler_field`` (``DaskBackend.scheduler``, ``FuturesBackend.pool``); backends without
+one ignore it with a warning.
 
 The iterative and futures backends do not build a dask *task graph* for orchestration, and they
 are dask-free for parquet input and for ROOT input of either flavor. ROOT form extraction
@@ -32,7 +38,9 @@ reduce in any order.
 
 from __future__ import annotations
 
+import importlib.util
 import math
+import sys
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping
@@ -40,7 +48,7 @@ from concurrent.futures import Executor, Future, ProcessPoolExecutor, ThreadPool
 from concurrent.futures import wait as futures_wait
 from dataclasses import dataclass, replace
 from functools import partial
-from typing import Protocol, runtime_checkable
+from typing import ClassVar, Protocol, runtime_checkable
 
 import awkward
 
@@ -53,12 +61,10 @@ __all__ = [
     "IterativeBackend",
     "FuturesBackend",
     "DaskBackend",
-    "ordered_concat",
-    "resolve_backend",
 ]
 
 
-def ordered_concat(parts: Iterable[awkward.Array | None]) -> awkward.Array | None:
+def _ordered_concat(parts: Iterable[awkward.Array | None]) -> awkward.Array | None:
     """Concatenate mapped outputs, preserving input order.
 
     ``None`` parts are dropped. Returns ``None`` if nothing remains. This is the reduction step
@@ -130,7 +136,13 @@ class PreprocessTask(Protocol):
 
 
 class PreprocessBackend(ABC):
-    """Base class for preprocessing execution backends."""
+    """Base class for preprocessing execution backends.
+
+    A subclass that accepts the ``scheduler`` argument of the ``preprocess*`` functions names the
+    dataclass field that receives it in ``scheduler_field``; ``None`` means it takes none.
+    """
+
+    scheduler_field: ClassVar[str | None] = None
 
     @abstractmethod
     def submit(self, jobs: Mapping[str, PreprocessJob]) -> PreprocessTask:
@@ -173,7 +185,7 @@ class IterativeBackend(PreprocessBackend):
                 job.map_fn(batch)
                 for batch in _iter_batches(job.array, job.files_per_batch)
             ]
-            results[name] = ordered_concat(parts)
+            results[name] = _ordered_concat(parts)
         return _CompletedTask(results)
 
 
@@ -207,7 +219,7 @@ class _FuturesTask:
             for name, futs in self._name_to_futures.items():
                 # .result() re-raises worker exceptions here; ordering follows submission
                 parts = [fut.result() for fut in futs]
-                results[name] = ordered_concat(parts)
+                results[name] = _ordered_concat(parts)
         except BaseException:
             # fail fast: cancel batches that have not started so a fatal error does not wait
             # for the rest of the fileset to be processed
@@ -230,7 +242,7 @@ class _FuturesTask:
                 for fut in futs
                 if fut.done() and not fut.cancelled() and fut.exception() is None
             ]
-            merged = ordered_concat(done_parts)
+            merged = _ordered_concat(done_parts)
             if merged is not None:
                 results[name] = merged
         return results
@@ -265,12 +277,24 @@ class FuturesBackend(PreprocessBackend):
         pool : concurrent.futures.Executor or Callable, optional
             An existing executor instance to reuse (left open by this backend), or a callable
             (e.g. an ``Executor`` subclass) invoked as ``pool(max_workers=workers)``. Overrides
-            ``use_processes`` when given.
+            ``use_processes`` when given. This is the field the ``scheduler`` argument of the
+            ``preprocess*`` functions fills.
     """
+
+    scheduler_field: ClassVar[str | None] = "pool"
 
     workers: int | None = None
     use_processes: bool = False
     pool: Executor | Callable[..., Executor] | None = None
+
+    def __post_init__(self):
+        if self.pool is not None and not (
+            isinstance(self.pool, Executor) or callable(self.pool)
+        ):
+            raise TypeError(
+                "FuturesBackend.pool must be a concurrent.futures.Executor or a callable "
+                f"returning one, not {self.pool!r}"
+            )
 
     def _make_pool(self) -> tuple[Executor, bool]:
         if isinstance(self.pool, Executor):
@@ -323,7 +347,7 @@ class _DaskTask:
 
 @dataclass
 class DaskBackend(PreprocessBackend):
-    """Execute preprocessing as a dask-awkward task graph (the default).
+    """Execute preprocessing as a dask-awkward task graph.
 
     Per dataset this builds ``from_awkward`` -> ``map_partitions`` -> ``AwkwardTreeReductionLayer``
     and lets a single ``dask.compute`` materialize all datasets together.
@@ -331,10 +355,13 @@ class DaskBackend(PreprocessBackend):
     Parameters
     ----------
         scheduler : None or Callable or str, default None
-            Passed through to ``dask.compute``.
+            Passed through to ``dask.compute``. This is the field the ``scheduler`` argument of
+            the ``preprocess*`` functions fills.
         split_every : int, default 8
             Fan-in of the tree reduction that concatenates per-batch results.
     """
+
+    scheduler_field: ClassVar[str | None] = "scheduler"
 
     scheduler: None | Callable | str = None
     split_every: int = 8
@@ -394,48 +421,77 @@ class DaskBackend(PreprocessBackend):
         return _DaskTask(collections, self.scheduler)
 
 
-def resolve_backend(
+_BACKENDS: dict[str, type[PreprocessBackend]] = {
+    "dask": DaskBackend,
+    "iterative": IterativeBackend,
+    "futures": FuturesBackend,
+}
+
+
+def _default_backend_name() -> str:
+    """``"dask"`` when dask and dask-awkward are importable, ``"iterative"`` otherwise."""
+    if all(importlib.util.find_spec(m) is not None for m in ("dask", "dask_awkward")):
+        return "dask"
+    return "iterative"
+
+
+def _external_stacklevel() -> int:
+    """The ``stacklevel`` that attributes a warning to the first frame outside dataset_tools.
+
+    Counts from the frame that calls this helper (``stacklevel=1`` for a warning issued there).
+    """
+    frame = sys._getframe(1)
+    level = 1
+    while frame is not None and frame.f_globals.get("__name__", "").startswith(
+        "coffea.dataset_tools"
+    ):
+        frame = frame.f_back
+        level += 1
+    return level
+
+
+def _resolve_backend(
     backend: str | PreprocessBackend | None,
-    scheduler: None | Callable | str = None,
+    scheduler: object = None,
 ) -> PreprocessBackend:
     """Turn a ``backend`` selector into a :class:`PreprocessBackend` instance.
 
-    ``backend`` may be an existing :class:`PreprocessBackend`, or one of the strings ``"dask"``
-    (default), ``"iterative"``, or ``"futures"``. ``scheduler`` is forwarded to a
-    default-constructed :class:`DaskBackend`, and is injected into a passed :class:`DaskBackend`
-    instance whose own ``scheduler`` is unset (a copy is returned; the instance is not mutated).
-    If ``scheduler`` is set while a non-dask backend is selected, or the :class:`DaskBackend`
-    instance already carries its own scheduler, a warning is issued because the argument has no
-    effect there.
+    ``backend`` is a :class:`PreprocessBackend` instance, a name registered in ``_BACKENDS``, or
+    ``None`` for :func:`_default_backend_name`. A ``scheduler`` is set on the backend's
+    ``scheduler_field``; a passed instance is copied rather than mutated. It is ignored, with a
+    warning, when the backend has no such field or a passed instance already sets it.
     """
-    if isinstance(backend, PreprocessBackend):
-        if scheduler is not None:
-            if isinstance(backend, DaskBackend) and backend.scheduler is None:
-                return replace(backend, scheduler=scheduler)
-            warnings.warn(
-                "The 'scheduler' argument is ignored when a PreprocessBackend instance "
-                "carries its own execution configuration; set it on the instance, e.g. "
-                "DaskBackend(scheduler=...).",
-                stacklevel=2,
+    if backend is None:
+        backend = _default_backend_name()
+    if isinstance(backend, str):
+        if backend not in _BACKENDS:
+            raise ValueError(
+                f"Unknown preprocessing backend {backend!r}; expected one of "
+                f"{sorted(_BACKENDS)} or a PreprocessBackend instance."
             )
-        return backend
-
-    if backend is None or backend == "dask":
-        return DaskBackend(scheduler=scheduler)
-
-    if scheduler is not None:
-        warnings.warn(
-            "The 'scheduler' argument only affects the dask backend and is ignored here.",
-            stacklevel=2,
+        backend = _BACKENDS[backend]()
+    elif not isinstance(backend, PreprocessBackend):
+        raise TypeError(
+            f"backend must be a string, a PreprocessBackend or None, not {backend!r}"
         )
-    if backend == "iterative":
-        return IterativeBackend()
-    if backend == "futures":
-        return FuturesBackend()
-    raise ValueError(
-        f"Unknown preprocessing backend {backend!r}; expected 'dask', 'iterative', "
-        "'futures', or a PreprocessBackend instance."
-    )
+
+    if scheduler is None:
+        return backend
+    field = type(backend).scheduler_field
+    if field is None:
+        warnings.warn(
+            f"The 'scheduler' argument is ignored by {type(backend).__name__}.",
+            stacklevel=_external_stacklevel(),
+        )
+        return backend
+    if getattr(backend, field) is not None:
+        warnings.warn(
+            f"The 'scheduler' argument is ignored because this {type(backend).__name__} "
+            f"already sets {field}={getattr(backend, field)!r}.",
+            stacklevel=_external_stacklevel(),
+        )
+        return backend
+    return replace(backend, **{field: scheduler})
 
 
 def print_dask_backend_fallback_hint() -> None:
