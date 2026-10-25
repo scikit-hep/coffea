@@ -18,13 +18,15 @@ import uproot
 from uproot._util import no_filter
 
 try:
-    # Private uproot helper that builds a TTree's awkward form without dask. It is exactly what
-    # uproot.dask() uses internally, so the result is byte-identical to
-    # uproot.dask(tree).layout.form. Guarded so a uproot release that moves or renames it
-    # degrades gracefully to the dask-based path below.
+    # Private uproot helpers that uproot.dask uses to build a tree's base form: the key
+    # normalization for grouped (AsGrouped) branches and the form builder itself. Calling them
+    # builds the same form without dask. If a uproot release moves or renames either one, both
+    # are unset and form extraction goes through uproot.dask instead (_dask_form_json).
     from uproot._dask import _get_ttree_form as _uproot_get_ttree_form
+    from uproot._dask import _normalize_grouped_keys as _uproot_normalize_grouped_keys
 except Exception:  # pragma: no cover - depends on uproot internals
     _uproot_get_ttree_form = None
+    _uproot_normalize_grouped_keys = None
 
 from coffea.dataset_tools.filespec import (
     DataGroupSpec,
@@ -196,10 +198,11 @@ def _form_json_with_null_keys(form) -> str:
 def _awkward_form_json(tree, is_rntuple: bool) -> str:
     """Build a TTree or RNTuple awkward form JSON without importing dask.
 
-    Reuses uproot's own form builder (``uproot._dask._get_ttree_form``, which handles both TTree
-    branches and RNTuple fields) and nulls the resulting form keys, producing output
-    byte-identical to ``uproot.dask(...).layout.form.to_json()``. This is what lets the
-    ``iterative``/``futures`` backends extract forms in a dask-free environment for both formats.
+    Selects keys as ``uproot.dask`` does (including its grouped-branch normalization), builds the
+    form with uproot's ``_get_ttree_form`` and nulls the form keys. The JSON is byte-identical to
+    ``uproot.dask(tree).layout.form.to_json()`` for a TTree and to
+    ``uproot.dask({file: path}, open_files=False).layout.form.to_json()`` for an RNTuple. This is
+    what lets the ``iterative``/``futures`` backends extract forms without dask for both formats.
     """
     # RNTuples filter on fields and use full field paths; TTrees filter on branches.
     filter_kwarg = "filter_field" if is_rntuple else "filter_branch"
@@ -211,6 +214,7 @@ def _awkward_form_json(tree, is_rntuple: bool) -> str:
         ignore_duplicates=True,
         **{filter_kwarg: partial(_is_interpretable, emit_warning=False)},
     )
+    common_keys = _uproot_normalize_grouped_keys(tree, common_keys, is_rntuple)
     base_form = _uproot_get_ttree_form(awkward, tree, common_keys, _FORM_AK_ADD_DOC)
     return _form_json_with_null_keys(base_form)
 
@@ -218,8 +222,8 @@ def _awkward_form_json(tree, is_rntuple: bool) -> str:
 def _dask_form_json(uproot_target, is_rntuple: bool, uproot_options: dict = {}) -> str:
     """Build a form JSON via ``uproot.dask`` (requires dask).
 
-    Fallback used only when uproot's internal form builder (``_get_ttree_form``) is unavailable
-    (an unexpected uproot version); the dask-free :func:`_awkward_form_json` is preferred for both
+    Fallback used only when uproot's internal form helpers are unavailable (an unexpected uproot
+    version); the dask-free :func:`_awkward_form_json` is preferred for both
     TTree and RNTuple. ``uproot_target`` is an already-open TTree object, or a
     ``{file: object_path}`` mapping (required for RNTuples, which cannot build a form from an
     already-open object via ``uproot.dask``). ``uproot_options`` is forwarded to the file open

@@ -340,17 +340,29 @@ def test_fallback_hint_mentions_backends(capsys):
     assert "futures" in out
 
 
+def _sample_trees():
+    """(file, object path, is_rntuple) for every TTree and RNTuple in tests/samples."""
+    import glob
+
+    import uproot
+
+    cases = []
+    for path in sorted(glob.glob("tests/samples/*.root")):
+        with uproot.open(path) as f:
+            for key, classname in f.classnames(cycle=False).items():
+                if classname in ("TTree", "ROOT::RNTuple"):
+                    cases.append((path, key, classname == "ROOT::RNTuple"))
+    return cases
+
+
 @pytest.mark.parametrize(
-    "sample, is_rntuple",
-    [
-        ("tests/samples/nano_dy.root", False),
-        ("tests/samples/nano_dy_rntuple.root", True),
-    ],
+    "sample, object_path, is_rntuple",
+    _sample_trees(),
+    ids=lambda v: v.rsplit("/", 1)[-1] if isinstance(v, str) else str(v),
 )
-def test_awkward_form_json_matches_uproot_dask(sample, is_rntuple):
-    """The dask-free form builder must stay byte-identical to uproot.dask's form for both TTree
-    and RNTuple, otherwise the iterative/futures backends would store forms incompatible with the
-    dask read path used at analysis time."""
+def test_awkward_form_json_matches_uproot_dask(sample, object_path, is_rntuple):
+    """The dask-free form builder gives the same form JSON as uproot.dask, for every sample
+    TTree and RNTuple, including trees with grouped (AsGrouped) branches."""
     pytest.importorskip("dask")
     pytest.importorskip("dask_awkward")
     from functools import partial
@@ -361,12 +373,12 @@ def test_awkward_form_json_matches_uproot_dask(sample, is_rntuple):
     from coffea.dataset_tools.preprocess import _FORM_AK_ADD_DOC, _awkward_form_json
     from coffea.util import _is_interpretable
 
-    tree = uproot.open({sample: None})["Events"]
+    tree = uproot.open({sample: None})[object_path]
     filt = partial(_is_interpretable, emit_warning=False)
     if is_rntuple:
-        # RNTuples cannot build a form from an already-open object via uproot.dask; pass the spec
+        # uproot.dask builds an RNTuple form from a {file: path} mapping, not an open object
         dask_form = uproot.dask(
-            {sample: "Events"},
+            {sample: object_path},
             open_files=False,
             full_paths=True,
             ak_add_doc=_FORM_AK_ADD_DOC,
@@ -383,6 +395,53 @@ def test_awkward_form_json_matches_uproot_dask(sample, is_rntuple):
             filter_branch=filt,
         ).layout.form.to_json()
     assert _awkward_form_json(tree, is_rntuple) == dask_form
+
+
+@pytest.mark.parametrize(
+    "sample, is_rntuple",
+    [
+        ("tests/samples/nano_dy.root", False),
+        ("tests/samples/nano_dy_rntuple.root", True),
+        ("tests/samples/treemaker.root", False),
+    ],
+)
+def test_form_extraction_falls_back_to_uproot_dask(sample, is_rntuple, monkeypatch):
+    """Without uproot's private form helpers, get_steps saves the form through uproot.dask,
+    and that form equals the one the dask-free builder saves."""
+    pytest.importorskip("dask")
+    pytest.importorskip("dask_awkward")
+    import uproot
+
+    from coffea.dataset_tools.preprocess import get_steps
+    from coffea.util import decompress_form
+
+    preprocess_mod = importlib.import_module("coffea.dataset_tools.preprocess")
+    with uproot.open(sample) as f:
+        object_path = next(
+            k
+            for k, c in f.classnames(cycle=False).items()
+            if c in ("TTree", "ROOT::RNTuple")
+        )
+    normed = awkward.Array(
+        [
+            {
+                "file": sample,
+                "object_path": object_path,
+                "steps": None,
+                "num_entries": None,
+                "uuid": None,
+            }
+        ]
+    )
+
+    def saved_form():
+        out = get_steps(normed, save_form=True, legacy_form_key=False)
+        return decompress_form(out[0].compressed_form)
+
+    with_helpers = saved_form()
+    monkeypatch.setattr(preprocess_mod, "_uproot_get_ttree_form", None)
+    monkeypatch.setattr(preprocess_mod, "_uproot_normalize_grouped_keys", None)
+    assert saved_form() == with_helpers
 
 
 def test_step_size_zero_or_negative_raises(tmp_path):

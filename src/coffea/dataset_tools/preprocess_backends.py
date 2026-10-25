@@ -22,9 +22,9 @@ one ignore it with a warning.
 
 The iterative and futures backends do not build a dask *task graph* for orchestration, and they
 are dask-free for parquet input and for ROOT input of either flavor. ROOT form extraction
-(``save_form=True``) uses uproot's own non-dask form builder for both TTree and RNTuple, producing
-a form byte-identical to the ``uproot.dask`` form; it only falls back to ``uproot.dask`` (and thus
-dask) if that internal uproot helper is unavailable on an unexpected uproot version.
+(``save_form=True``) calls the private uproot helpers behind ``uproot.dask``'s base form, for both
+TTree and RNTuple, producing the same form without dask; it only falls back to ``uproot.dask``
+(and thus dask) if those helpers are unavailable on an unexpected uproot version.
 
 A ``Backend`` turns a "computable" into a future-like ``Task`` (``result`` / ``partial_result``
 / ``wait``) whose ``result()`` blocks. Here the computable is a mapping
