@@ -28,7 +28,7 @@ from coffea.nanoevents import (  # noqa: E402
     NanoEventsFactory,
 )
 from coffea.nanoevents._graphed import GraphedNanoBackend  # noqa: E402
-from coffea.nanoevents.factory import _map_schema_uproot  # noqa: E402
+from coffea.nanoevents.factory import _graphed_map_schema_uproot  # noqa: E402
 from coffea.util import (  # noqa: E402
     _is_interpretable,
     dask_property,
@@ -276,13 +276,7 @@ def test_missing_graphed_at_events_names_the_install(tests_directory, tmp_path):
 def test_the_uproot_mapping_pickles_its_base_form_extras():
     """The podio shape: file-level extras the form cannot be rebuilt without."""
     extras = {"podio_collection_types": {"ReconstructedParticles": "edm4hep::Cluster"}}
-    mapping = _map_schema_uproot(
-        schemaclass=NanoAODSchema,
-        behavior=dict(NanoAODSchema.behavior()),
-        metadata={"dataset": "dy"},
-        version="latest",
-        base_form_extras=extras,
-    )
+    mapping = _graphed_map_schema_uproot(NanoAODSchema, {"dataset": "dy"}, extras)
     restored = pickle.loads(pickle.dumps(mapping))
     assert restored.schemaclass is NanoAODSchema
     assert restored.metadata == {"dataset": "dy"}

@@ -33,16 +33,6 @@ def _key_formatter(prefix, form_key, form, attribute):
     return prefix + f"/{attribute}/{form_key}"
 
 
-def _rebuild_map_schema_uproot(schemaclass, metadata, version, base_form_extras):
-    return _map_schema_uproot(
-        schemaclass=schemaclass,
-        behavior=dict(schemaclass.behavior()),
-        metadata=metadata,
-        version=version,
-        base_form_extras=base_form_extras,
-    )
-
-
 class _map_schema_base:  # ImplementsFormMapping, ImplementsFormMappingInfo
     def __init__(
         self, schemaclass=BaseSchema, metadata=None, behavior=None, version=None
@@ -150,14 +140,6 @@ class _map_schema_uproot(_map_schema_base):
         # file-level information the schema needs beyond the form (dask mode has no tree)
         self.base_form_extras = base_form_extras or {}
 
-    def __reduce__(self):
-        # A schema's behavior dict holds closures (vector's, among others), so the mapping ships
-        # the schema class and rebuilds the behavior on the far side rather than pickling it.
-        return (
-            _rebuild_map_schema_uproot,
-            (self.schemaclass, self.metadata, self.version, self.base_form_extras),
-        )
-
     def __call__(self, form):
         from coffea.nanoevents.mapping.uproot import _lazify_form
 
@@ -247,6 +229,24 @@ class _map_schema_uproot(_map_schema_base):
             return buffer_key(form_key=form_key, attribute=attribute, form=None)
 
         return _TranslatedMapping(translate_key, mapping)
+
+
+class _graphed_map_schema_uproot(_map_schema_uproot):
+    """The uproot mapping a plan pickles. A schema's behavior dict holds closures (vector's, among
+    others) that stdlib pickle refuses, so it ships the schema class and rebuilds the behavior.
+    """
+
+    def __init__(self, schemaclass, metadata, base_form_extras=None):
+        super().__init__(
+            schemaclass=schemaclass,
+            behavior=dict(schemaclass.behavior()),
+            metadata=metadata,
+            version="latest",
+            base_form_extras=base_form_extras,
+        )
+
+    def __reduce__(self):
+        return (type(self), (self.schemaclass, self.metadata, self.base_form_extras))
 
 
 class _map_schema_parquet(_map_schema_base):
@@ -421,11 +421,7 @@ class NanoEventsFactory:
                 entry_start=entry_start,
                 entry_stop=entry_stop,
             )
-            map_schema = _rebuild_map_schema_uproot(
-                schemaclass, metadata, "latest", None
-            )
-            if isinstance(file, str) and treepath is not uproot._util.unset:
-                file = {file: treepath}
+            map_schema = _graphed_map_schema_uproot(schemaclass, metadata)
             opener = partial(
                 uproot.graphed,
                 _tree_to_open(file, treepath),
@@ -482,7 +478,11 @@ class NanoEventsFactory:
             mode = "virtual"
 
         if isinstance(file, uproot.reading.ReadOnlyDirectory):
-            tree = _tree_to_open(file, treepath)
+            if treepath is uproot._util.unset:
+                raise ValueError(
+                    "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
+                )
+            tree = file[treepath]
             file_handle = file
         elif "<class 'uproot.rootio.ROOTDirectory'>" == str(type(file)):
             raise RuntimeError(
