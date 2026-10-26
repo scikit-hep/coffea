@@ -229,3 +229,61 @@ def test_dataset_tools_graphed_without_dask(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.split() == [str(N), str(N)]
+
+
+class _ReverseOrderRunner:
+    """Runs a plan's tasks in reverse key order and combines in that order."""
+
+    def run(self, plan):
+        from graphed.core.execution import ExecResult
+
+        value = plan.empty()
+        for task in sorted(plan.tasks, key=lambda t: -t.key):
+            value = plan.combine(value, plan.process(task.partition, None))
+        return ExecResult(
+            value=value, n_partitions=len(plan.tasks), n_combines=len(plan.tasks)
+        )
+
+
+def test_preprocess_graphed_does_not_depend_on_combine_order(tmp_path):
+    """With files_per_batch=1 and a skipped file first, results match dask whatever order
+    the executor combines the batches in, for DataGroupSpec and dict filesets."""
+    from coffea.dataset_tools import preprocess_legacy
+
+    has_root, missing_root, _, _ = _write_flag_files(tmp_path)
+    absent = str(tmp_path / "does_not_exist.root")
+    files = {absent: "Events", has_root: "Events", missing_root: "Events"}
+    kwargs = dict(step_size=7, save_form=True, skip_bad_files=True)
+
+    spec = DataGroupSpec({"ds": {"files": files}})
+    dask_out = preprocess(spec, scheduler="sync", **kwargs)
+    graphed_out = preprocess(
+        spec, backend="graphed", scheduler=_ReverseOrderRunner(), **kwargs
+    )
+    assert graphed_out == dask_out
+    assert list(graphed_out[1]["ds"].files) == list(files)
+
+    legacy = {"ds": {"files": files}}
+    assert preprocess_legacy(
+        legacy, backend="graphed", scheduler=_ReverseOrderRunner(), **kwargs
+    ) == preprocess_legacy(legacy, scheduler="sync", **kwargs)
+
+
+def test_graphed_steps_of_an_empty_dataset():
+    """An empty dataset still runs its steps function once and gets a typed empty result."""
+    from coffea.dataset_tools.preprocess import _compute_steps
+
+    empty = ak.Array(
+        [
+            {
+                "file": "x",
+                "object_path": "Events",
+                "steps": None,
+                "num_entries": None,
+                "uuid": None,
+            }
+        ]
+    )[0:0]
+    out = _compute_steps({"d": empty}, {"d": lambda batch: batch}, 1, None, "graphed")
+    assert len(out["d"]) == 0
+    assert out["d"].fields == empty.fields
