@@ -458,9 +458,9 @@ class DatasetSpec(BaseModel):
             if k != "compressed_form"
         ):
             return False
-        # Compare the compressed form strings first (cheap); the compressed bytes are
-        # non-deterministic even for identical decoded forms, so only fall back to
-        # decoding and comparing the awkward forms when the compressed strings differ.
+        # Compare the compressed strings first (cheap); equal forms can still compress to
+        # different bytes (another zlib, or a spec saved by an older coffea), so decode and
+        # compare the forms when the strings differ.
         if self.compressed_form == other.compressed_form:
             return True
         return self.form == other.form
