@@ -63,9 +63,11 @@ def test_base_schema(tests_directory, file, mode):
         )
 
 
-@pytest.mark.parametrize("mode", ["eager", "virtual"])
+@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
 @pytest.mark.parametrize("file", ["nano_dy", "nano_dimuon", "nano_tree"])
 def test_nanoaod_schema(tests_directory, file, mode):
+    if mode == "dask":
+        pytest.importorskip("dask_awkward")
     file = f"{tests_directory}/samples/{file}"
     ttree = NanoEventsFactory.from_root(
         {f"{file}.root": "Events"}, schemaclass=NanoAODSchema, mode=mode
@@ -79,13 +81,17 @@ def test_nanoaod_schema(tests_directory, file, mode):
     elif mode == "eager":
         assert ttree.layout.is_all_materialized
         assert rntuple.layout.is_all_materialized
+    elif mode == "dask":
+        ttree, rntuple = ttree.compute(), rntuple.compute()
     assert ak.array_equal(
         rntuple, ttree, dtype_exact=False, check_parameters=False, equal_nan=True
     )
 
 
-@pytest.mark.parametrize("mode", ["eager", "virtual"])
+@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
 def test_pfnano_schema(tests_directory, mode):
+    if mode == "dask":
+        pytest.importorskip("dask_awkward")
     file = f"{tests_directory}/samples/pfnano"
     ttree = NanoEventsFactory.from_root(
         {f"{file}.root": "Events"}, schemaclass=PFNanoAODSchema, mode=mode
@@ -99,6 +105,8 @@ def test_pfnano_schema(tests_directory, mode):
     elif mode == "eager":
         assert ttree.layout.is_all_materialized
         assert rntuple.layout.is_all_materialized
+    elif mode == "dask":
+        ttree, rntuple = ttree.compute(), rntuple.compute()
     assert ak.array_equal(
         rntuple, ttree, dtype_exact=False, check_parameters=False, equal_nan=True
     )

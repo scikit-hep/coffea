@@ -201,11 +201,13 @@ class _map_schema_uproot(_map_schema_base):
         # genuinely-required ("!load") branch that is absent still raises
         # loudly at buffer-access time.
         present_keys = [key for key in keys if key in tree]
+        # Only buffers leave this mapping, so docstrings come from the form uproot.dask
+        # built; requesting them here is wasted work and fails on RNTuple (no "title").
         arrays = tree.arrays(
             present_keys,
             entry_start=start,
             entry_stop=stop,
-            ak_add_doc=interp_options["ak_add_doc"],
+            ak_add_doc=False,
             decompression_executor=decompression_executor,
             interpretation_executor=interpretation_executor,
             how=dict,
