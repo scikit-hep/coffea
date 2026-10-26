@@ -257,18 +257,10 @@ def test_nested_rntuple_nanoaod_behaviors(tests_directory, tmp_path, mode):
         ak.materialize(skim_r.Muon.pt)
         assert {x.branch for x in access_log} == {"Muon.dxy", "Muon.pt"}
 
-    if mode == "dask":
-        r_pt = skim_r.Muon.pt.compute()
-        t_pt = skim_t.Muon.pt.compute()
-        r_mjet_pt = skim_r.Muon.matched_jet.pt.compute()
-        t_mjet_pt = skim_t.Muon.matched_jet.pt.compute()
-    else:
+    if mode != "dask":
         assert type(skim_r.Muon).__name__ == "MuonArray"
-        assert hasattr(skim_r.Muon, "matched_jet")
-        r_pt = skim_r.Muon.pt
-        t_pt = skim_t.Muon.pt
-        r_mjet_pt = skim_r.Muon.matched_jet.pt
-        t_mjet_pt = skim_t.Muon.matched_jet.pt
-
-    assert ak.array_equal(r_pt, t_pt, check_parameters=False)
-    assert ak.array_equal(r_mjet_pt, t_mjet_pt, check_parameters=False)
+    for column in (lambda e: e.Muon.pt, lambda e: e.Muon.matched_jet.pt):
+        r, t = column(skim_r), column(skim_t)
+        if mode == "dask":
+            r, t = r.compute(), t.compute()
+        assert ak.array_equal(r, t, check_parameters=False)

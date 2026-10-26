@@ -53,7 +53,7 @@ class _map_schema_base:  # ImplementsFormMapping, ImplementsFormMappingInfo
 
             base_columns.update(
                 [
-                    name.split(".")[0]
+                    name
                     for name, maybe_transform in zip(operands, it_operands)
                     # Match both "!load" and "!loadallowmissing": a saved/union form
                     # marks branches that may be missing in some files with the
@@ -139,24 +139,41 @@ class _map_schema_uproot(_map_schema_base):
         )
         # file-level information the schema needs beyond the form (dask mode has no tree)
         self.base_form_extras = base_form_extras or {}
+        self._record_fields = frozenset()
+
+    def keys_for_buffer_keys(self, buffer_keys):
+        # a subfield path is read through its record field; field names may contain dots themselves
+        return {
+            max(
+                (f for f in self._record_fields if key.startswith(f + ".")),
+                key=len,
+                default=key,
+            )
+            for key in super().keys_for_buffer_keys(buffer_keys)
+        }
 
     def __call__(self, form):
         from coffea.nanoevents.mapping.uproot import _lazify_form
 
         branch_forms = {}
+        record_fields = set()
         for ifield, field in enumerate(form.fields):
             iform = form.contents[ifield].to_dict()
-            is_rntuple = iform["class"] == "RecordArray" or (
+            # the form cannot tell RNTuple from TTree, so every record is loaded by subfield path
+            is_record = iform["class"] == "RecordArray" or (
                 iform["class"].startswith("ListOffset")
                 and iform["content"]["class"] == "RecordArray"
             )
+            if is_record:
+                record_fields.add(field)
             branch_forms[field] = _lazify_form(
                 iform,
                 f"{field},!load",
                 docstr=iform["parameters"]["__doc__"],
                 typestr=iform["parameters"]["typename"],
-                path=field if is_rntuple else None,
+                path=field if is_record else None,
             )
+        self._record_fields = frozenset(record_fields)
         lform = {
             "class": "RecordArray",
             "contents": [item for item in branch_forms.values()],
@@ -218,13 +235,14 @@ class _map_schema_uproot(_map_schema_base):
             how=dict,
         )
         source_arrays = {}
+
+        def add_source(key, array):
+            source_arrays[key] = _OnlySliceableAs(array, slice(start, stop))
+            for subfield in array.fields:
+                add_source(f"{key}.{subfield}", array[subfield])
+
         for k, v in arrays.items():
-            source_arrays[k] = _OnlySliceableAs(v, slice(start, stop))
-            if v.fields:
-                for subf in v.fields:
-                    source_arrays[f"{k}.{subf}"] = _OnlySliceableAs(
-                        v[subf], slice(start, stop)
-                    )
+            add_source(k, v)
         mapping = PreloadedSourceMapping(
             PreloadedOpener(uuidpfn), start, stop, access_log=None
         )

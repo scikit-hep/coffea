@@ -256,70 +256,38 @@ class NanoAODSchema(BaseSchema):
     def _build_collections(self, field_names, input_contents):
         branch_forms = {}
         for name, form in zip(field_names, input_contents):
-            if (
-                form["class"].startswith("ListOffset")
-                and form["content"]["class"] == "RecordArray"
-            ):
-                offsets_type = form["offsets"]
-                primitive = "int64" if offsets_type == "i64" else "int32"
-                itemsize = 8 if offsets_type == "i64" else 4
-                offsets_form = {
+            jagged = form["class"].startswith("ListOffset")
+            if jagged:
+                wide = form["offsets"] == "i64"
+                branch_forms["o" + name] = {
                     "class": "NumpyArray",
-                    "itemsize": itemsize,
+                    "itemsize": 8 if wide else 4,
                     "format": "i",
-                    "primitive": primitive,
+                    "primitive": "int64" if wide else "int32",
                     "parameters": dict(form.get("parameters", {})),
                     "form_key": concat(form["form_key"], "!offsets"),
                 }
-                branch_forms["o" + name] = offsets_form
-                rec = form["content"]
-                subfields = (
-                    rec["fields"]
-                    if rec["fields"] is not None
-                    else [str(i) for i in range(len(rec["contents"]))]
-                )
-                for subname, subform in zip(subfields, rec["contents"]):
-                    branch_forms[f"{name}_{subname}"] = {
+            record = form["content"] if jagged else form
+            if record["class"] != "RecordArray":
+                branch_forms[name] = form
+                continue
+            for subname, subform in zip(record["fields"], record["contents"]):
+                branch_forms[f"{name}_{subname}"] = (
+                    {
                         "class": form["class"],
                         "offsets": form["offsets"],
                         "content": subform,
                         "form_key": quote(f"{name}.{subname},!load"),
                         "parameters": {},
                     }
-            elif form["class"] == "RecordArray":
-                subfields = (
-                    form["fields"]
-                    if form["fields"] is not None
-                    else [str(i) for i in range(len(form["contents"]))]
+                    if jagged
+                    else subform
                 )
-                for subname, subform in zip(subfields, form["contents"]):
-                    branch_forms[f"{name}_{subname}"] = subform
-            elif (
-                form["class"].startswith("ListOffset")
-                and form["content"]["class"] != "RecordArray"
-            ):
-                offsets_type = form["offsets"]
-                primitive = "int64" if offsets_type == "i64" else "int32"
-                itemsize = 8 if offsets_type == "i64" else 4
-                branch_forms["o" + name] = {
-                    "class": "NumpyArray",
-                    "itemsize": itemsize,
-                    "format": "i",
-                    "primitive": primitive,
-                    "parameters": dict(form.get("parameters", {})),
-                    "form_key": concat(form["form_key"], "!offsets"),
-                }
-                branch_forms[name] = form
-            else:
-                branch_forms[name] = form
 
         # parse into high-level records (collections, list collections, and singletons)
         collections = {k.split("_")[0] for k in branch_forms}
         collections -= {
-            k for k in collections if k.startswith("n") and k[1:] in collections
-        }
-        collections -= {
-            k for k in collections if k.startswith("o") and k[1:] in collections
+            k for k in collections if k[:1] in ("n", "o") and k[1:] in collections
         }
         isData = "GenPart" not in collections
 
