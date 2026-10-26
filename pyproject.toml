@@ -45,7 +45,7 @@ classifiers = [
 ]
 dependencies = [
   "awkward>=2.8.11",
-  "uproot>=5.7.7",
+  "uproot>=5.7.0",
   "loky>=3.5.6",
   "vector>=1.4.1,!=1.6.0",
   "correctionlib>=2.6.0",
@@ -91,6 +91,7 @@ dask-awkward = [
 ]
 graphed = [
   "graphed>=0.0.8;python_version>='3.11'",
+  "uproot>=5.7.7",
 ]
 parsl = [
   "parsl>=2024.12.09"
