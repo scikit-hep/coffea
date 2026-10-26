@@ -29,7 +29,41 @@ class CannotBeNanoEvents(Exception):
     pass
 
 
-def _lazify_form(form, prefix, docstr=None, typestr=None):
+def _rntuple_first_leaf_path(form, path):
+    while True:
+        if form["class"] == "RecordArray" and form["contents"]:
+            # tuples have no field names, and uproot calls their subfields 0, 1, ...
+            field = form["fields"][0] if form["fields"] is not None else "0"
+            path = f"{path}.{field}"
+            form = form["contents"][0]
+        elif "content" in form and form["class"] != "RegularArray":
+            form = form["content"]
+        else:
+            # below a RegularArray, subfields are read with the whole field
+            return path
+
+
+def _preloaded(preloaded_arrays, path, start, stop):
+    # RNTuple preloads are keyed by top-level field, so walk down to the subfield
+    if preloaded_arrays is None:
+        return None
+    top, *subfields = path.split(".")
+    if top not in preloaded_arrays:
+        return None
+    array = preloaded_arrays[top][start:stop]
+    for field in subfields:
+        if field not in awkward.fields(array):
+            return None
+        array = array[field]
+    return array
+
+
+def _lazify_form(form, prefix, docstr=None, typestr=None, path=None):
+    """
+    If ``path`` is given, ``form`` belongs to the RNTuple field at that path and
+    ``prefix`` starts by loading it. Every subfield of a record is then loaded
+    by its own path, so reading one leaf does not read the whole field.
+    """
     if not isinstance(form, dict) or "class" not in form:
         raise RuntimeError("form should have been normalized by now")
 
@@ -38,15 +72,26 @@ def _lazify_form(form, prefix, docstr=None, typestr=None):
     )
     if form["class"].startswith("ListOffset"):
         # awkward will add !offsets
-        form["form_key"] = quote(prefix)
+        if path is None:
+            form["form_key"] = quote(prefix)
+        else:
+            # the offsets are the same for all leaves, so any one of them is enough
+            leaf_path = _rntuple_first_leaf_path(form, path)
+            form["form_key"] = quote(leaf_path + prefix[len(path) :])
         form["content"] = _lazify_form(
-            form["content"], prefix + ",!content", docstr=docstr, typestr=typestr
+            form["content"],
+            prefix + ",!content",
+            docstr=docstr,
+            typestr=typestr,
+            path=path,
         )
     elif form["class"] == "NumpyArray":
         form["form_key"] = quote(prefix)
         if parameters:
             form["parameters"] = parameters
     elif form["class"] == "RegularArray":
+        # uproot does not keep the fixed size when reading a subfield of a
+        # std::array, so the subfields below it are read with the whole field
         form["content"] = _lazify_form(
             form["content"], prefix + ",!content", docstr=docstr, typestr=typestr
         )
@@ -89,7 +134,17 @@ def _lazify_form(form, prefix, docstr=None, typestr=None):
                 continue
 
             newfields.append(field)
-            newcontents.append(_lazify_form(value, prefix + f",{field},!item"))
+            if path is None:
+                newcontents.append(_lazify_form(value, prefix + f",{field},!item"))
+            else:
+                subfield_path = f"{path}.{field}"
+                newcontents.append(
+                    _lazify_form(
+                        value,
+                        subfield_path + prefix[len(path) :],
+                        path=subfield_path,
+                    )
+                )
         form["fields"] = newfields
         form["contents"] = newcontents
         if parameters:
@@ -166,7 +221,8 @@ class UprootSourceMapping(BaseSourceMapping):
                 continue
             if not _is_interpretable(branch):
                 continue
-            if isinstance(branch, uproot.behaviors.RNTuple.HasFields):
+            is_rntuple = isinstance(branch, uproot.behaviors.RNTuple.HasFields)
+            if is_rntuple:
                 form = branch.to_akform()[0].contents[0]
             else:
                 form = branch.interpretation.awkward_form(None)
@@ -182,12 +238,9 @@ class UprootSourceMapping(BaseSourceMapping):
                 form = _lazify_form(
                     form,
                     f"{key},!load",
-                    docstr=(
-                        branch.description
-                        if isinstance(branch, uproot.behaviors.RNTuple.HasFields)
-                        else branch.title
-                    ),
+                    docstr=branch.description if is_rntuple else branch.title,
                     typestr=branch.typename,
+                    path=key if is_rntuple else None,
                 )
             except CannotBeNanoEvents as ex:
                 warnings.warn(
@@ -238,13 +291,16 @@ class UprootSourceMapping(BaseSourceMapping):
                 "Received columnhandle of None when missing column in file is not allowed!"
             )
 
-        if (
-            self.preloaded_arrays is not None
-            and columnhandle.name in self.preloaded_arrays
-        ):
-            the_array = self.preloaded_arrays[columnhandle.name][start:stop]
-        else:
-            if isinstance(columnhandle, uproot.behaviors.RNTuple.HasFields):
+        is_rntuple = isinstance(columnhandle, uproot.behaviors.RNTuple.HasFields)
+        the_array = _preloaded(
+            self.preloaded_arrays,
+            # a subfield's name is only its last component; its path is unique
+            columnhandle.path if is_rntuple else columnhandle.name,
+            start,
+            stop,
+        )
+        if the_array is None:
+            if is_rntuple:
                 the_array = columnhandle.array(
                     entry_start=start,
                     entry_stop=stop,
