@@ -219,3 +219,56 @@ def test_preload_selects_and_finds_fields_by_path(
             ak.materialize(events[field]), array, check_parameters=False
         )
     assert set(read) == from_file
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
+def test_nested_rntuple_nanoaod_behaviors(tests_directory, tmp_path, mode):
+    if mode == "dask":
+        pytest.importorskip("dask_awkward")
+    orig_events = NanoEventsFactory.from_root(
+        {f"{tests_directory}/samples/nano_dy.root": "Events"},
+        schemaclass=NanoAODSchema,
+        mode="eager",
+    ).events()
+
+    rntuple_path = str(tmp_path / "skim_rntuple.root")
+    ttree_path = str(tmp_path / "skim_ttree.root")
+    writeable = NanoAODSchema.uproot_writeable(orig_events)
+    with uproot.recreate(ttree_path) as f:
+        f.mktree("Events", writeable)
+    with uproot.recreate(rntuple_path) as f:
+        f.mkrntuple("Events", writeable)
+
+    access_log = [] if mode == "virtual" else None
+    skim_r = NanoEventsFactory.from_root(
+        {rntuple_path: "Events"},
+        schemaclass=NanoAODSchema,
+        mode=mode,
+        access_log=access_log,
+    ).events()
+    skim_t = NanoEventsFactory.from_root(
+        {ttree_path: "Events"},
+        schemaclass=NanoAODSchema,
+        mode=mode,
+    ).events()
+
+    if mode == "virtual":
+        assert len(access_log) == 0
+        ak.materialize(skim_r.Muon.pt)
+        assert {x.branch for x in access_log} == {"Muon.dxy", "Muon.pt"}
+
+    if mode == "dask":
+        r_pt = skim_r.Muon.pt.compute()
+        t_pt = skim_t.Muon.pt.compute()
+        r_mjet_pt = skim_r.Muon.matched_jet.pt.compute()
+        t_mjet_pt = skim_t.Muon.matched_jet.pt.compute()
+    else:
+        assert type(skim_r.Muon).__name__ == "MuonArray"
+        assert hasattr(skim_r.Muon, "matched_jet")
+        r_pt = skim_r.Muon.pt
+        t_pt = skim_t.Muon.pt
+        r_mjet_pt = skim_r.Muon.matched_jet.pt
+        t_mjet_pt = skim_t.Muon.matched_jet.pt
+
+    assert ak.array_equal(r_pt, t_pt, check_parameters=False)
+    assert ak.array_equal(r_mjet_pt, t_mjet_pt, check_parameters=False)

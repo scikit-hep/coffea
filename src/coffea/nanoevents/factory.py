@@ -53,7 +53,7 @@ class _map_schema_base:  # ImplementsFormMapping, ImplementsFormMappingInfo
 
             base_columns.update(
                 [
-                    name
+                    name.split(".")[0]
                     for name, maybe_transform in zip(operands, it_operands)
                     # Match both "!load" and "!loadallowmissing": a saved/union form
                     # marks branches that may be missing in some files with the
@@ -146,11 +146,16 @@ class _map_schema_uproot(_map_schema_base):
         branch_forms = {}
         for ifield, field in enumerate(form.fields):
             iform = form.contents[ifield].to_dict()
+            is_rntuple = iform["class"] == "RecordArray" or (
+                iform["class"].startswith("ListOffset")
+                and iform["content"]["class"] == "RecordArray"
+            )
             branch_forms[field] = _lazify_form(
                 iform,
                 f"{field},!load",
                 docstr=iform["parameters"]["__doc__"],
                 typestr=iform["parameters"]["typename"],
+                path=field if is_rntuple else None,
             )
         lform = {
             "class": "RecordArray",
@@ -212,9 +217,14 @@ class _map_schema_uproot(_map_schema_base):
             interpretation_executor=interpretation_executor,
             how=dict,
         )
-        source_arrays = {
-            k: _OnlySliceableAs(v, slice(start, stop)) for k, v in arrays.items()
-        }
+        source_arrays = {}
+        for k, v in arrays.items():
+            source_arrays[k] = _OnlySliceableAs(v, slice(start, stop))
+            if v.fields:
+                for subf in v.fields:
+                    source_arrays[f"{k}.{subf}"] = _OnlySliceableAs(
+                        v[subf], slice(start, stop)
+                    )
         mapping = PreloadedSourceMapping(
             PreloadedOpener(uuidpfn), start, stop, access_log=None
         )
