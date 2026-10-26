@@ -279,10 +279,7 @@ class Weights:
             # event in the first place (0) ?
             weight = lib.fill_none(weight, 1.0)
         if self._weight is None:
-            # eager starts from float64 ones; graphed matches it, dask keeps the weight's dtype
-            self._weight = (
-                lib.values_astype(weight, "float64") if _is_graphed(weight) else weight
-            )
+            self._weight = weight
         else:
             self._weight = self._weight * weight
         if self._storeIndividual:
@@ -405,10 +402,7 @@ class Weights:
             # event in the first place (0) ?
             weight = lib.fill_none(weight, 1.0)
         if self._weight is None:
-            # eager starts from float64 ones; graphed matches it, dask keeps the weight's dtype
-            self._weight = (
-                lib.values_astype(weight, "float64") if _is_graphed(weight) else weight
-            )
+            self._weight = weight
         else:
             self._weight = self._weight * weight
         if self._storeIndividual:
@@ -2203,6 +2197,10 @@ class PackedSelection:
         if not self.delayed_mode:
             raise ValueError(
                 f"New selection '{name}' is not eager while PackedSelection is!"
+            )
+        elif not _same_delayed(selection, self._data):
+            raise ValueError(
+                f"New selection '{name}' is delayed by a different library than existing selections"
             )
         elif len(self._names) == self.maxitems:
             raise RuntimeError(

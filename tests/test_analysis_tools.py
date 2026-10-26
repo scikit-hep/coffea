@@ -2460,12 +2460,6 @@ def test_weights_graphed():
     ):
         want[f"partial{i}"] = eager.partial_weight(**kwargs)
         got[f"partial{i}"] = lazy.partial_weight(**kwargs)
-    eager32, lazy32 = (Weights(n, storeIndividual=True) for n in (50, None))
-    eager32.add("f", columns().f)
-    lazy32.add("f", deferred.f)
-    want["only_f32"], got["only_f32"] = eager32.weight(), lazy32.weight()
-    want["partial_f32"] = eager32.partial_weight(include=["f"])
-    got["partial_f32"] = lazy32.partial_weight(include=["f"])
     assert all(isinstance(value, graphed.Array) for value in got.values())
     values = session.materialize(ak.zip(got, depth_limit=1))
     for key, expected in want.items():
@@ -2479,6 +2473,52 @@ def test_weights_graphed():
         for field in ("sumw", "sumw2", "minw", "maxw", "n"):
             value = session.materialize(lazy.weightStatistics[name][field])
             assert value == getattr(stats, field), (name, field)
+
+
+def test_weights_graphed_keep_the_weight_dtype_as_dask_does():
+    graphed = pytest.importorskip("graphed")
+    dak = pytest.importorskip("dask_awkward")
+    from graphed.awkward import AwkwardBackend, from_awkward
+
+    from coffea.analysis_tools import Weights
+
+    columns = ak.zip({"f": np.linspace(0.5, 1.5, 6, dtype=np.float32)})
+    session = graphed.Session(AwkwardBackend())
+    weights = {
+        "dask": (Weights(None, storeIndividual=True), dak.from_awkward(columns, 2)),
+        "graphed": (
+            Weights(None, storeIndividual=True),
+            from_awkward(session, "w", columns),
+        ),
+    }
+    got = {}
+    for mode, (w, array) in weights.items():
+        w.add("f", array.f)
+        got[mode] = [w.weight(), w.partial_weight(include=["f"])]
+    got["dask"] = [np.asarray(v.compute()) for v in got["dask"]]
+    got["graphed"] = [np.asarray(session.materialize(v)) for v in got["graphed"]]
+    assert [v.dtype for v in got["dask"]] == [np.dtype(np.float32)] * 2
+    for want, value in zip(got["dask"], got["graphed"]):
+        assert (value.dtype, value.tobytes()) == (want.dtype, want.tobytes())
+
+
+def test_packed_selection_refuses_a_second_delayed_library():
+    graphed = pytest.importorskip("graphed")
+    dak = pytest.importorskip("dask_awkward")
+    from graphed.awkward import AwkwardBackend, from_awkward
+
+    from coffea.analysis_tools import PackedSelection
+
+    columns = ak.zip({"a": np.array([True, False, True])})
+    deferred = {
+        "dask": dak.from_awkward(columns, 1),
+        "graphed": from_awkward(graphed.Session(AwkwardBackend()), "s", columns),
+    }
+    for first, second in (("dask", "graphed"), ("graphed", "dask")):
+        selection = PackedSelection()
+        selection.add("first", deferred[first].a)
+        with pytest.raises(ValueError, match="different library"):
+            selection.add("second", deferred[second].a)
 
 
 def test_weights_graphed_varied():
