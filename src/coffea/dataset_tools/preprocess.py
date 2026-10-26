@@ -265,8 +265,6 @@ _preprocess_backends = ("dask", "graphed")
 class _StepsOfBatch:
     """A graphed ``Plan`` process: a task's partition names a dataset (``uri``) and the half-open
     range of its file rows (``entry_start``/``entry_stop``) to run that dataset's steps function on.
-    Each result carries its range start, so batches can be put back in file order after any
-    combine order.
     """
 
     norm_files: dict[str, awkward.Array]
@@ -307,11 +305,10 @@ def _compute_steps(
                 "with backend='graphed', scheduler is a graphed executor (an object with run(plan)), "
                 f"not {scheduler!r}"
             )
-        # an empty dataset still runs its steps function once, for a correctly typed result
         partitions = [
             Partition(name, "", lo, lo + files_per_batch)
             for name, files in norm_files.items()
-            for lo in (range(0, len(files), files_per_batch) if len(files) else [0])
+            for lo in range(0, len(files), files_per_batch)
         ]
         plan = Plan(
             process=_StepsOfBatch(norm_files, steps_fns),
@@ -323,7 +320,7 @@ def _compute_steps(
         # graphed's Plan.combine may run in any order; put each dataset's batches in file order
         return {
             name: awkward.concatenate(
-                [part for _, part in sorted(batches[name], key=lambda x: x[0])], axis=0
+                [part for _, part in sorted(batches[name])], axis=0
             )
             for name in norm_files
         }
@@ -561,9 +558,7 @@ def preprocess_legacy(
 
             union_form_jsonstr = union_form.to_json()
 
-        # Skipped files come back as None rows, so outputs are matched to the inputs by
-        # filename, in input order; the backend's reduction order does not matter.
-        available_by_file = {
+        files_available = {
             item["file"]: {
                 "object_path": item["object_path"],
                 "steps": item["steps"],
@@ -572,24 +567,18 @@ def preprocess_legacy(
             }
             for item in awkward.drop_none(processed_files_without_forms).to_list()
         }
-        orig_items = all_ak_norm_files[name].to_list()
-        files_available = {
-            item["file"]: available_by_file[item["file"]]
-            for item in orig_items
-            if item["file"] in available_by_file
-        }
-        files_out = {
-            item["file"]: available_by_file.get(
-                item["file"],
-                {
-                    "object_path": item["object_path"],
-                    "steps": item["steps"],
-                    "num_entries": item["num_entries"],
-                    "uuid": item["uuid"],
-                },
-            )
-            for item in orig_items
-        }
+
+        files_out = {}
+        for proc_item, orig_item in zip(
+            processed_files_without_forms.to_list(), all_ak_norm_files[name].to_list()
+        ):
+            item = orig_item if proc_item is None else proc_item
+            files_out[item["file"]] = {
+                "object_path": item["object_path"],
+                "steps": item["steps"],
+                "num_entries": item["num_entries"],
+                "uuid": item["uuid"],
+            }
 
         if "files" in out_updated[name]:
             out_updated[name]["files"] = files_out
@@ -1169,9 +1158,7 @@ def _preprocess_pydantic(
 
             union_form_jsonstr = union_form.to_json()
 
-        # Index successfully-processed files by filename. Skipped/bad files were dropped as
-        # None by the worker and are simply absent here.
-        available_by_file = {
+        files_available = {
             item["file"]: {
                 "object_path": item["object_path"],
                 "steps": item["steps"],
@@ -1181,30 +1168,17 @@ def _preprocess_pydantic(
             for item in awkward.drop_none(processed_files_without_forms).to_list()
         }
 
-        # Assemble both outputs by filename in the original input order. Matching by key keeps
-        # correctness independent of the order in which the backend reduced/concatenated the
-        # per-file results -- each processed record carries its filename.
-        orig_items = all_ak_norm_files[name].to_list()
-
-        files_available = {
-            item["file"]: available_by_file[item["file"]]
-            for item in orig_items
-            if item["file"] in available_by_file
-        }
-
         files_out = {}
-        for orig_item in orig_items:
-            filename = orig_item["file"]
-            # processed info when available, else fall back to the original input info
-            files_out[filename] = available_by_file.get(
-                filename,
-                {
-                    "object_path": orig_item["object_path"],
-                    "steps": orig_item["steps"],
-                    "num_entries": orig_item["num_entries"],
-                    "uuid": orig_item["uuid"],
-                },
-            )
+        for proc_item, orig_item in zip(
+            processed_files_without_forms.to_list(), all_ak_norm_files[name].to_list()
+        ):
+            item = orig_item if proc_item is None else proc_item
+            files_out[item["file"]] = {
+                "object_path": item["object_path"],
+                "steps": item["steps"],
+                "num_entries": item["num_entries"],
+                "uuid": item["uuid"],
+            }
 
         out_updated[name]["files"] = files_out
         out_available[name]["files"] = files_available

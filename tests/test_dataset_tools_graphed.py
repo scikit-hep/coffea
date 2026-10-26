@@ -1,4 +1,5 @@
 import contextlib
+import dataclasses
 import pickle
 import subprocess
 import sys
@@ -232,17 +233,14 @@ def test_dataset_tools_graphed_without_dask(tmp_path):
 
 
 class _ReverseOrderRunner:
-    """Runs a plan's tasks in reverse key order and combines in that order."""
+    """Runs a plan's tasks, and so combines its batches, in reverse key order."""
 
     def run(self, plan):
-        from graphed.core.execution import ExecResult
+        from graphed.core.execution import Task
 
-        value = plan.empty()
-        for task in sorted(plan.tasks, key=lambda t: -t.key):
-            value = plan.combine(value, plan.process(task.partition, None))
-        return ExecResult(
-            value=value, n_partitions=len(plan.tasks), n_combines=len(plan.tasks)
-        )
+        n = len(plan.tasks)
+        tasks = [Task(n - 1 - t.key, t.partition) for t in plan.tasks]
+        return SequentialRunner().run(dataclasses.replace(plan, tasks=tasks))
 
 
 def test_preprocess_graphed_does_not_depend_on_combine_order(tmp_path):
@@ -267,23 +265,3 @@ def test_preprocess_graphed_does_not_depend_on_combine_order(tmp_path):
     assert preprocess_legacy(
         legacy, backend="graphed", scheduler=_ReverseOrderRunner(), **kwargs
     ) == preprocess_legacy(legacy, scheduler="sync", **kwargs)
-
-
-def test_graphed_steps_of_an_empty_dataset():
-    """An empty dataset still runs its steps function once and gets a typed empty result."""
-    from coffea.dataset_tools.preprocess import _compute_steps
-
-    empty = ak.Array(
-        [
-            {
-                "file": "x",
-                "object_path": "Events",
-                "steps": None,
-                "num_entries": None,
-                "uuid": None,
-            }
-        ]
-    )[0:0]
-    out = _compute_steps({"d": empty}, {"d": lambda batch: batch}, 1, None, "graphed")
-    assert len(out["d"]) == 0
-    assert out["d"].fields == empty.fields
