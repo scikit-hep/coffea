@@ -2,7 +2,7 @@ import pytest
 
 from coffea.processor import defaultdict_accumulator, dict_accumulator
 from coffea.processor.test_items import NanoEventsProcessor
-from coffea.util import load, save
+from coffea.util import compress_form, decompress_form, load, save
 
 
 @pytest.mark.parametrize("compression", [None, "lz4"])
@@ -98,3 +98,12 @@ def test_dask_property_is_picklable():
     assert doubled.__doc__ == "twice x"
     assert doubled._dask_get(unpickled(1), unpickled, Thing(3)) == 60
     assert unpickled.__dict__["tripled"]._dask_get(unpickled(2), unpickled, None) == 6
+
+
+def test_compress_form_is_deterministic(monkeypatch):
+    import time
+
+    first = compress_form('{"class": "RecordArray"}')
+    monkeypatch.setattr(time, "time", lambda: 1.0e9)
+    assert compress_form('{"class": "RecordArray"}') == first
+    assert decompress_form(first) == '{"class": "RecordArray"}'

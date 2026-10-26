@@ -281,7 +281,9 @@ def rewrap_recordarray(layout, depth, data, **kwargs):
 
 # shorthand for compressing forms
 def compress_form(formjson):
-    return base64.b64encode(gzip.compress(formjson.encode("utf-8"))).decode("ascii")
+    return base64.b64encode(gzip.compress(formjson.encode("utf-8"), mtime=0)).decode(
+        "ascii"
+    )
 
 
 # shorthand for decompressing forms
