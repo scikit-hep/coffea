@@ -2575,3 +2575,6 @@ def test_packed_selection_graphed():
     assert values["require"].to_list() == eager.require(lo=False, mid=True).tolist()
     assert values["all"].to_list() == eager.all().tolist()
     assert values["any"].to_list() == eager.any("lo", "hi").tolist()
+    for summary in (lazy.nminusone, lazy.cutflow):
+        with pytest.raises(NotImplementedError, match="gak.sum"):
+            summary("lo", "hi")

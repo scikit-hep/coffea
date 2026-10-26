@@ -12,9 +12,10 @@ import graphed
 import uproot
 from graphed.array import BoundMethod
 from graphed.awkward import AwkwardBackend
+from graphed.parquet import make_partitions
 from graphed.provenance import register_internal
 
-from coffea.util import _DaskProperty
+from coffea.util import _DaskProperty, _meta
 
 # a recorded op's provenance is the analyst's line, not the coffea frame that recorded it
 register_internal("coffea")
@@ -55,7 +56,7 @@ class _BranchDoc:
     def __get__(self, obj, cls=None):
         if obj is None:
             return self.doc
-        doc = obj.session.form(obj).tt.layout.purelist_parameter("__doc__")
+        doc = _meta(obj).layout.purelist_parameter("__doc__")
         return doc if isinstance(doc, str) else self.doc
 
 
@@ -167,10 +168,10 @@ class GraphedParquetSource:
         return parts[0] if len(parts) == 1 else awkward.concatenate(parts)
 
     def partitions(self, steps_per_file=1):
-        return tuple(
-            graphed.core.Partition.blind(str(path), "", step, steps_per_file)
-            for path in self._paths
-            for step in range(steps_per_file)
+        return make_partitions(
+            [str(path) for path in self._paths],
+            steps_per_file=steps_per_file,
+            open_files=False,
         )
 
     def read_partition(self, partition, columns, resources):

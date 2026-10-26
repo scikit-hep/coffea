@@ -2,8 +2,7 @@ import awkward
 import numpy
 
 from coffea.util import (
-    _GRAPHED,
-    _behavior_kwargs,
+    _DELAYED,
     _isinstance,
     _meta,
     maybe_map_partitions,
@@ -492,13 +491,11 @@ class CorrectedMETFactory:
         if not _isinstance(
             in_MET,
             "awkward.highlevel.Array",
-            "dask_awkward.lib.core.Array",
-            *_GRAPHED,
+            *_DELAYED,
         ) or not _isinstance(
             in_corrected_jets,
             "awkward.highlevel.Array",
-            "dask_awkward.lib.core.Array",
-            *_GRAPHED,
+            *_DELAYED,
         ):
             raise Exception(
                 "'MET' and 'corrected_jets' must be an (dask_)awkward array of some kind!"
@@ -640,9 +637,7 @@ class CorrectedMETFactory:
             )
 
         out_parms = _meta(out).layout.parameters
-        out = awkward.zip(
-            out_dict, depth_limit=1, parameters=out_parms, **_behavior_kwargs(out)
-        )
+        out = awkward.zip(out_dict, depth_limit=1, parameters=out_parms)
 
         return out
 
@@ -1085,9 +1080,7 @@ class CorrectedMETFactory:
             )
 
         out_parms = _meta(out).layout.parameters
-        out = awkward.zip(
-            out_dict, depth_limit=1, parameters=out_parms, **_behavior_kwargs(out)
-        )
+        out = awkward.zip(out_dict, depth_limit=1, parameters=out_parms)
 
         return out
 

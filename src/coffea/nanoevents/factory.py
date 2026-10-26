@@ -22,7 +22,12 @@ from coffea.nanoevents.mapping import (
 from coffea.nanoevents.schemas import BaseSchema, EDM4HEPSchema, NanoAODSchema
 from coffea.nanoevents.schemas.edm4hep import podio_collection_types
 from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
-from coffea.util import _import_dask_awkward, _import_graphed, _is_interpretable
+from coffea.util import (
+    _import_dask_awkward,
+    _import_graphed,
+    _is_interpretable,
+    _meta,
+)
 
 _offsets_label = quote(",!offsets")
 
@@ -643,6 +648,11 @@ class NanoEventsFactory:
                 )
             _graphed.check_schema(schemaclass)
             paths = list(file) if isinstance(file, list) else [file]
+            # each worker reopens its partition's file by this path
+            if not all(isinstance(path, (str, pathlib.PurePath)) for path in paths):
+                raise TypeError(
+                    "graphed mode reads parquet by path: pass a str or pathlib.Path, or a list of them"
+                )
             opener = _graphed.parquet_opener(
                 paths,
                 dict(
@@ -912,7 +922,7 @@ class NanoEventsFactory:
             events = self._mapping(form_mapping=self._schema, backend=backend)
             # `_events()` resolves cross-references off the record-time typetracer, so the root
             # array is planted there rather than on any chunk a worker will see
-            events.session.form(events).tt.attrs["@original_array"] = events
+            _meta(events).attrs["@original_array"] = events
             return events
 
         if self._mode == "dask":

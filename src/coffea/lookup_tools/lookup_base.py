@@ -5,7 +5,7 @@ import awkward
 import numpy
 
 from coffea.util import (
-    _GRAPHED,
+    _DELAYED,
     _graphed_map,
     _import_dask,
     _import_dask_awkward,
@@ -96,8 +96,7 @@ class lookup_base:
             if _isinstance(
                 arg,
                 "awkward.highlevel.Array",
-                "dask_awkward.lib.core.Array",
-                *_GRAPHED,
+                *_DELAYED,
             ):
                 actual_args.append(arg)
                 actual_arg_indices.append(iarg)

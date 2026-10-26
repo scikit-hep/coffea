@@ -26,6 +26,7 @@ from coffea.util import (
     _import_dask_awkward,
     _import_graphed,
     _is_interpretable,
+    _meta,
     compress_form,
     decompress_form,
 )
@@ -80,6 +81,8 @@ def get_steps(
         array : awkward.Array or dask_awkward.Array
             The normalized file descriptions, appended with the calculated steps for those files.
     """
+    if mode not in _preprocess_modes:
+        raise ValueError(f"mode must be one of {_preprocess_modes}, not {mode!r}")
     nf_backend = awkward.backend(normed_files)
     lz_or_nf = awkward.typetracer.length_zero_if_typetracer(normed_files)
     output_form_key = "form" if legacy_form_key else "compressed_form"
@@ -107,11 +110,9 @@ def get_steps(
                 filter_typename=no_filter,
                 filter_branch=partial(_is_interpretable, emit_warning=False),
             )
-            if mode == "graphed":
-                deferred = uproot.graphed(tree, **form_options)
-                form_str = deferred.session.form(deferred).tt.layout.form.to_json()
-            else:
-                form_str = uproot.dask(tree, **form_options).layout.form.to_json()
+            reader = uproot.graphed if mode == "graphed" else uproot.dask
+            form_str = _meta(reader(tree, **form_options)).layout.form.to_json()
+            if mode != "graphed":
                 # the function cache needs to be popped if present to prevent memory growth
                 dask = _import_dask()
                 if hasattr(dask.base, "function_cache"):

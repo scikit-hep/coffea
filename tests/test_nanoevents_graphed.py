@@ -1,4 +1,5 @@
 import os
+import pathlib
 import pickle
 import subprocess
 import sys
@@ -39,9 +40,9 @@ def _equal(left, right):
 
 
 def assert_same(actual, expected):
-    """The parity oracle: same awkward type, and the same values bit-for-bit."""
+    """The parity oracle: same awkward type, and the same values, NaN equal to NaN."""
     assert str(ak.type(actual)) == str(ak.type(expected))
-    assert _equal(ak.to_list(actual), ak.to_list(expected))
+    assert ak.array_equal(actual, expected, equal_nan=True, same_content_types=False)
 
 
 # ---- the analyses, spelled once and evaluated against both arms ------------------------------
@@ -484,6 +485,23 @@ def test_maybe_map_partitions_binds_a_graphed_keyword_and_honours_meta(nanoaod):
     )
 
 
+def test_a_plan_over_a_mapped_closure_round_trips_through_pickle(nanoaod):
+    from coffea.util import maybe_map_partitions
+
+    scale = 0.5
+
+    def func(pt, cut):
+        return ak.sum(ak.where(pt > cut * scale, pt, 0.0), axis=-1)
+
+    events, eager = nanoaod
+    recorded = maybe_map_partitions(func, events.Muon.pt, cut=events.MET.pt)
+    plan = graphed.aggregate_plan(
+        recorded, reduce=reduce_to_lists, combine=combine_lists, empty=no_lists
+    )
+    got = SequentialRunner().run(pickle.loads(pickle.dumps(plan))).value
+    assert _equal(got, reduce_to_lists([func(eager.Muon.pt, eager.MET.pt)]))
+
+
 @pytest.mark.parametrize("path", ["Muon", "Muon.pt", "Jet.btagDeepB", "run"])
 def test_a_deferred_field_carries_its_branch_doc(nanoaod, path):
     events, eager = nanoaod
@@ -565,6 +583,10 @@ def test_parquet_refuses_entry_bounds_and_uncapable_schemas(tests_directory):
         NanoEventsFactory.from_parquet(
             path, mode="graphed", schemaclass=_UserNanoAODSchema
         )
+    with open(path, "rb") as handle, pytest.raises(TypeError, match="by path"):
+        NanoEventsFactory.from_parquet(handle, mode="graphed")
+    events = NanoEventsFactory.from_parquet(pathlib.Path(path), mode="graphed")
+    assert isinstance(events.events(), graphed.Array)
 
 
 class _UserNanoAODSchema(NanoAODSchema):

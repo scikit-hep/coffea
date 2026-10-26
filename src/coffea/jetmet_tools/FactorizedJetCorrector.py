@@ -4,7 +4,7 @@ from functools import reduce
 import awkward
 
 from coffea.lookup_tools.jme_standard_function import jme_standard_function
-from coffea.util import _GRAPHED, _import_dask_awkward, _isinstance
+from coffea.util import _DELAYED, _import_dask_awkward, _isinstance
 
 
 def _checkConsistency(against, tocheck):
@@ -223,8 +223,7 @@ class FactorizedJetCorrector:
             # lookup_base handles dask/awkward/numpy
             if _isinstance(
                 fargs[0],
-                "dask_awkward.lib.core.Array",
-                *_GRAPHED,
+                *_DELAYED,
                 "awkward.highlevel.Array",
                 "numpy.ndarray",
             ):

@@ -152,7 +152,9 @@ pip install graphed"""
 
 
 # a graphed.vary output is a Varied, which is not a graphed.array.Array
-_GRAPHED = ("graphed.array.Array", "graphed.systematics.varied.Varied")
+_VARIED = "graphed.systematics.varied.Varied"
+_GRAPHED = ("graphed.array.Array", _VARIED)
+_DELAYED = ("dask_awkward.lib.core.Array", *_GRAPHED)
 
 
 def _is_graphed(arg: Any) -> bool:
@@ -164,16 +166,20 @@ def _meta(array):
     """The typetracer a dask_awkward or graphed array (a Varied's nominal) stands for, else the array itself."""
     if _isinstance(array, "dask_awkward.lib.core.Array"):
         return array._meta
-    if _isinstance(array, _GRAPHED[1]):
+    if _isinstance(array, _VARIED):
         array = _import_graphed().nominal(array)
     if _is_graphed(array):
         return array.session.form(array).tt
     return array
 
 
-def _behavior_kwargs(array):
-    """``behavior=`` for an awkward.zip like ``array``; graphed carries behavior on its backend instead."""
-    return {} if _is_graphed(array) else {"behavior": array.behavior}
+def _call_with_arrays(func, args, kwargs, slots, keys, *arrays):
+    full, kw = list(args), dict(kwargs)
+    for i, array in zip(slots, arrays):
+        full[i] = array
+    for k, array in zip(keys, arrays[len(slots) :]):
+        kw[k] = array
+    return func(*full, **kw)
 
 
 def _graphed_map(func, *args, meta=None, **kwargs):
@@ -181,18 +187,23 @@ def _graphed_map(func, *args, meta=None, **kwargs):
     ``dask_awkward.map_partitions`` does over partitions; ``meta`` defaults to ``func`` on typetracers.
     """
     graphed = _import_graphed()
-    slots = [i for i, arg in enumerate(args) if _is_graphed(arg)]
-    keys = [k for k, v in kwargs.items() if _is_graphed(v)]
+    from graphed.aggregate import by_value
 
-    def call(*arrays):
-        full, kw = list(args), dict(kwargs)
-        for i, array in zip(slots, arrays):
-            full[i] = array
-        for k, array in zip(keys, arrays[len(slots) :]):
-            kw[k] = array
-        return func(*full, **kw)
-
+    slots = tuple(i for i, arg in enumerate(args) if _is_graphed(arg))
+    keys = tuple(k for k, v in kwargs.items() if _is_graphed(v))
     arrays = [args[i] for i in slots] + [kwargs[k] for k in keys]
+    # a typed External ships its callable through stdlib pickle, which refuses the closures callers
+    # pass, so it goes by value; the graphed operands stay out of it, as their Session does not pickle
+    call = by_value(
+        partial(
+            _call_with_arrays,
+            func,
+            tuple(None if i in slots else arg for i, arg in enumerate(args)),
+            {k: v for k, v in kwargs.items() if k not in keys},
+            slots,
+            keys,
+        )
+    )
     if meta is None:
         meta = call(*(_meta(array) for array in arrays))
     return graphed.apply(call, *arrays, output_type=ak.type(meta))
@@ -202,8 +213,7 @@ def _ensure_flat(array, allow_missing=False):
     """Normalize an array to a flat numpy array, or ensure it is a flat dask-awkward array, or raise ValueError"""
     if not _isinstance(
         array,
-        "dask_awkward.lib.core.Array",
-        *_GRAPHED,
+        *_DELAYED,
         "awkward.highlevel.Array",
         "numpy.ndarray",
     ):
@@ -458,9 +468,6 @@ def dask_property(maybe_func=None, *, no_dispatch=False):
 
 class _DaskMethod:
     _dask_get = None
-    #: the arm below is the eager body itself, taking no deferred array. A _DaskProperty needs no
-    #: such marker: its two arms coincide, and a deferred dispatch reaches the same body either way.
-    _no_dispatch = False
 
     def __init__(self, impl):
         self._impl = impl

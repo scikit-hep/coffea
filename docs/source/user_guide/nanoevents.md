@@ -200,7 +200,7 @@ where the capability lives instead:
 | `uproot_options={"allow_read_errors_with_report": True}` | `graphed.checkpoint.run_resumable` |
 | `add_systematic`, `_ensure_systematics` | `graphed.vary(...)` |
 | a callable argument, e.g. `metric_table(..., metric=fn)` | `graphed.vary(...)` for a variation; otherwise record the metric with array operations |
-| `coffea.util.maybe_map_partitions` | record the operation on the graph |
+| `PackedSelection.nminusone`, `PackedSelection.cutflow` | `gak.sum(selection.all(...))` |
 
 A schema is admitted only if it declares `__graphed_capable__ = True` in its own class body, which
 `BaseSchema`, `NanoAODSchema` and `PFNanoAODSchema` do. Subclasses do not inherit the flag: declare it once the

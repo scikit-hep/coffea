@@ -12,6 +12,7 @@ import uproot
 
 from coffea.dataset_tools import apply_to_dataset, apply_to_fileset, preprocess
 from coffea.dataset_tools.filespec import DataGroupSpec
+from coffea.dataset_tools.preprocess import get_steps
 from coffea.nanoevents import BaseSchema
 from coffea.util import decompress_form
 
@@ -180,6 +181,7 @@ def test_apply_to_fileset_graphed(tmp_path):
     [
         (lambda fs: preprocess(fs, mode="eager"), "mode must be"),
         (lambda fs: apply_to_fileset(lambda e: e, fs, mode="eager"), "mode must be"),
+        (lambda fs: get_steps(ak.Array([]), mode="graphd"), "mode must be"),
     ],
 )
 def test_dataset_tools_refuse_unknown_mode(tmp_path, call, match):

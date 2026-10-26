@@ -9,11 +9,10 @@ from numba import types
 from numba.typed import Dict
 
 from coffea.util import (
-    _graphed_map,
     _import_dask,
     _import_dask_awkward,
-    _is_graphed,
     _isinstance,
+    maybe_map_partitions,
 )
 
 _numba_bool = None
@@ -264,13 +263,7 @@ class LumiMask:
                 )
             return mask_out
 
-        if _isinstance(runs, "dask_awkward.lib.core.Array"):
-            dask_awkward = _import_dask_awkward()
-            return dask_awkward.map_partitions(apply, runs, lumis)
-        elif _is_graphed(runs):
-            return _graphed_map(apply, runs, lumis)
-        else:
-            return apply(runs, lumis)
+        return maybe_map_partitions(apply, runs, lumis)
 
     # This could be run in parallel, but windows does not support it
     @staticmethod
