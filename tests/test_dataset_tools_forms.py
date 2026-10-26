@@ -7,6 +7,7 @@ import uproot
 
 from coffea.dataset_tools import DataGroupSpec, preprocess
 from coffea.dataset_tools.forms import (
+    IncompatibleFormsError,
     decode_field_bitset,
     encode_field_bitset,
     prune_form_fields,
@@ -142,9 +143,9 @@ def test_add_one_sided_form_raises(hlt_files):
     file_a, file_b = hlt_files
     with_form = _preprocessed({file_a: "Events"})
     without_form = DataGroupSpec({"D": {"files": {file_b: "Events"}}})["D"]
-    with pytest.raises(ValueError, match="saved form"):
+    with pytest.raises(IncompatibleFormsError, match="saved form"):
         with_form + without_form
-    with pytest.raises(ValueError, match="saved form"):
+    with pytest.raises(IncompatibleFormsError, match="saved form"):
         without_form + with_form
 
 
@@ -203,42 +204,52 @@ def test_canonicalize_form_without_form_is_copy():
     assert ds.canonicalize_form() == ds
 
 
-def test_filter_files_prunes_union_form(hlt_files):
+def test_filter_files_keeps_union_form(hlt_files):
     file_a, file_b = hlt_files
     ds = _preprocessed({file_a: "Events", file_b: "Events"})
-
     filtered = ds.filter_files(filter_name=".*hlt_a.root")
     assert list(filtered.files) == [file_a]
-    # the union form shrinks to exactly the fields the remaining file carries
-    assert set(filtered.form.fields) == {"x", "HLT_a"}
-    # the remaining file's bitset covers the whole pruned form
+    assert filtered.form == ds.form
+    assert list(filtered.form.fields) == list(ds.form.fields)
+
+
+def test_prune_form_shrinks_to_remaining_files(hlt_files):
+    file_a, file_b = hlt_files
+    ds = _preprocessed({file_a: "Events", file_b: "Events"})
+    pruned = ds.filter_files(filter_name=".*hlt_a.root").prune_form()
+    # the form shrinks to exactly the fields the remaining file carries
+    assert set(pruned.form.fields) == {"x", "HLT_a"}
+    # the remaining file's bitset is re-encoded against the pruned form
     assert decode_field_bitset(
-        filtered.files[file_a].experimental_field_bitset, list(filtered.form.fields)
-    ) == set(filtered.form.fields)
+        pruned.files[file_a].experimental_field_bitset, list(pruned.form.fields)
+    ) == set(pruned.form.fields)
+    # nothing to prune when every field is carried by some file
+    assert ds.prune_form() == ds
 
 
-def test_filter_files_without_bitsets_keeps_superset(hlt_files):
+def test_prune_form_requires_bitsets(hlt_files):
     file_a, file_b = hlt_files
     ds = _preprocessed({file_a: "Events", file_b: "Events"})
     spec = ds.model_dump()
-    for file_spec in spec["files"].values():
-        file_spec["experimental_field_bitset"] = None
-    ds_nobits = type(ds)(**spec)
+    spec["files"][file_b]["experimental_field_bitset"] = None
+    with pytest.raises(ValueError, match="field bitset for every file"):
+        type(ds)(**spec).prune_form()
+    no_form = DataGroupSpec({"D": {"files": {_DY: "Events"}}})["D"]
+    assert no_form.prune_form() == no_form
 
-    filtered = ds_nobits.filter_files(filter_name=".*hlt_a.root")
-    assert filtered.form == ds.form
 
-
-def test_limit_files_prunes_union_form(hlt_files):
+def test_limit_files_keeps_union_form(hlt_files):
     file_a, file_b = hlt_files
     ds = _preprocessed({file_a: "Events", file_b: "Events"})
     limited = ds.limit_files(1)
-    remaining = next(iter(limited.files))
+    assert limited.form == ds.form
+    pruned = limited.prune_form()
+    remaining = next(iter(pruned.files))
     remaining_fields = decode_field_bitset(
-        limited.files[remaining].experimental_field_bitset, list(limited.form.fields)
+        pruned.files[remaining].experimental_field_bitset, list(pruned.form.fields)
     )
-    assert remaining_fields == set(limited.form.fields)
-    assert len(limited.form.fields) < len(ds.form.fields)
+    assert remaining_fields == set(pruned.form.fields)
+    assert len(pruned.form.fields) < len(ds.form.fields)
 
 
 def test_preprocess_populates_bitsets(hlt_files):
@@ -345,7 +356,8 @@ def test_genmodel_matches_joint_preprocess():
 
 
 def test_genmodel_bitsets_and_filter_prune():
-    """Bitsets decode to each file's branch set and filtering prunes the union form."""
+    """Bitsets decode to each file's branch set; pruning after filtering shrinks the union
+    form to the remaining file's branches."""
     combined, _ = preprocess(
         DataGroupSpec(
             {
@@ -368,6 +380,8 @@ def test_genmodel_bitsets_and_filter_prune():
     assert _GM_700 in present_a
 
     only_a = ds.filter_files(filter_name=".*with20_700_1.*")
+    assert only_a.form == ds.form
+    only_a = only_a.prune_form()
     assert list(only_a.files) == [_GENMODEL_A + ".root"]
     # the pruned form is exactly file A's fields, and still carries GenModel_TChiZH_700_1
     assert set(only_a.form.fields) == present_a
@@ -501,28 +515,126 @@ def test_add_recomputes_bitsets_against_the_union_form():
     ) == {"y", "z"}
 
 
-def test_datagroupspec_filter_files_prunes_union_form(hlt_files):
+def test_datagroupspec_filter_and_prune_match_datasetspec(hlt_files):
     file_a, file_b = hlt_files
     ds = _preprocessed({file_a: "Events", file_b: "Events"})
-    filtered = DataGroupSpec({"D": ds}).filter_files(filter_name=".*hlt_a.root")
-    assert list(filtered["D"].files) == [file_a]
-    assert set(filtered["D"].form.fields) == {"x", "HLT_a"}
+    group = DataGroupSpec({"D": ds})
+    filtered = group.filter_files(filter_name=".*hlt_a.root")
     assert filtered["D"] == ds.filter_files(filter_name=".*hlt_a.root")
+    assert filtered["D"].form == ds.form
+    assert (
+        filtered.prune_form()["D"]
+        == ds.filter_files(filter_name=".*hlt_a.root").prune_form()
+    )
 
 
-def test_subtraction_prunes_union_form(hlt_files):
-    """Subtracting a dataset prunes the union form to the remaining files' fields, for
-    DatasetSpec and DataGroupSpec alike."""
+def test_subtraction_keeps_union_form(hlt_files):
+    """Subtraction keeps the union form, for DatasetSpec and DataGroupSpec alike;
+    prune_form shrinks it afterwards."""
     file_a, file_b = hlt_files
     ds_a = _preprocessed({file_a: "Events"})
     ds_b = _preprocessed({file_b: "Events"})
+    combined = ds_a + ds_b
 
-    remaining = (ds_a + ds_b) - ds_b
+    remaining = combined - ds_b
     assert list(remaining.files) == [file_a]
-    assert set(remaining.form.fields) == {"x", "HLT_a"}
-    assert decode_field_bitset(
-        remaining.files[file_a].experimental_field_bitset, list(remaining.form.fields)
-    ) == {"x", "HLT_a"}
+    assert remaining.form == combined.form
+    assert set(remaining.prune_form().form.fields) == {"x", "HLT_a"}
 
     group = DataGroupSpec({"D": ds_a}) + DataGroupSpec({"D": ds_b})
     assert (group - DataGroupSpec({"D": ds_b}))["D"] == remaining
+
+
+# --------------------------------------------------------------------------------------
+# incompatible forms: raise by default, drop on request
+# --------------------------------------------------------------------------------------
+
+
+def _spec_from_form(form, files):
+    """A DatasetSpec with saved ``form``; ``files`` maps a file name to its steps."""
+    from coffea.dataset_tools import DatasetSpec
+    from coffea.util import compress_form
+
+    return DatasetSpec(
+        files={
+            fname: {
+                "object_path": "Events",
+                "steps": steps,
+                "num_entries": 20,
+                "uuid": f"uuid-{fname}",
+            }
+            for fname, steps in files.items()
+        },
+        compressed_form=compress_form(form.to_json()),
+        format="root",
+    )
+
+
+def test_union_raises_for_a_missing_non_bool_field():
+    with_float = _spec_from_form(_record_form(x=True, v=1.0), {"a.root": [[0, 20]]})
+    without = _spec_from_form(_record_form(x=True), {"b.root": [[0, 20]]})
+    with pytest.raises(IncompatibleFormsError, match="'v'"):
+        with_float + without
+
+
+def test_union_with_drop_drops_form_and_bitsets(hlt_files):
+    file_a, file_b = hlt_files
+    with_form = _preprocessed({file_a: "Events"})
+    available, _ = preprocess(
+        DataGroupSpec({"D": {"files": {file_b: "Events"}}}),
+        save_form=False,
+        backend="iterative",
+    )
+    without_form = available["D"]
+    assert without_form.compressed_form is None
+    with pytest.warns(UserWarning, match="saved form is dropped") as record:
+        merged = with_form.union_with(without_form, incompatible_forms="drop")
+    assert all(w.filename == __file__ for w in record)
+    assert merged.compressed_form is None
+    assert list(merged.files) == [file_a, file_b]
+    assert all(fs.experimental_field_bitset is None for fs in merged.files.values())
+
+
+def test_union_with_drop_does_not_swallow_other_errors(hlt_files):
+    file_a, file_b = hlt_files
+    ds_a = _preprocessed({file_a: "Events"}).model_copy(update={"did": "scope:a"})
+    ds_b = _preprocessed({file_b: "Events"}).model_copy(update={"did": "scope:b"})
+    with pytest.raises(ValueError, match="different dids"):
+        ds_a.union_with(ds_b, incompatible_forms="drop")
+    with pytest.raises(ValueError, match="incompatible_forms"):
+        ds_a.union_with(ds_b, incompatible_forms="ignore")
+
+
+def test_drop_form_clears_form_and_bitsets(hlt_files):
+    file_a, file_b = hlt_files
+    ds = _preprocessed({file_a: "Events", file_b: "Events"})
+    dropped = ds.drop_form()
+    assert ds.compressed_form is not None
+    assert dropped.compressed_form is None
+    assert all(fs.experimental_field_bitset is None for fs in dropped.files.values())
+    assert list(dropped.files) == list(ds.files)
+
+
+def test_datagroupspec_union_with_drop_only_affects_incompatible_datasets(hlt_files):
+    file_a, file_b = hlt_files
+    group_1 = DataGroupSpec(
+        {
+            "ok": _preprocessed({file_a: "Events"}),
+            "bad": _spec_from_form(_record_form(x=True, v=1.0), {"a.root": [[0, 20]]}),
+        }
+    )
+    group_2 = DataGroupSpec(
+        {
+            "ok": _preprocessed({file_b: "Events"}),
+            "bad": _spec_from_form(_record_form(x=True), {"b.root": [[0, 20]]}),
+        }
+    )
+    with pytest.raises(IncompatibleFormsError):
+        group_1 + group_2
+    with pytest.warns(UserWarning, match="Dataset 'bad'") as record:
+        merged = group_1.union_with(group_2, incompatible_forms="drop")
+    assert len(record) == 1
+    assert record[0].filename == __file__
+    assert set(merged["ok"].form.fields) == {"x", "HLT_a", "HLT_b"}
+    assert merged["bad"].compressed_form is None
+    assert list(merged["bad"].files) == ["a.root", "b.root"]

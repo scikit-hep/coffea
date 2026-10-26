@@ -4,6 +4,7 @@ import copy
 import pathlib
 import re
 import sys
+import warnings
 from collections.abc import Callable, Hashable, Iterable, MutableMapping
 from typing import Annotated, Any, Literal
 
@@ -481,14 +482,43 @@ class DatasetSpec(BaseModel):
     def __add__(self, other: DatasetSpec) -> DatasetSpec:
         return self.union_with(other)
 
-    def union_with(self, other: DatasetSpec, sort_fields: bool = False) -> DatasetSpec:
-        """Merge two DatasetSpecs; ``__add__`` delegates here.
+    def union_with(
+        self,
+        other: DatasetSpec,
+        sort_fields: bool = False,
+        incompatible_forms: Literal["raise", "drop"] = "raise",
+    ) -> DatasetSpec:
+        """Merge two DatasetSpecs; ``__add__`` delegates here with the defaults.
 
         Files and metadata merge as in ``+`` (``other``'s metadata wins). If both operands
         carry a saved form the result's form is their union and per-file field bitsets are
-        remapped to it; if only one does, raise ValueError. ``sort_fields=True`` sorts
-        record fields recursively so the serialized form is independent of operand order.
+        remapped to it. ``sort_fields=True`` sorts record fields recursively so the serialized
+        form is independent of operand order.
+
+        When the forms cannot be combined (only one operand has a saved form, or a field
+        missing from one operand is not a flat bool), ``incompatible_forms="raise"`` raises
+        :class:`~coffea.dataset_tools.forms.IncompatibleFormsError` and ``"drop"`` warns and
+        returns the merge of both operands' :meth:`drop_form` copies.
         """
+        if incompatible_forms not in ("raise", "drop"):
+            raise ValueError(
+                f"incompatible_forms must be 'raise' or 'drop', not {incompatible_forms!r}"
+            )
+        from coffea.dataset_tools.forms import IncompatibleFormsError
+
+        try:
+            return self._union_with(other, sort_fields)
+        except IncompatibleFormsError as err:
+            if incompatible_forms == "raise":
+                raise
+            from coffea.dataset_tools.preprocess_backends import _external_stacklevel
+
+            warnings.warn(
+                f"The saved form is dropped: {err}", stacklevel=_external_stacklevel()
+            )
+            return self.drop_form()._union_with(other.drop_form(), sort_fields)
+
+    def _union_with(self, other: DatasetSpec, sort_fields: bool) -> DatasetSpec:
         if not isinstance(other, DatasetSpec):
             raise TypeError(
                 f"Can only add DatasetSpec to DatasetSpec, got {type(other)}"
@@ -499,9 +529,11 @@ class DatasetSpec(BaseModel):
                     f"Cannot add DatasetSpec with different dids: {self.did} and {other.did}"
                 )
         if (self.compressed_form is None) != (other.compressed_form is None):
-            raise ValueError(
-                "Cannot add a DatasetSpec with a saved form to one without; "
-                "preprocess it with save_form=True first."
+            from coffea.dataset_tools.forms import IncompatibleFormsError
+
+            raise IncompatibleFormsError(
+                "Cannot add a DatasetSpec with a saved form to one without; preprocess it "
+                "with save_form=True first, or pass incompatible_forms='drop'."
             )
         new_spec = self.model_dump()
         merged_files = self.files + other.files
@@ -602,19 +634,35 @@ class DatasetSpec(BaseModel):
                     )
         return type(self)(**spec)
 
-    def _prune_form_for_files(self, spec: dict) -> dict:
-        """Prune the saved union form in a dumped ``spec`` to the fields its files carry.
+    def drop_form(self) -> Self:
+        """Return a copy without the saved form and without per-file field bitsets."""
+        spec = self.model_dump()
+        spec["compressed_form"] = None
+        for file_spec in spec["files"].values():
+            file_spec["experimental_field_bitset"] = None
+        return type(self)(**spec)
 
-        Only when every file has a field bitset; otherwise the form stays a superset.
+    def prune_form(self) -> Self:
+        """Return a copy whose saved form keeps only the top-level fields some file carries.
+
+        Which fields a file carries comes from its field bitset, so every file needs one;
+        the bitsets are re-encoded against the pruned form. Kept fields keep their union
+        types (a field missing from some of the original files stays optional). A spec
+        without a saved form is returned unchanged.
         """
+        spec = self.model_dump()
         if self.compressed_form is None or not spec["files"]:
-            return spec
-        bitsets = {
-            fname: file_spec.get("experimental_field_bitset")
+            return type(self)(**spec)
+        missing = [
+            fname
             for fname, file_spec in spec["files"].items()
-        }
-        if any(bitset is None for bitset in bitsets.values()):
-            return spec
+            if file_spec.get("experimental_field_bitset") is None
+        ]
+        if missing:
+            raise ValueError(
+                "prune_form needs a field bitset for every file; preprocess with "
+                f"save_form=True to get them. Files without one: {missing}"
+            )
 
         from coffea.dataset_tools.forms import (
             decode_field_bitset,
@@ -625,14 +673,15 @@ class DatasetSpec(BaseModel):
 
         form = self.form
         old_fields = list(form.fields)
-        keep_fields = set()
-        present_by_file = {}
-        for fname, bitset in bitsets.items():
-            present = decode_field_bitset(bitset, old_fields)
-            present_by_file[fname] = present
-            keep_fields |= present
+        present_by_file = {
+            fname: decode_field_bitset(
+                file_spec["experimental_field_bitset"], old_fields
+            )
+            for fname, file_spec in spec["files"].items()
+        }
+        keep_fields = set().union(*present_by_file.values())
         if keep_fields == set(old_fields):
-            return spec
+            return type(self)(**spec)
         pruned_form = prune_form_fields(form, keep_fields)
         new_fields = list(pruned_form.fields)
         spec["compressed_form"] = compress_form(pruned_form.to_json())
@@ -640,7 +689,7 @@ class DatasetSpec(BaseModel):
             file_spec["experimental_field_bitset"] = encode_field_bitset(
                 present_by_file[fname], new_fields
             )
-        return spec
+        return type(self)(**spec)
 
     def __sub__(self, other: DatasetSpec) -> DatasetSpec:
         if not isinstance(other, DatasetSpec):
@@ -653,8 +702,7 @@ class DatasetSpec(BaseModel):
                     f"Cannot subtract DatasetSpec with different dids: {self.did} and {other.did}"
                 )
         new_spec = self.model_dump()
-        new_spec["files"] = (self.files - other.files).model_dump()
-        new_spec = self._prune_form_for_files(new_spec)
+        new_spec["files"] = self.files - other.files
         return type(self)(**new_spec)
 
     @model_validator(mode="before")
@@ -844,12 +892,10 @@ class DatasetSpec(BaseModel):
     def limit_files(self, max_files: int | slice | None) -> Self:
         """Limit the number of files.
 
-        The saved union form is pruned to the remaining files' fields when every file
-        carries a field bitset.
+        The saved form is kept; :meth:`prune_form` shrinks it to the remaining files' fields.
         """
         spec = self.model_dump()
         spec["files"] = self.files.limit_files(max_files).model_dump()
-        spec = self._prune_form_for_files(spec)
         return type(self)(**spec)
 
     def filter_files(
@@ -859,14 +905,12 @@ class DatasetSpec(BaseModel):
     ) -> Self:
         """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_callable).
 
-        The saved union form is pruned to the remaining files' fields when every file
-        carries a field bitset.
+        The saved form is kept; :meth:`prune_form` shrinks it to the remaining files' fields.
         """
         spec = self.model_dump()
         spec["files"] = self.files.filter_files(
             filter_name=filter_name, filter_callable=filter_callable
         ).model_dump()
-        spec = self._prune_form_for_files(spec)
         return type(self)(**spec)
 
 
@@ -887,16 +931,52 @@ class DataGroupSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
         return len(self.root)
 
     def __add__(self, other: DataGroupSpec) -> DataGroupSpec:
+        return self.union_with(other)
+
+    def union_with(
+        self,
+        other: DataGroupSpec,
+        sort_fields: bool = False,
+        incompatible_forms: Literal["raise", "drop"] = "raise",
+    ) -> DataGroupSpec:
+        """Merge two DataGroupSpecs; ``__add__`` delegates here with the defaults.
+
+        Datasets present in both are merged with :meth:`DatasetSpec.union_with`. With
+        ``incompatible_forms="drop"``, only the datasets whose forms cannot be combined lose
+        their saved form, with a warning naming each one.
+        """
         if not isinstance(other, DataGroupSpec):
             raise TypeError(
                 f"Can only add DataGroupSpec to DataGroupSpec, got {type(other)}"
             )
+        if incompatible_forms not in ("raise", "drop"):
+            raise ValueError(
+                f"incompatible_forms must be 'raise' or 'drop', not {incompatible_forms!r}"
+            )
+        from coffea.dataset_tools.forms import IncompatibleFormsError
+
         new_dict = dict(self)
-        for k, v in other.items():
-            if k in new_dict:
-                new_dict[k] = new_dict[k] + v
-            else:
-                new_dict[k] = v
+        for name, theirs in other.items():
+            if name not in new_dict:
+                new_dict[name] = theirs
+                continue
+            mine = new_dict[name]
+            try:
+                new_dict[name] = mine.union_with(theirs, sort_fields=sort_fields)
+            except IncompatibleFormsError as err:
+                if incompatible_forms == "raise":
+                    raise
+                from coffea.dataset_tools.preprocess_backends import (
+                    _external_stacklevel,
+                )
+
+                warnings.warn(
+                    f"Dataset {name!r}: the saved form is dropped: {err}",
+                    stacklevel=_external_stacklevel(),
+                )
+                new_dict[name] = mine.drop_form().union_with(
+                    theirs.drop_form(), sort_fields=sort_fields
+                )
         return type(self)(new_dict)
 
     def __sub__(self, other: DataGroupSpec) -> DataGroupSpec:
@@ -970,7 +1050,7 @@ class DataGroupSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
     ) -> Self:
         """Filter files by a regex pattern on the file names(filter_name) or callable applied to Filespecs (filter_callable).
 
-        Each dataset's saved union form is pruned as in :meth:`DatasetSpec.filter_files`.
+        Each dataset's saved form is kept, as in :meth:`DatasetSpec.filter_files`.
         """
         return type(self)(
             {
@@ -980,6 +1060,10 @@ class DataGroupSpec(RootModel[dict[str, DatasetSpec]], MutableMapping):
                 for k, v in self.items()
             }
         )
+
+    def prune_form(self) -> Self:
+        """Apply :meth:`DatasetSpec.prune_form` to every dataset."""
+        return type(self)({k: v.prune_form() for k, v in self.items()})
 
     def filter_datasets(
         self,

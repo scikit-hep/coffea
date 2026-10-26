@@ -10,12 +10,21 @@ from __future__ import annotations
 import awkward
 
 __all__ = [
+    "IncompatibleFormsError",
     "union_form_jsonstr",
     "sort_form_fields",
     "prune_form_fields",
     "encode_field_bitset",
     "decode_field_bitset",
 ]
+
+
+class IncompatibleFormsError(ValueError):
+    """Forms that cannot be combined into one saved union form.
+
+    Raised when a field missing from some of the forms is not a flat bool (the union can only
+    mark flat bools optional), or when only one of two datasets being added has a saved form.
+    """
 
 
 def union_form_jsonstr(forms: list, sort_fields: bool = False) -> str | None:
@@ -45,9 +54,9 @@ def union_form_jsonstr(forms: list, sort_fields: bool = False) -> str | None:
                 not isinstance(content.content, awkward.forms.NumpyForm)
                 or content.content.primitive != "bool"
             ):
-                raise ValueError(
-                    "IndexedOptionArrays can only contain NumpyArrays of "
-                    "bools in mergers of flat-tuple-like schemas!"
+                raise IncompatibleFormsError(
+                    f"field {union_form.fields[icontent]!r} is missing from some forms and is "
+                    "not a flat bool, so the union form cannot mark it optional"
                 )
             parameters = (
                 content.content.parameters.copy()
