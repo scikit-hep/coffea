@@ -265,6 +265,20 @@ def test_an_rntuple_records_without_a_saved_form(tests_directory):
     assert sorted(events.Muon.fields) == sorted(ttree.Muon.fields)
 
 
+@pytest.mark.parametrize("analysis", NANOAOD_ANALYSES, ids=lambda a: a.__name__)
+def test_an_rntuple_matches_the_eager_ttree(tests_directory, analysis):
+    path = os.path.join(tests_directory, "samples", "nano_dy_rntuple.root")
+    events = _factory(path, NanoAODSchema, "graphed").events()
+    eager = _factory(path.replace("_rntuple", ""), NanoAODSchema, "eager").events()
+    # an RNTuple's leaves carry no typename parameter
+    assert ak.array_equal(
+        events.session.materialize(analysis(events, gak)),
+        analysis(eager, ak),
+        check_parameters=False,
+        equal_nan=True,
+    )
+
+
 def test_a_string_file_takes_its_tree_from_treepath(tests_directory):
     path = os.path.join(tests_directory, "samples", "nano_dy.root")
     events = NanoEventsFactory.from_root(
