@@ -94,7 +94,7 @@ def test_preprocess_graphed_matches_dask(
         else contextlib.nullcontext()
     ):
         runner = _PicklingRunner()
-        graphed_out = preprocess(fileset, scheduler=runner, mode="graphed", **kwargs)
+        graphed_out = preprocess(fileset, scheduler=runner, backend="graphed", **kwargs)
 
     assert graphed_out == dask_out
     # one task per batch: union has 3 files, single 1, parquet 2
@@ -121,7 +121,7 @@ def _preprocessed_graphed(tmp_path):
         DataGroupSpec({"ds": {"files": {has_root: "Events", missing_root: "Events"}}}),
         step_size=7,
         save_form=True,
-        mode="graphed",
+        backend="graphed",
     )
     return available
 
@@ -160,7 +160,7 @@ def test_apply_to_fileset_graphed(tmp_path):
             }
         ),
         step_size=7,
-        mode="graphed",
+        backend="graphed",
     )
 
     def analysis(events):
@@ -175,15 +175,15 @@ def test_apply_to_fileset_graphed(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "call",
+    "call, match",
     [
-        lambda fs: preprocess(fs, mode="eager"),
-        lambda fs: apply_to_fileset(lambda e: e, fs, mode="eager"),
+        (lambda fs: preprocess(fs, backend="eager"), "backend must be"),
+        (lambda fs: apply_to_fileset(lambda e: e, fs, mode="eager"), "mode must be"),
     ],
 )
-def test_dataset_tools_refuse_unknown_mode(tmp_path, call):
+def test_dataset_tools_refuse_unknown_mode(tmp_path, call, match):
     has_root, *_ = _write_flag_files(tmp_path)
-    with pytest.raises(ValueError, match="mode must be"):
+    with pytest.raises(ValueError, match=match):
         call(DataGroupSpec({"ds": {"files": {has_root: "Events"}}}))
 
 
@@ -193,7 +193,7 @@ def test_preprocess_graphed_refuses_dask_scheduler(tmp_path):
         preprocess(
             DataGroupSpec({"ds": {"files": {has_root: "Events"}}}),
             scheduler="sync",
-            mode="graphed",
+            backend="graphed",
         )
 
 
@@ -215,7 +215,7 @@ def test_dataset_tools_graphed_without_dask(tmp_path):
 
         files = {{{has_root!r}: "Events", {missing_root!r}: "Events"}}
         available, _ = preprocess(
-            DataGroupSpec({{"ds": {{"files": files}}}}), save_form=True, mode="graphed"
+            DataGroupSpec({{"ds": {{"files": files}}}}), save_form=True, backend="graphed"
         )
         (flag,) = apply_to_dataset(
             lambda e: e["flag"], available["ds"], schemaclass=BaseSchema, mode="graphed"
@@ -229,3 +229,61 @@ def test_dataset_tools_graphed_without_dask(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.split() == [str(N), str(N)]
+
+
+class _ReverseOrderRunner:
+    """Runs a plan's tasks in reverse key order and combines in that order."""
+
+    def run(self, plan):
+        from graphed.core.execution import ExecResult
+
+        value = plan.empty()
+        for task in sorted(plan.tasks, key=lambda t: -t.key):
+            value = plan.combine(value, plan.process(task.partition, None))
+        return ExecResult(
+            value=value, n_partitions=len(plan.tasks), n_combines=len(plan.tasks)
+        )
+
+
+def test_preprocess_graphed_does_not_depend_on_combine_order(tmp_path):
+    """With files_per_batch=1 and a skipped file first, results match dask whatever order
+    the executor combines the batches in, for DataGroupSpec and dict filesets."""
+    from coffea.dataset_tools import preprocess_legacy
+
+    has_root, missing_root, _, _ = _write_flag_files(tmp_path)
+    absent = str(tmp_path / "does_not_exist.root")
+    files = {absent: "Events", has_root: "Events", missing_root: "Events"}
+    kwargs = dict(step_size=7, save_form=True, skip_bad_files=True)
+
+    spec = DataGroupSpec({"ds": {"files": files}})
+    dask_out = preprocess(spec, scheduler="sync", **kwargs)
+    graphed_out = preprocess(
+        spec, backend="graphed", scheduler=_ReverseOrderRunner(), **kwargs
+    )
+    assert graphed_out == dask_out
+    assert list(graphed_out[1]["ds"].files) == list(files)
+
+    legacy = {"ds": {"files": files}}
+    assert preprocess_legacy(
+        legacy, backend="graphed", scheduler=_ReverseOrderRunner(), **kwargs
+    ) == preprocess_legacy(legacy, scheduler="sync", **kwargs)
+
+
+def test_graphed_steps_of_an_empty_dataset():
+    """An empty dataset still runs its steps function once and gets a typed empty result."""
+    from coffea.dataset_tools.preprocess import _compute_steps
+
+    empty = ak.Array(
+        [
+            {
+                "file": "x",
+                "object_path": "Events",
+                "steps": None,
+                "num_entries": None,
+                "uuid": None,
+            }
+        ]
+    )[0:0]
+    out = _compute_steps({"d": empty}, {"d": lambda batch: batch}, 1, None, "graphed")
+    assert len(out["d"]) == 0
+    assert out["d"].fields == empty.fields

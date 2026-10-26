@@ -162,9 +162,10 @@ analysis line that recorded the operation, run the output with
 
 ### Filesets in graphed mode
 
-`preprocess`, `apply_to_dataset` and `apply_to_fileset` take `mode="graphed"` as well, so a fileset
-is preprocessed and analysed without dask installed. In graphed mode `preprocess(scheduler=...)`
-takes a graphed executor, `SequentialRunner` by default, and its output is the same as dask mode's.
+`preprocess` takes `backend="graphed"`, and `apply_to_dataset` and `apply_to_fileset` take
+`mode="graphed"`, so a fileset is preprocessed and analysed without dask installed. With
+`backend="graphed"`, `preprocess(scheduler=...)` takes a graphed executor, `SequentialRunner` by
+default, and its output is the same as with `backend="dask"`.
 The `steps` it writes become the plan's partitions, one task per step:
 
 ```python
@@ -172,7 +173,7 @@ from coffea.dataset_tools import apply_to_fileset, preprocess
 from coffea.dataset_tools.filespec import DataGroupSpec
 
 fileset = DataGroupSpec({"DY": {"files": {"nano_dy.root": "Events"}}})
-available, _ = preprocess(fileset, step_size=10, mode="graphed")
+available, _ = preprocess(fileset, step_size=10, backend="graphed")
 
 out = apply_to_fileset(
     lambda events: gak.num(events.Jet, axis=1),
