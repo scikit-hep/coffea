@@ -5,7 +5,6 @@ import hashlib
 import math
 import warnings
 from collections.abc import Callable
-from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -25,6 +24,7 @@ from coffea.dataset_tools.filespec import (
 from coffea.util import (
     _import_dask,
     _import_dask_awkward,
+    _import_graphed,
     _is_interpretable,
     compress_form,
     decompress_form,
@@ -42,7 +42,7 @@ def get_steps(
     step_size_safety_factor: float = 0.5,
     uproot_options: dict = {},
     legacy_form_key: bool = True,
-    backend: str = "dask",
+    mode: str = "dask",
 ) -> awkward.Array | dask_awkward.Array:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -71,7 +71,7 @@ def get_steps(
         legacy_form_key : bool, default True
             Use "form" for the compressed form key in the output for backwards compatibility.
             Set to False to use "compressed_form" instead.
-        backend : str, default "dask"
+        mode : str, default "dask"
             Which deferred uproot reader extracts the form when ``save_form`` is set:
             ``"dask"`` (``uproot.dask``) or ``"graphed"`` (``uproot.graphed``, needs no dask).
 
@@ -107,7 +107,7 @@ def get_steps(
                 filter_typename=no_filter,
                 filter_branch=partial(_is_interpretable, emit_warning=False),
             )
-            if backend == "graphed":
+            if mode == "graphed":
                 deferred = uproot.graphed(tree, **form_options)
                 form_str = deferred.session.form(deferred).tt.layout.form.to_json()
             else:
@@ -258,28 +258,7 @@ def _normalize_file_info(file_info):
 
 _trivial_file_fields = {"run", "luminosityBlock", "event"}
 
-_preprocess_backends = ("dask", "graphed")
-
-
-@dataclass(frozen=True)
-class _StepsOfBatch:
-    """A graphed ``Plan`` process: a task's partition names a dataset (``uri``) and the half-open
-    range of its file rows (``entry_start``/``entry_stop``) to run that dataset's steps function on.
-    """
-
-    norm_files: dict[str, awkward.Array]
-    steps_fns: dict[str, Callable]
-
-    def __call__(
-        self, partition, resources
-    ) -> dict[str, list[tuple[int, awkward.Array]]]:
-        name = partition.uri
-        batch = self.norm_files[name][partition.entry_start : partition.entry_stop]
-        return {name: [(partition.entry_start, self.steps_fns[name](batch))]}
-
-
-def _concat_batches(a: dict, b: dict) -> dict:
-    return {k: a.get(k, []) + b.get(k, []) for k in {**a, **b}}
+_preprocess_modes = ("dask", "graphed")
 
 
 def _compute_steps(
@@ -287,43 +266,17 @@ def _compute_steps(
     steps_fns: dict[str, Callable],
     files_per_batch: int,
     scheduler,
-    backend: str,
+    mode: str,
 ) -> dict[str, awkward.Array]:
     """Run ``steps_fns[name]`` over ``files_per_batch``-file batches of ``norm_files[name]`` and
     concatenate each dataset's batches in file order."""
-    if backend not in _preprocess_backends:
-        raise ValueError(
-            f"backend must be one of {_preprocess_backends}, not {backend!r}"
-        )
-    if backend == "graphed":
-        from graphed.core import Partition
-        from graphed.core.execution import Plan, SequentialRunner, Task
+    if mode not in _preprocess_modes:
+        raise ValueError(f"mode must be one of {_preprocess_modes}, not {mode!r}")
+    if mode == "graphed":
+        _import_graphed()
+        from coffea.dataset_tools import _graphed
 
-        runner = SequentialRunner() if scheduler is None else scheduler
-        if not callable(getattr(runner, "run", None)):
-            raise TypeError(
-                "with backend='graphed', scheduler is a graphed executor (an object with run(plan)), "
-                f"not {scheduler!r}"
-            )
-        partitions = [
-            Partition(name, "", lo, lo + files_per_batch)
-            for name, files in norm_files.items()
-            for lo in range(0, len(files), files_per_batch)
-        ]
-        plan = Plan(
-            process=_StepsOfBatch(norm_files, steps_fns),
-            combine=_concat_batches,
-            empty=dict,
-            tasks=[Task(i, p) for i, p in enumerate(partitions)],
-        )
-        batches = runner.run(plan).value
-        # graphed's Plan.combine may run in any order; put each dataset's batches in file order
-        return {
-            name: awkward.concatenate(
-                [part for _, part in sorted(batches[name])], axis=0
-            )
-            for name in norm_files
-        }
+        return _graphed.compute_steps(norm_files, steps_fns, files_per_batch, scheduler)
 
     dask = _import_dask()
     dask_awkward = _import_dask_awkward()
@@ -390,7 +343,7 @@ def preprocess_legacy(
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
-    backend: str = "dask",
+    mode: str = "dask",
 ) -> tuple[dict, dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -418,7 +371,7 @@ def preprocess_legacy(
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
         scheduler : None | Callable | str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
-            With the graphed backend, a graphed executor (an object with ``run(plan)``); None means
+            In graphed mode, a graphed executor (an object with ``run(plan)``); None means
             ``graphed.core.execution.SequentialRunner``.
         uproot_options : dict, default {}
             Options to pass to get_steps for opening files with uproot.
@@ -428,9 +381,9 @@ def preprocess_legacy(
         allow_empty_datasets : bool, default False
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
-        backend : str, default "dask"
+        mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
-            The output is the same; the graphed backend needs neither dask nor dask_awkward.
+            The output is the same; graphed mode needs neither dask nor dask_awkward.
     Returns
     -------
         out_available : dict
@@ -462,11 +415,11 @@ def preprocess_legacy(
             step_size_safety_factor=step_size_safety_factor,
             legacy_form_key=True,  # for backwards compatibility, the output form key is always "form" in this legacy preprocess function
             uproot_options=uproot_options,
-            backend=backend,
+            mode=mode,
         )
 
     all_processed_files = _compute_steps(
-        all_ak_norm_files, steps_fns, files_per_batch, scheduler, backend
+        all_ak_norm_files, steps_fns, files_per_batch, scheduler, mode
     )
 
     for name, processed_files in all_processed_files.items():
@@ -810,7 +763,7 @@ def preprocess_root(
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
-    backend: str = "dask",
+    mode: str = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -838,7 +791,7 @@ def preprocess_root(
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
         scheduler : None or Callable or str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
-            With the graphed backend, a graphed executor (an object with ``run(plan)``); None means
+            In graphed mode, a graphed executor (an object with ``run(plan)``); None means
             ``graphed.core.execution.SequentialRunner``.
         uproot_options : dict, default {}
             Options to pass to get_steps for opening files with uproot.
@@ -848,9 +801,9 @@ def preprocess_root(
         allow_empty_datasets : bool, default False
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
-        backend : str, default "dask"
+        mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
-            The output is the same; the graphed backend needs neither dask nor dask_awkward.
+            The output is the same; graphed mode needs neither dask nor dask_awkward.
     Returns
     -------
         out_available : DataGroupSpec
@@ -871,7 +824,7 @@ def preprocess_root(
         filetype_options=uproot_options,
         step_size_safety_factor=step_size_safety_factor,
         allow_empty_datasets=allow_empty_datasets,
-        backend=backend,
+        mode=mode,
     )
 
 
@@ -888,7 +841,7 @@ def preprocess_parquet(
     parquet_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
-    backend: str = "dask",
+    mode: str = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Given a list of normalized files, determine the form, steps, and add the metadata for each file according to the supplied processing options.
@@ -912,7 +865,7 @@ def preprocess_parquet(
             Extract the form of each file in each dataset, creating the union of the forms over the dataset.
         scheduler : None | Callable | str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
-            With the graphed backend, a graphed executor (an object with ``run(plan)``); None means
+            In graphed mode, a graphed executor (an object with ``run(plan)``); None means
             ``graphed.core.execution.SequentialRunner``.
         parquet_options : dict, default {}
             Options to pass to get_parquet_form_uuid_steps for opening files
@@ -922,9 +875,9 @@ def preprocess_parquet(
         allow_empty_datasets : bool, default False
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
-        backend : str, default "dask"
+        mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
-            The output is the same; the graphed backend needs neither dask nor dask_awkward.
+            The output is the same; graphed mode needs neither dask nor dask_awkward.
     Returns
     -------
         out_available : DataGroupSpec
@@ -945,7 +898,7 @@ def preprocess_parquet(
         filetype_options=parquet_options,
         step_size_safety_factor=step_size_safety_factor,
         allow_empty_datasets=allow_empty_datasets,
-        backend=backend,
+        mode=mode,
     )
 
 
@@ -962,7 +915,7 @@ def _preprocess_pydantic(
     filetype_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
-    backend: str = "dask",
+    mode: str = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Internal function to preprocess either ROOT or parquet DatasetSpecs in a DataGroupSpec.
@@ -990,16 +943,16 @@ def _preprocess_pydantic(
         save_form : bool, default True
             Extract and compute the union form across files in each dataset.
         scheduler : None or Callable or str, default None
-            Dask scheduler, or graphed executor for the graphed backend, to use for preprocessing.
+            Dask scheduler, or graphed executor in graphed mode, to use for preprocessing.
         filetype_options : dict, default {}
             Options passed to uproot (for ROOT) or awkward (for parquet) when opening files.
         step_size_safety_factor : float, default 0.5
             Warn if aligned steps exceed target by this factor.
         allow_empty_datasets : bool, default False
             If True, warn instead of raising when a dataset has no accessible files.
-        backend : str, default "dask"
+        mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
-            The output is the same; the graphed backend needs neither dask nor dask_awkward.
+            The output is the same; graphed mode needs neither dask nor dask_awkward.
 
     Returns
     -------
@@ -1046,7 +999,7 @@ def _preprocess_pydantic(
                 step_size_safety_factor=step_size_safety_factor,
                 legacy_form_key=False,  # in the pydantic preprocess function, the output form key is always "compressed_form", "form" is a method to extract the uncompressed form
                 uproot_options=filetype_options,
-                backend=backend,
+                mode=mode,
             )
         elif info.format == "parquet":
             steps_fns[name] = partial(
@@ -1066,7 +1019,7 @@ def _preprocess_pydantic(
             )
 
     all_processed_files = _compute_steps(
-        all_ak_norm_files, steps_fns, files_per_batch, scheduler, backend
+        all_ak_norm_files, steps_fns, files_per_batch, scheduler, mode
     )
 
     for name, processed_files in all_processed_files.items():
@@ -1229,7 +1182,7 @@ def preprocess(
     preprocess_legacy_root: bool = False,
     use_row_groups: bool = False,
     parquet_options: dict = {},
-    backend: str = "dask",
+    mode: str = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec] | tuple[dict, dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -1262,7 +1215,7 @@ def preprocess(
             (preprocess_legacy_root=True) uses False, preserving each path's historical default.
         scheduler : None or Callable or str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
-            With the graphed backend, a graphed executor (an object with ``run(plan)``); None means
+            In graphed mode, a graphed executor (an object with ``run(plan)``); None means
             ``graphed.core.execution.SequentialRunner``.
         uproot_options : dict, default {}
             Options to pass to get_steps for opening files with uproot.
@@ -1279,9 +1232,9 @@ def preprocess(
             Calculate steps according to the row_groups in the parquet files (only applies to DataGroupSpec datasets with parquet files).
         parquet_options : dict, default {}
             Options to pass to get_parquet_form_uuid_steps for opening parquet files (only applies to DataGroupSpec datasets with parquet files).
-        backend : str, default "dask"
+        mode : str, default "dask"
             ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
-            The output is the same; the graphed backend needs neither dask nor dask_awkward.
+            The output is the same; graphed mode needs neither dask nor dask_awkward.
     Returns
     -------
         out_available : DataGroupSpec | dict
@@ -1316,7 +1269,7 @@ def preprocess(
             uproot_options=uproot_options,
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
-            backend=backend,
+            mode=mode,
         )
     else:
         # the pydantic path historically defaulted to save_form=True
@@ -1366,7 +1319,7 @@ def preprocess(
             uproot_options=uproot_options,
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
-            backend=backend,
+            mode=mode,
         )
         out_available_parquet, out_updated_parquet = preprocess_parquet(
             datasetspecs.filter_datasets(
@@ -1383,7 +1336,7 @@ def preprocess(
             parquet_options=parquet_options,
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
-            backend=backend,
+            mode=mode,
         )
         # recombine outputs in original order, skipping datasets removed due to allow_empty_datasets.
         # The sub-results are already-validated DatasetSpec instances, so use model_construct to

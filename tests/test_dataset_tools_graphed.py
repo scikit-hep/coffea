@@ -95,7 +95,7 @@ def test_preprocess_graphed_matches_dask(
         else contextlib.nullcontext()
     ):
         runner = _PicklingRunner()
-        graphed_out = preprocess(fileset, scheduler=runner, backend="graphed", **kwargs)
+        graphed_out = preprocess(fileset, scheduler=runner, mode="graphed", **kwargs)
 
     assert graphed_out == dask_out
     # one task per batch: union has 3 files, single 1, parquet 2
@@ -122,7 +122,7 @@ def _preprocessed_graphed(tmp_path):
         DataGroupSpec({"ds": {"files": {has_root: "Events", missing_root: "Events"}}}),
         step_size=7,
         save_form=True,
-        backend="graphed",
+        mode="graphed",
     )
     return available
 
@@ -161,7 +161,7 @@ def test_apply_to_fileset_graphed(tmp_path):
             }
         ),
         step_size=7,
-        backend="graphed",
+        mode="graphed",
     )
 
     def analysis(events):
@@ -178,7 +178,7 @@ def test_apply_to_fileset_graphed(tmp_path):
 @pytest.mark.parametrize(
     "call, match",
     [
-        (lambda fs: preprocess(fs, backend="eager"), "backend must be"),
+        (lambda fs: preprocess(fs, mode="eager"), "mode must be"),
         (lambda fs: apply_to_fileset(lambda e: e, fs, mode="eager"), "mode must be"),
     ],
 )
@@ -194,7 +194,7 @@ def test_preprocess_graphed_refuses_dask_scheduler(tmp_path):
         preprocess(
             DataGroupSpec({"ds": {"files": {has_root: "Events"}}}),
             scheduler="sync",
-            backend="graphed",
+            mode="graphed",
         )
 
 
@@ -216,7 +216,7 @@ def test_dataset_tools_graphed_without_dask(tmp_path):
 
         files = {{{has_root!r}: "Events", {missing_root!r}: "Events"}}
         available, _ = preprocess(
-            DataGroupSpec({{"ds": {{"files": files}}}}), save_form=True, backend="graphed"
+            DataGroupSpec({{"ds": {{"files": files}}}}), save_form=True, mode="graphed"
         )
         (flag,) = apply_to_dataset(
             lambda e: e["flag"], available["ds"], schemaclass=BaseSchema, mode="graphed"
@@ -256,12 +256,12 @@ def test_preprocess_graphed_does_not_depend_on_combine_order(tmp_path):
     spec = DataGroupSpec({"ds": {"files": files}})
     dask_out = preprocess(spec, scheduler="sync", **kwargs)
     graphed_out = preprocess(
-        spec, backend="graphed", scheduler=_ReverseOrderRunner(), **kwargs
+        spec, mode="graphed", scheduler=_ReverseOrderRunner(), **kwargs
     )
     assert graphed_out == dask_out
     assert list(graphed_out[1]["ds"].files) == list(files)
 
     legacy = {"ds": {"files": files}}
     assert preprocess_legacy(
-        legacy, backend="graphed", scheduler=_ReverseOrderRunner(), **kwargs
+        legacy, mode="graphed", scheduler=_ReverseOrderRunner(), **kwargs
     ) == preprocess_legacy(legacy, scheduler="sync", **kwargs)
