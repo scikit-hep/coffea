@@ -600,3 +600,62 @@ def test_554(tests_directory):
         for k, _ in out.keys()
         if k in rfkeys
     )
+
+
+def test_root_scalefactors_graphed():
+    graphed = pytest.importorskip("graphed")
+    from graphed.awkward import AwkwardBackend, from_awkward
+
+    extractor = lookup_tools.extractor()
+    extractor.add_weight_sets(
+        ["testSF2d scalefactors_Tight_Electron tests/samples/testSF2d.histo.root"]
+    )
+    extractor.finalize(reduce_list=["testSF2d"])
+    evaluator = extractor.make_evaluator()
+
+    counts, test_eta, test_pt = dummy_jagged_eta_pt()
+    jets = ak.zip(
+        {"eta": ak.unflatten(test_eta, counts), "pt": ak.unflatten(test_pt, counts)}
+    )
+    session = graphed.Session(AwkwardBackend())
+    deferred = from_awkward(session, "jets", jets)
+
+    out = evaluator["testSF2d"](deferred.eta, deferred.pt)
+    assert isinstance(out, graphed.Array)
+    assert session.materialize(out).to_list() == (
+        evaluator["testSF2d"](jets.eta, jets.pt).to_list()
+    )
+
+    varied = graphed.vary(deferred.pt, "scale", up=deferred.pt * 1.5)
+    out = evaluator["testSF2d"](deferred.eta, varied)
+    assert graphed.labels(out) == ("nominal", "scale_up")
+    for label, pt in (("nominal", jets.pt), ("scale_up", jets.pt * 1.5)):
+        got = session.materialize(graphed.universe(out, label)).to_list()
+        assert got == evaluator["testSF2d"](jets.eta, pt).to_list(), label
+
+
+def test_rochester_graphed(tests_directory):
+    pytest.importorskip("graphed")
+    rochester_data = lookup_tools.txt_converters.convert_rochester_file(
+        f"{tests_directory}/samples/RoccoR2018.txt.gz", loaduncs=True
+    )
+    rochester = lookup_tools.rochester_lookup.rochester_lookup(rochester_data)
+    path = {os.path.abspath(f"{tests_directory}/samples/nano_dy.root"): "Events"}
+    deferred = NanoEventsFactory.from_root(path, mode="graphed").events()
+    eager = NanoEventsFactory.from_root(path, mode="eager").events()
+
+    def corrections(muon):
+        u = muon.pt % 1.0
+        return {
+            "scale": rochester.kScaleDT(muon.charge, muon.pt, muon.eta, muon.phi),
+            "spread": rochester.kSpreadMC(
+                muon.charge, muon.pt, muon.eta, muon.phi, muon.pt * 1.01
+            ),
+            "smear": rochester.kSmearMC(
+                muon.charge, muon.pt, muon.eta, muon.phi, muon.nTrackerLayers, u
+            ),
+        }
+
+    got, want = corrections(deferred.Muon), corrections(eager.Muon)
+    for key in want:
+        assert deferred.session.materialize(got[key]).to_list() == want[key].to_list()

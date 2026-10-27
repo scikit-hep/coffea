@@ -22,7 +22,12 @@ from coffea.nanoevents.mapping import (
 from coffea.nanoevents.schemas import BaseSchema, EDM4HEPSchema, NanoAODSchema
 from coffea.nanoevents.schemas.edm4hep import podio_collection_types
 from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
-from coffea.util import _import_dask_awkward, _is_interpretable
+from coffea.util import (
+    _import_dask_awkward,
+    _import_graphed,
+    _is_interpretable,
+    _meta,
+)
 
 _offsets_label = quote(",!offsets")
 
@@ -149,15 +154,15 @@ class _map_schema_uproot(_map_schema_base):
             branch_forms[field] = _lazify_form(
                 iform,
                 f"{field},!load",
-                docstr=iform["parameters"]["__doc__"],
-                typestr=iform["parameters"]["typename"],
+                docstr=iform["parameters"].get("__doc__"),
+                typestr=iform["parameters"].get("typename"),
             )
         lform = {
             "class": "RecordArray",
             "contents": [item for item in branch_forms.values()],
             "fields": [key for key in branch_forms.keys()],
             "parameters": {
-                "__doc__": form.parameters["__doc__"],
+                "__doc__": form.parameters.get("__doc__"),
                 "metadata": self.metadata,
             },
             "form_key": None,
@@ -231,6 +236,24 @@ class _map_schema_uproot(_map_schema_base):
         return _TranslatedMapping(translate_key, mapping)
 
 
+class _graphed_map_schema_uproot(_map_schema_uproot):
+    """The uproot mapping a plan pickles. A schema's behavior dict holds closures (vector's, among
+    others) that stdlib pickle refuses, so it ships the schema class and rebuilds the behavior.
+    """
+
+    def __init__(self, schemaclass, metadata, base_form_extras=None):
+        super().__init__(
+            schemaclass=schemaclass,
+            behavior=dict(schemaclass.behavior()),
+            metadata=metadata,
+            version="latest",
+            base_form_extras=base_form_extras,
+        )
+
+    def __reduce__(self):
+        return (type(self), (self.schemaclass, self.metadata, self.base_form_extras))
+
+
 class _map_schema_parquet(_map_schema_base):
     def __init__(
         self, schemaclass=BaseSchema, metadata=None, behavior=None, version=None
@@ -255,7 +278,18 @@ class _map_schema_parquet(_map_schema_base):
         return awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form)
 
 
-_allowed_modes = frozenset(["eager", "virtual", "dask"])
+_allowed_modes = frozenset(["eager", "virtual", "dask", "graphed"])
+
+
+def _tree_to_open(file, treepath):
+    """The tree the deferred arms hand to uproot, resolving a directory through ``treepath``."""
+    if not isinstance(file, uproot.reading.ReadOnlyDirectory):
+        return file
+    if treepath is uproot._util.unset:
+        raise ValueError(
+            "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
+        )
+    return file[treepath]
 
 
 class NanoEventsFactory:
@@ -322,7 +356,9 @@ class NanoEventsFactory:
                 The filename or dict of filenames including the treepath (as it would be passed directly to ``uproot.open()``
                 or ``uproot.dask()``) already opened file using e.g. ``uproot.open()``.
             mode : str
-                Nanoevents will use "eager", "virtual", or "dask" as a backend.
+                Nanoevents will use "eager", "virtual", "dask", or "graphed" as a backend.
+                "graphed" records the analysis into a ``graphed`` graph and reads nothing until
+                the graph is run; it needs a schema declaring ``__graphed_capable__ = True``.
             treepath : str, optional
                 Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``
                 or a string that does not contain tree information that uproot can parse on its own.
@@ -379,18 +415,37 @@ class NanoEventsFactory:
                 RuntimeWarning,
             )
 
+        if mode == "graphed":
+            _import_graphed()
+            from coffea.nanoevents import _graphed
+
+            uproot_options = _graphed.check_from_root(
+                schemaclass,
+                steps_per_file,
+                uproot_options,
+                entry_start=entry_start,
+                entry_stop=entry_stop,
+            )
+            map_schema = _graphed_map_schema_uproot(schemaclass, metadata)
+            opener = partial(
+                uproot.graphed,
+                _tree_to_open(file, treepath),
+                full_paths=True,
+                ak_add_doc={"__doc__": "title", "typename": "typename"},
+                filter_branch=_is_interpretable,
+                known_base_form=known_base_form,
+                decompression_executor=decompression_executor,
+                interpretation_executor=interpretation_executor,
+                **uproot_options,
+            )
+            return cls(map_schema, opener, None, mode="graphed")
+
         if (
             mode == "dask"
             and not isinstance(schemaclass, FunctionType)
             and schemaclass.__dask_capable__
         ):
-            to_open = file
-            if isinstance(file, uproot.reading.ReadOnlyDirectory):
-                if treepath is uproot._util.unset:
-                    raise ValueError(
-                        "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
-                    )
-                to_open = file[treepath]
+            to_open = _tree_to_open(file, treepath)
 
             base_form_extras = {}
             if known_base_form is None and _reads_podio_metadata(schemaclass):
@@ -581,6 +636,39 @@ class NanoEventsFactory:
 
         if mode not in _allowed_modes:
             raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
+
+        if mode == "graphed":
+            _import_graphed()
+            from coffea.nanoevents import _graphed
+
+            if entry_start is not None or entry_stop is not None:
+                raise NotImplementedError(
+                    "graphed mode does not take entry_start/entry_stop; partition where the "
+                    "plan is built, graphed.aggregate_plan(..., steps_per_file=...)"
+                )
+            _graphed.check_schema(schemaclass)
+            paths = list(file) if isinstance(file, list) else [file]
+            # each worker reopens its partition's file by this path
+            if not all(isinstance(path, (str, pathlib.PurePath)) for path in paths):
+                raise TypeError(
+                    "graphed mode reads parquet by path: pass a str or pathlib.Path, or a list of them"
+                )
+            opener = _graphed.parquet_opener(
+                paths,
+                dict(
+                    schemaclass=schemaclass,
+                    metadata=metadata,
+                    parquet_options=parquet_options,
+                    storage_options=storage_options,
+                ),
+            )
+            map_schema = _map_schema_parquet(
+                schemaclass=schemaclass,
+                behavior=dict(schemaclass.behavior()),
+                metadata=metadata,
+                version="latest",
+            )
+            return cls(map_schema, opener, None, mode="graphed")
 
         if (
             mode == "dask"
@@ -818,12 +906,25 @@ class NanoEventsFactory:
 
         Returns
         -------
-            awkward.Array or dask_awkward.Array or tuple
+            awkward.Array or dask_awkward.Array or graphed.Array or tuple
                 Events materialised according to the configured backend. In ``\"dask\"``
                 mode a ``dask_awkward.Array`` is returned (optionally paired with a
-                report). In ``\"virtual\"`` or ``\"eager\"`` mode an ``awkward.Array`` is
-                returned.
+                report), in ``\"graphed\"`` mode a deferred ``graphed.Array``. In
+                ``\"virtual\"`` or ``\"eager\"`` mode an ``awkward.Array`` is returned.
         """
+        if self._mode == "graphed":
+            _import_graphed()
+            from coffea.nanoevents import _graphed
+
+            # built per call because its behavior dict does not pickle; the typetracer the
+            # deferred routes dispatch on is built from that behavior
+            backend = _graphed.GraphedNanoBackend(behavior=self._schema.behavior)
+            events = self._mapping(form_mapping=self._schema, backend=backend)
+            # `_events()` resolves cross-references off the record-time typetracer, so the root
+            # array is planted there rather than on any chunk a worker will see
+            _meta(events).attrs["@original_array"] = events
+            return events
+
         if self._mode == "dask":
             dask_awkward = _import_dask_awkward()
             dask_awkward.lib.core.dak_cache.clear()

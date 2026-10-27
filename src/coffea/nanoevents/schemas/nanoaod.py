@@ -43,6 +43,7 @@ class NanoAODSchema(BaseSchema):
     """
 
     __dask_capable__ = True
+    __graphed_capable__ = True  # not inherited: subclasses declare their own
     warn_missing_crossrefs = True  # If True, issues a warning when a missing global index cross-ref target is encountered
     error_missing_event_ids = True  # If True, raises an exception when 'run', 'event', or 'luminosityBlock' fields are missing
 
@@ -471,6 +472,8 @@ class PFNanoAODSchema(NanoAODSchema):
     More info at https://github.com/cms-jet/PFNano
     """
 
+    __graphed_capable__ = True
+
     mixins = {
         **NanoAODSchema.mixins,
         "JetSVs": "AssociatedSV",
@@ -513,6 +516,8 @@ class ScoutingNanoAODSchema(NanoAODSchema):
 
     ScoutingNano is a NanoAOD format that includes Scouting objects
     """
+
+    __graphed_capable__ = True
 
     mixins = {
         **NanoAODSchema.mixins,

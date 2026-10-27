@@ -2220,3 +2220,137 @@ def test_corrected_met_type1_correctionlib_total_jes():
     assert not ak.all(corrected_met.JES_Total.up.pt == corrected_met.pt)
     assert not ak.all(corrected_met.JES_Total.down.pt == corrected_met.pt)
     assert not ak.all(corrected_met.JES_Total.up.pt == corrected_met.JES_Total.down.pt)
+
+
+def _graphed_factory_outputs(events, type1, vary_jets=None):
+    from coffea.jetmet_tools import (
+        CorrectedJetsFactory,
+        CorrectedMETFactory,
+        FactorizedJetCorrector,
+        JECStack,
+    )
+
+    names = [
+        "Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi",
+        "Summer16_23Sep2016V3_MC_L2Relative_AK4PFPuppi",
+        "Summer16_23Sep2016V3_MC_L2L3Residual_AK4PFPuppi",
+        "Summer16_23Sep2016V3_MC_L3Absolute_AK4PFPuppi",
+        "Spring16_25nsV10_MC_PtResolution_AK4PFPuppi",
+        "Spring16_25nsV10_MC_SF_AK4PFPuppi",
+    ] + [k for k in evaluator.keys() if "UncertaintySources_AK4PFPuppi" in k]
+    jec_stack = JECStack({name: evaluator[name] for name in names})
+    name_map = jec_stack.blank_name_map
+    name_map.update(
+        JetPt="pt",
+        JetMass="mass",
+        JetEta="eta",
+        JetA="area",
+        JetPhi="phi",
+        ptGenJet="pt_gen",
+        ptRaw="pt_raw",
+        massRaw="mass_raw",
+        Rho="Rho",
+        METpt="pt",
+        METphi="phi",
+        UnClusteredEnergyDeltaX="MetUnclustEnUpDeltaX",
+        UnClusteredEnergyDeltaY="MetUnclustEnUpDeltaY",
+    )
+    rho = events.Rho.fixedGridRhoFastjetAll if type1 else events.fixedGridRhoFastjetAll
+    jets = events.Jet
+    jets = ak.with_field(jets, (1 - jets.rawFactor) * jets.pt, "pt_raw")
+    jets = ak.with_field(jets, (1 - jets.rawFactor) * jets.mass, "mass_raw")
+    jets = ak.with_field(jets, ak.fill_none(jets.matched_gen.pt, 0), "pt_gen")
+    jets = ak.with_field(jets, ak.broadcast_arrays(rho, jets.pt)[0], "Rho")
+    if vary_jets is not None:
+        jets = vary_jets(jets)
+    jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+    corrected_jets = jet_factory.build(jets)
+    if not type1:
+        met = CorrectedMETFactory(name_map).build(events.MET, corrected_jets)
+    else:
+        name_map.update(
+            RawMETpt="pt",
+            RawMETphi="phi",
+            JetRawFactor="rawFactor",
+            JetMuonSubtrFactor="muonSubtrFactor",
+            JetMuonSubtrDeltaPhi="muonSubtrDeltaPhi",
+            JetChEmEF="chEmEF",
+            JetNeEmEF="neEmEF",
+            CorrT1JetPt="rawPt",
+            CorrT1JetPhi="phi",
+            CorrT1JetEta="eta",
+            CorrT1JetArea="area",
+            CorrT1JetMuonSubtrFactor="muonSubtrFactor",
+            CorrT1JetMuonSubtrDeltaPhi="muonSubtrDeltaPhi",
+            CorrT1JetEmEF="EmEF",
+        )
+        delta = events.PFMET.sumPtUnclustered / np.sqrt(2.0)
+        pfmet = ak.with_field(events.PFMET, delta, "MetUnclustEnUpDeltaX")
+        pfmet = ak.with_field(pfmet, delta, "MetUnclustEnUpDeltaY")
+        corrt1 = events.CorrT1METJet
+        corrt1 = ak.with_field(corrt1, ak.broadcast_arrays(rho, corrt1.rawPt)[0], "Rho")
+        if vary_jets is not None:
+            corrt1 = vary_jets(corrt1)
+        met = CorrectedMETFactory(
+            name_map,
+            jec_L1L2L3=FactorizedJetCorrector(**{n: evaluator[n] for n in names[:4]}),
+            jec_L1=FactorizedJetCorrector(**{names[0]: evaluator[names[0]]}),
+        ).build(
+            pfmet, corrected_jets, in_RawMET=events.RawPFMET, in_CorrT1METJets=corrt1
+        )
+
+    outputs = {"jet pt": corrected_jets.pt, "jet mass": corrected_jets.mass}
+    outputs.update({"met pt": met.pt, "met phi": met.phi})
+    for unc in jet_factory.uncertainties():
+        for shift in ("up", "down"):
+            outputs[f"jet {unc} {shift}"] = corrected_jets[unc][shift].pt
+            outputs[f"met {unc} {shift} pt"] = met[unc][shift].pt
+            outputs[f"met {unc} {shift} phi"] = met[unc][shift].phi
+    return outputs
+
+
+@pytest.mark.parametrize(
+    ("sample", "type1"), [("nano_dy.root", False), ("nano_tt_v15.root", True)]
+)
+def test_corrected_jets_and_met_factories_graphed(sample, type1):
+    import os
+
+    graphed = pytest.importorskip("graphed")
+    from coffea.nanoevents import NanoEventsFactory
+
+    path = {os.path.abspath(f"tests/samples/{sample}"): "Events"}
+    deferred = NanoEventsFactory.from_root(path, mode="graphed").events()
+    eager = NanoEventsFactory.from_root(path, mode="eager").events()
+
+    got = _graphed_factory_outputs(deferred, type1)
+    want = _graphed_factory_outputs(eager, type1)
+    assert all(isinstance(value, graphed.Array) for value in got.values())
+    values = deferred.session.materialize(ak.zip(got, depth_limit=1))
+    for key in want:
+        assert values[key].to_list() == want[key].to_list(), key
+
+
+@pytest.mark.parametrize(
+    ("sample", "type1"), [("nano_dy.root", False), ("nano_tt_v15.root", True)]
+)
+def test_corrected_jets_and_met_factories_graphed_varied(sample, type1):
+    import os
+
+    graphed = pytest.importorskip("graphed")
+    from coffea.nanoevents import NanoEventsFactory
+
+    def rho_up(jets):
+        return ak.with_field(jets, jets.Rho * 1.5, "Rho")
+
+    path = {os.path.abspath(f"tests/samples/{sample}"): "Events"}
+    deferred = NanoEventsFactory.from_root(path, mode="graphed").events()
+    eager = NanoEventsFactory.from_root(path, mode="eager").events()
+    got = _graphed_factory_outputs(
+        deferred, type1, lambda jets: graphed.vary(jets, "rho", up=rho_up(jets))
+    )
+    for label, vary_jets in (("nominal", None), ("rho_up", rho_up)):
+        want = _graphed_factory_outputs(eager, type1, vary_jets)
+        universe = {key: graphed.universe(value, label) for key, value in got.items()}
+        values = deferred.session.materialize(ak.zip(universe, depth_limit=1))
+        for key in want:
+            assert values[key].to_list() == want[key].to_list(), (label, key)

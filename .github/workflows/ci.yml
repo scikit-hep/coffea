@@ -97,18 +97,18 @@ jobs:
         PYTHON_VERSION: ${{ matrix.python-version }}
       run: |
         if [ "$PYTHON_VERSION" = "3.14t" ]; then
-          uv pip install --group test '.[caches,parsl,dask,dask-awkward]'
+          uv pip install --group test '.[caches,parsl,dask,dask-awkward,graphed]'
         else
-          uv pip install --group test '.[caches,parsl,dask,dask-awkward,triton]'
+          uv pip install --group test '.[caches,parsl,dask,dask-awkward,triton,graphed]'
         fi
     - name: Install coffea and dependencies (macOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        uv pip install --group test '.[caches,dask,dask-awkward]'
+        uv pip install --group test '.[caches,dask,dask-awkward,graphed]'
     - name: Install coffea and dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install --group test '.[caches,dask,dask-awkward]'
+        uv pip install --group test '.[caches,dask,dask-awkward,graphed]'
     - name: Start triton server with example model
       if: startsWith( matrix.os, 'ubuntu' ) && matrix.python-version != '3.14t'
       run: |
@@ -200,18 +200,18 @@ jobs:
         PYTHON_VERSION: ${{ matrix.python-version }}
       run: |
         if [ "$PYTHON_VERSION" = "3.14t" ]; then
-          uv pip install --group test '.[caches,parsl,dask,dask-awkward]'
+          uv pip install --group test '.[caches,parsl,dask,dask-awkward,graphed]'
         else
-          uv pip install --group test '.[caches,parsl,dask,dask-awkward,triton]'
+          uv pip install --group test '.[caches,parsl,dask,dask-awkward,triton,graphed]'
         fi
     - name: Install coffea and dependencies (macOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        uv pip install --group test '.[caches,dask,dask-awkward]'
+        uv pip install --group test '.[caches,dask,dask-awkward,graphed]'
     - name: Install coffea and dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install --group test '.[caches,dask,dask-awkward]'
+        uv pip install --group test '.[caches,dask,dask-awkward,graphed]'
     - name: Start triton server with example model
       if: startsWith( matrix.os, 'ubuntu' ) && matrix.python-version != '3.14t'
       run: |

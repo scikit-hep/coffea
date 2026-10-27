@@ -457,10 +457,12 @@ def test_file_handle_from_path(tests_directory, mode):
     assert factory.file_handle is not None
 
 
-@pytest.mark.parametrize("mode", ["eager", "virtual"])
+@pytest.mark.parametrize("mode", ["eager", "virtual", "graphed"])
 def test_factory_pickle_preserves_mode(tests_directory, mode):
     import pickle
 
+    if mode == "graphed":
+        pytest.importorskip("graphed")
     path = f"{tests_directory}/samples/nano_dy.root:Events"
     factory = NanoEventsFactory.from_root(
         path,

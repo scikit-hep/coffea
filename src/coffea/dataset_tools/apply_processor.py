@@ -34,6 +34,7 @@ def apply_to_dataset(
     schemaclass: BaseSchema = NanoAODSchema,
     metadata: dict[Hashable, Any] = {},
     uproot_options: dict[str, Any] = {},
+    mode: str = "dask",
 ) -> DaskOutputType | tuple[DaskOutputType, dask_awkward.Array]:
     """
     Apply the supplied function or processor to the supplied dataset.
@@ -50,6 +51,9 @@ def apply_to_dataset(
             Metadata for the dataset that is accessible by the input analysis. Should also be dask-serializable.
         uproot_options : dict[str, Any], default {}
             Options to pass to uproot. Pass at least {"allow_read_errors_with_report": True} to turn on file access reports.
+        mode : str, default "dask"
+            ``"dask"`` or ``"graphed"``: the deferred mode the events are built in. Graphed mode
+            returns graphed arrays, has no file access report, and needs neither dask nor dask_awkward.
 
     Returns
     -------
@@ -58,6 +62,8 @@ def apply_to_dataset(
         report : dask_awkward.Array, optional
             The file access report for running the analysis on the input dataset. Needs to be computed in simultaneously with the analysis to be accurate.
     """
+    if mode not in ("dask", "graphed"):
+        raise ValueError(f"mode must be 'dask' or 'graphed', not {mode!r}")
     if isinstance(dataset, dict):
         dataset = DatasetSpec.model_validate(dataset)
     maybe_base_form = dataset.form
@@ -68,7 +74,7 @@ def apply_to_dataset(
         schemaclass=schemaclass,
         known_base_form=maybe_base_form,
         uproot_options=uproot_options,
-        mode="dask",
+        mode=mode,
     ).events()
 
     report = None
@@ -93,6 +99,7 @@ def apply_to_fileset(
     fileset: DataGroupSpec | dict,
     schemaclass: BaseSchema = NanoAODSchema,
     uproot_options: dict[str, Any] = {},
+    mode: str = "dask",
 ) -> dict[str, DaskOutputType] | tuple[dict[str, DaskOutputType], dask_awkward.Array]:
     """
     Apply the supplied function or processor to the supplied fileset (set of datasets).
@@ -107,6 +114,9 @@ def apply_to_fileset(
             The nanoevents schema to interpret the input dataset with.
         uproot_options : dict[str, Any], default {}
             Options to pass to uproot. Pass at least {"allow_read_errors_with_report": True} to turn on file access reports.
+        mode : str, default "dask"
+            ``"dask"`` or ``"graphed"``: the deferred mode the events are built in. Graphed mode
+            returns graphed arrays, has no file access report, and needs neither dask nor dask_awkward.
 
     Returns
     -------
@@ -125,7 +135,7 @@ def apply_to_fileset(
             metadata = {}
         metadata.setdefault("dataset", name)
         dataset_out = apply_to_dataset(
-            data_manipulation, dataset, schemaclass, metadata, uproot_options
+            data_manipulation, dataset, schemaclass, metadata, uproot_options, mode
         )
         if isinstance(dataset_out, tuple) and len(dataset_out) > 1:
             out[name], report[name] = dataset_out

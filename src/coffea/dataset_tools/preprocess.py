@@ -24,7 +24,9 @@ from coffea.dataset_tools.filespec import (
 from coffea.util import (
     _import_dask,
     _import_dask_awkward,
+    _import_graphed,
     _is_interpretable,
+    _meta,
     compress_form,
     decompress_form,
 )
@@ -41,6 +43,7 @@ def get_steps(
     step_size_safety_factor: float = 0.5,
     uproot_options: dict = {},
     legacy_form_key: bool = True,
+    mode: str = "dask",
 ) -> awkward.Array | dask_awkward.Array:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -69,12 +72,17 @@ def get_steps(
         legacy_form_key : bool, default True
             Use "form" for the compressed form key in the output for backwards compatibility.
             Set to False to use "compressed_form" instead.
+        mode : str, default "dask"
+            Which deferred uproot reader extracts the form when ``save_form`` is set:
+            ``"dask"`` (``uproot.dask``) or ``"graphed"`` (``uproot.graphed``, needs no dask).
 
     Returns
     -------
         array : awkward.Array or dask_awkward.Array
             The normalized file descriptions, appended with the calculated steps for those files.
     """
+    if mode not in _preprocess_modes:
+        raise ValueError(f"mode must be one of {_preprocess_modes}, not {mode!r}")
     nf_backend = awkward.backend(normed_files)
     lz_or_nf = awkward.typetracer.length_zero_if_typetracer(normed_files)
     output_form_key = "form" if legacy_form_key else "compressed_form"
@@ -96,17 +104,19 @@ def get_steps(
         form_json = None
         form_hash = None
         if save_form:
-            form_str = uproot.dask(
-                tree,
+            form_options = dict(
                 ak_add_doc={"__doc__": "title", "typename": "typename"},
                 filter_name=no_filter,
                 filter_typename=no_filter,
                 filter_branch=partial(_is_interpretable, emit_warning=False),
-            ).layout.form.to_json()
-            # the function cache needs to be popped if present to prevent memory growth
-            dask = _import_dask()
-            if hasattr(dask.base, "function_cache"):
-                dask.base.function_cache.popitem()
+            )
+            reader = uproot.graphed if mode == "graphed" else uproot.dask
+            form_str = _meta(reader(tree, **form_options)).layout.form.to_json()
+            if mode != "graphed":
+                # the function cache needs to be popped if present to prevent memory growth
+                dask = _import_dask()
+                if hasattr(dask.base, "function_cache"):
+                    dask.base.function_cache.popitem()
 
             form_hash = hashlib.md5(form_str.encode("utf-8")).hexdigest()
             form_json = compress_form(form_str)
@@ -249,6 +259,77 @@ def _normalize_file_info(file_info):
 
 _trivial_file_fields = {"run", "luminosityBlock", "event"}
 
+_preprocess_modes = ("dask", "graphed")
+
+
+def _compute_steps(
+    norm_files: dict[str, awkward.Array],
+    steps_fns: dict[str, Callable],
+    files_per_batch: int,
+    scheduler,
+    mode: str,
+) -> dict[str, awkward.Array]:
+    """Run ``steps_fns[name]`` over ``files_per_batch``-file batches of ``norm_files[name]`` and
+    concatenate each dataset's batches in file order."""
+    if mode not in _preprocess_modes:
+        raise ValueError(f"mode must be one of {_preprocess_modes}, not {mode!r}")
+    if mode == "graphed":
+        _import_graphed()
+        from coffea.dataset_tools import _graphed
+
+        return _graphed.compute_steps(norm_files, steps_fns, files_per_batch, scheduler)
+
+    dask = _import_dask()
+    dask_awkward = _import_dask_awkward()
+    files_to_preprocess = {}
+    for name, ak_norm_files in norm_files.items():
+        dak_norm_files = dask_awkward.from_awkward(
+            ak_norm_files, math.ceil(len(ak_norm_files) / files_per_batch)
+        )
+
+        concat_fn = partial(
+            awkward.concatenate,
+            axis=0,
+        )
+
+        split_every = 8
+
+        files_trl_label = f"preprocess-{name}"
+        files_trl_token = dask.base.tokenize(dak_norm_files, concat_fn, split_every)
+        files_trl_name = f"{files_trl_label}-{files_trl_token}"
+        files_trl_tree_node_name = f"{files_trl_label}-tree-node-{files_trl_token}"
+
+        files_part = dask_awkward.map_partitions(
+            steps_fns[name],
+            dak_norm_files,
+            meta=dask_awkward.lib.core.empty_typetracer(),
+        )
+
+        files_trl = dask_awkward.layers.layers.AwkwardTreeReductionLayer(
+            name=files_trl_name,
+            name_input=files_part.name,
+            npartitions_input=files_part.npartitions,
+            concat_func=concat_fn,
+            tree_node_func=lambda x: x,
+            finalize_func=lambda x: x,
+            split_every=split_every,
+            tree_node_name=files_trl_tree_node_name,
+        )
+
+        files_graph = dask.highlevelgraph.HighLevelGraph.from_collections(
+            files_trl_name, files_trl, dependencies=[files_part]
+        )
+
+        files_to_preprocess[name] = dask_awkward.lib.core.new_array_object(
+            files_graph,
+            files_trl_name,
+            meta=dask_awkward.lib.core.empty_typetracer(),
+            npartitions=len(files_trl.output_partitions),
+        )
+
+    (all_processed_files,) = dask.compute(files_to_preprocess, scheduler=scheduler)
+    return all_processed_files
+
 
 def preprocess_legacy(
     fileset: dict,
@@ -263,6 +344,7 @@ def preprocess_legacy(
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
+    mode: str = "dask",
 ) -> tuple[dict, dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -290,6 +372,8 @@ def preprocess_legacy(
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
         scheduler : None | Callable | str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
+            In graphed mode, a graphed executor (an object with ``run(plan)``); None means
+            ``graphed.core.execution.SequentialRunner``.
         uproot_options : dict, default {}
             Options to pass to get_steps for opening files with uproot.
         step_size_safety_factor : float, default 0.5
@@ -298,6 +382,9 @@ def preprocess_legacy(
         allow_empty_datasets : bool, default False
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
+        mode : str, default "dask"
+            ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
+            The output is the same; graphed mode needs neither dask nor dask_awkward.
     Returns
     -------
         out_available : dict
@@ -305,14 +392,11 @@ def preprocess_legacy(
         out_updated : dict
             The original set of datasets including files that were not accessible, updated to include the result of preprocessing where available.
     """
-    dask = _import_dask()
-    dask_awkward = _import_dask_awkward()
-
     out_updated = copy.deepcopy(fileset)
     out_available = copy.deepcopy(fileset)
 
     all_ak_norm_files = {}
-    files_to_preprocess = {}
+    steps_fns = {}
     for name, info in fileset.items():
         norm_files = _normalize_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
@@ -321,26 +405,8 @@ def preprocess_legacy(
             {field: ak_norm_files[str(ifield)] for ifield, field in enumerate(fields)}
         )
         all_ak_norm_files[name] = ak_norm_files
-
-        dak_norm_files = dask_awkward.from_awkward(
-            ak_norm_files, math.ceil(len(ak_norm_files) / files_per_batch)
-        )
-
-        concat_fn = partial(
-            awkward.concatenate,
-            axis=0,
-        )
-
-        split_every = 8
-
-        files_trl_label = f"preprocess-{name}"
-        files_trl_token = dask.base.tokenize(dak_norm_files, concat_fn, split_every)
-        files_trl_name = f"{files_trl_label}-{files_trl_token}"
-        files_trl_tree_node_name = f"{files_trl_label}-tree-node-{files_trl_token}"
-
-        files_part = dask_awkward.map_partitions(
+        steps_fns[name] = partial(
             get_steps,
-            dak_norm_files,
             step_size=step_size,
             align_clusters=align_clusters,
             recalculate_steps=recalculate_steps,
@@ -350,32 +416,12 @@ def preprocess_legacy(
             step_size_safety_factor=step_size_safety_factor,
             legacy_form_key=True,  # for backwards compatibility, the output form key is always "form" in this legacy preprocess function
             uproot_options=uproot_options,
-            meta=dask_awkward.lib.core.empty_typetracer(),
+            mode=mode,
         )
 
-        files_trl = dask_awkward.layers.layers.AwkwardTreeReductionLayer(
-            name=files_trl_name,
-            name_input=files_part.name,
-            npartitions_input=files_part.npartitions,
-            concat_func=concat_fn,
-            tree_node_func=lambda x: x,
-            finalize_func=lambda x: x,
-            split_every=split_every,
-            tree_node_name=files_trl_tree_node_name,
-        )
-
-        files_graph = dask.highlevelgraph.HighLevelGraph.from_collections(
-            files_trl_name, files_trl, dependencies=[files_part]
-        )
-
-        files_to_preprocess[name] = dask_awkward.lib.core.new_array_object(
-            files_graph,
-            files_trl_name,
-            meta=dask_awkward.lib.core.empty_typetracer(),
-            npartitions=len(files_trl.output_partitions),
-        )
-
-    (all_processed_files,) = dask.compute(files_to_preprocess, scheduler=scheduler)
+    all_processed_files = _compute_steps(
+        all_ak_norm_files, steps_fns, files_per_batch, scheduler, mode
+    )
 
     for name, processed_files in all_processed_files.items():
 
@@ -718,6 +764,7 @@ def preprocess_root(
     uproot_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
+    mode: str = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -745,6 +792,8 @@ def preprocess_root(
             Extract the form of the TTree from each file in each dataset, creating the union of the forms over the dataset.
         scheduler : None or Callable or str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
+            In graphed mode, a graphed executor (an object with ``run(plan)``); None means
+            ``graphed.core.execution.SequentialRunner``.
         uproot_options : dict, default {}
             Options to pass to get_steps for opening files with uproot.
         step_size_safety_factor : float, default 0.5
@@ -753,6 +802,9 @@ def preprocess_root(
         allow_empty_datasets : bool, default False
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
+        mode : str, default "dask"
+            ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
+            The output is the same; graphed mode needs neither dask nor dask_awkward.
     Returns
     -------
         out_available : DataGroupSpec
@@ -773,6 +825,7 @@ def preprocess_root(
         filetype_options=uproot_options,
         step_size_safety_factor=step_size_safety_factor,
         allow_empty_datasets=allow_empty_datasets,
+        mode=mode,
     )
 
 
@@ -789,6 +842,7 @@ def preprocess_parquet(
     parquet_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
+    mode: str = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Given a list of normalized files, determine the form, steps, and add the metadata for each file according to the supplied processing options.
@@ -812,6 +866,8 @@ def preprocess_parquet(
             Extract the form of each file in each dataset, creating the union of the forms over the dataset.
         scheduler : None | Callable | str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
+            In graphed mode, a graphed executor (an object with ``run(plan)``); None means
+            ``graphed.core.execution.SequentialRunner``.
         parquet_options : dict, default {}
             Options to pass to get_parquet_form_uuid_steps for opening files
         step_size_safety_factor : float, default 0.5
@@ -820,6 +876,9 @@ def preprocess_parquet(
         allow_empty_datasets : bool, default False
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
+        mode : str, default "dask"
+            ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
+            The output is the same; graphed mode needs neither dask nor dask_awkward.
     Returns
     -------
         out_available : DataGroupSpec
@@ -840,6 +899,7 @@ def preprocess_parquet(
         filetype_options=parquet_options,
         step_size_safety_factor=step_size_safety_factor,
         allow_empty_datasets=allow_empty_datasets,
+        mode=mode,
     )
 
 
@@ -856,6 +916,7 @@ def _preprocess_pydantic(
     filetype_options: dict = {},
     step_size_safety_factor: float = 0.5,
     allow_empty_datasets: bool = False,
+    mode: str = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec]:
     """
     Internal function to preprocess either ROOT or parquet DatasetSpecs in a DataGroupSpec.
@@ -883,13 +944,16 @@ def _preprocess_pydantic(
         save_form : bool, default True
             Extract and compute the union form across files in each dataset.
         scheduler : None or Callable or str, default None
-            Dask scheduler to use for preprocessing.
+            Dask scheduler, or graphed executor in graphed mode, to use for preprocessing.
         filetype_options : dict, default {}
             Options passed to uproot (for ROOT) or awkward (for parquet) when opening files.
         step_size_safety_factor : float, default 0.5
             Warn if aligned steps exceed target by this factor.
         allow_empty_datasets : bool, default False
             If True, warn instead of raising when a dataset has no accessible files.
+        mode : str, default "dask"
+            ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
+            The output is the same; graphed mode needs neither dask nor dask_awkward.
 
     Returns
     -------
@@ -910,14 +974,11 @@ def _preprocess_pydantic(
             f"_preprocess_pydantic expects a DataGroupSpec, got {type(datagroupspec)}"
         )
 
-    dask = _import_dask()
-    dask_awkward = _import_dask_awkward()
-
     out_updated = datagroupspec.model_dump()
     out_available = datagroupspec.model_dump()
 
     all_ak_norm_files = {}
-    files_to_preprocess = {}
+    steps_fns = {}
     for name, info in datagroupspec.items():
         norm_files = _normalize_pydantic_file_info(info)
         fields = ["file", "object_path", "steps", "num_entries", "uuid"]
@@ -927,26 +988,9 @@ def _preprocess_pydantic(
         )
         all_ak_norm_files[name] = ak_norm_files
 
-        dak_norm_files = dask_awkward.from_awkward(
-            ak_norm_files, math.ceil(len(ak_norm_files) / files_per_batch)
-        )
-
-        concat_fn = partial(
-            awkward.concatenate,
-            axis=0,
-        )
-
-        split_every = 8
-
-        files_trl_label = f"preprocess-{name}"
-        files_trl_token = dask.base.tokenize(dak_norm_files, concat_fn, split_every)
-        files_trl_name = f"{files_trl_label}-{files_trl_token}"
-        files_trl_tree_node_name = f"{files_trl_label}-tree-node-{files_trl_token}"
-
         if info.format == "root":
-            files_part = dask_awkward.map_partitions(
+            steps_fns[name] = partial(
                 get_steps,
-                dak_norm_files,
                 step_size=step_size,
                 align_clusters=use_alignment_boundaries,
                 recalculate_steps=recalculate_steps,
@@ -956,12 +1000,11 @@ def _preprocess_pydantic(
                 step_size_safety_factor=step_size_safety_factor,
                 legacy_form_key=False,  # in the pydantic preprocess function, the output form key is always "compressed_form", "form" is a method to extract the uncompressed form
                 uproot_options=filetype_options,
-                meta=dask_awkward.lib.core.empty_typetracer(),
+                mode=mode,
             )
         elif info.format == "parquet":
-            files_part = dask_awkward.map_partitions(
+            steps_fns[name] = partial(
                 get_parquet_form_uuid_steps,
-                dak_norm_files,
                 step_size=step_size,
                 use_row_groups=use_alignment_boundaries,
                 recalculate_steps=recalculate_steps,
@@ -970,36 +1013,15 @@ def _preprocess_pydantic(
                 save_form=save_form,
                 step_size_safety_factor=step_size_safety_factor,
                 parquet_options=filetype_options,
-                meta=dask_awkward.lib.core.empty_typetracer(),
             )
         else:
             raise ValueError(
                 f"Dataset {name} has unsupported format {info.format}, supported formats are 'root' and 'parquet'."
             )
 
-        files_trl = dask_awkward.layers.layers.AwkwardTreeReductionLayer(
-            name=files_trl_name,
-            name_input=files_part.name,
-            npartitions_input=files_part.npartitions,
-            concat_func=concat_fn,
-            tree_node_func=lambda x: x,
-            finalize_func=lambda x: x,
-            split_every=split_every,
-            tree_node_name=files_trl_tree_node_name,
-        )
-
-        files_graph = dask.highlevelgraph.HighLevelGraph.from_collections(
-            files_trl_name, files_trl, dependencies=[files_part]
-        )
-
-        files_to_preprocess[name] = dask_awkward.lib.core.new_array_object(
-            files_graph,
-            files_trl_name,
-            meta=dask_awkward.lib.core.empty_typetracer(),
-            npartitions=len(files_trl.output_partitions),
-        )
-
-    (all_processed_files,) = dask.compute(files_to_preprocess, scheduler=scheduler)
+    all_processed_files = _compute_steps(
+        all_ak_norm_files, steps_fns, files_per_batch, scheduler, mode
+    )
 
     for name, processed_files in all_processed_files.items():
 
@@ -1161,6 +1183,7 @@ def preprocess(
     preprocess_legacy_root: bool = False,
     use_row_groups: bool = False,
     parquet_options: dict = {},
+    mode: str = "dask",
 ) -> tuple[DataGroupSpec, DataGroupSpec] | tuple[dict, dict]:
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
@@ -1193,6 +1216,8 @@ def preprocess(
             (preprocess_legacy_root=True) uses False, preserving each path's historical default.
         scheduler : None or Callable or str, default None
             Specifies the scheduler that dask should use to execute the preprocessing task graph.
+            In graphed mode, a graphed executor (an object with ``run(plan)``); None means
+            ``graphed.core.execution.SequentialRunner``.
         uproot_options : dict, default {}
             Options to pass to get_steps for opening files with uproot.
         step_size_safety_factor : float, default 0.5
@@ -1208,6 +1233,9 @@ def preprocess(
             Calculate steps according to the row_groups in the parquet files (only applies to DataGroupSpec datasets with parquet files).
         parquet_options : dict, default {}
             Options to pass to get_parquet_form_uuid_steps for opening parquet files (only applies to DataGroupSpec datasets with parquet files).
+        mode : str, default "dask"
+            ``"dask"`` or ``"graphed"``: which task-graph library runs the per-batch preprocessing.
+            The output is the same; graphed mode needs neither dask nor dask_awkward.
     Returns
     -------
         out_available : DataGroupSpec | dict
@@ -1242,6 +1270,7 @@ def preprocess(
             uproot_options=uproot_options,
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
+            mode=mode,
         )
     else:
         # the pydantic path historically defaulted to save_form=True
@@ -1291,6 +1320,7 @@ def preprocess(
             uproot_options=uproot_options,
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
+            mode=mode,
         )
         out_available_parquet, out_updated_parquet = preprocess_parquet(
             datasetspecs.filter_datasets(
@@ -1307,6 +1337,7 @@ def preprocess(
             parquet_options=parquet_options,
             step_size_safety_factor=step_size_safety_factor,
             allow_empty_datasets=allow_empty_datasets,
+            mode=mode,
         )
         # recombine outputs in original order, skipping datasets removed due to allow_empty_datasets.
         # The sub-results are already-validated DatasetSpec instances, so use model_construct to

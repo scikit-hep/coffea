@@ -2,6 +2,7 @@ import contextlib
 import os
 import tempfile
 
+import awkward as ak
 import hist
 import numpy as np
 import pytest
@@ -2409,3 +2410,171 @@ def test_packed_selection_require_returns_independent_copy():
 
     assert np.array_equal(selection.all("c1"), original)  # cache not corrupted
     assert selection.all("c1") is not selection.all("c1")  # independent copies
+
+
+def _fill_weights(weights, w):
+    weights.add("nominal_only", w.f)
+    weights.add("sym", w.b, weightUp=w.b * 1.1)
+    weights.add("asym", w.c, weightUp=w.c * 1.2, weightDown=w.c * 0.7)
+    weights.add("shifted", w.a, weightUp=w.b * 0.1, weightDown=w.c * 0.05, shift=True)
+    weights.add("missing", w.opt, weightUp=w.opt_up)
+    weights.add_multivariation(
+        "multi", w.b, ["x", "y"], [w.a * 1.3, w.c * 1.4], [w.a * 0.6, w.c * 0.5]
+    )
+
+
+def test_weights_graphed():
+    graphed = pytest.importorskip("graphed")
+    from graphed.awkward import AwkwardBackend, from_awkward
+
+    from coffea.analysis_tools import Weights
+
+    def columns():  # fresh buffers: the eager arm divides its inputs in place
+        rng = np.random.default_rng(3)
+        a, b, c = (rng.uniform(0.0, 2.0, 50) for _ in range(3))
+        b[[3, 7]] = 0.0
+        opt = ak.mask(ak.Array(c), c > 0.3)
+        f = a.astype(np.float32)
+        return ak.zip({"a": a, "b": b, "c": c, "f": f, "opt": opt, "opt_up": c * 1.5})
+
+    session = graphed.Session(AwkwardBackend())
+    deferred = from_awkward(session, "w", columns())
+
+    eager = Weights(50, storeIndividual=True)
+    _fill_weights(eager, columns())
+    lazy = Weights(None, storeIndividual=True)
+    _fill_weights(lazy, deferred)
+
+    assert lazy.variations == eager.variations
+    want = {"nominal": eager.weight()}
+    got = {"nominal": lazy.weight()}
+    for modifier in sorted(eager.variations):
+        want[modifier] = eager.weight(modifier)
+        got[modifier] = lazy.weight(modifier)
+    for i, kwargs in enumerate(
+        (
+            {"include": ["sym", "multi"]},
+            {"exclude": ["asym"], "modifier": "multi_yDown"},
+            {"include": ["missing"], "modifier": "missingDown"},
+        )
+    ):
+        want[f"partial{i}"] = eager.partial_weight(**kwargs)
+        got[f"partial{i}"] = lazy.partial_weight(**kwargs)
+    assert all(isinstance(value, graphed.Array) for value in got.values())
+    values = session.materialize(ak.zip(got, depth_limit=1))
+    for key, expected in want.items():
+        value = np.asarray(values[key])
+        assert (value.dtype, value.tobytes()) == (
+            expected.dtype,
+            expected.tobytes(),
+        ), key
+
+    for name, stats in eager.weightStatistics.items():
+        for field in ("sumw", "sumw2", "minw", "maxw", "n"):
+            value = session.materialize(lazy.weightStatistics[name][field])
+            assert value == getattr(stats, field), (name, field)
+
+
+def test_weights_graphed_keep_the_weight_dtype_as_dask_does():
+    graphed = pytest.importorskip("graphed")
+    dak = pytest.importorskip("dask_awkward")
+    from graphed.awkward import AwkwardBackend, from_awkward
+
+    from coffea.analysis_tools import Weights
+
+    columns = ak.zip({"f": np.linspace(0.5, 1.5, 6, dtype=np.float32)})
+    session = graphed.Session(AwkwardBackend())
+    weights = {
+        "dask": (Weights(None, storeIndividual=True), dak.from_awkward(columns, 2)),
+        "graphed": (
+            Weights(None, storeIndividual=True),
+            from_awkward(session, "w", columns),
+        ),
+    }
+    got = {}
+    for mode, (w, array) in weights.items():
+        w.add("f", array.f)
+        got[mode] = [w.weight(), w.partial_weight(include=["f"])]
+    got["dask"] = [np.asarray(v.compute()) for v in got["dask"]]
+    got["graphed"] = [np.asarray(session.materialize(v)) for v in got["graphed"]]
+    assert [v.dtype for v in got["dask"]] == [np.dtype(np.float32)] * 2
+    for want, value in zip(got["dask"], got["graphed"]):
+        assert (value.dtype, value.tobytes()) == (want.dtype, want.tobytes())
+
+
+def test_packed_selection_refuses_a_second_delayed_library():
+    graphed = pytest.importorskip("graphed")
+    dak = pytest.importorskip("dask_awkward")
+    from graphed.awkward import AwkwardBackend, from_awkward
+
+    from coffea.analysis_tools import PackedSelection
+
+    columns = ak.zip({"a": np.array([True, False, True])})
+    deferred = {
+        "dask": dak.from_awkward(columns, 1),
+        "graphed": from_awkward(graphed.Session(AwkwardBackend()), "s", columns),
+    }
+    for first, second in (("dask", "graphed"), ("graphed", "dask")):
+        selection = PackedSelection()
+        selection.add("first", deferred[first].a)
+        with pytest.raises(ValueError, match="different library"):
+            selection.add("second", deferred[second].a)
+
+
+def test_weights_graphed_varied():
+    graphed = pytest.importorskip("graphed")
+    from graphed.awkward import AwkwardBackend, from_awkward
+
+    from coffea.analysis_tools import Weights
+
+    sf, other = np.array([0.5, 1.5, 2.0]), np.array([1.1, 0.9, 1.3])
+    session = graphed.Session(AwkwardBackend())
+    deferred = from_awkward(session, "w", ak.zip({"sf": sf, "other": other}))
+    lazy = Weights(None)
+    lazy.add("sf", graphed.vary(deferred.sf, "sf", up=deferred.sf * 1.1))
+    lazy.add("other", deferred.other)
+    out = lazy.weight()
+    assert graphed.labels(out) == ("nominal", "sf_up")
+    for label, factor in (("nominal", 1.0), ("sf_up", 1.1)):
+        eager = Weights(3)
+        eager.add("sf", sf * factor)
+        eager.add("other", other.copy())
+        got = np.asarray(session.materialize(graphed.universe(out, label)))
+        assert got.tobytes() == eager.weight().tobytes(), label
+
+
+def test_packed_selection_graphed():
+    graphed = pytest.importorskip("graphed")
+    from graphed.awkward import AwkwardBackend, from_awkward
+
+    from coffea.analysis_tools import PackedSelection
+
+    rng = np.random.default_rng(5)
+    x = rng.uniform(0.0, 1.0, 40)
+    columns = {
+        "lo": x < 0.3,
+        "hi": x > 0.6,
+        "mid": ak.mask(ak.Array(x > 0.2), x < 0.9),
+    }
+    session = graphed.Session(AwkwardBackend())
+    deferred = from_awkward(session, "s", ak.zip(columns))
+
+    eager, lazy = PackedSelection(), PackedSelection()
+    for name in columns:
+        eager.add(name, ak.Array(columns[name]), fill_value=True)
+        lazy.add(name, deferred[name], fill_value=True)
+
+    assert lazy.names == eager.names == list(columns)
+    assert lazy.delayed_mode
+    got = {
+        "require": lazy.require(lo=False, mid=True),
+        "all": lazy.all(),
+        "any": lazy.any("lo", "hi"),
+    }
+    values = session.materialize(ak.zip(got))
+    assert values["require"].to_list() == eager.require(lo=False, mid=True).tolist()
+    assert values["all"].to_list() == eager.all().tolist()
+    assert values["any"].to_list() == eager.any("lo", "hi").tolist()
+    for summary in (lazy.nminusone, lazy.cutflow):
+        with pytest.raises(NotImplementedError, match="gak.sum"):
+            summary("lo", "hi")

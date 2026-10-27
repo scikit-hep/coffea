@@ -5,7 +5,9 @@ import awkward
 import numpy
 
 from coffea.util import (
+    _DELAYED,
     _isinstance,
+    _meta,
     awkward_rewrap,
     maybe_map_partitions,
     rewrap_recordarray,
@@ -226,7 +228,9 @@ class CorrectedJetsFactory:
                 Array of jets, representing the corrected jets, with shape matching ``injets``.
         """
         if not _isinstance(
-            injets, "awkward.highlevel.Array", "dask_awkward.lib.core.Array"
+            injets,
+            "awkward.highlevel.Array",
+            *_DELAYED,
         ):
             raise Exception("input jets must be an (dask_)awkward array of some kind!")
 
@@ -239,9 +243,7 @@ class CorrectedJetsFactory:
         out = awkward.flatten(jets)
         wrap = partial(
             awkward_rewrap,
-            like_what=(
-                jets._meta if _isinstance(jets, "dask_awkward.lib.core.Array") else jets
-            ),
+            like_what=_meta(jets),
             gfunc=rewrap_recordarray,
         )
 
@@ -477,8 +479,7 @@ class CorrectedJetsFactory:
             template = awkward.zip(
                 in_dict,
                 depth_limit=1,
-                parameters=out.layout.parameters,
-                behavior=out.behavior,
+                parameters=_meta(out).layout.parameters,
             )
             for name, func in juncs:
                 out_dict[f"jet_energy_uncertainty_{name}"] = func
@@ -493,14 +494,12 @@ class CorrectedJetsFactory:
                     label=f"{name}",
                 )
 
-        out_parms = dict(out.layout.parameters)
+        out_parms = dict(_meta(out).layout.parameters)
         out_parms["corrected"] = True
-        out = awkward.zip(
-            out_dict, depth_limit=1, parameters=out_parms, behavior=out.behavior
-        )
+        out = awkward.zip(out_dict, depth_limit=1, parameters=out_parms)
 
-        if _isinstance(jets, "dask_awkward.lib.core.Array"):
-            out_meta = wrap(out._meta)
+        if _isinstance(jets, *_DELAYED):
+            out_meta = wrap(_meta(out))
 
             return maybe_map_partitions(
                 _AwkwardRewrapFn(gfunc=rewrap_recordarray),

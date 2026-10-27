@@ -105,6 +105,7 @@ class BaseSchema:
     """
 
     __dask_capable__ = True
+    __graphed_capable__ = True
 
     def __init__(self, base_form, *args, **kwargs):
         params = dict(base_form.get("parameters", {}))
