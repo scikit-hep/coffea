@@ -517,6 +517,8 @@ class ScoutingNanoAODSchema(NanoAODSchema):
     ScoutingNano is a NanoAOD format that includes Scouting objects
     """
 
+    __graphed_capable__ = True
+
     mixins = {
         **NanoAODSchema.mixins,
         "ScoutingJet": "Jet",

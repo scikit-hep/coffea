@@ -147,6 +147,35 @@ PFNANO_ANALYSES = [
 ]
 
 
+def a_scouting_field(events, xp):
+    return events.ScoutingJet.pt
+
+
+def a_scouting_vector_behavior(events, xp):
+    return events.ScoutingJet.pvec.rho
+
+
+def a_scouting_vector_sum(events, xp):
+    return events.ScoutingJet.sum().mass
+
+
+def a_scouting_delta_r(events, xp):
+    return events.ScoutingJet.delta_r(events.ScoutingJet)
+
+
+def a_scouting_count_only(events, xp):
+    return xp.num(events.ScoutingFatJet, axis=1)
+
+
+SCOUTING_ANALYSES = [
+    a_scouting_field,
+    a_scouting_vector_behavior,
+    a_scouting_vector_sum,
+    a_scouting_delta_r,
+    a_scouting_count_only,
+]
+
+
 # ---- a plan's aggregate: module level, so the plan pickles and a worker can import it ---------
 def reduce_to_lists(values):
     return tuple(ak.to_list(value) for value in values)
@@ -186,6 +215,11 @@ def nanoaod(tests_directory):
 @pytest.fixture(scope="module")
 def pfnano(tests_directory):
     return _both_arms(tests_directory, "pfnano.root", PFNanoAODSchema)
+
+
+@pytest.fixture(scope="module")
+def scouting(tests_directory):
+    return _both_arms(tests_directory, "scouting_nano.root", ScoutingNanoAODSchema)
 
 
 def test_recorded_ops_point_at_the_analysts_line(tests_directory):
@@ -303,6 +337,12 @@ def test_pfnano_matches_eager(pfnano, analysis):
     assert_same(events.session.materialize(analysis(events, gak)), analysis(eager, ak))
 
 
+@pytest.mark.parametrize("analysis", SCOUTING_ANALYSES, ids=lambda a: a.__name__)
+def test_scouting_matches_eager(scouting, analysis):
+    events, eager = scouting
+    assert_same(events.session.materialize(analysis(events, gak)), analysis(eager, ak))
+
+
 @pytest.mark.parametrize("analysis", NANOAOD_ANALYSES, ids=lambda a: a.__name__)
 def test_ak_on_deferred_events_records_like_gak(nanoaod, analysis):
     events, eager = nanoaod
@@ -318,8 +358,9 @@ def test_ak_on_deferred_events_records_like_gak(nanoaod, analysis):
     [
         ("nano_dy.root", NanoAODSchema, NANOAOD_ANALYSES),
         ("pfnano.root", PFNanoAODSchema, PFNANO_ANALYSES),
+        ("scouting_nano.root", ScoutingNanoAODSchema, SCOUTING_ANALYSES),
     ],
-    ids=["nanoaod", "pfnano"],
+    ids=["nanoaod", "pfnano", "scouting"],
 )
 def test_plan_matches_eager(
     tests_directory, sample, schemaclass, analyses, steps_per_file
@@ -601,8 +642,8 @@ def _auto_schema(
 
 @pytest.mark.parametrize(
     "schemaclass",
-    [ScoutingNanoAODSchema, _UserNanoAODSchema, "auto", _auto_schema],
-    ids=["scouting", "user_subclass", "auto_string", "function"],
+    [_UserNanoAODSchema, "auto", _auto_schema],
+    ids=["user_subclass", "auto_string", "function"],
 )
 def test_refuses_schemas_that_do_not_declare_themselves(tests_directory, schemaclass):
     path = os.path.join(tests_directory, "samples", "nano_dy.root")
@@ -612,8 +653,8 @@ def test_refuses_schemas_that_do_not_declare_themselves(tests_directory, schemac
 
 @pytest.mark.parametrize(
     "schemaclass",
-    [BaseSchema, NanoAODSchema, PFNanoAODSchema],
-    ids=["base", "nanoaod", "pfnano"],
+    [BaseSchema, NanoAODSchema, PFNanoAODSchema, ScoutingNanoAODSchema],
+    ids=["base", "nanoaod", "pfnano", "scouting"],
 )
 def test_admitted_schemas_declare_the_flag_in_their_own_body(schemaclass):
     assert vars(schemaclass).get("__graphed_capable__") is True

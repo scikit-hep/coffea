@@ -203,7 +203,7 @@ where the capability lives instead:
 | `PackedSelection.nminusone`, `PackedSelection.cutflow` | `gak.sum(selection.all(...))` |
 
 A schema is admitted only if it declares `__graphed_capable__ = True` in its own class body, which
-`BaseSchema`, `NanoAODSchema` and `PFNanoAODSchema` do. Subclasses do not inherit the flag: declare it once the
+`BaseSchema`, `NanoAODSchema`, `PFNanoAODSchema` and `ScoutingNanoAODSchema` do. Subclasses do not inherit the flag: declare it once the
 schema's cross-references have been checked in graphed mode. A plan reaches workers through plain
 `pickle`, so its `reduce`/`combine`/`empty` callables and any custom schema class must live in a
 module the workers can import, not in a notebook or `__main__`.
