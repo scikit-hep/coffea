@@ -526,6 +526,8 @@ class ScoutingNanoAODSchema(NanoAODSchema):
         "ScoutingPhoton": "Photon",
         "ScoutingMuonNoVtx": "Muon",
         "ScoutingMuonVtx": "Muon",
+        "ScoutingMuon": "Muon",
+        "ScoutingPFJet": "Jet",
     }
 
     all_cross_references = {**NanoAODSchema.all_cross_references}
@@ -539,6 +541,10 @@ class ScoutingNanoAODSchema(NanoAODSchema):
         "ScoutingFatJet_charge": (
             transforms.full_like_from_offsets_form,
             ("oScoutingFatJet", 0.0),
+        ),
+        "ScoutingPFJet_charge": (
+            transforms.full_like_from_offsets_form,
+            ("oScoutingPFJet", 0.0),
         ),
         "ScoutingPhoton_m": (
             transforms.full_like_from_offsets_form,

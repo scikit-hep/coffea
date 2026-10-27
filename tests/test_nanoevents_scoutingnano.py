@@ -64,3 +64,25 @@ def test_uproot_write(tmp_path):
     assert len(orig_events) == len(test_events)
     assert ak.all(orig_events.ScoutingJet.pt == test_events.ScoutingJet.pt)
     assert ak.all(orig_events.ScoutingFatJet.pt == test_events.ScoutingFatJet.pt)
+
+
+@pytest.mark.parametrize(
+    "collection",
+    [
+        "ScoutingJet",
+        "ScoutingFatJet",
+        "ScoutingPFJet",
+        "ScoutingElectron",
+        "ScoutingPhoton",
+        "ScoutingMuon",
+    ],
+)
+def test_candidates_have_vector_behavior(tests_directory, collection):
+    path = os.path.join(tests_directory, "samples/scouting_nano.root")
+    ScoutingNanoAODSchema.warn_missing_crossrefs = False
+    events = NanoEventsFactory.from_root(
+        {path: "Events"}, schemaclass=ScoutingNanoAODSchema, mode="eager"
+    ).events()
+    candidates = events[collection]
+    assert ak.all(ak.isclose(candidates.pvec.rho, candidates.pt))
+    assert ak.all(ak.num(candidates.delta_r(candidates), axis=1) == ak.num(candidates))
