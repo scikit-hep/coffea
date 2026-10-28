@@ -76,7 +76,7 @@ For more details, see the `Installing coffea <https://coffea-hep.readthedocs.io/
 Strict dependencies
 ^^^^^^^^^^^^^^^^^^^
 
-- `Python <https://docs.python-guide.org/starting/installation/>`__ (3.9+)
+- `Python <https://docs.python-guide.org/starting/installation/>`__ (3.10+)
 
 The following are installed automatically when you install coffea with pip:
 

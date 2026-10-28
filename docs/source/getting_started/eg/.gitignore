@@ -1,0 +1,10 @@
+# ignore all hidden files
+# (most generated from denv copying the HOME skeleton here)
+.*
+!.gitignore
+# ignore the root files downloaded from tests/samples
+*.root
+# ignore the output histogram pickles
+*.coffea
+# ignore symlink author is using to choose development stage
+dimuonmass.py

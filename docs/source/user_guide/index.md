@@ -10,4 +10,5 @@ nanoevents.md
 accumulators.md
 corrections.md
 executors.md
+additional-packages.md
 ```

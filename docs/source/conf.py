@@ -54,6 +54,7 @@ extensions = [
     "sphinx_automodapi.automodapi",
     "sphinx_automodapi.smart_resolver",
     "sphinx_copybutton",
+    "sphinx_togglebutton",
     # 'IPython.sphinxext.ipython_console_highlighting',
 ]
 
@@ -101,8 +102,14 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable/", None),
     "awkward": ("https://awkward-array.org/doc/main/", None),
     "distributed": ("https://distributed.dask.org/en/latest/", None),
+    "dask": ("https://docs.dask.org/en/stable/", None),
     "dask-awkward": ("https://dask-awkward.readthedocs.io/en/stable/", None),
     "vector": ("https://vector.readthedocs.io/en/latest/", None),
+    "hist": ("https://hist.readthedocs.io/en/latest/", None),
+    "correctionlib": ("https://cms-nanoaod.github.io/correctionlib/", None),
+    "rich": ("https://rich.readthedocs.io/en/stable/", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
+    "pydantic": ("https://pydantic.dev/docs/validation/latest/", None),
 }
 
 napoleon_preprocess_types = True
