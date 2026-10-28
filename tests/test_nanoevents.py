@@ -875,6 +875,9 @@ def test_schema_behavior_survives_pickling(schemaclass):
 
 @pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
 def test_column_trimmed_root_nanoevents(tmp_path, mode):
+    if mode == "dask":
+        pytest.importorskip("dask_awkward")
+
     def is_rootcompat(a):
         t = ak.type(a)
         if isinstance(t, ak.types.ArrayType):
