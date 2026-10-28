@@ -6,3 +6,9 @@ rules:
       # create-or-update of the pull request, and reopening it once the previous
       # one is merged. The action is pinned to a SHA, so keep it.
       - update_schemas.yml
+  dangerous-triggers:
+    ignore:
+      # agent-file-guard needs pull_request_target to label PRs from forks. It
+      # never checks out or runs PR content: it reads the changed-file list
+      # through the API and runs the base branch's copy of the workflow.
+      - agent-file-guard.yml
