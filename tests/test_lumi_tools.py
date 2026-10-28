@@ -142,6 +142,23 @@ def test_lumimask(jsonfile, dask_client):
     )
 
 
+def test_lumimask_graphed():
+    graphed = pytest.importorskip("graphed")
+    from graphed.awkward import AwkwardBackend, from_awkward
+
+    lumimask = LumiMask(
+        "tests/samples/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt"
+    )
+    runs = np.array([303825, 123, 303825], dtype=np.uint32)
+    lumis = np.array([115, 123, 100000], dtype=np.uint32)
+    session = graphed.Session(AwkwardBackend())
+    deferred = from_awkward(session, "ev", ak.zip({"run": runs, "lumi": lumis}))
+
+    mask = lumimask(deferred.run, deferred.lumi)
+    assert isinstance(mask, graphed.Array)
+    assert session.materialize(mask).to_list() == lumimask(runs, lumis).tolist()
+
+
 def test_lumilist():
     lumidata = LumiData("tests/samples/lumi_small.csv")
 

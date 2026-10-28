@@ -4,7 +4,14 @@ from functools import partial
 import awkward
 import numpy
 
-from coffea.util import _import_dask, _import_dask_awkward, _isinstance
+from coffea.util import (
+    _DELAYED,
+    _graphed_map,
+    _import_dask,
+    _import_dask_awkward,
+    _is_graphed,
+    _isinstance,
+)
 
 
 def getfunction(
@@ -87,7 +94,9 @@ class lookup_base:
         delay_arg_indices = []
         for iarg, arg in enumerate(args):
             if _isinstance(
-                arg, "awkward.highlevel.Array", "dask_awkward.lib.core.Array"
+                arg,
+                "awkward.highlevel.Array",
+                *_DELAYED,
             ):
                 actual_args.append(arg)
                 actual_arg_indices.append(iarg)
@@ -120,6 +129,9 @@ class lookup_base:
                 label=dask_label,
                 meta=out_meta,
             )
+
+        if any(_is_graphed(x) for x in args):
+            return _graphed_map(partial(tomap, self), *actual_args)
 
         if all(isinstance(x, (numpy.ndarray, numbers.Number, str)) for x in args):
             return self._evaluate(*args, **kwargs)

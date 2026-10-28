@@ -44,6 +44,7 @@ __all__ = [
     "_import_dask",
     "_import_distributed",
     "_import_dask_awkward",
+    "_import_graphed",
 ]
 
 
@@ -133,21 +134,92 @@ conda install -c conda-forge dask-awkward""") from err
     return dask_awkward
 
 
+def _import_graphed():
+    try:
+        import graphed
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError(
+            """to use this feature, you must install graphed, which needs Python 3.11 or newer:
+
+pip install coffea[graphed]
+
+or
+
+pip install graphed"""
+        ) from err
+
+    return graphed
+
+
+# a graphed.vary output is a Varied, which is not a graphed.array.Array
+_VARIED = "graphed.systematics.varied.Varied"
+_GRAPHED = ("graphed.array.Array", _VARIED)
+_DELAYED = ("dask_awkward.lib.core.Array", *_GRAPHED)
+
+
+def _is_graphed(arg: Any) -> bool:
+    """Return True if arg is a deferred graphed array or a graphed.vary output."""
+    return _isinstance(arg, *_GRAPHED)
+
+
+def _meta(array):
+    """The typetracer a dask_awkward or graphed array (a Varied's nominal) stands for, else the array itself."""
+    if _isinstance(array, "dask_awkward.lib.core.Array"):
+        return array._meta
+    if _isinstance(array, _VARIED):
+        array = _import_graphed().nominal(array)
+    if _is_graphed(array):
+        return array.session.form(array).tt
+    return array
+
+
+def _call_with_arrays(func, args, kwargs, slots, keys, *arrays):
+    full, kw = list(args), dict(kwargs)
+    for i, array in zip(slots, arrays):
+        full[i] = array
+    for k, array in zip(keys, arrays[len(slots) :]):
+        kw[k] = array
+    return func(*full, **kw)
+
+
+def _graphed_map(func, *args, meta=None, **kwargs):
+    """Record ``func(*args, **kwargs)`` as one graphed node over its graphed arguments, as
+    ``dask_awkward.map_partitions`` does over partitions; ``meta`` defaults to ``func`` on typetracers.
+    """
+    graphed = _import_graphed()
+    from graphed.aggregate import by_value
+
+    slots = tuple(i for i, arg in enumerate(args) if _is_graphed(arg))
+    keys = tuple(k for k, v in kwargs.items() if _is_graphed(v))
+    arrays = [args[i] for i in slots] + [kwargs[k] for k in keys]
+    # a typed External ships its callable through stdlib pickle, which refuses the closures callers
+    # pass, so it goes by value; the graphed operands stay out of it, as their Session does not pickle
+    call = by_value(
+        partial(
+            _call_with_arrays,
+            func,
+            tuple(None if i in slots else arg for i, arg in enumerate(args)),
+            {k: v for k, v in kwargs.items() if k not in keys},
+            slots,
+            keys,
+        )
+    )
+    if meta is None:
+        meta = call(*(_meta(array) for array in arrays))
+    return graphed.apply(call, *arrays, output_type=ak.type(meta))
+
+
 def _ensure_flat(array, allow_missing=False):
     """Normalize an array to a flat numpy array, or ensure it is a flat dask-awkward array, or raise ValueError"""
     if not _isinstance(
         array,
-        "dask_awkward.lib.core.Array",
+        *_DELAYED,
         "awkward.highlevel.Array",
         "numpy.ndarray",
     ):
         raise ValueError("Expected a numpy or awkward array, received: %r" % array)
 
-    aktype = (
-        ak.type(array._meta)
-        if _isinstance(array, "dask_awkward.lib.core.Array")
-        else ak.type(array)
-    )
+    aktype = ak.type(_meta(array))
     if not isinstance(aktype, ak.types.ArrayType):
         raise ValueError("Expected an array type, received: %r" % aktype)
     isprimitive = isinstance(aktype.content, ak.types.NumpyType)
@@ -281,7 +353,9 @@ def rewrap_recordarray(layout, depth, data, **kwargs):
 
 # shorthand for compressing forms
 def compress_form(formjson):
-    return base64.b64encode(gzip.compress(formjson.encode("utf-8"))).decode("ascii")
+    return base64.b64encode(gzip.compress(formjson.encode("utf-8"), mtime=0)).decode(
+        "ascii"
+    )
 
 
 # shorthand for decompressing forms
@@ -422,6 +496,7 @@ class _DaskMethod:
 def dask_method(maybe_func=None, *, no_dispatch=False):
     def dask_method_wrapper(func):
         method = _DaskMethod(func)
+        method._no_dispatch = no_dispatch
         f = method.dask(_adapt_naive_dask_get(func)) if no_dispatch else method
         return update_wrapper(f, func)
 
@@ -443,6 +518,9 @@ def maybe_map_partitions(func, *args, **kwargs):
     traverse = kwargs.pop("traverse", True)
 
     func_kwargs = {k: v for k, v in kwargs.items() if k not in _MP_ONLY}
+
+    if any(_is_graphed(arg) for arg in (*args, *func_kwargs.values())):
+        return _graphed_map(func, *args, meta=kwargs.get("meta"), **func_kwargs)
 
     try:
         dask = _import_dask()
