@@ -2,6 +2,7 @@ import warnings
 
 from coffea.nanoevents import transforms
 from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
+from coffea.nanoevents.util import concat, quote
 
 
 def _key_formatter(prefix, form_key, form, attribute):
@@ -254,11 +255,40 @@ class NanoAODSchema(BaseSchema):
         return cls(base_form, version="5")
 
     def _build_collections(self, field_names, input_contents):
-        branch_forms = {k: v for k, v in zip(field_names, input_contents)}
+        branch_forms = {}
+        for name, form in zip(field_names, input_contents):
+            jagged = form["class"].startswith("ListOffset")
+            if jagged:
+                wide = form["offsets"] == "i64"
+                branch_forms["o" + name] = {
+                    "class": "NumpyArray",
+                    "itemsize": 8 if wide else 4,
+                    "format": "i",
+                    "primitive": "int64" if wide else "int32",
+                    "parameters": dict(form.get("parameters", {})),
+                    "form_key": concat(form["form_key"], "!offsets"),
+                }
+            record = form["content"] if jagged else form
+            if record["class"] != "RecordArray":
+                branch_forms[name] = form
+                continue
+            for subname, subform in zip(record["fields"], record["contents"]):
+                branch_forms[f"{name}_{subname}"] = (
+                    {
+                        "class": form["class"],
+                        "offsets": form["offsets"],
+                        "content": subform,
+                        "form_key": quote(f"{name}.{subname},!load"),
+                        "parameters": {},
+                    }
+                    if jagged
+                    else subform
+                )
+
         # parse into high-level records (collections, list collections, and singletons)
         collections = {k.split("_")[0] for k in branch_forms}
         collections -= {
-            k for k in collections if k.startswith("n") and k[1:] in collections
+            k for k in collections if k[:1] in ("n", "o") and k[1:] in collections
         }
         isData = "GenPart" not in collections
 

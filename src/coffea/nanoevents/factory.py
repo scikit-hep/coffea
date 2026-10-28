@@ -144,19 +144,41 @@ class _map_schema_uproot(_map_schema_base):
         )
         # file-level information the schema needs beyond the form (dask mode has no tree)
         self.base_form_extras = base_form_extras or {}
+        self._record_fields = frozenset()
+
+    def keys_for_buffer_keys(self, buffer_keys):
+        # a subfield path is read through its record field; field names may contain dots themselves
+        return {
+            max(
+                (f for f in self._record_fields if key.startswith(f + ".")),
+                key=len,
+                default=key,
+            )
+            for key in super().keys_for_buffer_keys(buffer_keys)
+        }
 
     def __call__(self, form):
         from coffea.nanoevents.mapping.uproot import _lazify_form
 
         branch_forms = {}
+        record_fields = set()
         for ifield, field in enumerate(form.fields):
             iform = form.contents[ifield].to_dict()
+            # the form cannot tell RNTuple from TTree, so every record is loaded by subfield path
+            is_record = iform["class"] == "RecordArray" or (
+                iform["class"].startswith("ListOffset")
+                and iform["content"]["class"] == "RecordArray"
+            )
+            if is_record:
+                record_fields.add(field)
             branch_forms[field] = _lazify_form(
                 iform,
                 f"{field},!load",
                 docstr=iform["parameters"].get("__doc__"),
                 typestr=iform["parameters"].get("typename"),
+                path=field if is_record else None,
             )
+        self._record_fields = frozenset(record_fields)
         lform = {
             "class": "RecordArray",
             "contents": [item for item in branch_forms.values()],
@@ -217,9 +239,18 @@ class _map_schema_uproot(_map_schema_base):
             interpretation_executor=interpretation_executor,
             how=dict,
         )
-        source_arrays = {
-            k: _OnlySliceableAs(v, slice(start, stop)) for k, v in arrays.items()
-        }
+        source_arrays = {}
+
+        def add_source(key, array):
+            if isinstance(array.layout, awkward.contents.ListOffsetArray):
+                # an RNTuple read past entry 0 keeps the skipped entries' offsets
+                array = awkward.Array(array.layout.to_ListOffsetArray64(True))
+            source_arrays[key] = _OnlySliceableAs(array, slice(start, stop))
+            for subfield in array.fields:
+                add_source(f"{key}.{subfield}", array[subfield])
+
+        for k, v in arrays.items():
+            add_source(k, v)
         mapping = PreloadedSourceMapping(
             PreloadedOpener(uuidpfn), start, stop, access_log=None
         )
@@ -251,7 +282,12 @@ class _graphed_map_schema_uproot(_map_schema_uproot):
         )
 
     def __reduce__(self):
-        return (type(self), (self.schemaclass, self.metadata, self.base_form_extras))
+        # _record_fields comes from the form, so a worker's reads need it carried over
+        return (
+            type(self),
+            (self.schemaclass, self.metadata, self.base_form_extras),
+            {"_record_fields": self._record_fields},
+        )
 
 
 class _map_schema_parquet(_map_schema_base):

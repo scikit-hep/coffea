@@ -36,7 +36,7 @@ def offsets(stack):
 
     Signature: array,!offsets
     """
-    stack.append(to_layout(stack.pop()).offsets)
+    stack.append(ensure_array(to_layout(stack.pop()).offsets))
 
 
 def mask(stack):
@@ -287,8 +287,8 @@ def children(stack):
     Signature: offsets,globalparents,!children
     Output will be a jagged array with same outer shape as globalparents content
     """
-    parents = stack.pop()
-    offsets = stack.pop()
+    parents = ensure_array(stack.pop())
+    offsets = ensure_array(stack.pop())
     coffsets, ccontent = _children_kernel(offsets, parents)
     out = awkward.Array(
         awkward.contents.ListOffsetArray(
@@ -416,7 +416,7 @@ def distinctChildrenDeep(stack):
     """
     global_pdgs = stack.pop()
     global_parents = stack.pop()
-    offsets = stack.pop()
+    offsets = ensure_array(stack.pop())
     coffsets, ccontent = _distinctChildrenDeep_kernel(
         offsets,
         global_parents,

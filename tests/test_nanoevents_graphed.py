@@ -6,6 +6,7 @@ import sys
 
 import awkward as ak
 import pytest
+import uproot
 
 if sys.version_info < (3, 11):
     pytest.skip("graphed requires Python 3.11 or newer", allow_module_level=True)
@@ -298,6 +299,28 @@ def test_an_rntuple_records_without_a_saved_form(tests_directory):
     ttree = _factory(path.replace("_rntuple", ""), NanoAODSchema, "graphed").events()
     assert sorted(events.fields) == sorted(ttree.fields)
     assert sorted(events.Muon.fields) == sorted(ttree.Muon.fields)
+
+
+def test_a_nested_rntuple_plan_matches_eager(tests_directory, tmp_path):
+    # NanoAOD written as an RNTuple nests each collection in one record field
+    eager = _factory(
+        os.path.join(tests_directory, "samples", "nano_dy.root"), NanoAODSchema, "eager"
+    ).events()
+    path = str(tmp_path / "nested_rntuple.root")
+    with uproot.recreate(path) as f:
+        f.mkrntuple("Events", NanoAODSchema.uproot_writeable(eager))
+    events = _factory(path, NanoAODSchema, "graphed").events()
+    plan = graphed.aggregate_plan(
+        events.Muon.pt,
+        events.Muon.matched_jet.pt,
+        reduce=reduce_to_lists,
+        combine=combine_lists,
+        empty=no_lists,
+        steps_per_file=2,
+    )
+    # a worker receives the plan pickled, and the second partition starts past entry 0
+    got = SequentialRunner().run(pickle.loads(pickle.dumps(plan))).value
+    assert _equal(got, reduce_to_lists([eager.Muon.pt, eager.Muon.matched_jet.pt]))
 
 
 @pytest.mark.parametrize("analysis", NANOAOD_ANALYSES, ids=lambda a: a.__name__)
