@@ -918,4 +918,4 @@ def test_column_trimmed_root_nanoevents(tmp_path, mode):
     matched = reloaded.Jet.matched_electrons
     if mode == "dask":
         matched = matched.compute()
-    assert len(matched) == len(filtered)
+    assert ak.to_list(matched) == ak.to_list(events.Jet.matched_electrons)
