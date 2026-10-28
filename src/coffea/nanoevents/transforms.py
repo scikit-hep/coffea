@@ -170,7 +170,7 @@ def counts2nestedindex(stack):
     Signature: local_counts,target_offsets,!counts2nestedindex
     Outputs a jagged array with same axis-0 shape as counts axis-1
     """
-    target_offsets = stack.pop()
+    target_offsets = ensure_array(stack.pop())
     local_counts = stack.pop()
     out = awkward.unflatten(
         numpy.arange(target_offsets[-1], dtype=numpy.int64),
@@ -458,7 +458,7 @@ def nestedindex(stack):
     Index arrays should all be same shape flat arrays
     Outputs a jagged array with same outer shape as index arrays
     """
-    indexers = stack[:]
+    indexers = [ensure_array(idx) for idx in stack]
     stack.clear()
     # return awkward.concatenate([idx[:, None] for idx in indexers], axis=1)
     n = len(indexers)

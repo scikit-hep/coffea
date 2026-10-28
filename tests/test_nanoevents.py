@@ -871,3 +871,48 @@ def test_schema_behavior_survives_pickling(schemaclass):
             assert (
                 getattr(module, value.__qualname__, None) is value
             ), f"behavior[{key!r}] is not {value.__module__}.{value.__qualname__}"
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
+def test_column_trimmed_root_nanoevents(tmp_path, mode):
+    def is_rootcompat(a):
+        t = ak.type(a)
+        if isinstance(t, ak.types.ArrayType):
+            if isinstance(t.content, ak.types.NumpyType):
+                return True
+            if isinstance(t.content, ak.types.ListType) and isinstance(
+                t.content.content, ak.types.NumpyType
+            ):
+                return True
+        return False
+
+    def uproot_writeable(events):
+        out = {}
+        for bname in events.fields:
+            if events[bname].fields:
+                out[bname] = ak.zip(
+                    {
+                        n: ak.to_packed(ak.without_parameters(events[bname][n]))
+                        for n in events[bname].fields
+                        if is_rootcompat(events[bname][n])
+                    }
+                )
+            else:
+                out[bname] = ak.to_packed(ak.without_parameters(events[bname]))
+        return out
+
+    path = Path(__file__).parent / "samples" / "nano_dy.root"
+    events = NanoEventsFactory.from_root(f"{path}:Events", mode="eager").events()
+
+    filtered = events[["event", "run", "luminosityBlock", "Electron", "Jet"]]
+    skim_path = tmp_path / "skimmed.root"
+    with uproot.recreate(skim_path) as fout:
+        fout["Events"] = uproot_writeable(filtered)
+
+    reloaded = NanoEventsFactory.from_root(f"{skim_path}:Events", mode=mode).events()
+    assert "Jet" in reloaded.fields
+    assert "Electron" in reloaded.fields
+    matched = reloaded.Jet.matched_electrons
+    if mode == "dask":
+        matched = matched.compute()
+    assert len(matched) == len(filtered)
