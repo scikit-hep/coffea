@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from io import BytesIO
 from itertools import repeat
+from pathlib import Path
 from typing import (
     Any,
     Generic,
@@ -1195,6 +1196,8 @@ class Runner:
             to :py:class:`NanoEventsFactory <coffea.nanoevents.NanoEventsFactory>`.
         checkpointer : CheckpointerABC, optional
             A CheckpointerABC instance to manage checkpointing of each chunk output
+        cache_file : str, optional
+            Enables persistent cache in .pkl file if not None
         use_result_type : bool, optional
             If True, ``__call__`` returns ``Ok(output)`` or ``Err(exception)``
             instead of raising. Requires ``skipbadfiles`` to be set (``True``
@@ -1217,6 +1220,7 @@ class Runner:
     schema: schemas.BaseSchema | None = schemas.NanoAODSchema
     processor_compression: int = 1
     format: str = "root"
+    cache_file: str | None = None
     checkpointer: CheckpointerABC | None = None
     cachestrategy: None | (Literal["dask-worker"] | Callable[..., MutableMapping]) = (
         None
@@ -1234,7 +1238,12 @@ class Runner:
         ), "Expected pre_executor to derive from ExecutorBase"
 
         if self.metadata_cache is None:
-            self.metadata_cache = DEFAULT_METADATA_CACHE
+            if self.cache_file is not None:
+                self.metadata_cache = self._load_cache()
+                if not self.metadata_cache:
+                    self.metadata_cache = DEFAULT_METADATA_CACHE
+            else:
+                self.metadata_cache = DEFAULT_METADATA_CACHE
 
         if self.format not in ("root", "parquet"):
             raise ValueError(f"format must be 'root' or 'parquet', got {self.format!r}")
@@ -1429,6 +1438,32 @@ class Runner:
             )
         return out
 
+    def _load_cache(self):
+        """Load metadata cache from disk if it exists"""
+        if os.path.isfile(self.cache_file):
+            try:
+                with open(self.cache_file, "rb") as f:
+                    cache = pickle.load(f)
+                print(f"Loaded {len(cache)} entries from metadata cache")
+                return cache
+            except Exception as e:
+                print(f"Warning: Could not load cache file: {e}")
+                return {}
+        return {}
+
+    def _save_cache(self):
+        """Save metadata cache to disk"""
+        try:
+            # Write to a temporary file first, then rename for atomic operation
+            cache_path = Path(self.cache_file)
+            temp_file = cache_path.with_suffix(".tmp")
+            with open(temp_file, "wb") as f:
+                pickle.dump(self.metadata_cache, f, protocol=pickle.HIGHEST_PROTOCOL)
+            temp_file.replace(cache_path)
+        except Exception as e:
+            print(f"Warning: Could not save cache file: {e}")
+
+    def _preprocess_fileset_root(self, fileset: dict) -> None:
     def _preprocess_fileset_root(self, fileset: dict, uproot_options: dict) -> None:
         # this is a bit of an abuse of map-reduce but ok
         to_get = {
@@ -1461,7 +1496,17 @@ class Runner:
                 use_result_type=self.use_result_type,
             )
             out, _ = pre_executor(to_get, closure, out)
-            self._cache_and_populate(fileset, out)
+            cache_updated = False
+            while out:
+                item = out.pop()
+                self.metadata_cache[item] = item.metadata
+                cache_updated = True
+
+            if cache_updated and self.cache_file:
+                self._save_cache()
+
+            for filemeta in fileset:
+                filemeta.maybe_populate(self.metadata_cache)
 
     def _preprocess_fileset_parquet(self, fileset: dict) -> None:
         # this is a bit of an abuse of map-reduce but ok
