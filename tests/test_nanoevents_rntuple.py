@@ -240,16 +240,20 @@ def test_nested_rntuple_nanoaod_behaviors(tests_directory, tmp_path, mode):
         f.mkrntuple("Events", writeable)
 
     access_log = [] if mode == "virtual" else None
+    # a second partition reads the RNTuple from past entry 0
+    options = {"steps_per_file": 2} if mode == "dask" else {}
     skim_r = NanoEventsFactory.from_root(
         {rntuple_path: "Events"},
         schemaclass=NanoAODSchema,
         mode=mode,
         access_log=access_log,
+        **options,
     ).events()
     skim_t = NanoEventsFactory.from_root(
         {ttree_path: "Events"},
         schemaclass=NanoAODSchema,
         mode=mode,
+        **options,
     ).events()
 
     if mode == "virtual":

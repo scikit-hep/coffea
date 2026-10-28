@@ -242,6 +242,9 @@ class _map_schema_uproot(_map_schema_base):
         source_arrays = {}
 
         def add_source(key, array):
+            if isinstance(array.layout, awkward.contents.ListOffsetArray):
+                # an RNTuple read past entry 0 keeps the skipped entries' offsets
+                array = awkward.Array(array.layout.to_ListOffsetArray64(True))
             source_arrays[key] = _OnlySliceableAs(array, slice(start, stop))
             for subfield in array.fields:
                 add_source(f"{key}.{subfield}", array[subfield])
@@ -279,7 +282,12 @@ class _graphed_map_schema_uproot(_map_schema_uproot):
         )
 
     def __reduce__(self):
-        return (type(self), (self.schemaclass, self.metadata, self.base_form_extras))
+        # _record_fields comes from the form, so a worker's reads need it carried over
+        return (
+            type(self),
+            (self.schemaclass, self.metadata, self.base_form_extras),
+            {"_record_fields": self._record_fields},
+        )
 
 
 class _map_schema_parquet(_map_schema_base):
