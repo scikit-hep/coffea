@@ -268,3 +268,56 @@ def test_preprocess_graphed_does_not_depend_on_combine_order(tmp_path):
     assert preprocess_legacy(
         legacy, backend="graphed", scheduler=_ReverseOrderRunner(), **kwargs
     ) == preprocess_legacy(legacy, scheduler="sync", **kwargs)
+
+
+def test_graphed_backend_gives_an_empty_job_a_typed_empty_result():
+    """An empty job runs its map function once on the empty array and gets the same typed empty
+    result as on the iterative backend."""
+    from coffea.dataset_tools import GraphedBackend, IterativeBackend, PreprocessJob
+
+    calls = []
+
+    def double(batch):
+        calls.append(len(batch))
+        return ak.zip({"file": batch.file, "n2": batch.n * 2})
+
+    empty = ak.Array([{"file": "x", "n": 1}])[0:0]
+    jobs = {"d": PreprocessJob(array=empty, map_fn=double, files_per_batch=2)}
+    graphed = GraphedBackend().submit(jobs).result()["d"]
+    iterative = IterativeBackend().submit(jobs).result()["d"]
+    assert calls == [0, 0]
+    assert len(graphed) == 0
+    assert graphed.type == iterative.type
+
+
+class _RecordingExecutor:
+    """Delegates to a graphed executor and records which entry point the backend used."""
+
+    def __init__(self, inner):
+        self.inner = inner
+        self.calls = []
+
+    def run(self, plan):
+        self.calls.append("run")
+        return self.inner.run(plan)
+
+    def submit(self, plan):
+        self.calls.append("submit")
+        return self.inner.submit(plan)
+
+
+def test_graphed_backend_submits_to_executors_that_have_submit(tmp_path):
+    """An executor with submit(plan) receives the plan through submit, and the preprocessed
+    fileset equals the iterative backend's."""
+    from graphed_executors.local import ThreadExecutor
+
+    has_root, missing_root, _, _ = _write_flag_files(tmp_path)
+    spec = DataGroupSpec(
+        {"ds": {"files": {has_root: "Events", missing_root: "Events"}}}
+    )
+    kwargs = dict(step_size=7, save_form=True)
+    with ThreadExecutor(2) as pool:
+        executor = _RecordingExecutor(pool)
+        graphed_out = preprocess(spec, backend="graphed", scheduler=executor, **kwargs)
+    assert executor.calls == ["submit"]
+    assert graphed_out == preprocess(spec, backend="iterative", **kwargs)
