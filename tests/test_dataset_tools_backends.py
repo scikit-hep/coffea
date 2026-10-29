@@ -334,8 +334,15 @@ def test_awkward_form_json_matches_uproot_dask(sample, object_path, is_rntuple):
     import uproot
     from uproot._util import no_filter
 
-    from coffea.dataset_tools.preprocess import _FORM_AK_ADD_DOC, _awkward_form_json
+    from coffea.dataset_tools.preprocess import (
+        _FORM_AK_ADD_DOC,
+        _awkward_form_json,
+        _uproot_get_ttree_form,
+    )
     from coffea.util import _is_interpretable
+
+    if _uproot_get_ttree_form is None:
+        pytest.skip("uproot<5.7.7 has no dask-free form builder")
 
     tree = uproot.open({sample: None})[object_path]
     filt = partial(_is_interpretable, emit_warning=False)
@@ -406,6 +413,34 @@ def test_form_extraction_falls_back_to_uproot_dask(sample, is_rntuple, monkeypat
     monkeypatch.setattr(preprocess_mod, "_uproot_get_ttree_form", None)
     monkeypatch.setattr(preprocess_mod, "_uproot_normalize_grouped_keys", None)
     assert saved_form() == with_helpers
+
+
+def test_saving_a_form_without_dask_or_form_builder_names_the_uproot_floor(monkeypatch):
+    """Without uproot's private form helpers (uproot<5.7.7) and without dask, saving a form
+    raises ModuleNotFoundError naming the uproot version that saves forms without dask.
+    """
+    import sys
+
+    from coffea.dataset_tools.preprocess import get_steps
+
+    preprocess_mod = importlib.import_module("coffea.dataset_tools.preprocess")
+    monkeypatch.setattr(preprocess_mod, "_uproot_get_ttree_form", None)
+    monkeypatch.setattr(preprocess_mod, "_uproot_normalize_grouped_keys", None)
+    for name in ("dask", "dask_awkward"):
+        monkeypatch.setitem(sys.modules, name, None)
+    normed = awkward.Array(
+        [
+            {
+                "file": "tests/samples/nano_dy.root",
+                "object_path": "Events",
+                "steps": None,
+                "num_entries": None,
+                "uuid": None,
+            }
+        ]
+    )
+    with pytest.raises(ModuleNotFoundError, match=r"needs uproot>=5\.7\.7"):
+        get_steps(normed, save_form=True)
 
 
 def test_step_size_zero_or_negative_raises(tmp_path):

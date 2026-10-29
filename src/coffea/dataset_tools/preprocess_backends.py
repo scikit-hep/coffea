@@ -25,8 +25,8 @@ class's ``scheduler_field`` (``DaskBackend.scheduler``, ``FuturesBackend.pool``,
 The graphed, iterative and futures backends do not build a dask *task graph* for orchestration, and they
 are dask-free for parquet input and for ROOT input of either flavor. ROOT form extraction
 (``save_form=True``) calls the private uproot helpers behind ``uproot.dask``'s base form, for both
-TTree and RNTuple, producing the same form without dask; it only falls back to ``uproot.dask``
-(and thus dask) if those helpers are unavailable on an unexpected uproot version.
+TTree and RNTuple, producing the same form without dask; on uproot older than 5.7.7, which lacks
+those helpers, it falls back to ``uproot.dask`` (and thus dask).
 
 A ``Backend`` turns a "computable" into a future-like ``Task`` (``result`` / ``partial_result``
 / ``wait``) whose ``result()`` blocks. Here the computable is a mapping
