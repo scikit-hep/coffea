@@ -32,6 +32,7 @@ from coffea.dataset_tools.preprocess import (
 from coffea.dataset_tools.preprocess_backends import (
     DaskBackend,
     FuturesBackend,
+    GraphedBackend,
     IterativeBackend,
     PreprocessBackend,
     PreprocessJob,
@@ -71,5 +72,6 @@ __all__ = [
     "PreprocessJob",
     "DaskBackend",
     "FuturesBackend",
+    "GraphedBackend",
     "IterativeBackend",
 ]

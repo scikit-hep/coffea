@@ -14,13 +14,15 @@ same worker can run on:
   coffea's ``IterativeExecutor``.
 - :class:`FuturesBackend` -- a :mod:`concurrent.futures` pool, threads by default (preprocessing
   is IO-bound) with an opt-in process pool (mirrors ``FuturesExecutor``).
+- :class:`GraphedBackend` -- one graphed ``Plan`` with a task per file batch, run by a graphed
+  executor (``SequentialRunner`` by default). Needs graphed, not dask.
 
 Without an explicit backend, ``"dask"`` is used when dask and dask-awkward are importable and
 ``"iterative"`` otherwise. A ``scheduler`` argument is handed to the backend field named by its
-class's ``scheduler_field`` (``DaskBackend.scheduler``, ``FuturesBackend.pool``); backends without
-one ignore it with a warning.
+class's ``scheduler_field`` (``DaskBackend.scheduler``, ``FuturesBackend.pool``,
+``GraphedBackend.executor``); backends without one ignore it with a warning.
 
-The iterative and futures backends do not build a dask *task graph* for orchestration, and they
+The graphed, iterative and futures backends do not build a dask *task graph* for orchestration, and they
 are dask-free for parquet input and for ROOT input of either flavor. ROOT form extraction
 (``save_form=True``) calls the private uproot helpers behind ``uproot.dask``'s base form, for both
 TTree and RNTuple, producing the same form without dask; it only falls back to ``uproot.dask``
@@ -52,7 +54,7 @@ from typing import ClassVar, Protocol, runtime_checkable
 
 import awkward
 
-from coffea.util import _import_dask, _import_dask_awkward
+from coffea.util import _import_dask, _import_dask_awkward, _import_graphed
 
 __all__ = [
     "PreprocessJob",
@@ -61,6 +63,7 @@ __all__ = [
     "IterativeBackend",
     "FuturesBackend",
     "DaskBackend",
+    "GraphedBackend",
 ]
 
 
@@ -420,8 +423,34 @@ class DaskBackend(PreprocessBackend):
         return _DaskTask(collections, self.scheduler)
 
 
+@dataclass
+class GraphedBackend(PreprocessBackend):
+    """Execute preprocessing as one graphed ``Plan``: a task per batch of ``files_per_batch``
+    files of each dataset. Needs graphed, not dask.
+
+    Parameters
+    ----------
+        executor : graphed executor or None, default None
+            Anything with ``run(plan)``, e.g. ``graphed_executors.local.ThreadExecutor``; None uses
+            ``graphed.core.execution.SequentialRunner``. Executors that also have ``submit(plan)``
+            run without blocking until ``result()``. This is the field the ``scheduler`` argument
+            of the ``preprocess*`` functions fills.
+    """
+
+    scheduler_field: ClassVar[str | None] = "executor"
+
+    executor: object = None
+
+    def submit(self, jobs: Mapping[str, PreprocessJob]) -> PreprocessTask:
+        _import_graphed()
+        from coffea.dataset_tools import _graphed
+
+        return _graphed.submit(jobs, self.executor)
+
+
 _BACKENDS: dict[str, type[PreprocessBackend]] = {
     "dask": DaskBackend,
+    "graphed": GraphedBackend,
     "iterative": IterativeBackend,
     "futures": FuturesBackend,
 }
