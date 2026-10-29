@@ -180,7 +180,11 @@ def test_each_dataset_records_into_its_own_session(tmp_path):
     assert graphed.set_session(None) is None
 
 
-def test_the_form_read_misses_the_scope(tests_directory, tmp_path, received):
+def test_preprocessing_leaves_the_open_scope_unchanged(
+    tests_directory, tmp_path, received
+):
+    """Graphed preprocessing builds its forms without an uproot.graphed read, so an open
+    Session gains no sources or nodes."""
     has_root, *_ = _write_flag_files(tmp_path)
     events = _root(tests_directory)
     before, count = _names(events.session), events.session.node_count()
@@ -189,13 +193,10 @@ def test_the_form_read_misses_the_scope(tests_directory, tmp_path, received):
         available, _ = preprocess(
             DataGroupSpec({"ds": {"files": {has_root: "Events"}}}),
             save_form=True,
-            mode="graphed",
+            backend="graphed",
         )
     assert available["ds"].compressed_form is not None
-    ((session, _),) = received
-    assert session is not None
-    assert session is not events.session
-    assert session is not graphed.current_session()
+    assert received == []
     assert (_names(events.session), events.session.node_count()) == (before, count)
 
 
