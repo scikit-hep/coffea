@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Callable, Hashable
+from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, Union
 
 if TYPE_CHECKING:
@@ -14,6 +15,7 @@ from coffea.dataset_tools.filespec import (
 )
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 from coffea.processor import ProcessorABC
+from coffea.util import _import_graphed
 
 if TYPE_CHECKING:
     DaskOutputBaseType = Union[
@@ -26,6 +28,21 @@ if TYPE_CHECKING:
     # NOTE TO USERS: You can use nested python containers as arguments to dask.compute!
     DaskOutputType = Union[DaskOutputBaseType, tuple[DaskOutputBaseType, ...]]
     GenericHEPAnalysis = Callable[[dask_awkward.Array], DaskOutputType]
+
+
+def _dataset_scope(mode, schemaclass):
+    """A graphed scope of the dataset's own Session, so datasets never share one ``"Events"``."""
+    if mode != "graphed":
+        return nullcontext()
+    _import_graphed()
+    import graphed
+
+    if not hasattr(graphed, "current_session"):
+        return nullcontext()
+    from coffea.nanoevents._graphed import GraphedNanoBackend, check_schema
+
+    check_schema(schemaclass)
+    return graphed.Session(GraphedNanoBackend(behavior=dict(schemaclass.behavior())))
 
 
 def apply_to_dataset(
@@ -68,26 +85,29 @@ def apply_to_dataset(
         dataset = DatasetSpec.model_validate(dataset)
     maybe_base_form = dataset.form
     files = dataset.files
-    events = NanoEventsFactory.from_root(
-        files.model_dump(),
-        metadata=metadata,
-        schemaclass=schemaclass,
-        known_base_form=maybe_base_form,
-        uproot_options=uproot_options,
-        mode=mode,
-    ).events()
+    with _dataset_scope(mode, schemaclass):
+        events = NanoEventsFactory.from_root(
+            files.model_dump(),
+            metadata=metadata,
+            schemaclass=schemaclass,
+            known_base_form=maybe_base_form,
+            uproot_options=uproot_options,
+            mode=mode,
+        ).events()
 
-    report = None
-    if isinstance(events, tuple):
-        events, report = events
+        report = None
+        if isinstance(events, tuple):
+            events, report = events
 
-    out = None
-    if isinstance(data_manipulation, ProcessorABC):
-        out = data_manipulation.process(events)
-    elif isinstance(data_manipulation, Callable):
-        out = data_manipulation(events)
-    else:
-        raise ValueError("data_manipulation must either be a ProcessorABC or Callable")
+        out = None
+        if isinstance(data_manipulation, ProcessorABC):
+            out = data_manipulation.process(events)
+        elif isinstance(data_manipulation, Callable):
+            out = data_manipulation(events)
+        else:
+            raise ValueError(
+                "data_manipulation must either be a ProcessorABC or Callable"
+            )
 
     if report is not None:
         return out, report

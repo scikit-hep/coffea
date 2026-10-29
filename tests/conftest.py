@@ -1,4 +1,5 @@
 import os
+import sys
 
 import pytest
 
@@ -34,3 +35,15 @@ def dask_client(_dask_session_client):
     with dask.config.set(scheduler=_dask_session_client.get):
         with _dask_session_client.as_current():
             yield _dask_session_client
+
+
+@pytest.fixture(autouse=True)
+def _graphed_default_session():
+    """Each test starts with no default graphed Session and leaves the previous one in place."""
+    graphed = sys.modules.get("graphed")
+    if not hasattr(graphed, "set_session"):
+        yield
+        return
+    previous = graphed.set_session(None)
+    yield
+    graphed.set_session(previous)

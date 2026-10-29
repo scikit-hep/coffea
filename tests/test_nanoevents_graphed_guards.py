@@ -58,6 +58,8 @@ def _fields(events):
 
 @pytest.fixture(scope="module")
 def nanoaod(tests_directory):
+    if hasattr(graphed, "new_session"):
+        graphed.new_session()
     return _record(_sample(tests_directory, "nano_dy.root"))
 
 
@@ -163,7 +165,7 @@ def test_known_base_form_is_forwarded_and_opens_no_file(tests_directory, monkeyp
     given = _record(path, known_base_form=base_form)
     assert opened == []
     # the counter is live, and the form uproot was handed is the one it would have read
-    derived = _record(path)
+    derived = _record(path, uproot_options={"name": "derived"})
     assert len(opened) == 1
     assert _fields(given) == _fields(derived)
 
