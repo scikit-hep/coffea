@@ -19,7 +19,7 @@ from uproot._util import no_filter
 try:
     from uproot._dask import _get_ttree_form as _uproot_get_ttree_form
     from uproot._dask import _normalize_grouped_keys as _uproot_normalize_grouped_keys
-except Exception:  # pragma: no cover - depends on uproot internals
+except Exception:  # pragma: no cover - uproot<5.7.7 lacks these helpers
     _uproot_get_ttree_form = None
     _uproot_normalize_grouped_keys = None
 
@@ -213,32 +213,39 @@ def _awkward_form_json(tree, is_rntuple: bool) -> str:
 def _dask_form_json(uproot_target, is_rntuple: bool, uproot_options: dict = {}) -> str:
     """Build a form JSON via ``uproot.dask`` (requires dask).
 
-    Fallback used only when uproot's internal form helpers are unavailable (an unexpected uproot
-    version); the dask-free :func:`_awkward_form_json` is preferred for both
+    Fallback used only when uproot's internal form helpers are unavailable (uproot older than
+    5.7.7); the dask-free :func:`_awkward_form_json` is preferred for both
     TTree and RNTuple. ``uproot_target`` is an already-open TTree object, or a
     ``{file: object_path}`` mapping (required for RNTuples, which cannot build a form from an
     already-open object via ``uproot.dask``). ``uproot_options`` is forwarded to the file open
     when ``uproot_target`` is a mapping.
     """
-    if is_rntuple:
-        form_dask = uproot.dask(
-            uproot_target,
-            open_files=False,
-            full_paths=True,
-            ak_add_doc=_FORM_AK_ADD_DOC,
-            filter_name=no_filter,
-            filter_typename=no_filter,
-            filter_branch=partial(_is_interpretable, emit_warning=False),
-            **uproot_options,
-        )
-    else:
-        form_dask = uproot.dask(
-            uproot_target,
-            ak_add_doc=_FORM_AK_ADD_DOC,
-            filter_name=no_filter,
-            filter_typename=no_filter,
-            filter_branch=partial(_is_interpretable, emit_warning=False),
-        )
+    try:
+        if is_rntuple:
+            form_dask = uproot.dask(
+                uproot_target,
+                open_files=False,
+                full_paths=True,
+                ak_add_doc=_FORM_AK_ADD_DOC,
+                filter_name=no_filter,
+                filter_typename=no_filter,
+                filter_branch=partial(_is_interpretable, emit_warning=False),
+                **uproot_options,
+            )
+        else:
+            form_dask = uproot.dask(
+                uproot_target,
+                ak_add_doc=_FORM_AK_ADD_DOC,
+                filter_name=no_filter,
+                filter_typename=no_filter,
+                filter_branch=partial(_is_interpretable, emit_warning=False),
+            )
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError(
+            f"{err}\nsave_form=True without dask needs uproot>=5.7.7 (installed: uproot "
+            f"{uproot.__version__}); upgrade uproot, or install dask and dask-awkward.",
+            name=err.name,
+        ) from err
     form_str = form_dask.layout.form.to_json()
     # the function cache needs to be popped if present to prevent memory growth
     dask = _import_dask()
