@@ -2,6 +2,7 @@ import inspect
 import os
 import re
 import sys
+import warnings
 from functools import partial
 from pathlib import Path
 
@@ -919,3 +920,50 @@ def test_column_trimmed_root_nanoevents(tmp_path, mode):
     if mode == "dask":
         matched = matched.compute()
     assert ak.to_list(matched) == ak.to_list(events.Jet.matched_electrons)
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
+def test_nanoaod_tau2_field_conflict_warning(mode):
+    if mode == "dask":
+        pytest.importorskip("dask_awkward")
+    path = Path(__file__).parent / "samples" / "nano_tt_v15.root"
+    events = NanoEventsFactory.from_root(f"{path}:Events", mode=mode).events()
+
+    has_fj = events.FatJet[ak.num(events.FatJet) > 0]
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        field_tau2 = has_fj["tau2"]
+        if mode == "dask":
+            field_tau2 = field_tau2.compute()
+        assert len(w) == 0
+    assert ak.all(field_tau2 >= 0.0)
+    assert ak.all(field_tau2 <= 1.0)
+
+    if mode in ["eager", "virtual"]:
+        with pytest.warns(
+            RuntimeWarning,
+            match="resolves to the 4-vector proper-time squared behavior",
+        ):
+            vec_tau2 = has_fj.tau2
+        assert ak.all(ak.isclose(vec_tau2, has_fj.mass**2, rtol=1e-5))
+
+        single_fj = has_fj[0, 0]
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            rec_field = single_fj["tau2"]
+            assert len(w) == 0
+        assert 0.0 <= rec_field <= 1.0
+
+        with pytest.warns(
+            RuntimeWarning,
+            match="resolves to the 4-vector proper-time squared behavior",
+        ):
+            rec_vec = single_fj.tau2
+        assert np.isclose(rec_vec, single_fj.mass**2, rtol=1e-5)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            jet_tau2 = events.Jet.tau2
+            assert len(w) == 0
+        assert ak.all(ak.isclose(jet_tau2, events.Jet.mass**2, rtol=1e-5))

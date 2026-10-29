@@ -44,7 +44,22 @@ behavior.update(
 class PtEtaPhiMCollection(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
     """Generic collection that has Lorentz vector properties"""
 
-    pass
+    @property
+    def tau2(self):
+        """Proper time squared of the 4-vector.
+
+        Warns if 'tau2' is also present as a collection field to prevent
+        silent confusion with the substructure branch.
+        """
+        if "tau2" in self.fields:
+            warnings.warn(
+                f"Accessing 'tau2' on {self.__class__.__name__} resolves to the 4-vector proper-time squared behavior, "
+                "which conflicts with the 'tau2' field in this collection. "
+                "To access the substructure field, use obj['tau2'].",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        return super().tau2
 
 
 PtEtaPhiMCollectionArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
@@ -595,6 +610,23 @@ class Jet(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic):
         """Returns a boolean array marking tight jets with explicit lepton veto according to jetId index"""
         return (self.jetId & (1 << self.TIGHTLEPVETO)) != 0
 
+    @property
+    def tau2(self):
+        """Proper time squared of the 4-vector.
+
+        Warns if 'tau2' is also present as a collection field to prevent
+        silent confusion with the substructure branch.
+        """
+        if "tau2" in self.fields:
+            warnings.warn(
+                f"Accessing 'tau2' on {self.__class__.__name__} resolves to the 4-vector proper-time squared behavior, "
+                "which conflicts with the 'tau2' field in this collection. "
+                "To access the substructure field, use obj['tau2'].",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        return super().tau2
+
     @dask_property
     def matched_electrons(self):
         """
@@ -688,6 +720,23 @@ class FatJet(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systematic)
     def isTightLeptonVeto(self):
         """Returns a boolean array marking tight jets with explicit lepton veto according to jetId index"""
         return (self.jetId & (1 << self.TIGHTLEPVETO)) != 0
+
+    @property
+    def tau2(self):
+        """Proper time squared of the 4-vector.
+
+        Warns if 'tau2' is also present as a collection field to prevent
+        silent confusion with the substructure branch.
+        """
+        if "tau2" in self.fields:
+            warnings.warn(
+                f"Accessing 'tau2' on {self.__class__.__name__} resolves to the 4-vector proper-time squared behavior, "
+                "which conflicts with the 'tau2' field in this collection. "
+                "To access the substructure field, use obj['tau2'].",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        return super().tau2
 
     @dask_property
     def subjets(self):
