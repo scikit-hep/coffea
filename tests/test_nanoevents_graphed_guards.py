@@ -165,7 +165,7 @@ def test_known_base_form_is_forwarded_and_opens_no_file(tests_directory, monkeyp
     given = _record(path, known_base_form=base_form)
     assert opened == []
     # the counter is live, and the form uproot was handed is the one it would have read
-    derived = _record(path, uproot_options={"name": "derived"})
+    derived = _record(path)
     assert len(opened) == 1
     assert _fields(given) == _fields(derived)
 
