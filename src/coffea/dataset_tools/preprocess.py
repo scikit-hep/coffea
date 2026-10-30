@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import inspect
 import math
 import warnings
 from collections.abc import Callable
@@ -86,6 +87,10 @@ def get_steps(
     nf_backend = awkward.backend(normed_files)
     lz_or_nf = awkward.typetracer.length_zero_if_typetracer(normed_files)
     output_form_key = "form" if legacy_form_key else "compressed_form"
+    reader = uproot.graphed if mode == "graphed" else uproot.dask
+    form_session = (
+        mode == "graphed" and "session" in inspect.signature(reader).parameters
+    )
 
     array = [] if nf_backend != "typetracer" else lz_or_nf
     for arg in lz_or_nf:
@@ -110,7 +115,12 @@ def get_steps(
                 filter_typename=no_filter,
                 filter_branch=partial(_is_interpretable, emit_warning=False),
             )
-            reader = uproot.graphed if mode == "graphed" else uproot.dask
+            if form_session:
+                import graphed
+                from graphed.awkward import AwkwardBackend
+
+                # a read for its form only, kept out of the current Session
+                form_options["session"] = graphed.Session(AwkwardBackend())
             form_str = _meta(reader(tree, **form_options)).layout.form.to_json()
             if mode != "graphed":
                 # the function cache needs to be popped if present to prevent memory growth

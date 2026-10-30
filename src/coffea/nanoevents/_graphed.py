@@ -5,7 +5,7 @@ the :class:`GraphedNanoArray` subclass installed here. Cross-references come out
 needs nothing but the recorded graph to replay them.
 """
 
-from inspect import getattr_static
+from inspect import getattr_static, signature
 
 import awkward
 import graphed
@@ -21,7 +21,7 @@ from coffea.util import _DaskProperty, _meta
 register_internal("coffea")
 
 #: names whose deferred meaning is a systematics axis, which graphed spells its own way
-_REFUSED = frozenset({"_ensure_systematics", "add_systematic"})
+_REFUSED = frozenset({"_ensure_systematics", "add_systematic", "systematics"})
 
 _VARY_POINTER = "graphed mode does not carry coffea systematics; build the variations with graphed.vary(...)"
 
@@ -103,6 +103,35 @@ class GraphedNanoBackend(AwkwardBackend):
         return GraphedNanoArray
 
 
+def record_on(backend, opener):
+    """The keyword a graphed read records with: ``session=`` the current Session, else ``backend=``.
+
+    The current Session is taken only when graphed has one, the opener takes ``session=`` and
+    the read names no Session or backend of its own; it must record on ``backend``'s class and
+    behavior.
+    """
+    keywords = getattr(opener, "keywords", {})
+    if (
+        keywords.get("session") is not None
+        or keywords.get("backend") is not None
+        or not hasattr(graphed, "current_session")
+        or "session" not in signature(opener).parameters
+    ):
+        return {"backend": backend}
+    session = graphed.current_session(backend)
+    have = session.backend
+    if not isinstance(have, type(backend)) or (have._behavior or {}) != (
+        backend._behavior or {}
+    ):
+        raise TypeError(
+            f"graphed mode: the Session records on {type(have).__name__}, and NanoEvents reads "
+            "record on GraphedNanoBackend with this schema's behavior; call "
+            "graphed.new_session(...) before reading outside any `with` Session scope, or read "
+            "inside `with events.session:`"
+        )
+    return {"session": session}
+
+
 def check_from_root(
     schemaclass, steps_per_file, uproot_options, entry_start=None, entry_stop=None
 ):
@@ -152,6 +181,10 @@ class GraphedParquetSource:
         self._paths = paths
         self._options = options
 
+    def source_identity(self):
+        """What this source reads, for ``graphed``'s ``Session.source`` to reuse or refuse a name."""
+        return (type(self), self._paths, sorted(self._options.items()))
+
     def factory(self, path, entry_start=None, entry_stop=None):
         from coffea.nanoevents import NanoEventsFactory
 
@@ -184,13 +217,15 @@ class GraphedParquetSource:
 def parquet_opener(paths, options):
     """The ``mapping`` a graphed :class:`NanoEventsFactory` calls to record a parquet source."""
 
-    def open_source(form_mapping, backend):
+    def open_source(form_mapping, backend=None, session=None):
         source = GraphedParquetSource(paths, options)
         form = source.factory(paths[0], 0, 0)._schema.form  # reads metadata only
         typetracer = awkward.typetracer.typetracer_from_form(
             form, highlevel=True, behavior=form_mapping.behavior
         )
-        return graphed.Session(backend).source(
+        if session is None:
+            session = graphed.Session(backend)
+        return session.source(
             "Events", form=graphed.awkward.AwkwardForm(typetracer), data=source
         )
 

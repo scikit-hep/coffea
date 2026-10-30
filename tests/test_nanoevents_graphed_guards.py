@@ -58,6 +58,8 @@ def _fields(events):
 
 @pytest.fixture(scope="module")
 def nanoaod(tests_directory):
+    if hasattr(graphed, "new_session"):
+        graphed.new_session()
     return _record(_sample(tests_directory, "nano_dy.root"))
 
 
