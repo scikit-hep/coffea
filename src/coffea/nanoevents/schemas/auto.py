@@ -61,7 +61,7 @@ class auto_schema(BaseSchema):
         collections = {k.split("_")[0] for k in contents if "_" in k}
 
         output = {}
-        for c_name in collections:
+        for c_name in sorted(collections):
             mapping = {
                 k.split("_")[1]: k for k in contents if k.startswith(f"{c_name}_")
             }

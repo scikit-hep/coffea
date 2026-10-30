@@ -272,7 +272,7 @@ class DelphesSchema(BaseSchema):
                 )
 
         output = {}
-        for name in collections:
+        for name in sorted(collections):
             output[f"{name}.offsets"] = branch_forms[f"o{name}"]
             mixin = self.mixins.get(name, "NanoCollection")
 

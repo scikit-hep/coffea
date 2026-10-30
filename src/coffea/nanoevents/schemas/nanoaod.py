@@ -391,7 +391,7 @@ class NanoAODSchema(BaseSchema):
                 branch_forms[alias_name] = branch_forms[original_name]
 
         output = {}
-        for name in collections:
+        for name in sorted(collections):
             mixin = self.mixins.get(name, "NanoCollection")
             if "o" + name in branch_forms and name not in branch_forms:
                 # list collection
