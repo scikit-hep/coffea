@@ -270,6 +270,19 @@ def test_preprocess_graphed_does_not_depend_on_combine_order(tmp_path):
     ) == preprocess_legacy(legacy, scheduler="sync", **kwargs)
 
 
+def test_graphed_backend_returns_batches_in_file_order():
+    """Each dataset's batches come back in file order whatever order the executor combines
+    them in, as on the iterative backend."""
+    from coffea.dataset_tools import GraphedBackend, IterativeBackend, PreprocessJob
+
+    files = ak.Array([{"file": f"f{i}", "n": i} for i in range(5)])
+    jobs = {"d": PreprocessJob(array=files, map_fn=lambda b: b, files_per_batch=2)}
+    graphed = GraphedBackend(executor=_ReverseOrderRunner()).submit(jobs).result()["d"]
+    iterative = IterativeBackend().submit(jobs).result()["d"]
+    assert ak.to_list(graphed.file) == ak.to_list(iterative.file)
+    assert ak.to_list(graphed.file) == [f"f{i}" for i in range(5)]
+
+
 def test_graphed_backend_gives_an_empty_job_a_typed_empty_result():
     """An empty job runs its map function once on the empty array and gets the same typed empty
     result as on the iterative backend."""
