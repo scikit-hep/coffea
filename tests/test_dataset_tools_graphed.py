@@ -1,3 +1,4 @@
+import concurrent.futures
 import contextlib
 import dataclasses
 import pickle
@@ -319,17 +320,43 @@ class _RecordingExecutor:
         return self.inner.submit(plan)
 
 
-def test_graphed_backend_submits_to_executors_that_have_submit(tmp_path):
+class _ThreadSubmitRunner:
+    """A graphed executor whose submit(plan) runs the plan on a thread and returns its future."""
+
+    def __init__(self):
+        self._pool = concurrent.futures.ThreadPoolExecutor(1)
+
+    def run(self, plan):
+        return SequentialRunner().run(plan)
+
+    def submit(self, plan):
+        return self._pool.submit(SequentialRunner().run, plan)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self._pool.shutdown()
+
+
+def _graphed_executors_thread_executor():
+    return pytest.importorskip("graphed_executors.local").ThreadExecutor(2)
+
+
+@pytest.mark.parametrize(
+    "make_executor",
+    [_ThreadSubmitRunner, _graphed_executors_thread_executor],
+    ids=["thread-future", "graphed-executors"],
+)
+def test_graphed_backend_submits_to_executors_that_have_submit(tmp_path, make_executor):
     """An executor with submit(plan) receives the plan through submit, and the preprocessed
     fileset equals the iterative backend's."""
-    from graphed_executors.local import ThreadExecutor
-
     has_root, missing_root, _, _ = _write_flag_files(tmp_path)
     spec = DataGroupSpec(
         {"ds": {"files": {has_root: "Events", missing_root: "Events"}}}
     )
     kwargs = dict(step_size=7, save_form=True)
-    with ThreadExecutor(2) as pool:
+    with make_executor() as pool:
         executor = _RecordingExecutor(pool)
         graphed_out = preprocess(spec, backend="graphed", scheduler=executor, **kwargs)
     assert executor.calls == ["submit"]
