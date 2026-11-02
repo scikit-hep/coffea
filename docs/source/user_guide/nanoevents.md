@@ -191,7 +191,8 @@ too. `apply_to_dataset` and `apply_to_fileset` record each dataset into a Sessio
 `backend="graphed"`, so a fileset is preprocessed and analysed without dask installed. `mode`
 selects the kind of arrays the analysis gets; `backend` selects what runs preprocessing, whose
 output is the same for every backend. With `backend="graphed"`, `preprocess(scheduler=...)` takes
-a graphed executor, `SequentialRunner` by default.
+a graphed executor; without one, the plan runs on a thread pool. Without `backend=`, `preprocess`
+uses graphed when it is installed and dask has no active or configured scheduler.
 The `steps` it writes become the plan's partitions, one task per step:
 
 ```python

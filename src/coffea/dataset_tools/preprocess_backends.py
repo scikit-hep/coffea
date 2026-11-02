@@ -7,41 +7,41 @@ resulting awkward arrays are concatenated. This module factors that map-reduce o
 :func:`coffea.dataset_tools.preprocess.preprocess_legacy` behind a small backend interface so the
 same worker can run on:
 
-- :class:`DaskBackend` -- ``dask_awkward.map_partitions`` + an ``AwkwardTreeReductionLayer`` +
-  ``dask.compute``. This backend builds and executes a dask task graph to orchestrate the
-  map-reduce.
+- :class:`DaskBackend` -- a dask graph with a task per batch and a concatenation per dataset,
+  run by any dask scheduler. Needs dask, not dask-awkward.
+- :class:`GraphedBackend` -- one graphed ``Plan`` with a task per batch, run by a graphed
+  executor (a thread pool by default). Needs graphed, not dask.
 - :class:`IterativeBackend` -- immediate (synchronous, single process) execution, mirroring
   coffea's ``IterativeExecutor``.
 - :class:`FuturesBackend` -- a :mod:`concurrent.futures` pool, threads by default (preprocessing
   is IO-bound) with an opt-in process pool (mirrors ``FuturesExecutor``).
-- :class:`GraphedBackend` -- one graphed ``Plan`` with a task per file batch, run by a graphed
-  executor (``SequentialRunner`` by default). Needs graphed, not dask.
 
-Without an explicit backend, ``"dask"`` is used when dask and dask-awkward are importable and
-``"iterative"`` otherwise. A ``scheduler`` argument is handed to the backend field named by its
-class's ``scheduler_field`` (``DaskBackend.scheduler``, ``FuturesBackend.pool``,
-``GraphedBackend.executor``); backends without one ignore it with a warning.
+Every backend cuts the same batches (:func:`_batch_ranges`), concatenates them with
+:func:`_ordered_concat` in file order, hands the worker concrete arrays only, raises the worker's
+errors from ``result()``, and returns a :class:`PreprocessTask` whose ``partial_result()`` never
+blocks.
 
-The graphed, iterative and futures backends do not build a dask *task graph* for orchestration, and they
-are dask-free for parquet input and for ROOT input of either flavor. ROOT form extraction
-(``save_form=True``) calls the private uproot helpers behind ``uproot.dask``'s base form, for both
-TTree and RNTuple, producing the same form without dask; on uproot older than 5.7.7, which lacks
-those helpers, it falls back to ``uproot.dask`` (and thus dask).
+Without an explicit backend, the backend follows the ``scheduler`` argument when one is given (a
+``concurrent.futures`` executor selects futures, a graphed executor selects graphed, anything
+else selects dask), and otherwise is the first of: dask, when dask has an active or configured
+scheduler; graphed, when installed; dask, when installed; iterative. The ``scheduler`` is handed
+to the backend field named by its class's ``scheduler_field`` (``DaskBackend.scheduler``,
+``FuturesBackend.pool``, ``GraphedBackend.executor``); backends without one ignore it with a
+warning.
 
-A ``Backend`` turns a "computable" into a future-like ``Task`` (``result`` / ``partial_result``
-/ ``wait``) whose ``result()`` blocks. Here the computable is a mapping
-``{dataset_name: PreprocessJob}`` and the result is ``{dataset_name: awkward.Array}``.
+ROOT form extraction (``save_form=True``) calls the private uproot helpers behind
+``uproot.dask``'s base form, for both TTree and RNTuple, producing the same form without dask; on
+uproot older than 5.7.7, which lacks those helpers, it falls back to ``uproot.dask`` (and thus
+dask and dask-awkward).
 
-Ordering is not load-bearing for correctness: the reduction concatenates per-batch results, and
-the concrete backends happen to preserve submission order, but the downstream post-processing
+Ordering is not load-bearing for correctness: the downstream post-processing
 (``_preprocess_pydantic`` and ``preprocess_legacy``) matches its outputs to the input files *by
-filename*, so a backend is free to reduce in any order.
+filename*. The backends return file order so that their outputs are identical.
 """
 
 from __future__ import annotations
 
 import importlib.util
-import math
 import sys
 import warnings
 from abc import ABC, abstractmethod
@@ -49,12 +49,11 @@ from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import Executor, Future, ProcessPoolExecutor, ThreadPoolExecutor
 from concurrent.futures import wait as futures_wait
 from dataclasses import dataclass, replace
-from functools import partial
 from typing import ClassVar, Protocol, runtime_checkable
 
 import awkward
 
-from coffea.util import _import_dask, _import_dask_awkward, _import_graphed
+from coffea.util import _import_dask, _import_graphed
 
 __all__ = [
     "PreprocessJob",
@@ -83,19 +82,20 @@ def _ordered_concat(parts: Iterable[awkward.Array | None]) -> awkward.Array | No
     return awkward.concatenate(parts, axis=0)
 
 
-def _iter_batches(array: awkward.Array, files_per_batch: int):
-    """Yield contiguous slices of ``array`` of at most ``files_per_batch`` rows, in order.
+def _batch_ranges(n: int, files_per_batch: int) -> list[tuple[int, int]]:
+    """The ``[start, stop)`` row ranges of the batches of ``n`` file records, in order.
 
-    An empty array yields itself once so the worker still produces a correctly-typed empty
-    result (matching the single-partition dask behaviour).
+    Each batch holds ``files_per_batch`` records (at least 1), the last one the remainder. No
+    records give one empty batch, so the worker still produces a correctly typed empty result.
     """
-    n = len(array)
-    if n == 0:
-        yield array
-        return
     step = max(1, files_per_batch)
-    for start in range(0, n, step):
-        yield array[start : start + step]
+    return [(start, min(start + step, n)) for start in range(0, max(n, 1), step)]
+
+
+def _iter_batches(array: awkward.Array, files_per_batch: int):
+    """Yield the batches of ``array`` given by :func:`_batch_ranges`, in order."""
+    for start, stop in _batch_ranges(len(array), files_per_batch):
+        yield array[start:stop]
 
 
 @dataclass
@@ -124,14 +124,17 @@ class PreprocessTask(Protocol):
     """Future-like handle to a submitted preprocessing computable."""
 
     def result(self) -> dict[str, awkward.Array]:
-        """Block until done and return ``{dataset_name: concatenated awkward.Array}``."""
+        """Block until done and return ``{dataset_name: concatenated awkward.Array}``.
+
+        Raises the first error the worker raised.
+        """
 
     def partial_result(self) -> dict[str, awkward.Array]:
-        """Return results for the work finished so far, without blocking on the rest.
+        """Return the results finished so far, without blocking.
 
-        Datasets/batches still running are omitted; a dataset appears only once at least one of
-        its batches has completed. Intended for resumable/progress use. Backends that cannot
-        produce a cheap partial (e.g. a fused dask graph) may return the full :meth:`result`.
+        A dataset appears once at least one of its batches has finished, with only the finished
+        batches; ``{}`` means nothing has finished. Backends that report work only as a whole
+        (dask, graphed) return everything once the work is done and ``{}`` before.
         """
 
     def wait(self) -> None:
@@ -149,7 +152,13 @@ class PreprocessBackend(ABC):
 
     @abstractmethod
     def submit(self, jobs: Mapping[str, PreprocessJob]) -> PreprocessTask:
-        """Start executing ``jobs`` and return a non-blocking :class:`PreprocessTask`."""
+        """Hand ``jobs`` to the backend and return a :class:`PreprocessTask` for them.
+
+        The work runs in the background (futures; graphed on an executor with ``submit(plan)``),
+        inside ``submit`` (iterative; graphed on an executor with only ``run(plan)``), or when
+        the task's ``result()`` or ``wait()`` is called (dask). Errors the worker raises surface
+        from ``result()``, never from ``submit``.
+        """
 
     def compute(self, jobs: Mapping[str, PreprocessJob]) -> dict[str, awkward.Array]:
         """Convenience blocking call: ``submit(jobs).result()``."""
@@ -158,15 +167,18 @@ class PreprocessBackend(ABC):
 
 @dataclass
 class _CompletedTask:
-    """A :class:`PreprocessTask` whose work is already done (used by the iterative backend)."""
+    """A :class:`PreprocessTask` for work that ran inside ``submit``: its results, and the error
+    that stopped it, if any, which ``result()`` raises."""
 
     _results: dict[str, awkward.Array]
+    _error: Exception | None = None
 
     def result(self) -> dict[str, awkward.Array]:
+        if self._error is not None:
+            raise self._error
         return self._results
 
     def partial_result(self) -> dict[str, awkward.Array]:
-        # work already finished in submit(), so the partial result is the full result
         return self._results
 
     def wait(self) -> None:
@@ -183,12 +195,15 @@ class IterativeBackend(PreprocessBackend):
 
     def submit(self, jobs: Mapping[str, PreprocessJob]) -> PreprocessTask:
         results: dict[str, awkward.Array] = {}
-        for name, job in jobs.items():
-            parts = [
-                job.map_fn(batch)
-                for batch in _iter_batches(job.array, job.files_per_batch)
-            ]
-            results[name] = _ordered_concat(parts)
+        try:
+            for name, job in jobs.items():
+                parts = [
+                    job.map_fn(batch)
+                    for batch in _iter_batches(job.array, job.files_per_batch)
+                ]
+                results[name] = _ordered_concat(parts)
+        except Exception as err:
+            return _CompletedTask(results, err)
         return _CompletedTask(results)
 
 
@@ -325,7 +340,7 @@ class FuturesBackend(PreprocessBackend):
 
 
 class _DaskTask:
-    """A :class:`PreprocessTask` wrapping unmaterialized dask-awkward collections."""
+    """A :class:`PreprocessTask` over dask collections, computed on ``result()`` or ``wait()``."""
 
     def __init__(self, collections: dict, scheduler):
         self._collections = collections
@@ -344,80 +359,35 @@ class _DaskTask:
         return self._computed
 
     def partial_result(self) -> dict[str, awkward.Array]:
-        # A fused dask graph has no cheap partial: fall back to the full (blocking) result.
-        return self.result()
+        return {} if self._computed is None else self._computed
 
 
 @dataclass
 class DaskBackend(PreprocessBackend):
-    """Execute preprocessing as a dask-awkward task graph.
-
-    Per dataset this builds ``from_awkward`` -> ``map_partitions`` -> ``AwkwardTreeReductionLayer``
-    and lets a single ``dask.compute`` materialize all datasets together.
+    """Execute preprocessing as a dask graph: a task per batch and a concatenation per dataset,
+    computed by one ``dask.compute`` over all datasets. Needs dask, not dask-awkward.
 
     Parameters
     ----------
         scheduler : None or Callable or str, default None
-            Passed through to ``dask.compute``. This is the field the ``scheduler`` argument of
-            the ``preprocess*`` functions fills.
-        split_every : int, default 8
-            Fan-in of the tree reduction that concatenates per-batch results.
+            Passed through to ``dask.compute``; None uses dask's active or configured scheduler,
+            else its threaded scheduler. This is the field the ``scheduler`` argument of the
+            ``preprocess*`` functions fills.
     """
 
     scheduler_field: ClassVar[str | None] = "scheduler"
 
     scheduler: None | Callable | str = None
-    split_every: int = 8
-
-    def _build_collection(self, name: str, job: PreprocessJob, dask, dask_awkward):
-        ak_norm_files = job.array
-        # files_per_batch below 1 is treated as 1, as in _iter_batches
-        files_per_batch = max(1, job.files_per_batch)
-        dak_norm_files = dask_awkward.from_awkward(
-            ak_norm_files, math.ceil(len(ak_norm_files) / files_per_batch)
-        )
-
-        concat_fn = partial(awkward.concatenate, axis=0)
-        split_every = self.split_every
-
-        files_trl_label = f"preprocess-{name}"
-        files_trl_token = dask.base.tokenize(dak_norm_files, concat_fn, split_every)
-        files_trl_name = f"{files_trl_label}-{files_trl_token}"
-        files_trl_tree_node_name = f"{files_trl_label}-tree-node-{files_trl_token}"
-
-        files_part = dask_awkward.map_partitions(
-            job.map_fn,
-            dak_norm_files,
-            meta=dask_awkward.lib.core.empty_typetracer(),
-        )
-
-        files_trl = dask_awkward.layers.layers.AwkwardTreeReductionLayer(
-            name=files_trl_name,
-            name_input=files_part.name,
-            npartitions_input=files_part.npartitions,
-            concat_func=concat_fn,
-            tree_node_func=lambda x: x,
-            finalize_func=lambda x: x,
-            split_every=split_every,
-            tree_node_name=files_trl_tree_node_name,
-        )
-
-        files_graph = dask.highlevelgraph.HighLevelGraph.from_collections(
-            files_trl_name, files_trl, dependencies=[files_part]
-        )
-
-        return dask_awkward.lib.core.new_array_object(
-            files_graph,
-            files_trl_name,
-            meta=dask_awkward.lib.core.empty_typetracer(),
-            npartitions=len(files_trl.output_partitions),
-        )
 
     def submit(self, jobs: Mapping[str, PreprocessJob]) -> PreprocessTask:
         dask = _import_dask()
-        dask_awkward = _import_dask_awkward()
         collections = {
-            name: self._build_collection(name, job, dask, dask_awkward)
+            name: dask.delayed(_ordered_concat)(
+                [
+                    dask.delayed(job.map_fn)(batch)
+                    for batch in _iter_batches(job.array, job.files_per_batch)
+                ]
+            )
             for name, job in jobs.items()
         }
         return _DaskTask(collections, self.scheduler)
@@ -431,21 +401,36 @@ class GraphedBackend(PreprocessBackend):
     Parameters
     ----------
         executor : graphed executor or None, default None
-            Anything with ``run(plan)``, e.g. ``graphed_executors.local.ThreadExecutor``; None uses
-            ``graphed.core.execution.SequentialRunner``. Executors that also have ``submit(plan)``
-            run without blocking until ``result()``. This is the field the ``scheduler`` argument
-            of the ``preprocess*`` functions fills.
+            Anything with ``run(plan)``, e.g. ``graphed_executors.local.ThreadExecutor`` or
+            ``graphed.core.execution.SequentialRunner``; None runs the tasks on a thread pool of
+            ``workers`` threads. Executors that also have ``submit(plan)`` run without blocking
+            until ``result()``. This is the field the ``scheduler`` argument of the
+            ``preprocess*`` functions fills.
+        workers : int or None, default None
+            Threads of the default thread pool; None uses
+            :class:`~concurrent.futures.ThreadPoolExecutor`'s default. Unused with an
+            ``executor``.
     """
 
     scheduler_field: ClassVar[str | None] = "executor"
 
     executor: object = None
+    workers: int | None = None
+
+    def __post_init__(self):
+        if self.executor is not None and not callable(
+            getattr(self.executor, "run", None)
+        ):
+            raise TypeError(
+                "with backend='graphed', scheduler is a graphed executor (an object with "
+                f"run(plan)), not {self.executor!r}"
+            )
 
     def submit(self, jobs: Mapping[str, PreprocessJob]) -> PreprocessTask:
         _import_graphed()
         from coffea.dataset_tools import _graphed
 
-        return _graphed.submit(jobs, self.executor)
+        return _graphed.submit(jobs, self.executor, self.workers)
 
 
 _BACKENDS: dict[str, type[PreprocessBackend]] = {
@@ -456,9 +441,50 @@ _BACKENDS: dict[str, type[PreprocessBackend]] = {
 }
 
 
-def _default_backend_name() -> str:
-    """``"dask"`` when dask and dask-awkward are importable, ``"iterative"`` otherwise."""
-    if all(importlib.util.find_spec(m) is not None for m in ("dask", "dask_awkward")):
+def _installed(module: str) -> bool:
+    return importlib.util.find_spec(module) is not None
+
+
+def _scheduler_backend_name(scheduler: object) -> str:
+    """The backend a ``scheduler`` argument belongs to.
+
+    A ``concurrent.futures`` executor (or executor class) belongs to futures; an object with
+    ``run(plan)`` that does not come from dask or distributed (a ``distributed.Client`` has a
+    ``run`` method) is a graphed executor; anything else is a dask scheduler.
+    """
+    if isinstance(scheduler, Executor) or (
+        isinstance(scheduler, type) and issubclass(scheduler, Executor)
+    ):
+        return "futures"
+    module = getattr(scheduler, "__module__", None) or type(scheduler).__module__
+    if (
+        not isinstance(scheduler, str)
+        and module.split(".")[0] not in ("dask", "distributed")
+        and callable(getattr(scheduler, "run", None))
+    ):
+        return "graphed"
+    return "dask"
+
+
+def _dask_has_scheduler() -> bool:
+    """Whether dask has an active ``distributed.Client`` or a configured scheduler."""
+    if not _installed("dask"):
+        return False
+    dask = _import_dask()
+    return dask.base.get_scheduler() is not None
+
+
+def _default_backend_name(scheduler: object = None) -> str:
+    """The backend for ``backend=None``: the one ``scheduler`` belongs to when given, else dask
+    when dask has an active or configured scheduler, else graphed when installed, else dask when
+    installed, else iterative."""
+    if scheduler is not None:
+        return _scheduler_backend_name(scheduler)
+    if _dask_has_scheduler():
+        return "dask"
+    if _installed("graphed"):
+        return "graphed"
+    if _installed("dask"):
         return "dask"
     return "iterative"
 
@@ -485,12 +511,12 @@ def _resolve_backend(
     """Turn a ``backend`` selector into a :class:`PreprocessBackend` instance.
 
     ``backend`` is a :class:`PreprocessBackend` instance, a name registered in ``_BACKENDS``, or
-    ``None`` for :func:`_default_backend_name`. A ``scheduler`` is set on the backend's
+    ``None`` for :func:`_default_backend_name` of ``scheduler``. A ``scheduler`` is set on the backend's
     ``scheduler_field``; a passed instance is copied rather than mutated. It is ignored, with a
     warning, when the backend has no such field or a passed instance already sets it.
     """
     if backend is None:
-        backend = _default_backend_name()
+        backend = _default_backend_name(scheduler)
     if isinstance(backend, str):
         if backend not in _BACKENDS:
             raise ValueError(
@@ -523,7 +549,7 @@ def _resolve_backend(
 
 
 _DASK_BACKEND_HINT = (
-    "The dask preprocessing backend needs dask and dask-awkward. Preprocessing runs without "
-    "them for parquet and ROOT input with backend='iterative' (single process) or "
-    "backend='futures' (thread pool)."
+    "The dask preprocessing backend needs dask. Preprocessing runs without it for parquet and "
+    "ROOT input with backend='graphed' (with graphed installed), backend='iterative' (single "
+    "process) or backend='futures' (thread pool)."
 )

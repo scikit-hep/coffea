@@ -537,11 +537,14 @@ def preprocess_legacy(
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
         backend : str or PreprocessBackend or None, default None
-            Execution backend for preprocessing (experimental): "dask", "graphed" (dask-free, on
-            a graphed executor), "iterative" (immediate, synchronous, dask-free), "futures"
-            (dask-free concurrent.futures pool), or a PreprocessBackend instance. None selects
-            "dask" when dask and dask-awkward are importable and "iterative" otherwise. The output
-            is the same for every backend.
+            Execution backend for preprocessing (experimental): "dask" (a dask graph, needs
+            dask), "graphed" (a graphed plan, needs graphed), "iterative" (immediate,
+            synchronous), "futures" (a concurrent.futures pool), or a PreprocessBackend instance.
+            None follows ``scheduler`` when it is given (a concurrent.futures executor selects
+            "futures", a graphed executor "graphed", anything else "dask"); otherwise it selects
+            "dask" when dask has an active or configured scheduler, else "graphed" when graphed
+            is installed, else "dask" when dask is installed, else "iterative". The output is the
+            same for every backend.
     Returns
     -------
         out_available : dict
@@ -915,11 +918,14 @@ def preprocess_root(
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
         backend : str or PreprocessBackend or None, default None
-            Execution backend for preprocessing (experimental): "dask", "graphed" (dask-free, on
-            a graphed executor), "iterative" (immediate, synchronous, dask-free), "futures"
-            (dask-free concurrent.futures pool), or a PreprocessBackend instance. None selects
-            "dask" when dask and dask-awkward are importable and "iterative" otherwise. The output
-            is the same for every backend.
+            Execution backend for preprocessing (experimental): "dask" (a dask graph, needs
+            dask), "graphed" (a graphed plan, needs graphed), "iterative" (immediate,
+            synchronous), "futures" (a concurrent.futures pool), or a PreprocessBackend instance.
+            None follows ``scheduler`` when it is given (a concurrent.futures executor selects
+            "futures", a graphed executor "graphed", anything else "dask"); otherwise it selects
+            "dask" when dask has an active or configured scheduler, else "graphed" when graphed
+            is installed, else "dask" when dask is installed, else "iterative". The output is the
+            same for every backend.
         require_rntuple : bool, default False
             If True, require every dataset to be ROOT-format and every object to be an RNTuple.
             A parquet dataset raises a ValueError; a TTree object raises a ValueError inside the
@@ -1043,11 +1049,14 @@ def preprocess_parquet(
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
         backend : str or PreprocessBackend or None, default None
-            Execution backend for preprocessing (experimental): "dask", "graphed" (dask-free, on
-            a graphed executor), "iterative" (immediate, synchronous, dask-free), "futures"
-            (dask-free concurrent.futures pool), or a PreprocessBackend instance. None selects
-            "dask" when dask and dask-awkward are importable and "iterative" otherwise. The output
-            is the same for every backend.
+            Execution backend for preprocessing (experimental): "dask" (a dask graph, needs
+            dask), "graphed" (a graphed plan, needs graphed), "iterative" (immediate,
+            synchronous), "futures" (a concurrent.futures pool), or a PreprocessBackend instance.
+            None follows ``scheduler`` when it is given (a concurrent.futures executor selects
+            "futures", a graphed executor "graphed", anything else "dask"); otherwise it selects
+            "dask" when dask has an active or configured scheduler, else "graphed" when graphed
+            is installed, else "dask" when dask is installed, else "iterative". The output is the
+            same for every backend.
     Returns
     -------
         out_available : DataGroupSpec
@@ -1125,11 +1134,14 @@ def _preprocess_pydantic(
         allow_empty_datasets : bool, default False
             If True, warn instead of raising when a dataset has no accessible files.
         backend : str or PreprocessBackend or None, default None
-            Execution backend for preprocessing (experimental): "dask", "graphed" (dask-free, on
-            a graphed executor), "iterative" (immediate, synchronous, dask-free), "futures"
-            (dask-free concurrent.futures pool), or a PreprocessBackend instance. None selects
-            "dask" when dask and dask-awkward are importable and "iterative" otherwise. The output
-            is the same for every backend.
+            Execution backend for preprocessing (experimental): "dask" (a dask graph, needs
+            dask), "graphed" (a graphed plan, needs graphed), "iterative" (immediate,
+            synchronous), "futures" (a concurrent.futures pool), or a PreprocessBackend instance.
+            None follows ``scheduler`` when it is given (a concurrent.futures executor selects
+            "futures", a graphed executor "graphed", anything else "dask"); otherwise it selects
+            "dask" when dask has an active or configured scheduler, else "graphed" when graphed
+            is installed, else "dask" when dask is installed, else "iterative". The output is the
+            same for every backend.
 
     Returns
     -------
@@ -1400,11 +1412,14 @@ def preprocess(
         parquet_options : dict, default {}
             Options to pass to get_parquet_form_uuid_steps for opening parquet files (only applies to DataGroupSpec datasets with parquet files).
         backend : str or PreprocessBackend or None, default None
-            Execution backend for preprocessing (experimental): "dask", "graphed" (dask-free, on
-            a graphed executor), "iterative" (immediate, synchronous, dask-free), "futures"
-            (dask-free concurrent.futures pool), or a PreprocessBackend instance. None selects
-            "dask" when dask and dask-awkward are importable and "iterative" otherwise. The output
-            is the same for every backend.
+            Execution backend for preprocessing (experimental): "dask" (a dask graph, needs
+            dask), "graphed" (a graphed plan, needs graphed), "iterative" (immediate,
+            synchronous), "futures" (a concurrent.futures pool), or a PreprocessBackend instance.
+            None follows ``scheduler`` when it is given (a concurrent.futures executor selects
+            "futures", a graphed executor "graphed", anything else "dask"); otherwise it selects
+            "dask" when dask has an active or configured scheduler, else "graphed" when graphed
+            is installed, else "dask" when dask is installed, else "iterative". The output is the
+            same for every backend.
     Returns
     -------
         out_available : DataGroupSpec | dict

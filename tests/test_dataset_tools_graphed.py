@@ -5,6 +5,7 @@ import pickle
 import subprocess
 import sys
 import textwrap
+import threading
 
 import awkward as ak
 import numpy as np
@@ -201,8 +202,8 @@ def test_preprocess_graphed_refuses_dask_scheduler(tmp_path):
 
 @pytest.mark.parametrize("backend", ["graphed", None])
 def test_dataset_tools_graphed_without_dask(tmp_path, backend):
-    """Without dask installed, preprocess on the graphed backend or on the default backend
-    (iterative), then apply_to_dataset in graphed mode, never import dask."""
+    """Without dask installed, preprocess on the graphed backend, named or as the default, then
+    apply_to_dataset in graphed mode, never import dask."""
     has_root, missing_root, _, _ = _write_flag_files(tmp_path)
     script = textwrap.dedent(f"""
         import sys
@@ -216,7 +217,7 @@ def test_dataset_tools_graphed_without_dask(tmp_path, backend):
         from coffea.dataset_tools.preprocess_backends import _default_backend_name
         from coffea.nanoevents import BaseSchema
 
-        assert _default_backend_name() == "iterative"
+        assert _default_backend_name() == "graphed"
         files = {{{has_root!r}: "Events", {missing_root!r}: "Events"}}
         available, _ = preprocess(
             DataGroupSpec({{"ds": {{"files": files}}}}), save_form=True, backend={backend!r}
@@ -284,24 +285,23 @@ def test_graphed_backend_returns_batches_in_file_order():
     assert ak.to_list(graphed.file) == [f"f{i}" for i in range(5)]
 
 
-def test_graphed_backend_gives_an_empty_job_a_typed_empty_result():
-    """An empty job runs its map function once on the empty array and gets the same typed empty
-    result as on the iterative backend."""
-    from coffea.dataset_tools import GraphedBackend, IterativeBackend, PreprocessJob
+_BARRIER = threading.Barrier(2, timeout=10)
 
-    calls = []
 
-    def double(batch):
-        calls.append(len(batch))
-        return ak.zip({"file": batch.file, "n2": batch.n * 2})
+def _meet_the_other_batch(batch):
+    _BARRIER.wait()
+    return batch
 
-    empty = ak.Array([{"file": "x", "n": 1}])[0:0]
-    jobs = {"d": PreprocessJob(array=empty, map_fn=double, files_per_batch=2)}
-    graphed = GraphedBackend().submit(jobs).result()["d"]
-    iterative = IterativeBackend().submit(jobs).result()["d"]
-    assert calls == [0, 0]
-    assert len(graphed) == 0
-    assert graphed.type == iterative.type
+
+def test_graphed_backend_runs_batches_concurrently_by_default():
+    """Without an executor, the graphed backend runs the plan's tasks on a thread pool: two
+    batches that each wait for the other both finish."""
+    from coffea.dataset_tools import GraphedBackend, PreprocessJob
+
+    _BARRIER.reset()
+    files = ak.Array([{"file": "f0"}, {"file": "f1"}])
+    jobs = {"d": PreprocessJob(array=files, map_fn=_meet_the_other_batch)}
+    assert ak.to_list(GraphedBackend().submit(jobs).result()["d"].file) == ["f0", "f1"]
 
 
 class _RecordingExecutor:
