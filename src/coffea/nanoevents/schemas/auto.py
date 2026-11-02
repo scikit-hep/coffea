@@ -103,8 +103,7 @@ class auto_schema(BaseSchema):
         for item_name in single_items:
             output[item_name] = contents[item_name]
 
-        self._form["fields"], self._form["contents"] = [k for k in output.keys()], [
-            v for v in output.values()
+        self._form["fields"], self._form["contents"] = [*output.keys()], [*output.values()
         ]
 
     @classmethod

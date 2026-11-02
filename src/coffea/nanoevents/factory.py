@@ -181,8 +181,8 @@ class _map_schema_uproot(_map_schema_base):
         self._record_fields = frozenset(record_fields)
         lform = {
             "class": "RecordArray",
-            "contents": [item for item in branch_forms.values()],
-            "fields": [key for key in branch_forms.keys()],
+            "contents": [*branch_forms.values()],
+            "fields": [*branch_forms.keys()],
             "parameters": {
                 "__doc__": form.parameters.get("__doc__"),
                 "metadata": self.metadata,

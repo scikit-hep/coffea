@@ -251,8 +251,8 @@ class UprootSourceMapping(BaseSourceMapping):
 
         return {
             "class": "RecordArray",
-            "contents": [item for item in branch_forms.values()],
-            "fields": [key for key in branch_forms.keys()],
+            "contents": [*branch_forms.values()],
+            "fields": [*branch_forms.keys()],
             "parameters": {
                 "__doc__": (
                     tree.description
