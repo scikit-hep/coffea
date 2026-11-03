@@ -388,11 +388,11 @@ def test_awkward_form_json_matches_uproot_dask(sample, object_path, is_rntuple):
     from coffea.dataset_tools.preprocess import (
         _FORM_AK_ADD_DOC,
         _awkward_form_json,
-        _uproot_get_ttree_form,
+        _uproot_base_form,
     )
     from coffea.util import _is_interpretable
 
-    if _uproot_get_ttree_form is None:
+    if _uproot_base_form is None:
         pytest.skip("uproot<5.7.7 has no dask-free form builder")
 
     tree = uproot.open({sample: None})[object_path]
@@ -461,7 +461,7 @@ def test_form_extraction_falls_back_to_uproot_dask(sample, is_rntuple, monkeypat
         return decompress_form(out[0].compressed_form)
 
     with_helpers = saved_form()
-    monkeypatch.setattr(preprocess_mod, "_uproot_get_ttree_form", None)
+    monkeypatch.setattr(preprocess_mod, "_uproot_base_form", None)
     monkeypatch.setattr(preprocess_mod, "_uproot_normalize_grouped_keys", None)
     assert saved_form() == with_helpers
 
@@ -475,7 +475,7 @@ def test_saving_a_form_without_dask_or_form_builder_names_the_uproot_floor(monke
     from coffea.dataset_tools.preprocess import get_steps
 
     preprocess_mod = importlib.import_module("coffea.dataset_tools.preprocess")
-    monkeypatch.setattr(preprocess_mod, "_uproot_get_ttree_form", None)
+    monkeypatch.setattr(preprocess_mod, "_uproot_base_form", None)
     monkeypatch.setattr(preprocess_mod, "_uproot_normalize_grouped_keys", None)
     for name in ("dask", "dask_awkward"):
         monkeypatch.setitem(sys.modules, name, None)

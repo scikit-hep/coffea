@@ -16,13 +16,6 @@ import numpy
 import uproot
 from uproot._util import no_filter
 
-try:
-    from uproot._dask import _get_ttree_form as _uproot_get_ttree_form
-    from uproot._dask import _normalize_grouped_keys as _uproot_normalize_grouped_keys
-except Exception:  # pragma: no cover - uproot<5.7.7 lacks these helpers
-    _uproot_get_ttree_form = None
-    _uproot_normalize_grouped_keys = None
-
 from coffea.dataset_tools.filespec import (
     DataGroupSpec,
     DatasetSpec,
@@ -41,6 +34,27 @@ from coffea.util import (
     compress_form,
     decompress_form,
 )
+
+try:
+    import uproot._dask as _uproot_dask
+except Exception:  # pragma: no cover
+    _uproot_dask = None
+
+_uproot_normalize_grouped_keys = getattr(_uproot_dask, "_normalize_grouped_keys", None)
+if _uproot_normalize_grouped_keys is None:
+    _uproot_base_form = None
+elif hasattr(_uproot_dask, "_get_ttree_form"):
+
+    def _uproot_base_form(tree, common_keys, ak_add_doc):
+        return _uproot_dask._get_ttree_form(awkward, tree, common_keys, ak_add_doc)
+
+elif hasattr(_uproot_dask, "_base_form_of"):
+
+    def _uproot_base_form(tree, common_keys, ak_add_doc):
+        return _uproot_dask._base_form_of(tree, common_keys, ak_add_doc, None)
+
+else:
+    _uproot_base_form = None
 
 
 def _validate_step_size(step_size: int | None) -> None:
@@ -164,7 +178,7 @@ def _form_json_with_null_keys(form) -> str:
     """Serialize ``form`` to JSON with every ``form_key`` set to ``None``.
 
     ``uproot.dask`` exposes its *meta* (typetracer) form, whose form keys are null, whereas
-    ``_get_ttree_form`` carries RNTuple column keys (``"column-N"``). Nulling the keys makes the
+    uproot's base form carries RNTuple column keys (``"column-N"``). Nulling the keys makes the
     serialized form byte-identical to ``uproot.dask(...).layout.form.to_json()`` and is a no-op
     for TTree forms (already keyless). The keys are stripped on the ``to_dict`` representation
     and serialized directly, matching ``Form.to_json`` (``json.dumps`` of the verbose dict)
@@ -190,10 +204,11 @@ def _awkward_form_json(tree, is_rntuple: bool) -> str:
     """Build a TTree or RNTuple awkward form JSON without importing dask.
 
     Selects keys as ``uproot.dask`` does (including its grouped-branch normalization), builds the
-    form with uproot's ``_get_ttree_form`` and nulls the form keys. The JSON is byte-identical to
+    form with uproot's private base-form helper and nulls the form keys. The JSON is byte-identical to
     ``uproot.dask(tree).layout.form.to_json()`` for a TTree and to
     ``uproot.dask({file: path}, open_files=False).layout.form.to_json()`` for an RNTuple. This is
-    what lets the ``iterative``/``futures`` backends extract forms without dask for both formats.
+    what lets the ``graphed``/``iterative``/``futures`` backends extract forms without dask for
+    both formats.
     """
     # RNTuples filter on fields and use full field paths; TTrees filter on branches.
     filter_kwarg = "filter_field" if is_rntuple else "filter_branch"
@@ -206,7 +221,7 @@ def _awkward_form_json(tree, is_rntuple: bool) -> str:
         **{filter_kwarg: partial(_is_interpretable, emit_warning=False)},
     )
     common_keys = _uproot_normalize_grouped_keys(tree, common_keys, is_rntuple)
-    base_form = _uproot_get_ttree_form(awkward, tree, common_keys, _FORM_AK_ADD_DOC)
+    base_form = _uproot_base_form(tree, common_keys, _FORM_AK_ADD_DOC)
     return _form_json_with_null_keys(base_form)
 
 
@@ -332,7 +347,7 @@ def get_steps(
         form_json = None
         form_hash = None
         if save_form:
-            if _uproot_get_ttree_form is not None:
+            if _uproot_base_form is not None:
                 # dask-free form extraction (TTree and RNTuple); byte-identical to uproot.dask
                 form_str = _awkward_form_json(tree, is_rntuple)
             elif is_rntuple:
