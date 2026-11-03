@@ -1025,9 +1025,7 @@ class ParslExecutor(ExecutorBase):
 
         # Check config/executors
         _exec_avail = [exe.label for exe in parsl.dfk().config.executors]
-        _execs_tried = (
-            [] if self.jobs_executors == "all" else [*self.jobs_executors]
-        )
+        _execs_tried = [] if self.jobs_executors == "all" else [*self.jobs_executors]
         _execs_tried += (
             [] if self.merges_executors == "all" else [*self.merges_executors]
         )
