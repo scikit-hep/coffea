@@ -1025,11 +1025,9 @@ class ParslExecutor(ExecutorBase):
 
         # Check config/executors
         _exec_avail = [exe.label for exe in parsl.dfk().config.executors]
-        _execs_tried = (
-            [] if self.jobs_executors == "all" else [e for e in self.jobs_executors]
-        )
+        _execs_tried = [] if self.jobs_executors == "all" else [*self.jobs_executors]
         _execs_tried += (
-            [] if self.merges_executors == "all" else [e for e in self.merges_executors]
+            [] if self.merges_executors == "all" else [*self.merges_executors]
         )
         if not all([_e in _exec_avail for _e in _execs_tried]):
             raise RuntimeError(

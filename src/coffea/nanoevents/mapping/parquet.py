@@ -219,8 +219,8 @@ class ParquetSourceMapping(BaseSourceMapping):
             column_forms[key] = form
         return {
             "class": "RecordArray",
-            "contents": [item for item in column_forms.values()],
-            "fields": [key for key in column_forms.keys()],
+            "contents": [*column_forms.values()],
+            "fields": [*column_forms.keys()],
             "parameters": {"__doc__": "parquetfile"},
             "form_key": "",
         }

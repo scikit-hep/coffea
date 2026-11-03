@@ -205,7 +205,7 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
             if iname not in self.model_inputs.keys():
                 raise ValueError(
                     f"Input [{iname}] not defined in model! "
-                    f"Inputs defined by model: {[x for x in self.model_inputs.keys()]}"
+                    f"Inputs defined by model: {[*self.model_inputs.keys()]}"
                 )
             # Checking the shape
             ishape = numpy.array(iarr.shape)
@@ -243,7 +243,7 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
         for oname in output_list:
             if oname not in self.model_outputs:
                 raise ValueError(
-                    f"Requested output [{oname}] not defined by model (Defined: {[x for x in self.model_outputs]})"
+                    f"Requested output [{oname}] not defined by model (Defined: {[*self.model_outputs]})"
                 )
 
     def numpy_call(

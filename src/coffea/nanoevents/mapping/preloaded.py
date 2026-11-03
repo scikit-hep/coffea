@@ -69,8 +69,8 @@ class PreloadedSourceMapping(BaseSourceMapping):
 
         return {
             "class": "RecordArray",
-            "fields": [key for key in branch_forms.keys()],
-            "contents": [value for value in branch_forms.values()],
+            "fields": [*branch_forms.keys()],
+            "contents": [*branch_forms.values()],
             "parameters": {"__doc__": "preloaded column source"},
             "form_key": "",
         }
