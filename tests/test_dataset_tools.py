@@ -774,8 +774,7 @@ def test_preprocess_rntuple():
     assert spec.num_entries == 40
     assert spec.steps == [[0, 14], [14, 28], [28, 40]]
 
-    # the stored union form matches the form uproot produces under the same interpretable-branch
-    # filter that preprocessing applies (which, for RNTuples, drops _collection* subfields)
+    # compared with uproot.dask under the branch filter preprocessing applies
     raw_form = uproot.dask(
         {rntuple_file: "Events"},
         open_files=False,

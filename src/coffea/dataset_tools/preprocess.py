@@ -58,11 +58,7 @@ else:
 
 
 def _validate_step_size(step_size: int | None) -> None:
-    """Reject a non-positive ``step_size`` at the public entrypoints.
-
-    ``step_size`` is the number of entries per step; ``None`` means "one step per file". Values
-    below 1 raise a ValueError that names the argument.
-    """
+    """Raise a ``ValueError`` unless ``step_size`` is None or at least 1."""
     if step_size is not None and step_size < 1:
         raise ValueError(
             f"step_size must be a positive integer (>= 1) or None, got {step_size!r}."
@@ -89,15 +85,9 @@ def _aligned_steps(
     file_label: str,
     mode_label: str,
 ) -> numpy.ndarray:
-    """Build ``[start, stop]`` steps that snap to natural boundaries (TTree clusters, RNTuple
-    cluster summaries, or parquet row groups).
-
-    ``boundaries`` is the increasing sequence of absolute entry offsets at which a step is
-    allowed to end, with the final element equal to ``num_entries``. Steps accumulate
-    boundaries until at least ``target_step_size`` entries are covered. ``mode_label`` is the
-    name of the user-facing option (``align_clusters`` or ``use_row_groups``) used in the
-    over-size warning.
-    """
+    """``[start, stop]`` steps of at least ``target_step_size`` entries that end only at
+    ``boundaries``, increasing absolute offsets ending at ``num_entries``. ``mode_label`` names
+    the option in the warning about oversized steps."""
     out = [0]
     for c in boundaries:
         if c >= out[-1] + target_step_size:
@@ -125,11 +115,7 @@ def _rntuple_cluster_boundaries(rntuple, num_entries: int) -> list[int]:
 
 
 def _union_form_jsonstr(forms: list) -> str | None:
-    """Compute the union form (as a JSON string) over a list of awkward forms.
-
-    The input list is consumed. Returns None if the list is empty. Mirrors the merging of
-    flat-tuple-like schemas used when building a dataset's union form across files.
-    """
+    """The union of ``forms`` as a JSON string, or None for no forms. Consumes ``forms``."""
     union_array = None
     while len(forms):
         new_array = awkward.Array(forms.pop().length_zero_array())
@@ -175,15 +161,7 @@ _FORM_AK_ADD_DOC = {"__doc__": "title", "typename": "typename"}
 
 
 def _form_json_with_null_keys(form) -> str:
-    """Serialize ``form`` to JSON with every ``form_key`` set to ``None``.
-
-    ``uproot.dask`` exposes its *meta* (typetracer) form, whose form keys are null, whereas
-    uproot's base form carries RNTuple column keys (``"column-N"``). Nulling the keys makes the
-    serialized form byte-identical to ``uproot.dask(...).layout.form.to_json()`` and is a no-op
-    for TTree forms (already keyless). The keys are stripped on the ``to_dict`` representation
-    and serialized directly, matching ``Form.to_json`` (``json.dumps`` of the verbose dict)
-    without rebuilding a ``Form`` tree in between.
-    """
+    """``form`` as JSON with every ``form_key`` set to None, as in the form ``uproot.dask`` gives."""
     form_dict = form.to_dict(verbose=True)
 
     def _strip(node):
@@ -201,16 +179,8 @@ def _form_json_with_null_keys(form) -> str:
 
 
 def _awkward_form_json(tree, is_rntuple: bool) -> str:
-    """Build a TTree or RNTuple awkward form JSON without importing dask.
-
-    Selects keys as ``uproot.dask`` does (including its grouped-branch normalization), builds the
-    form with uproot's private base-form helper and nulls the form keys. The JSON is byte-identical to
-    ``uproot.dask(tree).layout.form.to_json()`` for a TTree and to
-    ``uproot.dask({file: path}, open_files=False).layout.form.to_json()`` for an RNTuple. This is
-    what lets the ``graphed``/``iterative``/``futures`` backends extract forms without dask for
-    both formats.
-    """
-    # RNTuples filter on fields and use full field paths; TTrees filter on branches.
+    """The form JSON ``uproot.dask`` gives for a TTree or RNTuple, built without dask from the
+    keys ``uproot.dask`` selects and uproot's base form."""
     filter_kwarg = "filter_field" if is_rntuple else "filter_branch"
     common_keys = tree.keys(
         recursive=True,
@@ -226,15 +196,8 @@ def _awkward_form_json(tree, is_rntuple: bool) -> str:
 
 
 def _dask_form_json(uproot_target, is_rntuple: bool, uproot_options: dict = {}) -> str:
-    """Build a form JSON via ``uproot.dask`` (requires dask).
-
-    Fallback used only when uproot's internal form helpers are unavailable (uproot older than
-    5.7.7); the dask-free :func:`_awkward_form_json` is preferred for both
-    TTree and RNTuple. ``uproot_target`` is an already-open TTree object, or a
-    ``{file: object_path}`` mapping (required for RNTuples, which cannot build a form from an
-    already-open object via ``uproot.dask``). ``uproot_options`` is forwarded to the file open
-    when ``uproot_target`` is a mapping.
-    """
+    """The form JSON from ``uproot.dask``. ``uproot_target`` is an open TTree, or a
+    ``{file: object_path}`` mapping for an RNTuple, opened with ``uproot_options``."""
     try:
         if is_rntuple:
             form_dask = uproot.dask(
@@ -311,7 +274,7 @@ def get_steps(
             Set to False to use "compressed_form" instead.
         require_rntuple : bool, default False
             If True, require every object to be an RNTuple and raise a ValueError otherwise.
-            If False, TTree and RNTuple objects are auto-detected and handled transparently.
+            If False, TTree and RNTuple objects are both accepted.
 
     Returns
     -------
@@ -348,10 +311,8 @@ def get_steps(
         form_hash = None
         if save_form:
             if _uproot_base_form is not None:
-                # dask-free form extraction (TTree and RNTuple); byte-identical to uproot.dask
                 form_str = _awkward_form_json(tree, is_rntuple)
             elif is_rntuple:
-                # uproot without the private form builder: fall back to the dask-based path
                 form_str = _dask_form_json(
                     {arg.file: arg.object_path},
                     is_rntuple=True,
@@ -552,14 +513,11 @@ def preprocess_legacy(
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
         backend : str or PreprocessBackend or None, default None
-            Execution backend for preprocessing (experimental): "dask" (a dask graph, needs
-            dask), "graphed" (a graphed plan, needs graphed), "iterative" (immediate,
-            synchronous), "futures" (a concurrent.futures pool), or a PreprocessBackend instance.
-            None follows ``scheduler`` when it is given (a concurrent.futures executor selects
-            "futures", a graphed executor "graphed", anything else "dask"); otherwise it selects
-            "dask" when dask has an active or configured scheduler, else "graphed" when graphed
-            is installed, else "dask" when dask is installed, else "iterative". The output is the
-            same for every backend.
+            Execution backend (experimental): "dask", "graphed", "iterative", "futures" or a
+            PreprocessBackend instance; the output is the same for every backend. None selects
+            the backend ``scheduler`` is for when it is given, else "graphed" while a graphed
+            Session is open, else "dask" while a ``distributed.Client`` is current, else
+            "iterative".
     Returns
     -------
         out_available : dict
@@ -651,8 +609,7 @@ def preprocess_legacy(
 
         union_form_jsonstr = _union_form_jsonstr(dataset_forms)
 
-        # Skipped files come back as None rows, so outputs are matched to the inputs by
-        # filename, in input order; the backend's reduction order does not matter.
+        # skipped files come back as None rows, so outputs are matched to inputs by filename
         available_by_file = {
             item["file"]: {
                 "object_path": item["object_path"],
@@ -895,8 +852,8 @@ def preprocess_root(
     """
     Given a list of normalized file and object paths (defined in uproot), determine the steps for each file according to the supplied processing options.
 
-    Both TTree and RNTuple objects are auto-detected and handled; pass ``require_rntuple=True``
-    (or use the :func:`preprocess_rntuple` alias) to require that every object is an RNTuple.
+    Both TTree and RNTuple objects are accepted; ``require_rntuple=True``, or
+    :func:`preprocess_rntuple`, accepts only RNTuples.
 
     Parameters
     ----------
@@ -933,14 +890,11 @@ def preprocess_root(
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
         backend : str or PreprocessBackend or None, default None
-            Execution backend for preprocessing (experimental): "dask" (a dask graph, needs
-            dask), "graphed" (a graphed plan, needs graphed), "iterative" (immediate,
-            synchronous), "futures" (a concurrent.futures pool), or a PreprocessBackend instance.
-            None follows ``scheduler`` when it is given (a concurrent.futures executor selects
-            "futures", a graphed executor "graphed", anything else "dask"); otherwise it selects
-            "dask" when dask has an active or configured scheduler, else "graphed" when graphed
-            is installed, else "dask" when dask is installed, else "iterative". The output is the
-            same for every backend.
+            Execution backend (experimental): "dask", "graphed", "iterative", "futures" or a
+            PreprocessBackend instance; the output is the same for every backend. None selects
+            the backend ``scheduler`` is for when it is given, else "graphed" while a graphed
+            Session is open, else "dask" while a ``distributed.Client`` is current, else
+            "iterative".
         require_rntuple : bool, default False
             If True, require every dataset to be ROOT-format and every object to be an RNTuple.
             A parquet dataset raises a ValueError; a TTree object raises a ValueError inside the
@@ -989,12 +943,9 @@ def preprocess_rntuple(
     """
     Preprocess datasets of ROOT files containing RNTuples, determining the steps for each file.
 
-    :func:`preprocess_root` with ``require_rntuple=True``: every dataset must be ROOT-format
-    (parquet datasets raise a ValueError) and every object must be an RNTuple (a TTree raises a
-    ValueError inside the worker, subject to ``skip_bad_files``/``file_exceptions``).
-    ``preprocess`` and ``preprocess_root`` already auto-detect and handle RNTuples, so this
-    function is for RNTuple-only workflows that want the stricter contract. The arguments are
-    those of :func:`preprocess_root`; ``align_clusters`` aligns steps to RNTuple cluster
+    :func:`preprocess_root` with ``require_rntuple=True``: a parquet dataset raises a ValueError,
+    and so does a TTree object, subject to ``skip_bad_files``/``file_exceptions``. The arguments
+    are those of :func:`preprocess_root`; ``align_clusters`` aligns steps to RNTuple cluster
     boundaries.
     """
     return preprocess_root(
@@ -1064,14 +1015,11 @@ def preprocess_parquet(
             When a dataset query comes back completely empty, this is normally considered a processing error.
             Toggle this argument to True to change this to warnings and allow incomplete returned filesets.
         backend : str or PreprocessBackend or None, default None
-            Execution backend for preprocessing (experimental): "dask" (a dask graph, needs
-            dask), "graphed" (a graphed plan, needs graphed), "iterative" (immediate,
-            synchronous), "futures" (a concurrent.futures pool), or a PreprocessBackend instance.
-            None follows ``scheduler`` when it is given (a concurrent.futures executor selects
-            "futures", a graphed executor "graphed", anything else "dask"); otherwise it selects
-            "dask" when dask has an active or configured scheduler, else "graphed" when graphed
-            is installed, else "dask" when dask is installed, else "iterative". The output is the
-            same for every backend.
+            Execution backend (experimental): "dask", "graphed", "iterative", "futures" or a
+            PreprocessBackend instance; the output is the same for every backend. None selects
+            the backend ``scheduler`` is for when it is given, else "graphed" while a graphed
+            Session is open, else "dask" while a ``distributed.Client`` is current, else
+            "iterative".
     Returns
     -------
         out_available : DataGroupSpec
@@ -1149,14 +1097,11 @@ def _preprocess_pydantic(
         allow_empty_datasets : bool, default False
             If True, warn instead of raising when a dataset has no accessible files.
         backend : str or PreprocessBackend or None, default None
-            Execution backend for preprocessing (experimental): "dask" (a dask graph, needs
-            dask), "graphed" (a graphed plan, needs graphed), "iterative" (immediate,
-            synchronous), "futures" (a concurrent.futures pool), or a PreprocessBackend instance.
-            None follows ``scheduler`` when it is given (a concurrent.futures executor selects
-            "futures", a graphed executor "graphed", anything else "dask"); otherwise it selects
-            "dask" when dask has an active or configured scheduler, else "graphed" when graphed
-            is installed, else "dask" when dask is installed, else "iterative". The output is the
-            same for every backend.
+            Execution backend (experimental): "dask", "graphed", "iterative", "futures" or a
+            PreprocessBackend instance; the output is the same for every backend. None selects
+            the backend ``scheduler`` is for when it is given, else "graphed" while a graphed
+            Session is open, else "dask" while a ``distributed.Client`` is current, else
+            "iterative".
 
     Returns
     -------
@@ -1183,9 +1128,6 @@ def _preprocess_pydantic(
     out_updated = datagroupspec.model_dump()
     out_available = datagroupspec.model_dump()
 
-    # Build one map-reduce job per dataset. The map worker (get_steps /
-    # get_parquet_form_uuid_steps) and the concatenating reduce are backend-agnostic; only the
-    # execution strategy (dask graph vs. futures vs. synchronous) is selected via `backend`.
     all_ak_norm_files = {}
     jobs = {}
     for name, info in datagroupspec.items():
@@ -1289,8 +1231,7 @@ def _preprocess_pydantic(
 
         union_form_jsonstr = _union_form_jsonstr(dataset_forms)
 
-        # Index successfully-processed files by filename. Skipped/bad files were dropped as
-        # None by the worker and are simply absent here.
+        # skipped files come back as None rows, so outputs are matched to inputs by filename
         available_by_file = {
             item["file"]: {
                 "object_path": item["object_path"],
@@ -1301,9 +1242,6 @@ def _preprocess_pydantic(
             for item in awkward.drop_none(processed_files_without_forms).to_list()
         }
 
-        # Assemble both outputs by filename in the original input order. Matching by key keeps
-        # correctness independent of the order in which the backend reduced/concatenated the
-        # per-file results -- each processed record carries its filename.
         orig_items = all_ak_norm_files[name].to_list()
 
         files_available = {
@@ -1315,7 +1253,6 @@ def _preprocess_pydantic(
         files_out = {}
         for orig_item in orig_items:
             filename = orig_item["file"]
-            # processed info when available, else fall back to the original input info
             files_out[filename] = available_by_file.get(
                 filename,
                 {
@@ -1427,14 +1364,11 @@ def preprocess(
         parquet_options : dict, default {}
             Options to pass to get_parquet_form_uuid_steps for opening parquet files (only applies to DataGroupSpec datasets with parquet files).
         backend : str or PreprocessBackend or None, default None
-            Execution backend for preprocessing (experimental): "dask" (a dask graph, needs
-            dask), "graphed" (a graphed plan, needs graphed), "iterative" (immediate,
-            synchronous), "futures" (a concurrent.futures pool), or a PreprocessBackend instance.
-            None follows ``scheduler`` when it is given (a concurrent.futures executor selects
-            "futures", a graphed executor "graphed", anything else "dask"); otherwise it selects
-            "dask" when dask has an active or configured scheduler, else "graphed" when graphed
-            is installed, else "dask" when dask is installed, else "iterative". The output is the
-            same for every backend.
+            Execution backend (experimental): "dask", "graphed", "iterative", "futures" or a
+            PreprocessBackend instance; the output is the same for every backend. None selects
+            the backend ``scheduler`` is for when it is given, else "graphed" while a graphed
+            Session is open, else "dask" while a ``distributed.Client`` is current, else
+            "iterative".
     Returns
     -------
         out_available : DataGroupSpec | dict
@@ -1497,8 +1431,7 @@ def preprocess(
                     "Entries assigned via item assignment are not validated; rebuild or re-validate the "
                     "DataGroupSpec (e.g. DataGroupSpec.model_validate(...)) so every entry is a DatasetSpec."
                 )
-        # Resolve the backend once so warnings (e.g. an ignored scheduler) are emitted a single
-        # time even for mixed root+parquet filesets, which dispatch to two sub-calls below.
+        # resolved once so a scheduler warning is issued once for mixed root and parquet input
         backend = _resolve_backend(backend, scheduler)
         scheduler = None
         # split datasetspecs into uproot and parquet files, keeping track of original order

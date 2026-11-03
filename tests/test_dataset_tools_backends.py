@@ -4,6 +4,7 @@ import importlib
 import shutil
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import awkward
 import pytest
@@ -40,11 +41,6 @@ def _multi_file_fileset(tmp_path):
     )
 
 
-# --------------------------------------------------------------------------------------
-# _ordered_concat / _iter_batches unit tests
-# --------------------------------------------------------------------------------------
-
-
 def test_ordered_concat_preserves_order():
     a = awkward.Array([1, 2])
     b = awkward.Array([3, 4])
@@ -55,9 +51,7 @@ def test_ordered_concat_preserves_order():
 def test_ordered_concat_drops_none_and_handles_empty():
     a = awkward.Array([1, 2])
     assert _ordered_concat([None, a, None]).to_list() == [1, 2]
-    # single element is returned as-is
     assert _ordered_concat([a]) is a
-    # nothing to concatenate
     assert _ordered_concat([]) is None
     assert _ordered_concat([None, None]) is None
 
@@ -73,23 +67,6 @@ def test_iter_batches_empty_yields_once():
     batches = list(_iter_batches(arr, files_per_batch=1))
     assert len(batches) == 1
     assert len(batches[0]) == 0
-
-
-# --------------------------------------------------------------------------------------
-# _resolve_backend: names, default selection, scheduler handling
-# --------------------------------------------------------------------------------------
-
-
-def _hide_dask(monkeypatch):
-    """Make the default-backend probe see dask and dask-awkward as not installed."""
-    real_find_spec = backends_mod.importlib.util.find_spec
-
-    def find_spec(name, *args, **kwargs):
-        if name in ("dask", "dask_awkward"):
-            return None
-        return real_find_spec(name, *args, **kwargs)
-
-    monkeypatch.setattr(backends_mod.importlib.util, "find_spec", find_spec)
 
 
 class _GraphedRunnerLike:
@@ -114,34 +91,26 @@ def test_resolve_backend_strings():
 
 
 @pytest.mark.parametrize(
-    "installed, dask_scheduler, expected",
-    [
-        ({"dask", "graphed"}, True, "dask"),
-        ({"dask", "graphed"}, False, "graphed"),
-        ({"graphed"}, False, "graphed"),
-        ({"dask"}, False, "dask"),
-        (set(), False, "iterative"),
-    ],
+    "graphed_session, dask_client, expected",
+    [(True, True, "graphed"), (False, True, "dask"), (False, False, "iterative")],
 )
 def test_default_backend_without_scheduler(
-    monkeypatch, installed, dask_scheduler, expected
+    monkeypatch, graphed_session, dask_client, expected
 ):
-    """Without a scheduler the default is dask when dask has an active or configured scheduler,
-    else graphed when installed, else dask when installed, else iterative."""
-    monkeypatch.setattr(backends_mod, "_installed", lambda module: module in installed)
-    monkeypatch.setattr(backends_mod, "_dask_has_scheduler", lambda: dask_scheduler)
-    assert backends_mod._default_backend_name() == expected
+    """Without a scheduler the default is graphed while a graphed Session is open, else dask
+    while a distributed.Client is current, else iterative."""
+    monkeypatch.setattr(backends_mod, "_graphed_has_session", lambda: graphed_session)
+    monkeypatch.setattr(backends_mod, "_dask_has_client", lambda: dask_client)
     assert isinstance(_resolve_backend(None), backends_mod._BACKENDS[expected])
 
 
 def test_default_backend_follows_the_scheduler(monkeypatch):
-    """A scheduler argument selects its backend: a concurrent.futures executor or executor
-    class selects futures, an object with run(plan) selects graphed unless it comes from dask or
-    distributed, and anything else selects dask, whatever is installed."""
-    from concurrent.futures import ThreadPoolExecutor
-
-    monkeypatch.setattr(backends_mod, "_installed", lambda module: True)
-    monkeypatch.setattr(backends_mod, "_dask_has_scheduler", lambda: True)
+    """A scheduler argument selects its backend whatever Session or Client is open: a
+    concurrent.futures executor or executor class selects futures, an object with run(plan)
+    selects graphed unless it comes from dask or distributed, anything else selects dask.
+    """
+    monkeypatch.setattr(backends_mod, "_graphed_has_session", lambda: True)
+    monkeypatch.setattr(backends_mod, "_dask_has_client", lambda: True)
     with ThreadPoolExecutor(max_workers=1) as pool:
         assert backends_mod._default_backend_name(pool) == "futures"
     assert backends_mod._default_backend_name(ThreadPoolExecutor) == "futures"
@@ -151,16 +120,31 @@ def test_default_backend_follows_the_scheduler(monkeypatch):
     assert backends_mod._default_backend_name(lambda dsk, keys: None) == "dask"
 
 
-def test_dask_has_scheduler_sees_the_configured_scheduler():
-    dask = pytest.importorskip("dask")
-    with dask.config.set(scheduler="synchronous"):
-        assert backends_mod._dask_has_scheduler()
+def test_graphed_has_session_sees_an_open_or_default_session():
+    graphed = pytest.importorskip("graphed")
+    awkward_backend = pytest.importorskip("graphed.awkward")
+    if not hasattr(graphed, "set_session"):
+        pytest.skip("graphed has no default Session")
+    session = graphed.Session(awkward_backend.AwkwardBackend())
+    assert not backends_mod._graphed_has_session()
+    with session:
+        assert backends_mod._graphed_has_session()
+    assert not backends_mod._graphed_has_session()
+    graphed.set_session(session)
+    assert backends_mod._graphed_has_session()
+
+
+def test_dask_has_client_sees_the_current_client(dask_client):
+    assert backends_mod._dask_has_client()
+
+
+def test_dask_has_client_without_a_client():
+    assert not backends_mod._dask_has_client()
 
 
 def test_preprocess_default_backend_runs_without_dask(tmp_path, monkeypatch):
-    """With dask hidden, preprocess without a backend runs a dask-free backend; the dask
-    import is made to fail so selecting the dask backend would raise."""
-    _hide_dask(monkeypatch)
+    """Without a graphed Session or a dask Client, preprocess without a backend runs the
+    iterative backend; the dask import is made to fail so selecting dask would raise."""
 
     def _no_dask():
         raise ModuleNotFoundError("no dask here")
@@ -198,8 +182,6 @@ def test_resolve_backend_scheduler_sets_dask_scheduler(recwarn):
 
 
 def test_resolve_backend_scheduler_sets_futures_pool(recwarn):
-    from concurrent.futures import ThreadPoolExecutor
-
     with ThreadPoolExecutor(max_workers=1) as pool:
         resolved = _resolve_backend("futures", scheduler=pool)
         assert resolved.pool is pool
@@ -252,21 +234,14 @@ def test_registered_backend_receives_scheduler(tmp_path, monkeypatch):
     assert seen["executor"] is marker
 
 
-# --------------------------------------------------------------------------------------
-# Backend equivalence (dask-free backends do not import dask)
-# --------------------------------------------------------------------------------------
-
-
 def test_iterative_and_threads_agree(tmp_path):
     dgs = _multi_file_fileset(tmp_path)
     a_iter, u_iter = preprocess(dgs, step_size=7, save_form=True, backend="iterative")
     a_thr, u_thr = preprocess(
         dgs, step_size=7, save_form=True, backend=FuturesBackend(workers=2)
     )
-    # DatasetSpec.__eq__ compares decoded forms (ignoring non-deterministic compressed bytes)
     assert a_iter == a_thr
     assert u_iter == u_thr
-    # order of files within a dataset is preserved by the ordered reduce
     src = "tests/samples/nano_dy.root"
     assert list(a_iter["ZJets"].files)[0] == src
 
@@ -293,11 +268,6 @@ def test_dask_matches_dask_free(tmp_path):
     a_iter, u_iter = preprocess(dgs, step_size=7, save_form=True, backend="iterative")
     assert a_dask == a_iter
     assert u_dask == u_iter
-
-
-# --------------------------------------------------------------------------------------
-# dask-unavailable hint
-# --------------------------------------------------------------------------------------
 
 
 def test_dask_import_failure_names_dask_free_backends(tmp_path, monkeypatch):
@@ -500,7 +470,6 @@ def test_step_size_zero_or_negative_raises(tmp_path):
     for bad in (0, -5):
         with pytest.raises(ValueError, match="step_size must be a positive integer"):
             preprocess(dgs, step_size=bad, save_form=False, backend="iterative")
-    # None and >= 1 are accepted (smoke: no raise)
     preprocess(dgs, step_size=1, save_form=False, backend="iterative")
 
 
@@ -530,31 +499,14 @@ def test_skipped_bad_file_assembled_by_filename(tmp_path):
     available, updated = preprocess(
         dgs, step_size=20, save_form=True, skip_bad_files=True, backend="iterative"
     )
-    # updated keeps both files, in the original input order; available drops the bad one
     assert list(updated["ZJets"].files) == [bad, good]
     assert bad not in available["ZJets"].files
     assert good in available["ZJets"].files
 
 
-def test_partial_result_equals_result_when_complete():
-    """partial_result() agrees with result() once all work has finished, for the eager and
-    futures backends."""
-    arr = awkward.Array([{"x": i} for i in range(4)])
-    jobs = {
-        "d": PreprocessJob(array=arr, map_fn=lambda batch: batch, files_per_batch=1)
-    }
-    for backend in (IterativeBackend(), FuturesBackend(workers=2)):
-        task = backend.submit(jobs)
-        task.wait()
-        partial = task.partial_result()
-        result = task.result()
-        assert result["d"].to_list() == arr.to_list()
-        assert partial["d"].to_list() == result["d"].to_list()
-
-
 def test_futures_default_workers_uses_executor_default():
-    """FuturesBackend defaults workers to None, deferring pool sizing to the executor
-    (parallel by default), including via the string selector."""
+    """FuturesBackend defaults workers to None, leaving pool sizing to the executor, also when
+    selected by name."""
     assert FuturesBackend().workers is None
     assert _resolve_backend("futures").workers is None
 
@@ -568,10 +520,9 @@ def test_futures_string_backend_matches_iterative(tmp_path):
 
 
 def test_futures_result_failure_cancels_pending():
-    """When a batch fails, result() re-raises after cancelling batches that have not started,
-    so a fatal error does not wait for the rest of the fileset to be processed."""
+    """When a batch fails, result() cancels the batches that have not started and re-raises."""
     import threading
-    from concurrent.futures import Future, ThreadPoolExecutor
+    from concurrent.futures import Future
 
     from coffea.dataset_tools.preprocess_backends import _FuturesTask
 
@@ -618,7 +569,7 @@ def test_preprocess_rntuple_skips_ttree_file_when_requested():
 
 
 def test_preprocess_rntuple_rejects_parquet(tmp_path):
-    """require_rntuple rejects parquet-format datasets with a clear error."""
+    """require_rntuple rejects parquet-format datasets."""
     from coffea.dataset_tools import preprocess_rntuple
 
     path = tmp_path / "d.parquet"
@@ -651,11 +602,6 @@ def test_workers_validate_step_size():
             get_parquet_form_uuid_steps(normed, step_size=bad)
 
 
-# --------------------------------------------------------------------------------------
-# legacy dict path runs on the same backends
-# --------------------------------------------------------------------------------------
-
-
 def _legacy_fileset(tmp_path):
     src = "tests/samples/nano_dy.root"
     copy = tmp_path / "nano_dy_copy.root"
@@ -674,8 +620,6 @@ def _decoded_forms(out):
 
 
 def test_legacy_backends_agree(tmp_path):
-    from concurrent.futures import ThreadPoolExecutor
-
     from coffea.dataset_tools import preprocess_legacy
 
     fileset = _legacy_fileset(tmp_path)
@@ -753,19 +697,12 @@ def test_preprocess_legacy_root_uses_the_given_backend(tmp_path):
 def test_legacy_default_backend_runs_without_dask(tmp_path, monkeypatch):
     from coffea.dataset_tools import preprocess_legacy
 
-    _hide_dask(monkeypatch)
-
     def _no_dask():
         raise ModuleNotFoundError("no dask here")
 
     monkeypatch.setattr(backends_mod, "_import_dask", _no_dask)
     available, _ = preprocess_legacy(_legacy_fileset(tmp_path), step_size=7)
     assert len(available["ZJets"]["files"]) == 2
-
-
-# --------------------------------------------------------------------------------------
-# RNTuple cluster alignment, process pool, preprocess_rntuple signature
-# --------------------------------------------------------------------------------------
 
 
 def _multi_cluster_rntuple(path):
@@ -836,11 +773,6 @@ def test_preprocess_rntuple_takes_preprocess_root_arguments():
     assert dict(inspect.signature(preprocess_rntuple).parameters) == root
 
 
-# --------------------------------------------------------------------------------------
-# every backend keeps the same contract
-# --------------------------------------------------------------------------------------
-
-
 def _records(n):
     return awkward.Array([{"file": f"f{i}", "n": i} for i in range(max(n, 1))])[:n]
 
@@ -873,10 +805,19 @@ def _wait_for_release(batch):
     return _tag_batch(batch)
 
 
-def _sequential_graphed():
-    from graphed.core.execution import SequentialRunner
+class _SubmittingRunner:
+    """A graphed executor whose submit(plan) runs the plan on a thread and returns its future."""
 
-    return GraphedBackend(executor=SequentialRunner())
+    def run(self, plan):
+        from graphed.core.execution import SequentialRunner
+
+        return SequentialRunner().run(plan)
+
+    def submit(self, plan):
+        pool = ThreadPoolExecutor(max_workers=1)
+        future = pool.submit(self.run, plan)
+        pool.shutdown(wait=False)
+        return future
 
 
 _needs_dask = pytest.mark.skipif(
@@ -891,8 +832,8 @@ _CONTRACT_BACKENDS = {
     "futures-processes": lambda: FuturesBackend(workers=2, use_processes=True),
     "dask-sync": lambda: DaskBackend(scheduler="synchronous"),
     "dask-threads": lambda: DaskBackend(scheduler="threads"),
-    "graphed-threads": lambda: GraphedBackend(workers=2),
-    "graphed-sequential": _sequential_graphed,
+    "graphed-sequential": GraphedBackend,
+    "graphed-submit": lambda: GraphedBackend(executor=_SubmittingRunner()),
 }
 
 
@@ -945,7 +886,7 @@ def test_backends_raise_worker_errors_from_result(make_backend):
 
 @pytest.mark.parametrize(
     "make_backend",
-    _contract_params("futures-threads", "dask-threads", "graphed-threads"),
+    _contract_params("futures-threads", "dask-threads", "graphed-submit"),
 )
 def test_partial_result_does_not_wait_for_running_work(make_backend):
     """While the batches have not finished, partial_result() returns {} at once."""
