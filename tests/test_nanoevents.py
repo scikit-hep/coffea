@@ -1010,4 +1010,3 @@ def test_nanocollection_generic_shadowed_property_warning():
         assert ak.all(array["tau2"] == [0.15, 0.45])
         assert ak.all(array["rho2"] == [5.0, 8.0])
         assert len(w) == 0
-
