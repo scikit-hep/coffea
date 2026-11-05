@@ -248,6 +248,7 @@ class _ReverseOrderRunner:
 def test_preprocess_graphed_does_not_depend_on_combine_order(tmp_path):
     """With files_per_batch=1 and a skipped file first, results match dask whatever order
     the executor combines the batches in, for DataGroupSpec and dict filesets."""
+    pytest.importorskip("dask_awkward")
     from coffea.dataset_tools import preprocess_legacy
 
     has_root, missing_root, _, _ = _write_flag_files(tmp_path)

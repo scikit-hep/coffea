@@ -145,6 +145,7 @@ def test_a_record_field_shadows_a_colliding_descriptor():
 
 # ---- what the from_root arm hands to uproot ---------------------------------------------------
 def test_known_base_form_is_forwarded_and_opens_no_file(tests_directory, monkeypatch):
+    pytest.importorskip("dask_awkward")
     path = _sample(tests_directory, "nano_dy.root")
     base_form = uproot.dask(
         {path: "Events"},
