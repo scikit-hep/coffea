@@ -1,6 +1,7 @@
 """Basic NanoEvents and NanoCollection mixins"""
 
 import re
+import warnings
 from abc import abstractmethod
 from collections.abc import Callable
 from functools import partial
@@ -275,6 +276,49 @@ class NanoEvents(Systematic):
         return self.layout.purelist_parameter("metadata")
 
 
+_COORDINATE_NAMES = frozenset(
+    {
+        "x",
+        "px",
+        "y",
+        "py",
+        "z",
+        "pz",
+        "rho",
+        "pt",
+        "r",
+        "phi",
+        "theta",
+        "eta",
+        "t",
+        "E",
+        "e",
+        "energy",
+        "M",
+        "m",
+        "mass",
+    }
+)
+
+_PASS_THROUGH = frozenset(
+    {
+        "fields",
+        "layout",
+        "behavior",
+        "attrs",
+        "type",
+        "typestr",
+        "ndim",
+        "mask",
+        "compute",
+        "persist",
+        "materialize",
+        "to_numpy",
+        "to_list",
+    }
+)
+
+
 @awkward.mixin_class(behavior)
 class NanoCollection:
     """A NanoEvents collection
@@ -282,6 +326,24 @@ class NanoCollection:
     This mixin provides some helper methods useful for creating cross-references
     and other advanced mixin types.
     """
+
+    def __getattribute__(self, name):
+        if not name.startswith("_") and name not in _PASS_THROUGH:
+            cls_attr = getattr(type(self), name, None)
+            if isinstance(cls_attr, property) and name not in _COORDINATE_NAMES:
+                try:
+                    fields = super().__getattribute__("fields")
+                except Exception:
+                    fields = None
+                if fields is not None and name in fields:
+                    warnings.warn(
+                        f"Accessing '{name}' on {self.__class__.__name__} resolves to the {name} behavior property, "
+                        f"which conflicts with the '{name}' field in this collection. "
+                        f"To access the field, use obj['{name}'].",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+        return super().__getattribute__(name)
 
     @dask_method(no_dispatch=True)
     def _collection_name(self):

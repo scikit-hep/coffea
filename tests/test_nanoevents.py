@@ -943,7 +943,7 @@ def test_nanoaod_tau2_field_conflict_warning(mode):
     if mode in ["eager", "virtual"]:
         with pytest.warns(
             RuntimeWarning,
-            match="resolves to the 4-vector proper-time squared behavior",
+            match="conflicts with the 'tau2' field in this collection",
         ):
             vec_tau2 = has_fj.tau2
         assert ak.all(ak.isclose(vec_tau2, has_fj.mass**2, rtol=1e-5))
@@ -957,7 +957,7 @@ def test_nanoaod_tau2_field_conflict_warning(mode):
 
         with pytest.warns(
             RuntimeWarning,
-            match="resolves to the 4-vector proper-time squared behavior",
+            match="conflicts with the 'tau2' field in this collection",
         ):
             rec_vec = single_fj.tau2
         assert np.isclose(rec_vec, single_fj.mass**2, rtol=1e-5)
@@ -967,3 +967,47 @@ def test_nanoaod_tau2_field_conflict_warning(mode):
             jet_tau2 = events.Jet.tau2
             assert len(w) == 0
         assert ak.all(ak.isclose(jet_tau2, events.Jet.mass**2, rtol=1e-5))
+
+
+def test_nanocollection_generic_shadowed_property_warning():
+    """Verify that any non-coordinate behavior property shadowing a collection field warns automatically."""
+    array = ak.zip(
+        {
+            "pt": [10.0, 20.0],
+            "eta": [0.1, -0.2],
+            "phi": [0.5, -0.5],
+            "mass": [1.0, 2.0],
+            "tau2": [0.15, 0.45],
+            "rho2": [5.0, 8.0],
+        },
+        with_name="PtEtaPhiMCollection",
+        behavior=NanoAODSchema.behavior(),
+    )
+
+    # Coordinate fields must not warn
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        _ = array.pt
+        _ = array.eta
+        _ = array.phi
+        _ = array.mass
+        assert len(w) == 0
+
+    # Shadowed properties must warn
+    with pytest.warns(
+        RuntimeWarning, match="conflicts with the 'tau2' field in this collection"
+    ):
+        _ = array.tau2
+
+    with pytest.warns(
+        RuntimeWarning, match="conflicts with the 'rho2' field in this collection"
+    ):
+        _ = array.rho2
+
+    # Direct getitem access must not warn
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        assert ak.all(array["tau2"] == [0.15, 0.45])
+        assert ak.all(array["rho2"] == [5.0, 8.0])
+        assert len(w) == 0
+
