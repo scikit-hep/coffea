@@ -10,6 +10,7 @@ from typing import Any
 import awkward
 
 from coffea.util import (
+    _DaskProperty,
     _import_dask_awkward,
     _isinstance,
     awkward_rewrap,
@@ -276,47 +277,69 @@ class NanoEvents(Systematic):
         return self.layout.purelist_parameter("metadata")
 
 
-_COORDINATE_NAMES = frozenset(
-    {
-        "x",
-        "px",
-        "y",
-        "py",
-        "z",
-        "pz",
-        "rho",
-        "pt",
-        "r",
-        "phi",
-        "theta",
-        "eta",
-        "t",
-        "E",
-        "e",
-        "energy",
-        "M",
-        "m",
-        "mass",
-    }
-)
+class _ShadowWarningDescriptor:
+    """Descriptor emitting a RuntimeWarning when a behavior property shadows a record field."""
 
-_PASS_THROUGH = frozenset(
-    {
-        "fields",
-        "layout",
-        "behavior",
-        "attrs",
-        "type",
-        "typestr",
-        "ndim",
-        "mask",
-        "compute",
-        "persist",
-        "materialize",
-        "to_numpy",
-        "to_list",
-    }
-)
+    def __init__(self, original_attr, name):
+        self.original_attr = original_attr
+        self.name = name
+
+    def __get__(self, instance, owner=None):
+        if instance is not None:
+            try:
+                has_field = self.name in instance.fields
+            except Exception:
+                has_field = False
+            if has_field:
+                warnings.warn(
+                    f"Accessing '{self.name}' on {type(instance).__name__} resolves to the {self.name} behavior property, "
+                    f"which conflicts with the '{self.name}' field in this collection. "
+                    f"To access the field, use obj['{self.name}'].",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+            if hasattr(self.original_attr, "__get__"):
+                return self.original_attr.__get__(instance, owner)
+        return self.original_attr
+
+    def __set__(self, instance, value):
+        if hasattr(self.original_attr, "__set__"):
+            return self.original_attr.__set__(instance, value)
+        raise AttributeError(f"can't set attribute '{self.name}'")
+
+    def __delete__(self, instance):
+        if hasattr(self.original_attr, "__delete__"):
+            return self.original_attr.__delete__(instance)
+        raise AttributeError(f"can't delete attribute '{self.name}'")
+
+
+def _detect_and_wrap_shadowed(obj):
+    """Detect non-coordinate behavior properties shadowing record fields and wrap them with a warning."""
+    fields = getattr(obj, "fields", None)
+    if not fields:
+        return
+    cls = type(obj)
+    fields_tuple = tuple(fields)
+    if getattr(cls, "_shadow_checked_fields", None) == fields_tuple:
+        return
+    coords = set()
+    try:
+        import vector.backends.awkward as va
+
+        if isinstance(obj, va.VectorAwkward):
+            coords = {actual for _, actual in va._check_field_names(obj, fields_tuple)}
+    except Exception:
+        pass
+
+    for field in fields:
+        if field in coords or field.startswith("_"):
+            continue
+        attr = getattr(cls, field, None)
+        if attr is not None and not isinstance(attr, _ShadowWarningDescriptor):
+            if isinstance(attr, (property, _DaskProperty)) or callable(attr):
+                setattr(cls, field, _ShadowWarningDescriptor(attr, field))
+
+    cls._shadow_checked_fields = fields_tuple
 
 
 @awkward.mixin_class(behavior)
@@ -327,23 +350,11 @@ class NanoCollection:
     and other advanced mixin types.
     """
 
-    def __getattribute__(self, name):
-        if not name.startswith("_") and name not in _PASS_THROUGH:
-            cls_attr = getattr(type(self), name, None)
-            if isinstance(cls_attr, property) and name not in _COORDINATE_NAMES:
-                try:
-                    fields = super().__getattribute__("fields")
-                except Exception:
-                    fields = None
-                if fields is not None and name in fields:
-                    warnings.warn(
-                        f"Accessing '{name}' on {self.__class__.__name__} resolves to the {name} behavior property, "
-                        f"which conflicts with the '{name}' field in this collection. "
-                        f"To access the field, use obj['{name}'].",
-                        RuntimeWarning,
-                        stacklevel=2,
-                    )
-        return super().__getattribute__(name)
+    def __awkward_validation__(self):
+        parent = super()
+        if hasattr(parent, "__awkward_validation__"):
+            parent.__awkward_validation__()
+        _detect_and_wrap_shadowed(self)
 
     @dask_method(no_dispatch=True)
     def _collection_name(self):
