@@ -112,6 +112,34 @@ def test_pfnano_schema(tests_directory, mode):
     )
 
 
+@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
+@pytest.mark.parametrize("file", ["nano_dy", "nano_dimuon", "nano_tree", "pfnano"])
+def test_nanoaod_schema_entry_range(tests_directory, file, mode):
+    # uproot reads an RNTuple entry range in whole clusters, so its lists carry
+    # the content of the entries before and after the range
+    if mode == "dask":
+        pytest.importorskip("dask_awkward")
+        options = {"steps_per_file": 3}
+    else:
+        options = {"entry_start": 3, "entry_stop": 7}
+    schemaclass = PFNanoAODSchema if file == "pfnano" else NanoAODSchema
+    file = f"{tests_directory}/samples/{file}"
+    ttree = NanoEventsFactory.from_root(
+        {f"{file}.root": "Events"}, schemaclass=schemaclass, mode=mode, **options
+    ).events()
+    rntuple = NanoEventsFactory.from_root(
+        {f"{file}_rntuple.root": "Events"},
+        schemaclass=schemaclass,
+        mode=mode,
+        **options,
+    ).events()
+    if mode == "dask":
+        ttree, rntuple = ttree.compute(), rntuple.compute()
+    assert ak.array_equal(
+        rntuple, ttree, dtype_exact=False, check_parameters=False, equal_nan=True
+    )
+
+
 @pytest.mark.xfail(
     reason="RNTuple version of the treemaker sample has different field structure"
 )

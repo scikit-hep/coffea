@@ -244,7 +244,7 @@ class _map_schema_uproot(_map_schema_base):
         def add_source(key, array):
             if isinstance(array.layout, awkward.contents.ListOffsetArray):
                 # an RNTuple read past entry 0 keeps the skipped entries' offsets
-                array = awkward.Array(array.layout.to_ListOffsetArray64(True))
+                array = awkward.Array(array.layout.to_packed(True))
             source_arrays[key] = _OnlySliceableAs(array, slice(start, stop))
             for subfield in array.fields:
                 add_source(f"{key}.{subfield}", array[subfield])
