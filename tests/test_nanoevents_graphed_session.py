@@ -1,5 +1,6 @@
 """Which graphed Session a NanoEvents read records into."""
 
+import inspect
 import os
 
 import pytest
@@ -22,6 +23,10 @@ from coffea.nanoevents._graphed import GraphedNanoBackend  # noqa: E402
 
 pytestmark = pytest.mark.skipif(
     not hasattr(graphed, "current_session"), reason="graphed has no current Session"
+)
+needs_uproot_session = pytest.mark.skipif(
+    "session" not in inspect.signature(uproot.graphed).parameters,
+    reason="uproot.graphed has no session=",
 )
 
 
@@ -56,6 +61,7 @@ def _names(session):
     return sorted(session.source_name(nid) for nid in session.source_ids())
 
 
+@needs_uproot_session
 def test_a_read_records_into_the_default(tests_directory, received):
     events = _root(tests_directory)
     assert events.session is graphed.current_session()
@@ -65,6 +71,7 @@ def test_a_read_records_into_the_default(tests_directory, received):
     assert _names(events.session) == ["Events", "b"]
 
 
+@needs_uproot_session
 def test_a_read_records_into_the_open_scope(tests_directory, received):
     scope = graphed.Session(GraphedNanoBackend(behavior=dict(NanoAODSchema.behavior())))
     with scope:
@@ -82,6 +89,7 @@ def test_without_current_session_a_read_gets_its_own(tests_directory, monkeypatc
     assert graphed.set_session(None) is None
 
 
+@needs_uproot_session
 @pytest.mark.parametrize(
     "backend, held",
     [
@@ -101,12 +109,14 @@ def test_an_unusable_default_is_refused_at_the_read(tests_directory, backend, he
     assert graphed.current_session().source_ids() == []
 
 
+@needs_uproot_session
 def test_another_schemas_default_is_refused(tests_directory):
     _root(tests_directory)
     with pytest.raises(TypeError, match="records on GraphedNanoBackend, and"):
         _root(tests_directory, schemaclass=BaseSchema, uproot_options={"name": "base"})
 
 
+@needs_uproot_session
 def test_an_explicit_session_is_refused_as_before_and_misses_the_scope(tests_directory):
     events = _root(tests_directory)
     before = _names(events.session)
@@ -117,6 +127,7 @@ def test_an_explicit_session_is_refused_as_before_and_misses_the_scope(tests_dir
     assert other.source_ids() == []
 
 
+@needs_uproot_session
 def test_a_parquet_read_records_into_the_scope(tests_directory):
     events = _root(tests_directory, uproot_options={"name": "nano"})
     with events.session:
@@ -157,6 +168,7 @@ def test_a_parquet_read_of_other_paths_is_refused(tests_directory):
         _parquet(tests_directory, copies=2)
 
 
+@needs_uproot_session
 def test_each_dataset_records_into_its_own_session(tmp_path):
     has_root, missing_root, _, _ = _write_flag_files(tmp_path)
     seen = {}
@@ -180,6 +192,7 @@ def test_each_dataset_records_into_its_own_session(tmp_path):
     assert graphed.set_session(None) is None
 
 
+@needs_uproot_session
 def test_the_form_read_misses_the_scope(tests_directory, tmp_path, received):
     has_root, *_ = _write_flag_files(tmp_path)
     events = _root(tests_directory)
@@ -199,6 +212,7 @@ def test_the_form_read_misses_the_scope(tests_directory, tmp_path, received):
     assert (_names(events.session), events.session.node_count()) == (before, count)
 
 
+@needs_uproot_session
 def test_an_uproot_without_session_keeps_the_backend(tests_directory, monkeypatch):
     unpatched = uproot.graphed
 
@@ -212,6 +226,7 @@ def test_an_uproot_without_session_keeps_the_backend(tests_directory, monkeypatc
     assert isinstance(events.session.backend, GraphedNanoBackend)
 
 
+@needs_uproot_session
 def test_a_backend_in_uproot_options_still_records(tests_directory, received):
     backend = GraphedNanoBackend(behavior=dict(NanoAODSchema.behavior()))
     events = _root(tests_directory, uproot_options={"backend": backend})
