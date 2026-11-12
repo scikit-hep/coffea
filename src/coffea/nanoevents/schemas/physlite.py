@@ -71,8 +71,8 @@ class PHYSLITESchema(BaseSchema):
             key: form for key, form in zip(self._form["fields"], self._form["contents"])
         }
         output = self._build_collections(form_dict)
-        self._form["fields"] = [k for k in output.keys()]
-        self._form["contents"] = [v for v in output.values()]
+        self._form["fields"] = [*output.keys()]
+        self._form["contents"] = [*output.values()]
 
     def _build_collections(self, branch_forms):
         zip_groups = defaultdict(list)

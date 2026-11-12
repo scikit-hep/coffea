@@ -181,8 +181,8 @@ class _map_schema_uproot(_map_schema_base):
         self._record_fields = frozenset(record_fields)
         lform = {
             "class": "RecordArray",
-            "contents": [item for item in branch_forms.values()],
-            "fields": [key for key in branch_forms.keys()],
+            "contents": [*branch_forms.values()],
+            "fields": [*branch_forms.keys()],
             "parameters": {
                 "__doc__": form.parameters.get("__doc__"),
                 "metadata": self.metadata,
@@ -288,6 +288,10 @@ class _graphed_map_schema_uproot(_map_schema_uproot):
             (self.schemaclass, self.metadata, self.base_form_extras),
             {"_record_fields": self._record_fields},
         )
+
+    def source_identity(self):
+        """What this mapping reads with, so uproot reuses an equal re-read's source."""
+        return (self.schemaclass, self.metadata, self.base_form_extras)
 
 
 class _map_schema_parquet(_map_schema_base):
@@ -955,7 +959,9 @@ class NanoEventsFactory:
             # built per call because its behavior dict does not pickle; the typetracer the
             # deferred routes dispatch on is built from that behavior
             backend = _graphed.GraphedNanoBackend(behavior=self._schema.behavior)
-            events = self._mapping(form_mapping=self._schema, backend=backend)
+            events = self._mapping(
+                form_mapping=self._schema, **_graphed.record_on(backend, self._mapping)
+            )
             # `_events()` resolves cross-references off the record-time typetracer, so the root
             # array is planted there rather than on any chunk a worker will see
             _meta(events).attrs["@original_array"] = events

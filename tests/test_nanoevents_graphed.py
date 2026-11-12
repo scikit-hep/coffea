@@ -200,6 +200,12 @@ def _factory(path, schemaclass, mode, **kwargs):
     )
 
 
+def _fresh_default():
+    """Clear the default graphed Session, so a module fixture's read starts its own."""
+    if hasattr(graphed, "new_session"):
+        graphed.new_session()
+
+
 def _both_arms(tests_directory, sample, schemaclass):
     path = os.path.join(tests_directory, "samples", sample)
     return (
@@ -210,16 +216,19 @@ def _both_arms(tests_directory, sample, schemaclass):
 
 @pytest.fixture(scope="module")
 def nanoaod(tests_directory):
+    _fresh_default()
     return _both_arms(tests_directory, "nano_dy.root", NanoAODSchema)
 
 
 @pytest.fixture(scope="module")
 def pfnano(tests_directory):
+    _fresh_default()
     return _both_arms(tests_directory, "pfnano.root", PFNanoAODSchema)
 
 
 @pytest.fixture(scope="module")
 def scouting(tests_directory):
+    _fresh_default()
     return _both_arms(tests_directory, "scouting_nano.root", ScoutingNanoAODSchema)
 
 
@@ -296,7 +305,12 @@ def test_an_rntuple_records_without_a_saved_form(tests_directory):
     # uproot's RNTuple base form carries no __doc__ or typename parameters.
     path = os.path.join(tests_directory, "samples", "nano_dy_rntuple.root")
     events = _factory(path, NanoAODSchema, "graphed").events()
-    ttree = _factory(path.replace("_rntuple", ""), NanoAODSchema, "graphed").events()
+    ttree = _factory(
+        path.replace("_rntuple", ""),
+        NanoAODSchema,
+        "graphed",
+        uproot_options={"name": "ttree"},
+    ).events()
     assert sorted(events.fields) == sorted(ttree.fields)
     assert sorted(events.Muon.fields) == sorted(ttree.Muon.fields)
 
@@ -341,7 +355,7 @@ def test_an_rntuple_matches_the_eager_ttree(tests_directory, analysis):
 def test_a_string_file_needs_its_tree_in_the_dict_as_in_dask(tests_directory, mode):
     pytest.importorskip("dask_awkward")
     path = os.path.join(tests_directory, "samples", "nano_dy.root")
-    with pytest.raises(ValueError, match="TTree object paths must be specified"):
+    with pytest.raises(ValueError, match="paths must be specified"):
         NanoEventsFactory.from_root(
             path, treepath="Events", schemaclass=NanoAODSchema, mode=mode
         ).events()

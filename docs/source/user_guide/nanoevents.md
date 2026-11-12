@@ -160,6 +160,31 @@ analysis line that recorded the operation, run the output with
 `graphed.debug.run(events.session, output)` after `import graphed.debug`, which raises a
 `StageError` naming that line.
 
+### Which Session a read records into
+
+With a graphed that has `graphed.current_session()` (and, for ROOT reads, an uproot whose
+`uproot.graphed` takes `session=`), a graphed-mode read records into the current Session: the
+innermost open `with session:` block, else the process-wide default, which the first read creates.
+A second read into the same graph, such as a friend tree, needs only its own source name:
+
+```python
+friends = NanoEventsFactory.from_root(
+    {"nano_dy.root": "Events"},
+    schemaclass=NanoAODSchema,
+    mode="graphed",
+    uproot_options={"name": "friends"},
+).events()
+print(friends.session is events.session)
+# True
+```
+
+Re-reading the same files reuses the recorded source. A read of other files under a name the
+Session already holds, `"Events"` by default, is refused at the read: name it with
+`uproot_options={"name": ...}`, or record it into a Session of its own with `graphed.new_session()`
+or inside `with graphed.Session(...):` (parquet reads have no name option, so only the latter two
+apply). A Session on another backend, or with another schema's behavior, is refused at the read
+too. `apply_to_dataset` and `apply_to_fileset` record each dataset into a Session of its own.
+
 ### Filesets in graphed mode
 
 `preprocess`, `apply_to_dataset` and `apply_to_fileset` take `mode="graphed"`, so a fileset is

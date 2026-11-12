@@ -61,7 +61,7 @@ class auto_schema(BaseSchema):
         collections = {k.split("_")[0] for k in contents if "_" in k}
 
         output = {}
-        for c_name in collections:
+        for c_name in sorted(collections):
             mapping = {
                 k.split("_")[1]: k for k in contents if k.startswith(f"{c_name}_")
             }
@@ -103,8 +103,8 @@ class auto_schema(BaseSchema):
         for item_name in single_items:
             output[item_name] = contents[item_name]
 
-        self._form["fields"], self._form["contents"] = [k for k in output.keys()], [
-            v for v in output.values()
+        self._form["fields"], self._form["contents"] = [*output.keys()], [
+            *output.values()
         ]
 
     @classmethod

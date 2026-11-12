@@ -1301,7 +1301,7 @@ def test_packed_selection_nminusone_extended_by_mode(
             twoelectron & nomuon,
             twoelectron & nomuon & leadpt20,
         ]
-        hs_truths = [np.ones(40, dtype=bool)] + [truth for truth in truths]
+        hs_truths = [np.ones(40, dtype=bool)] + [*truths]
         if commonmasked:
             truths = [truth & commonmask for truth in truths]
             hs_truths = [truth & commonmask for truth in hs_truths]

@@ -15,7 +15,11 @@ graphed = pytest.importorskip("graphed")
 pytest.importorskip("graphed.awkward")
 
 from graphed.array import BoundMethod  # noqa: E402
-from test_nanoevents_graphed import _both_arms, assert_same  # noqa: E402
+from test_nanoevents_graphed import (  # noqa: E402
+    _both_arms,
+    _fresh_default,
+    assert_same,
+)
 
 from coffea.nanoevents import (  # noqa: E402
     NanoAODSchema,
@@ -89,11 +93,13 @@ def _route(holder, eager_holder, name):
 
 @pytest.fixture(scope="module")
 def nanoaod(tests_directory):
+    _fresh_default()
     return _both_arms(tests_directory, "nano_dy.root", NanoAODSchema)
 
 
 @pytest.fixture(scope="module")
 def pfnano(tests_directory):
+    _fresh_default()
     return _both_arms(tests_directory, "pfnano.root", PFNanoAODSchema)
 
 
@@ -135,7 +141,7 @@ def test_every_name_takes_exactly_one_route(admitted):
         DASK_ARM,
         FALLBACK,
     }
-    assert routes[REFUSED] == {"_ensure_systematics", "add_systematic"}
+    assert routes[REFUSED] == {"_ensure_systematics", "add_systematic", "systematics"}
     assert {"_events", "_content", "_collection_name"} <= routes[NO_DISPATCH]
     assert {"matched_jet", "children", "distinctParent"} <= routes[DASK_ARM]
     assert {"delta_r", "metric_table", "isTight", "_apply_global_index"} <= routes[
