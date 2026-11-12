@@ -75,6 +75,10 @@ jobs:
       with:
         fetch-depth: 0
         persist-credentials: false
+    - name: Get the week for the environment cache
+      id: week
+      shell: bash
+      run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
     - name: Set up micromamba
       uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
       with:
@@ -90,6 +94,7 @@ jobs:
           ${{ matrix.python-version != '3.14t' && 'pytorch-cpu' || '' }}
           py-xgboost
         cache-environment: true
+        cache-environment-key: environment-${{ steps.week.outputs.week }}
 
     - name: Install coffea and dependencies (Linux)
       if: startsWith( matrix.os, 'ubuntu' )
@@ -179,6 +184,10 @@ jobs:
       with:
         fetch-depth: 0
         persist-credentials: false
+    - name: Get the week for the environment cache
+      id: week
+      shell: bash
+      run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
     - name: Set up micromamba
       uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
       with:
@@ -194,6 +203,7 @@ jobs:
           ${{ matrix.python-version != '3.14t' && 'pytorch-cpu' || '' }}
           py-xgboost
         cache-environment: true
+        cache-environment-key: environment-${{ steps.week.outputs.week }}
     - name: Install coffea and dependencies (Linux)
       if: startsWith( matrix.os, 'ubuntu' )
       env:
@@ -255,6 +265,10 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
+    - name: Get the week for the environment cache
+      id: week
+      shell: bash
+      run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
     - name: Set up micromamba
       uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
       with:
@@ -267,6 +281,7 @@ jobs:
           uv
           pytest-xdist
         cache-environment: true
+        cache-environment-key: environment-${{ steps.week.outputs.week }}
     - name: Install coffea (no dask at all)
       run: |
         uv pip install --group test '.[caches,parsl,triton]'
@@ -294,6 +309,10 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
+    - name: Get the week for the environment cache
+      id: week
+      shell: bash
+      run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
     - name: Set up micromamba
       uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
       with:
@@ -308,6 +327,7 @@ jobs:
           uv
           pytest
         cache-environment: true
+        cache-environment-key: environment-${{ steps.week.outputs.week }}
     - name: Install coffea
       run: |
         uv pip install '.[dask,dask-awkward]' 'dask<2025.1.0'
