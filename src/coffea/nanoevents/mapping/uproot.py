@@ -319,7 +319,7 @@ class UprootSourceMapping(BaseSourceMapping):
                     interpretation_executor=self.interpretation_executor,
                 )
         if isinstance(the_array.layout, awkward.contents.ListOffsetArray):
-            the_array = awkward.Array(the_array.layout.to_ListOffsetArray64(True))
+            the_array = awkward.Array(the_array.layout.to_packed(True))
 
         if allow_missing:
             the_array = awkward.Array(
