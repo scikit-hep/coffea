@@ -171,5 +171,16 @@ ignore = ["W002"]
 # Supply-chain cooldown: ignore releases published in the last week.
 exclude-newer = "7 days"
 
+# Except the packages the scikit-hep integration tests run together.
+[tool.uv.exclude-newer-package]
+awkward = false
+awkward-cpp = false
+boost-histogram = false
+dask-awkward = false
+dask-histogram = false
+hist = false
+uproot = false
+vector = false
+
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]

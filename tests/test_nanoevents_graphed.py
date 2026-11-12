@@ -355,7 +355,7 @@ def test_an_rntuple_matches_the_eager_ttree(tests_directory, analysis):
 def test_a_string_file_needs_its_tree_in_the_dict_as_in_dask(tests_directory, mode):
     pytest.importorskip("dask_awkward")
     path = os.path.join(tests_directory, "samples", "nano_dy.root")
-    with pytest.raises(ValueError, match="TTree object paths must be specified"):
+    with pytest.raises(ValueError, match="paths must be specified"):
         NanoEventsFactory.from_root(
             path, treepath="Events", schemaclass=NanoAODSchema, mode=mode
         ).events()
