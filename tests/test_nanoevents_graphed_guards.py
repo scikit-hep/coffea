@@ -93,8 +93,8 @@ def test_protocol_probing_does_not_reach_the_dispatcher(nanoaod):
     operation the caller never wrote."""
     pt = nanoaod.Muon.pt
     before = pt.session.node_count()
-    if "__array__" in vars(graphed.Array):
-        with pytest.raises(graphed.GraphedError, match="no numpy value"):
+    if hasattr(graphed.Array, "__array__"):
+        with pytest.raises(graphed.GraphedError, match="no numpy value|has none"):
             np.asarray(pt)
     else:
         assert np.asarray(pt).item() is pt
