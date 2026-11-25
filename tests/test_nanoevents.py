@@ -2,6 +2,7 @@ import inspect
 import os
 import re
 import sys
+import warnings
 from functools import partial
 from pathlib import Path
 
@@ -919,3 +920,93 @@ def test_column_trimmed_root_nanoevents(tmp_path, mode):
     if mode == "dask":
         matched = matched.compute()
     assert ak.to_list(matched) == ak.to_list(events.Jet.matched_electrons)
+
+
+@pytest.mark.parametrize("mode", ["eager", "virtual", "dask"])
+def test_nanoaod_tau2_field_conflict_warning(mode):
+    if mode == "dask":
+        pytest.importorskip("dask_awkward")
+    path = Path(__file__).parent / "samples" / "nano_tt_v15.root"
+    events = NanoEventsFactory.from_root(f"{path}:Events", mode=mode).events()
+
+    has_fj = events.FatJet[ak.num(events.FatJet) > 0]
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        field_tau2 = has_fj["tau2"]
+        if mode == "dask":
+            field_tau2 = field_tau2.compute()
+        assert len(w) == 0
+    assert ak.all(field_tau2 >= 0.0)
+    assert ak.all(field_tau2 <= 1.0)
+
+    if mode in ["eager", "virtual"]:
+        with pytest.warns(
+            RuntimeWarning,
+            match="conflicts with the 'tau2' field in this collection",
+        ):
+            vec_tau2 = has_fj.tau2
+        assert ak.all(ak.isclose(vec_tau2, has_fj.mass**2, rtol=1e-5))
+
+        single_fj = has_fj[0, 0]
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            rec_field = single_fj["tau2"]
+            assert len(w) == 0
+        assert 0.0 <= rec_field <= 1.0
+
+        with pytest.warns(
+            RuntimeWarning,
+            match="conflicts with the 'tau2' field in this collection",
+        ):
+            rec_vec = single_fj.tau2
+        assert np.isclose(rec_vec, single_fj.mass**2, rtol=1e-5)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            jet_tau2 = events.Jet.tau2
+            assert len(w) == 0
+        assert ak.all(ak.isclose(jet_tau2, events.Jet.mass**2, rtol=1e-5))
+
+
+def test_nanocollection_generic_shadowed_property_warning():
+    """Verify that any non-coordinate behavior property shadowing a collection field warns automatically."""
+    array = ak.zip(
+        {
+            "pt": [10.0, 20.0],
+            "eta": [0.1, -0.2],
+            "phi": [0.5, -0.5],
+            "mass": [1.0, 2.0],
+            "tau2": [0.15, 0.45],
+            "rho2": [5.0, 8.0],
+        },
+        with_name="PtEtaPhiMCollection",
+        behavior=NanoAODSchema.behavior(),
+    )
+
+    # Coordinate fields must not warn
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        _ = array.pt
+        _ = array.eta
+        _ = array.phi
+        _ = array.mass
+        assert len(w) == 0
+
+    # Shadowed properties must warn
+    with pytest.warns(
+        RuntimeWarning, match="conflicts with the 'tau2' field in this collection"
+    ):
+        _ = array.tau2
+
+    with pytest.warns(
+        RuntimeWarning, match="conflicts with the 'rho2' field in this collection"
+    ):
+        _ = array.rho2
+
+    # Direct getitem access must not warn
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        assert ak.all(array["tau2"] == [0.15, 0.45])
+        assert ak.all(array["rho2"] == [5.0, 8.0])
+        assert len(w) == 0

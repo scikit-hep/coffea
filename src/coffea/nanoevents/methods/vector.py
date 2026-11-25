@@ -55,6 +55,7 @@ from vector.backends.awkward import (
     MomentumAwkward4D,
 )
 
+from coffea.nanoevents.methods import base
 from coffea.util import dask_method
 
 # TODO: add this back in when there is an actual plan to only use scikit-hep vector
@@ -245,6 +246,7 @@ class TwoVector(MomentumAwkward2D):
             )
         if errors:
             raise ValueError(f"{type(self).__name__}: " + "; ".join(errors))
+        base._detect_and_wrap_shadowed(self)
 
 
 @awkward.mixin_class(behavior)
@@ -360,6 +362,7 @@ class ThreeVector(MomentumAwkward3D):
             errors.append("3D vectors cannot include temporal coordinates")
         if errors:
             raise ValueError(f"{type(self).__name__}: " + "; ".join(errors))
+        base._detect_and_wrap_shadowed(self)
 
 
 @awkward.mixin_class(behavior)
@@ -613,6 +616,7 @@ class LorentzVector(MomentumAwkward4D):
             )
         if errors:
             raise ValueError(f"{type(self).__name__}: " + "; ".join(errors))
+        base._detect_and_wrap_shadowed(self)
 
 
 @awkward.mixin_class(behavior)
