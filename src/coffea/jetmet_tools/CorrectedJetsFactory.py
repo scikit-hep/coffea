@@ -187,7 +187,7 @@ class CorrectedJetsFactory:
                 + " Please supply mappings for these variables!"
             )
 
-        if "ptGenJet" not in name_map:
+        if "ptGenJet" not in name_map or name_map["ptGenJet"] is None:
             warnings.warn(
                 'Input jet collections must provide "ptGenJet" to apply the hybrid JER smearing method. '
                 "Falling back to stochastic smearing."
@@ -313,9 +313,12 @@ class CorrectedJetsFactory:
                 out_dict[self.name_map["JetPt"] + "_orig"],
             )
 
+            pt_gen = (
+                None if self.forceStochastic else out_dict[jer_name_map["ptGenJet"]]
+            )
             init_jerc = maybe_map_partitions(
                 jer_smear,
-                out_dict[jer_name_map["ptGenJet"]],
+                pt_gen,
                 out_dict[jer_name_map["JetPt"]],
                 out_dict[jer_name_map["JetEta"]],
                 out_dict["jet_energy_resolution"],
@@ -346,7 +349,7 @@ class CorrectedJetsFactory:
             # JER systematics
             jerc_up = maybe_map_partitions(
                 jer_smear,
-                out_dict[jer_name_map["ptGenJet"]],
+                pt_gen,
                 out_dict[jer_name_map["JetPt"]],
                 out_dict[jer_name_map["JetEta"]],
                 out_dict["jet_energy_resolution"],
@@ -382,7 +385,7 @@ class CorrectedJetsFactory:
 
             jerc_down = maybe_map_partitions(
                 jer_smear,
-                out_dict[jer_name_map["ptGenJet"]],
+                pt_gen,
                 out_dict[jer_name_map["JetPt"]],
                 out_dict[jer_name_map["JetEta"]],
                 out_dict["jet_energy_resolution"],
