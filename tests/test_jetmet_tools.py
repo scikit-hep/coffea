@@ -1361,6 +1361,47 @@ def test_corrected_jets_factory_empty_record_message():
         jet_factory.build(ak.Array([[{}], []]))
 
 
+@pytest.mark.parametrize("pt_gen_entry", ["omit", "none"])
+def test_corrected_jets_factory_stochastic_jer(pt_gen_entry):
+    import dask_awkward as dak
+
+    from coffea.jetmet_tools import CorrectedJetsFactory, JECStack
+
+    jets, _, name_map = _jec_only_setup(with_pt_raw=True)
+    jec_stack = JECStack(
+        {
+            name: evaluator[name]
+            for name in (
+                *_JEC_ONLY_NAMES,
+                "Spring16_25nsV10_MC_PtResolution_AK4PFPuppi",
+                "Spring16_25nsV10_MC_SF_AK4PFPuppi",
+            )
+        }
+    )
+    if pt_gen_entry == "none":
+        name_map["ptGenJet"] = None
+
+    with pytest.warns(UserWarning, match="stochastic smearing"):
+        jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+    assert jet_factory.forceStochastic
+
+    corrected = jet_factory.build(jets)
+
+    ref_jets = ak.with_field(jets, ak.zeros_like(jets.pt), "pt_gen")
+    ref_map = {**name_map, "ptGenJet": "pt_gen"}
+    ref = CorrectedJetsFactory(ref_map, jec_stack).build(ref_jets)
+
+    assert ak.all(np.isclose(corrected.pt, ref.pt))
+    assert ak.all(np.isclose(corrected.JER.up.pt, ref.JER.up.pt))
+    assert ak.all(np.isclose(corrected.JER.down.pt, ref.JER.down.pt))
+
+    delayed_jets = dak.from_awkward(jets, npartitions=2)
+    delayed_corrected = jet_factory.build(delayed_jets).compute()
+    assert ak.all(np.isfinite(delayed_corrected.pt))
+    assert ak.all(np.isfinite(delayed_corrected.JER.up.pt))
+    assert ak.all(np.isfinite(delayed_corrected.JER.down.pt))
+
+
 def test_corrected_met_type1():
     """Test CorrectedMETFactory in Type-1 mode with L1 and L1L2L3 JEC correctors."""
     import os
